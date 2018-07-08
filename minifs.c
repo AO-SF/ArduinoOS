@@ -9,11 +9,11 @@
 #define MINIFSHEADERMAGICBYTEVALUE 53
 #define MINIFSHEADERTOTALSIZEADDR (MINIFSHEADERMAGICBYTEADDR+1)
 #define MINIFSHEADERFILEBASEADDR (MINIFSHEADERTOTALSIZEADDR+1)
-#define MINIFSHEADERSIZE (1+1+2*MINIFSMAXFILES) // 64 bytes
+#define MINIFSHEADERSIZE (1+1+2*MINIFSMAXFILES) // 128 bytes
 
-#define MINIFSFACTOR 8
+#define MINIFSFACTOR 32
 
-#define MINIFSMAXSIZE (MINIFSFACTOR*255) // we use 8 bits to represent the total size (with factor=8 this allows up to 2kb)
+#define MINIFSMAXSIZE (MINIFSFACTOR*255) // we use 8 bits to represent the total size (with factor=32 this allows up to 8kb)
 
 #define MINIFSFILEMINOFFSETFACTOR (MINIFSHEADERSIZE/MINIFSFACTOR) // no file can be stored where the header is
 
@@ -150,6 +150,7 @@ uint16_t miniFsGetTotalSize(const MiniFs *fs) {
 void miniFsDebug(const MiniFs *fs) {
 	printf("Volume debug:\n");
 	printf("	max total size: %u bytes\n", miniFsGetTotalSize(fs));
+	printf("	header size: %u bytes (%u%% of total, leaving %u bytes for file data)\n", MINIFSHEADERSIZE, (100*MINIFSHEADERSIZE)/miniFsGetTotalSize(fs), miniFsGetTotalSize(fs)-MINIFSHEADERSIZE);
 	printf("	mount mode: %s\n", (miniFsGetReadOnly(fs) ? "RO" : "RW"));
 	printf("	files:\n");
 	printf("		ID OFFSET SIZE LENGTH OPEN SPARE FILENAME\n");

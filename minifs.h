@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MINIFSMAXFILES 31
+#define MINIFSMAXFILES 63
 
 typedef uint8_t (MiniFsReadFunctor)(uint16_t addr);
 typedef void (MiniFsWriteFunctor)(uint16_t addr, uint8_t value);
