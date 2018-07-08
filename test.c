@@ -4,7 +4,7 @@
 #include "minifs.h"
 
 // Create an array of 1024 bytes and a couple of wrappers to fake the Arduino EEPROM.
-#define STORAGESIZE 1024
+#define STORAGESIZE (4*1024)
 uint8_t storage[STORAGESIZE];
 
 uint8_t readFunctor(uint16_t addr) {
