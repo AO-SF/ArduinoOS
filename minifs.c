@@ -242,7 +242,9 @@ uint8_t miniFsRead(const MiniFs *fs, uint16_t addr) {
 }
 
 void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value) {
-	fs->writeFunctor(addr, value);
+	uint8_t originalValue=miniFsRead(fs, addr);
+	if (value!=originalValue)
+		fs->writeFunctor(addr, value);
 }
 
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
