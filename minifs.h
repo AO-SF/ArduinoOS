@@ -46,6 +46,6 @@ bool miniFsFileExists(const MiniFs *fs, const char *filename);
 MiniFsFileDescriptor miniFsFileOpenRO(const MiniFs *fs, const char *filename);
 MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool create);
 
-void miniFsFileClose(MiniFs *fs, MiniFsFileDescriptor fileDescriptor);
+void miniFsFileClose(MiniFs *fs, MiniFsFileDescriptor fd);
 
 #endif

@@ -49,7 +49,7 @@ uint8_t miniFsRead(const MiniFs *fs, uint16_t addr);
 void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value);
 
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename); // Returns MINIFSMAXFILES if no such file exists
-uint8_t miniFsFileDescriptorToIndex(const MiniFs *fs, MiniFsFileDescriptor fileDescriptor); // Returns MINIFSMAXFILES if no such file exists
+uint8_t miniFsFileDescriptorToIndex(const MiniFs *fs, MiniFsFileDescriptor fd); // Returns MINIFSMAXFILES if no such file exists
 MiniFsFileHeader miniFsReadFileHeaderFromIndex(const MiniFs *fs, uint8_t index);
 bool miniFsReadFileInfoFromIndex(const MiniFs *fs, MiniFsFileInfo *info, uint8_t index);
 bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index);
@@ -253,14 +253,14 @@ MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool cre
 
 	// Compute the file descriptor (essentially just the file's offset)
 	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
-	MiniFsFileDescriptor fileDescriptor=fileHeader.offsetFactor;
+	MiniFsFileDescriptor fd=fileHeader.offsetFactor;
 
-	return fileDescriptor;
+	return fd;
 }
 
-void miniFsFileClose(MiniFs *fs, MiniFsFileDescriptor fileDescriptor) {
+void miniFsFileClose(MiniFs *fs, MiniFsFileDescriptor fd) {
 	// Clear open flag
-	uint8_t index=miniFsFileDescriptorToIndex(fs, fileDescriptor);
+	uint8_t index=miniFsFileDescriptorToIndex(fs, fd);
 	miniFsOpenBitsetSet(fs, index, false);
 }
 
@@ -310,14 +310,14 @@ uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
 	return MINIFSMAXFILES;
 }
 
-uint8_t miniFsFileDescriptorToIndex(const MiniFs *fs, MiniFsFileDescriptor fileDescriptor) {
+uint8_t miniFsFileDescriptorToIndex(const MiniFs *fs, MiniFsFileDescriptor fd) {
 	// Loop over all slots looking for the given file descriptor
 	for(uint8_t index=0; index<MINIFSMAXFILES; ++index) {
 		// Parse header
 		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
 
 		// Match?
-		if (fileHeader.offsetFactor==fileDescriptor)
+		if (fileHeader.offsetFactor==fd)
 			return index;
 
 		// End of files?
