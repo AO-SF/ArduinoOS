@@ -49,6 +49,7 @@ uint8_t miniFsRead(const MiniFs *fs, uint16_t addr);
 void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value);
 
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename); // Returns MINIFSMAXFILES if no such file exists
+uint8_t miniFsFileDescriptorToIndex(const MiniFs *fs, MiniFsFileDescriptor fileDescriptor); // Returns MINIFSMAXFILES if no such file exists
 MiniFsFileHeader miniFsReadFileHeaderFromIndex(const MiniFs *fs, uint8_t index);
 bool miniFsReadFileInfoFromIndex(const MiniFs *fs, MiniFsFileInfo *info, uint8_t index);
 bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index);
@@ -173,26 +174,26 @@ bool miniFsFileExists(const MiniFs *fs, const char *filename) {
 	return (miniFsFilenameToIndex(fs, filename)!=MINIFSMAXFILES);
 }
 
-bool miniFsFileOpenRO(MiniFsFile *file, const MiniFs *fs, const char *filename) {
-	return false; // TODO: this after we finish miniFsFileOpenRW
+MiniFsFileDescriptor miniFsFileOpenRO(const MiniFs *fs, const char *filename) {
+	return MiniFsFileDescriptorNone; // TODO: this after we finish miniFsFileOpenRW
 }
 
-bool miniFsFileOpenRW(MiniFsFile *file, MiniFs *fs, const char *filename, bool create) {
+MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool create) {
 	uint8_t i=0;
 
 	// Sanity checks
-	if (file==NULL || fs==NULL || filename==NULL || filename[0]=='\0')
-		return false;
+	if (filename==NULL || filename[0]=='\0')
+		return MiniFsFileDescriptorNone;
 
 	// We cannot open a file for writing if the FS is read-only
 	if (miniFsGetReadOnly(fs))
-		return false;
+		return MiniFsFileDescriptorNone;
 
 	// Check if the file does not exist
 	if (!miniFsFileExists(fs, filename)) {
 		// Not allowed to create it?
 		if (!create)
-			return false;
+			return MiniFsFileDescriptorNone;
 
 		// Look for first empty slot in header we could store the new file in
 		uint8_t nextFreeIndex;
@@ -204,7 +205,7 @@ bool miniFsFileOpenRW(MiniFsFile *file, MiniFs *fs, const char *filename, bool c
 		}
 
 		if (nextFreeIndex==MINIFSMAXFILES)
-			return false; // No slots in header to store new file
+			return MiniFsFileDescriptorNone; // No slots in header to store new file
 
 		// Look for large enough region of free space to store the file (i.e. at least enough to hold the filename and some extra)
 		uint16_t fileLength=strlen(filename)+1;
@@ -213,7 +214,7 @@ bool miniFsFileOpenRW(MiniFsFile *file, MiniFs *fs, const char *filename, bool c
 		uint8_t newIndex;
 		uint8_t fileOffsetFactor=miniFsFindFreeRegionFactor(fs, fileSizeFactor, &newIndex);
 		if (fileOffsetFactor==0)
-			return false;
+			return MiniFsFileDescriptorNone;
 
 		// Insert file offset and length factors into header in order, after shifting others up.
 		for(i=MINIFSMAXFILES-1; i>newIndex; --i) {
@@ -233,15 +234,17 @@ bool miniFsFileOpenRW(MiniFsFile *file, MiniFs *fs, const char *filename, bool c
 		} while(filename[i++]!='\0');
 	}
 
-	// Open the file
-	return false; // TODO: this - add to open files table of sorts etc
+	uint8_t index=miniFsFilenameToIndex(fs, filename);
+
+	// Compute the file descriptor (essentially just the file's offset)
+	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
+	MiniFsFileDescriptor fileDescriptor=fileHeader.offsetFactor;
+
+	return fileDescriptor;
 }
 
-void miniFsFileClose(MiniFsFile *file, MiniFs *fs) {
-	if (file==NULL || fs==NULL)
-		return;
-
 	// TODO: this - remove from 'open files table' or w/e
+void miniFsFileClose(MiniFs *fs, MiniFsFileDescriptor fileDescriptor) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -285,6 +288,24 @@ uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
 
 		if (match)
 			return index;
+	}
+
+	return MINIFSMAXFILES;
+}
+
+uint8_t miniFsFileDescriptorToIndex(const MiniFs *fs, MiniFsFileDescriptor fileDescriptor) {
+	// Loop over all slots looking for the given file descriptor
+	for(uint8_t index=0; index<MINIFSMAXFILES; ++index) {
+		// Parse header
+		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
+
+		// Match?
+		if (fileHeader.offsetFactor==fileDescriptor)
+			return index;
+
+		// End of files?
+		if (fileHeader.offsetFactor==0)
+			break;
 	}
 
 	return MINIFSMAXFILES;

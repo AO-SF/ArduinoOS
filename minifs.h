@@ -14,8 +14,8 @@ typedef struct {
 	MiniFsWriteFunctor *writeFunctor; // NULL if read-only
 } MiniFs;
 
-typedef struct {
-} MiniFsFile;
+typedef uint8_t MiniFsFileDescriptor;
+#define MiniFsFileDescriptorNone 0
 
 ////////////////////////////////////////////////////////////////////////////////
 // Volume functions
@@ -39,8 +39,10 @@ void miniFsDebug(const MiniFs *fs);
 
 bool miniFsFileExists(const MiniFs *fs, const char *filename);
 
-bool miniFsFileOpenRO(MiniFsFile *file, const MiniFs *fs, const char *filename);
-bool miniFsFileOpenRW(MiniFsFile *file, MiniFs *fs, const char *filename, bool create);
-void miniFsFileClose(MiniFsFile *file, MiniFs *fs);
+// The following two functions return MiniFsFileDescriptorNone if the file could not be opened/created.
+MiniFsFileDescriptor miniFsFileOpenRO(const MiniFs *fs, const char *filename);
+MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool create);
+
+void miniFsFileClose(MiniFs *fs, MiniFsFileDescriptor fileDescriptor);
 
 #endif
