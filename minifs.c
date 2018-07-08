@@ -56,6 +56,9 @@ bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index);
 
 uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t *outIndex); // Returns 0 on failure to find
 
+bool miniFsOpenBitsetGet(const MiniFs *fs, uint8_t index);
+void miniFsOpenBitsetSet(MiniFs *fs, uint8_t index, bool open);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -83,9 +86,11 @@ bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, uint16_t maxTotalSize) {
 }
 
 bool miniFsMountFast(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor) {
-	// Simply copy IO functors
+	// Simply copy IO functors and clear open bitset
 	fs->readFunctor=readFunctor;
 	fs->writeFunctor=writeFunctor;
+	for(uint8_t i=0; i<(MINIFSMAXFILES+7)/8; ++i)
+		fs->openBitset[i]=0;
 
 	return true;
 }
@@ -147,7 +152,8 @@ void miniFsDebug(const MiniFs *fs) {
 	printf("	max total size: %u bytes\n", miniFsGetTotalSize(fs));
 	printf("	mount mode: %s\n", (miniFsGetReadOnly(fs) ? "RO" : "RW"));
 	printf("	files:\n");
-	printf("		ID OFFSET SIZE LENGTH SPARE FILENAME\n");
+	printf("		ID OFFSET SIZE LENGTH OPEN SPARE FILENAME\n");
+
 	for(uint8_t i=0; i<MINIFSMAXFILES; ++i) {
 		// Parse header
 		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, i);
@@ -159,7 +165,8 @@ void miniFsDebug(const MiniFs *fs) {
 			break;
 
 		// Output info
-		printf("		%2i %6i %4i %6i %5i ", i, fileInfo.offset, fileInfo.size, fileInfo.contentLen, fileInfo.spare);
+		bool isOpen=miniFsOpenBitsetGet(fs, i);
+		printf("		%2i %6i %4i %6i %4i %5i ", i, fileInfo.offset, fileInfo.size, fileInfo.contentLen, isOpen, fileInfo.spare);
 		for(uint16_t filenameOffset=fileInfo.offset; ; ++filenameOffset) {
 			uint8_t c=miniFsRead(fs, filenameOffset);
 			if (c=='\0')
@@ -234,7 +241,12 @@ MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool cre
 		} while(filename[i++]!='\0');
 	}
 
+	// Check this file is not open already, and if not, mark it so
 	uint8_t index=miniFsFilenameToIndex(fs, filename);
+	if (miniFsOpenBitsetGet(fs, index))
+		return false;
+
+	miniFsOpenBitsetSet(fs, index, true);
 
 	// Compute the file descriptor (essentially just the file's offset)
 	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
@@ -243,8 +255,10 @@ MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool cre
 	return fileDescriptor;
 }
 
-	// TODO: this - remove from 'open files table' or w/e
 void miniFsFileClose(MiniFs *fs, MiniFsFileDescriptor fileDescriptor) {
+	// Clear open flag
+	uint8_t index=miniFsFileDescriptorToIndex(fs, fileDescriptor);
+	miniFsOpenBitsetSet(fs, index, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -401,4 +415,21 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t
 
 	// No free region large enough
 	return 0;
+}
+
+bool miniFsOpenBitsetGet(const MiniFs *fs, uint8_t index) {
+	uint8_t openBitsetIndex=index/8;
+	uint8_t openBitsetShift=index%8;
+	return ((fs->openBitset[openBitsetIndex]>>openBitsetShift)&1);
+}
+
+void miniFsOpenBitsetSet(MiniFs *fs, uint8_t index, bool open) {
+	uint8_t openBitsetIndex=index/8;
+	uint8_t openBitsetShift=index%8;
+	uint8_t openBitSetMask=((1u)<<openBitsetShift);
+
+	if (open)
+		fs->openBitset[openBitsetIndex]|=openBitSetMask;
+	else
+		fs->openBitset[openBitsetIndex]&=~openBitSetMask;
 }

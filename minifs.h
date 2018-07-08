@@ -10,8 +10,11 @@ typedef uint8_t (MiniFsReadFunctor)(uint16_t addr);
 typedef void (MiniFsWriteFunctor)(uint16_t addr, uint8_t value);
 
 typedef struct {
+	// Members are to be considered private
 	MiniFsReadFunctor *readFunctor;
 	MiniFsWriteFunctor *writeFunctor; // NULL if read-only
+
+	uint8_t openBitset[(MINIFSMAXFILES+7)/8];
 } MiniFs;
 
 typedef uint8_t MiniFsFileDescriptor;
