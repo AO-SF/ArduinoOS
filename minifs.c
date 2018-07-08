@@ -59,6 +59,8 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t
 bool miniFsOpenBitsetGet(const MiniFs *fs, uint8_t index);
 void miniFsOpenBitsetSet(MiniFs *fs, uint8_t index, bool open);
 
+uint8_t miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentLen); // Returns file index on success, MINIFSMAXFILES on failure. Does NOT check if the filename already exists.
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -187,8 +189,6 @@ MiniFsFileDescriptor miniFsFileOpenRO(const MiniFs *fs, const char *filename) {
 }
 
 MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool create) {
-	uint8_t i=0;
-
 	// Sanity checks
 	if (filename==NULL || filename[0]=='\0')
 		return MiniFsFileDescriptorNone;
@@ -203,45 +203,10 @@ MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool cre
 		if (!create)
 			return MiniFsFileDescriptorNone;
 
-		// Look for first empty slot in header we could store the new file in
-		uint8_t nextFreeIndex;
-		for(nextFreeIndex=0; nextFreeIndex<MINIFSMAXFILES; ++nextFreeIndex) {
-			// Is this slot empty?
-			MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, nextFreeIndex);
-			if (fileHeader.offsetFactor==0)
-				break;
-		}
-
-		if (nextFreeIndex==MINIFSMAXFILES)
-			return MiniFsFileDescriptorNone; // No slots in header to store new file
-
-		// Look for large enough region of free space to store the file (i.e. at least enough to hold the filename and some extra)
-		uint16_t fileLength=strlen(filename)+1;
-		uint8_t fileSizeFactor=(utilNextPow2(fileLength)+MINIFSFACTOR-1)/MINIFSFACTOR;
-
-		uint8_t newIndex;
-		uint8_t fileOffsetFactor=miniFsFindFreeRegionFactor(fs, fileSizeFactor, &newIndex);
-		if (fileOffsetFactor==0)
+		// Attempt to create new file.
+		uint8_t index=miniFsFileCreate(fs, filename, 0);
+		if (index==MINIFSMAXFILES)
 			return MiniFsFileDescriptorNone;
-
-		// Insert file offset and length factors into header in order, after shifting others up.
-		for(i=MINIFSMAXFILES-1; i>newIndex; --i) {
-			miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+0, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+0));
-			miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+1, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+1));
-			miniFsOpenBitsetSet(fs, i, miniFsOpenBitsetGet(fs, i-1));
-		}
-
-		MiniFsFileHeader newFileHeader={.offsetFactor=fileOffsetFactor, .totalLength=fileLength};
-		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+0, newFileHeader.upper);
-		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+1, newFileHeader.lower);
-		miniFsOpenBitsetSet(fs, newIndex, 0);
-
-		// Write filename to start of file data
-		uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
-		i=0;
-		do {
-			miniFsWrite(fs, fileOffset+i, filename[i]);
-		} while(filename[i++]!='\0');
 	}
 
 	// Check this file is not open already, and if not, mark it so
@@ -435,4 +400,54 @@ void miniFsOpenBitsetSet(MiniFs *fs, uint8_t index, bool open) {
 		fs->openBitset[openBitsetIndex]|=openBitSetMask;
 	else
 		fs->openBitset[openBitsetIndex]&=~openBitSetMask;
+}
+
+uint8_t miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentLen) {
+	uint8_t i;
+
+	// We cannot create a file if the FS is read-only
+	if (miniFsGetReadOnly(fs))
+		return MINIFSMAXFILES;
+
+	// Look for first empty slot in header we could store the new file in
+	uint8_t nextFreeIndex;
+	for(nextFreeIndex=0; nextFreeIndex<MINIFSMAXFILES; ++nextFreeIndex) {
+		// Is this slot empty?
+		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, nextFreeIndex);
+		if (fileHeader.offsetFactor==0)
+			break;
+	}
+
+	if (nextFreeIndex==MINIFSMAXFILES)
+		return MINIFSMAXFILES; // No slots in header to store new file
+
+	// Look for large enough region of free space to store the file
+	uint16_t fileLength=strlen(filename)+1+contentLen;
+	uint8_t fileSizeFactor=(utilNextPow2(fileLength)+MINIFSFACTOR-1)/MINIFSFACTOR;
+
+	uint8_t newIndex;
+	uint8_t fileOffsetFactor=miniFsFindFreeRegionFactor(fs, fileSizeFactor, &newIndex);
+	if (fileOffsetFactor==0)
+		return MINIFSMAXFILES;
+
+	// Insert file offset and length factors into header in order, after shifting others up.
+	for(i=MINIFSMAXFILES-1; i>newIndex; --i) {
+		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+0, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+0));
+		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+1, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+1));
+		miniFsOpenBitsetSet(fs, i, miniFsOpenBitsetGet(fs, i-1));
+	}
+
+	MiniFsFileHeader newFileHeader={.offsetFactor=fileOffsetFactor, .totalLength=fileLength};
+	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+0, newFileHeader.upper);
+	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+1, newFileHeader.lower);
+	miniFsOpenBitsetSet(fs, newIndex, 0);
+
+	// Write filename to start of file data
+	uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
+	i=0;
+	do {
+		miniFsWrite(fs, fileOffset+i, filename[i]);
+	} while(filename[i++]!='\0');
+
+	return newIndex;
 }
