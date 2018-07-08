@@ -65,6 +65,17 @@ int main(int argc, char **argv) {
 	printf("File '%s' exists: %i\n", filenameA, miniFsFileExists(&fs, filenameA));
 	printf("File '%s' exists: %i\n", filenameB, miniFsFileExists(&fs, filenameB));
 
+	const char *filenameLong="loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong";
+	MiniFsFileDescriptor fdLong=miniFsFileOpenRW(&fs, filenameLong, true);
+	miniFsFileClose(&fs, fdLong);
+
+	for(int i=0; i<10; ++i) {
+		char filenameLoop[32];
+		sprintf(filenameLoop, "log%03i", i);
+		MiniFsFileDescriptor fdLoop=miniFsFileOpenRW(&fs, filenameLoop, true);
+		miniFsFileClose(&fs, fdLoop);
+	}
+
 	miniFsDebug(&fs);
 
 	miniFsFileClose(&fs, fdA);
