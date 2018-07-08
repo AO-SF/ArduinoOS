@@ -40,28 +40,34 @@ int main(int argc, char **argv) {
 	printf("File '%s' exists: %i\n", filenameA, miniFsFileExists(&fs, filenameA));
 	printf("File '%s' exists: %i\n", filenameB, miniFsFileExists(&fs, filenameB));
 
-	MiniFsFile file;
-
-	if (!miniFsFileOpenRW(&file, &fs, filenameA, true)) {
+	MiniFsFileDescriptor fdA=miniFsFileOpenRW(&fs, filenameA, true);
+	if (fdA==MiniFsFileDescriptorNone)
 		printf("Could not create and open file '%s'\n", filenameA);
-	} else {
-		printf("Created file '%s'\n", filenameA);
+	else {
+		printf("Created and opened file '%s'\n", filenameA);
 
-		miniFsFileClose(&file, &fs);
+		MiniFsFileDescriptor fdA2=miniFsFileOpenRW(&fs, filenameA, false);
+		if (fdA2==MiniFsFileDescriptorNone)
+			printf("Could not re-open file '%s' (as expected)\n", filenameA);
+		else {
+			printf("Re-opened file '%s' despite it being open already\n", filenameA);
+			miniFsFileClose(&fs, fdA2);
+		}
 	}
 
-	if (!miniFsFileOpenRW(&file, &fs, filenameB, true)) {
+	MiniFsFileDescriptor fdB=miniFsFileOpenRW(&fs, filenameB, true);
+	if (fdB==MiniFsFileDescriptorNone)
 		printf("Could not create and open file '%s'\n", filenameB);
-	} else {
-		printf("Created file '%s'\n", filenameB);
-
-		miniFsFileClose(&file, &fs);
-	}
+	else
+		printf("Created and opened file '%s'\n", filenameB);
+	miniFsFileClose(&fs, fdB);
 
 	printf("File '%s' exists: %i\n", filenameA, miniFsFileExists(&fs, filenameA));
 	printf("File '%s' exists: %i\n", filenameB, miniFsFileExists(&fs, filenameB));
 
 	miniFsDebug(&fs);
+
+	miniFsFileClose(&fs, fdA);
 
 	// Unmount
 	miniFsUnmount(&fs);
