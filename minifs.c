@@ -227,11 +227,13 @@ MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool cre
 		for(i=MINIFSMAXFILES-1; i>newIndex; --i) {
 			miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+0, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+0));
 			miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+1, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+1));
+			miniFsOpenBitsetSet(fs, i, miniFsOpenBitsetGet(fs, i-1));
 		}
 
 		MiniFsFileHeader newFileHeader={.offsetFactor=fileOffsetFactor, .totalLength=fileLength};
 		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+0, newFileHeader.upper);
 		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+1, newFileHeader.lower);
+		miniFsOpenBitsetSet(fs, newIndex, 0);
 
 		// Write filename to start of file data
 		uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
