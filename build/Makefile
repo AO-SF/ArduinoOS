@@ -1,11 +1,11 @@
 CPP = clang
-CFLAGS = -std=gnu11 -Wall -O0 -ggdb3
+CFLAGS = -std=gnu11 -Wall -O0 -ggdb3 -I../lib
 LFLAGS = -lm
 
-OBJS = minifs.o test.o util.o
+OBJS = build.o ../lib/minifs.o ../lib/util.o
 
 ALL: $(OBJS)
-	$(CPP) $(CFLAGS) $(OBJS) -o ./test $(LFLAGS)
+	$(CPP) $(CFLAGS) $(OBJS) -o ../bin/build $(LFLAGS)
 
 %.o: %.c %.h
 	$(CPP) $(CFLAGS) -c -o $@ $<

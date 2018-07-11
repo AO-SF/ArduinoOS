@@ -48,4 +48,12 @@ MiniFsFileDescriptor miniFsFileOpenRW(MiniFs *fs, const char *filename, bool cre
 
 void miniFsFileClose(MiniFs *fs, MiniFsFileDescriptor fd);
 
+MiniFsFileDescriptor miniFsFileResize(MiniFs *fs, MiniFsFileDescriptor fd, uint16_t newLen); // Returns new file descriptor (which may or may not be the same as the one given).
+
+/*
+.....
+uint16_t miniFsFileRead(const MiniFs *fs, MiniFsFileDescriptor fd, uint16_t offset, uint8_t *data, uint16_t dataLen); // Attempts to read up to dataLen number of items from the file at position offset. Returns the number of items successfully read.
+uint16_t miniFsFileWrite(MiniFs *fs, MiniFsFileDescriptor fd, uint16_t offset, const uint8_t *data, uint16_t dataLen); // Will attempt to extend the file if required. Returns the number of items written.
+*/
+
 #endif

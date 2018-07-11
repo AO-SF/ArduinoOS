@@ -229,6 +229,136 @@ void miniFsFileClose(MiniFs *fs, MiniFsFileDescriptor fd) {
 	miniFsOpenBitsetSet(fs, index, false);
 }
 
+MiniFsFileDescriptor miniFsFileResize(MiniFs *fs, MiniFsFileDescriptor fd, uint16_t newLen) {
+	/*
+
+	.....
+
+	if newLen is less than or equal to existing length available (so spare+usedlen, or totalsize-filenamesize)
+		nothing really needs doing - simply update length field in header
+	if however newLen is greater than available length
+		check first if there is enough free space after the file
+			if so, we can simply increase the length in the header so that the size is automatically updated
+		otherwise we will need to check if there is a new region we could move the file to
+		and if so, update header and file descriptor etc
+
+		in this case might be easier initially to simply create a whole new file, copying the old one over, before deleting the original
+
+	*/
+
+	// Check the file even exists (and if it does, grab its info)
+	uint8_t index=miniFsFileDescriptorToIndex(fs, fd);
+	if (index==MINIFSMAXFILES)
+		return 0;
+
+	MiniFsFileInfo fileInfo;
+	miniFsReadFileInfoFromIndex(fs, &fileInfo, index);
+
+	// Do we already have enough spare space to avoid having to reallocate?
+	uint16_t maxLen=fileInfo.size-(fileInfo.filenameLen+1);
+	if (newLen<=maxLen) {
+		// Simply update stored length
+		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
+		fileHeader.totalLength=(fileInfo.filenameLen+1)+newLen;
+		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*index+0, fileHeader.upper);
+		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*index+1, fileHeader.lower);
+
+		return fd;
+	}
+
+	// Otherwise look for a new region to move the file to.
+	// .....
+
+	/*
+
+	.....
+
+	this is a little tricky
+	ideally we would use miniFsFileCreate to create a new file (sending contentLen=newLen so it is the correct size)
+	then copy over the data, before deleting the original (being careful regarding file descriptors, indexes, open bits, etc)
+
+	only snag is passing a const char * as the filename argument to create the new file
+	perhaps make a version of create which can read from the eeprom at a given address? this is difficult
+
+	//uint8_t newIndex=miniFsFileCreate(fs, const char *filename, uint16_t contentLen); // Returns file index on success, MINIFSMAXFILES on failure. Does NOT check if the filename already exists.
+
+	*/
+
+	return fd; // .....
+}
+
+	/*
+uint16_t miniFsFileRead(const MiniFs *fs, MiniFsFileDescriptor fd, uint16_t offset, uint8_t *data, uint16_t dataLen) {
+
+	.....
+
+	"Attempts to read up to dataLen number of items from the file at position offset. Returns the number of items successfully read."
+
+
+	return 0; // .....
+}
+	*/
+
+/*
+uint16_t miniFsFileWrite(MiniFs *fs, MiniFsFileDescriptor fd, uint16_t offset, const uint8_t *data, uint16_t dataLen) {
+	// Check the file even exists (and if it does, grab its info)
+	uint8_t index=miniFsFileDescriptorToIndex(fs, fd);
+	if (index==MINIFSMAXFILES)
+		return 0;
+
+	MiniFsFileInfo fileInfo;
+	miniFsReadFileInfoFromIndex(fs, &fileInfo, index);
+
+	// Check that offset is not beyond the end of the file.
+	if (offset>fileInfo.contentLen)
+		return 0;
+
+	// Calculate length content requires if we do manage to write all bytes
+	uint16_t newContentLenMax=offset+dataLen;
+	if (newContentLenMax<fileInfo.contentLen)
+		newContentLenMax=fileInfo.contentLen;
+
+	// Attempt to make file larger if we need to.
+	if (newContentLenMax-fileInfo.contentLen<fileInfo.spare) {
+		.....
+		/*
+
+		.....
+
+		so we need to look first to see if we already have enough spare space
+			if so, we can update length in header and be done
+		otherwise we need to look if there is a free region large enough to move the file to
+			if so, we need to update both offsetfactor and length in the header
+			file descriptors are also wrong at this point?
+
+		/
+	}
+
+	// ..... at this point need to refresh fileInfo and also consider case where we can already use the spare - when is length updated
+
+
+.....
+
+THIS IS ALL QUITE COMPLICATED
+what if instead we have a resize function which changes the length of a file (truncating or extending)
+and also a write function which writes a single byte, but only within the existing files boundaries
+then go from there
+
+
+	// Update data
+	/*
+	.....
+	uint16_t fileOffset=?;
+	for(uint16_t i=0; i<dataLen; ++i) {
+		..... check bounds of file size - we may not have managed to allocated enough above
+		miniFsWrite(fs, fileOffset+....skipname+offset+i, data[i]);
+	}
+
+	return .....;
+	return 0; // .....
+}
+	*/
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
