@@ -1,3 +1,20 @@
+/*
+
+.....
+
+basically preparing the EEPROM data for a fresh install
+	setting serial config to enabled and 9600 baud for example
+and potentially also slightly configuring the kernel code before compiling (or giving compile time options)
+
+
+serial config can be own file perhaps
+options would be:
+* connect on startup (boolean)
+* baud rate (integer/preset string/value)
+* later things like whether to connect to a shell
+
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -58,8 +75,17 @@ int main(int argc, char **argv) {
 	MiniFsFileDescriptor fdB=miniFsFileOpenRW(&fs, filenameB, true);
 	if (fdB==MiniFsFileDescriptorNone)
 		printf("Could not create and open file '%s'\n", filenameB);
-	else
+	else {
 		printf("Created and opened file '%s'\n", filenameB);
+
+		/*
+		.....
+		const uint8_t data[]={'L', 'O', 'L'};
+		uint16_t written=miniFsFileWrite(&fs, fdB, 0, data, sizeof(data)/sizeof(data[0]));
+		printf("Wrote %i bytes\n", written);
+		*/
+		fdB=miniFsFileResize(&fs, fdB, 50);
+	}
 	miniFsFileClose(&fs, fdB);
 
 	printf("File '%s' exists: %i\n", filenameA, miniFsFileExists(&fs, filenameA));
