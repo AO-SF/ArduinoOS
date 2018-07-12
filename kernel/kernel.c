@@ -88,8 +88,8 @@ void kernelBoot(void) {
 	error|=kernelFsAddDirectoryDeviceFile("/", &kernelRootGetChildFunctor);
 	error|=kernelFsAddDirectoryDeviceFile("/dev", &kernelDevGetChildFunctor);
 
-	error|=kernelFsAddBlockDevice("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, &kernelHomeWriteFunctor);
-	error|=kernelFsAddBlockDevice("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor);
+	error|=kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, &kernelHomeWriteFunctor);
+	error|=kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor);
 
 	error|=kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroWriteFunctor);
 	error|=kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullWriteFunctor);
