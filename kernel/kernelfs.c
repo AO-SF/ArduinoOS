@@ -5,30 +5,31 @@
 
 #include "kernelfs.h"
 
-// TODO: Move to PROGMEM presumably.
-typedef enum {
-	KernelFsFixedFileRoot,
-	KernelFsFixedFileDev,
-	KernelFsFixedFileDevTtyUsb,
-	KernelFsFixedFileDevZero,
-	KernelFsFixedFileDevNull,
-	KernelFsFixedFileDevRandom,
-	KernelFsFixedFileDevURandom,
-	KernelFsFixedFileNB,
-} KernelFsFixedFile;
+#define KernelFsDevicesMax 16
 
-const char *kernelFsFixedFilePath[KernelFsFixedFileNB]={
-	[KernelFsFixedFileRoot]="/",
-	[KernelFsFixedFileDev]="/dev",
-	[KernelFsFixedFileDevTtyUsb]="/dev/ttyUSB",
-	[KernelFsFixedFileDevZero]="/dev/zero",
-	[KernelFsFixedFileDevNull]="/dev/null",
-	[KernelFsFixedFileDevRandom]="/dev/random",
-	[KernelFsFixedFileDevURandom]="/dev/urandom",
-};
+typedef enum {
+	KernelFsDeviceTypeBlock,
+	KernelFsDeviceTypeCharacter,
+	KernelFsDeviceTypeNB,
+} KernelFsDeviceType;
+
+typedef struct {
+	KernelFsCharacterDeviceReadFunctor *readFunctor;
+	KernelFsCharacterDeviceWriteFunctor *writeFunctor;
+} KernelFsDeviceCharacter;
+
+typedef struct {
+	KernelFsDeviceType type;
+	char *mountPoint;
+	union {
+		KernelFsDeviceCharacter character;
+	} d;
+} KernelFsDevice;
 
 typedef struct {
 	char *fdt[KernelFsFdMax];
+
+	KernelFsDevice devices[KernelFsDevicesMax];
 } KernelFsData;
 
 KernelFsData kernelFsData;
@@ -37,8 +38,8 @@ KernelFsData kernelFsData;
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-bool kernelFsPathIsFixed(const char *path); // does this path refer to a fixed file?
-KernelFsFixedFile kernelFsPathGetFixed(const char *path); // Returns KernelFsFixedFileNB if path does not match a fixed file
+bool kernelFsPathIsDevice(const char *path);
+KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -49,14 +50,9 @@ void kernelFsInit(void) {
 	for(int i=0; i<KernelFsFdMax; ++i)
 		kernelFsData.fdt[i]=NULL;
 
-	// Connect to serial and mount as /dev/ttyUSB.
-#ifdef ARDUINO
-	Serial.begin(9600);
-	while (!Serial) ;
-#endif
-
-	// Mount two EEPROM mini file systems as /kernel and /home.
-	// TODO: this
+	// Clear virtual device array
+	for(int i=0; i<KernelFsDevicesMax; ++i)
+		kernelFsData.devices[i].type=KernelFsDeviceTypeNB;
 }
 
 void kernelFsQuit(void) {
@@ -66,21 +62,54 @@ void kernelFsQuit(void) {
 		kernelFsData.fdt[i]=NULL;
 	}
 
-	// Close serial connection.
-#ifdef ARDUINO
-	Serial.end();
-#endif
+	// Free virtual device array
+	for(int i=0; i<KernelFsDevicesMax; ++i) {
+		KernelFsDevice *device=&kernelFsData.devices[i];
+		if (device->type==KernelFsDeviceTypeNB)
+			continue;
+		free(device->mountPoint);
+		device->type=KernelFsDeviceTypeNB;
+	}
+}
 
-	// Dismount two EEPROM mini file systems.
+bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor) {
+	assert(mountPoint!=NULL);
+	assert(readFunctor!=NULL);
+	assert(writeFunctor!=NULL);
+
+	// Ensure this file does not already exist
+	if (kernelFsFileExists(mountPoint))
+		return false;
+
+	// Ensure the parent directory exists.
 	// TODO: this
+
+	// Look for an empty slot in the device table
+	for(int i=0; i<KernelFsDevicesMax; ++i) {
+		KernelFsDevice *device=&kernelFsData.devices[i];
+		if (device->type!=KernelFsDeviceTypeNB)
+			continue;
+
+		device->mountPoint=malloc(strlen(mountPoint)+1);
+		if (device->mountPoint==NULL)
+			return false;
+		strcpy(device->mountPoint, mountPoint);
+		device->type=KernelFsDeviceTypeCharacter;
+		device->d.character.readFunctor=readFunctor;
+		device->d.character.writeFunctor=writeFunctor;
+
+		return true;
+	}
+
+	return false;
 }
 
 bool kernelFsFileExists(const char *path) {
-	// Check for fixed path
-	if (kernelFsPathIsFixed(path))
+	// Check for virtual device path
+	if (kernelFsPathIsDevice(path))
 		return true;
 
-	// TODO: Check for other files
+	// TODO: Check for standard files/directories
 
 	return false;
 }
@@ -123,52 +152,26 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 	if (kernelFsData.fdt[fd]==NULL)
 		return 0;
 
-	// Is this a fixed file?
-	KernelFsFixedFile fixedFile=kernelFsPathGetFixed(kernelFsData.fdt[fd]);
-	if (fixedFile!=KernelFsFixedFileNB) {
-		// Decide how to act
-		switch(fixedFile) {
-			case KernelFsFixedFileRoot:
-			case KernelFsFixedFileDev:
-				return 0;
+	// Is this a virtual device file?
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(kernelFsData.fdt[fd]);
+	if (device!=NULL) {
+		switch(device->type) {
+			case KernelFsDeviceTypeBlock:
+				// TODO: this
 			break;
-			case KernelFsFixedFileDevTtyUsb: {
-#ifdef ARDUINO
-				// TODO: this (use Serial.read)
-#else
-				ssize_t readRet=read(STDIN_FILENO, data, dataLen);
-				if (readRet<0)
-					return 0;
-				return readRet;
-#endif
+			case KernelFsDeviceTypeCharacter: {
+				KernelFsFileOffset read;
+				for(read=0; read<dataLen; ++read) {
+					int c=device->d.character.readFunctor();
+					if (c==-1)
+						break;
+					data[read]=c;
+				}
+				return read;
 			} break;
-			case KernelFsFixedFileDevZero:
-				memset(data, 0, dataLen);
-				return dataLen;
-			break;
-			case KernelFsFixedFileDevNull:
-				return 0;
-			break;
-			case KernelFsFixedFileDevRandom:
-				// TODO: Genuine random data not pseudo
-				for(KernelFsFileOffset i=0; i<dataLen; ++i)
-					data[i]=(rand()&0xFF);
-				return dataLen;
-			break;
-			case KernelFsFixedFileDevURandom:
-				// TODO: Better algo based on same /dev/random pool (but still PRNG)
-				for(KernelFsFileOffset i=0; i<dataLen; ++i)
-					data[i]=(rand()&0xFF);
-				return dataLen;
-			break;
-			case KernelFsFixedFileNB:
-				assert(false);
-				return 0;
+			case KernelFsDeviceTypeNB:
 			break;
 		}
-
-		assert(false);
-		return 0;
 	}
 
 	// Handle standard files.
@@ -182,43 +185,23 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 	if (kernelFsData.fdt[fd]==NULL)
 		return 0;
 
-	// Is this a fixed file?
-	KernelFsFixedFile fixedFile=kernelFsPathGetFixed(kernelFsData.fdt[fd]);
-	if (fixedFile!=KernelFsFixedFileNB) {
-		// Decide how to act
-		switch(fixedFile) {
-			case KernelFsFixedFileRoot:
-			case KernelFsFixedFileDev:
-				return 0;
+	// Is this a virtual device file?
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(kernelFsData.fdt[fd]);
+	if (device!=NULL) {
+		switch(device->type) {
+			case KernelFsDeviceTypeBlock:
+				// TODO: this
 			break;
-			case KernelFsFixedFileDevTtyUsb: {
-#ifdef ARDUINO
-				// TODO: this (use Serial.write)
-#else
-				ssize_t writeRet=write(STDIN_FILENO, data, dataLen);
-				if (writeRet<0)
-					return 0;
-				return writeRet;
-#endif
+			case KernelFsDeviceTypeCharacter: {
+				KernelFsFileOffset written;
+				for(written=0; written<dataLen; ++written)
+					if (!device->d.character.writeFunctor(data[written]))
+						break;
+				return written;
 			} break;
-			case KernelFsFixedFileDevZero:
-				return 0;
-			break;
-			case KernelFsFixedFileDevNull:
-				return dataLen; // consume all data
-			break;
-			case KernelFsFixedFileDevRandom:
-			case KernelFsFixedFileDevURandom:
-				return 0;
-			break;
-			case KernelFsFixedFileNB:
-				assert(false);
-				return 0;
+			case KernelFsDeviceTypeNB:
 			break;
 		}
-
-		assert(false);
-		return 0;
 	}
 
 	// Handle standard files.
@@ -246,15 +229,15 @@ void kernelFsPathNormalise(char *path) {
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool kernelFsPathIsFixed(const char *path) {
-	return (kernelFsPathGetFixed(path)!=KernelFsFixedFileNB);
+bool kernelFsPathIsDevice(const char *path) {
+	return (kernelFsGetDeviceFromPath(path)!=NULL);
 }
 
-KernelFsFixedFile kernelFsPathGetFixed(const char *path) {
-	// Search through fixed file paths
-	for(int i=0; i<KernelFsFixedFileNB; ++i)
-		if (strcmp(path, kernelFsFixedFilePath[i])==0)
-			return i;
-
-	return KernelFsFixedFileNB;
+KernelFsDevice *kernelFsGetDeviceFromPath(const char *path) {
+	for(int i=0; i<KernelFsDevicesMax; ++i) {
+		KernelFsDevice *device=&kernelFsData.devices[i];
+		if (device->type!=KernelFsDeviceTypeNB && strcmp(path, device->mountPoint)==0)
+			return device;
+	}
+	return NULL;
 }
