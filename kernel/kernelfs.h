@@ -12,6 +12,9 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 #define KernelPathMax 63
 
+typedef int (KernelFsCharacterDeviceReadFunctor)(void); // returns -1 on failure
+typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value);
+
 typedef enum {
 	KernelFsFileOpenFlagsNone=0,
 	KernelFsFileOpenFlagsRO=1,
@@ -26,6 +29,12 @@ typedef enum {
 
 void kernelFsInit(void);
 void kernelFsQuit(void);
+
+////////////////////////////////////////////////////////////////////////////////
+// Virtual device functions
+////////////////////////////////////////////////////////////////////////////////
+
+bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor);
 
 ////////////////////////////////////////////////////////////////////////////////
 // File functions -including directories (all paths are expected to be valid and normalised)
