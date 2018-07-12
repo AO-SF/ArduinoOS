@@ -7,6 +7,8 @@
 void kernelBoot(void);
 void kernelShutdown(void);
 
+bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
+bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
 int kernelDevZeroReadFunctor(void);
 bool kernelDevZeroWriteFunctor(uint8_t value);
 int kernelDevNullReadFunctor(void);
@@ -62,6 +64,9 @@ void kernelBoot(void) {
 
 	bool error=false;
 
+	error|=kernelFsAddDirectoryDeviceFile("/", &kernelRootGetChildFunctor);
+	error|=kernelFsAddDirectoryDeviceFile("/dev", &kernelDevGetChildFunctor);
+
 	error|=kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroWriteFunctor);
 	error|=kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullWriteFunctor);
 	error|=kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomWriteFunctor);
@@ -86,6 +91,25 @@ void kernelShutdown(void) {
 #else
 	exit(0);
 #endif
+}
+
+bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) {
+	switch(childNum) {
+		case 0: strcpy(childPath, "/dev"); return true; break;
+		case 1: strcpy(childPath, "/home"); return true; break;
+		case 2: strcpy(childPath, "/tmp"); return true; break;
+	}
+	return false;
+}
+
+bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) {
+	switch(childNum) {
+		case 0: strcpy(childPath, "/dev/zero"); return true; break;
+		case 1: strcpy(childPath, "/dev/null"); return true; break;
+		case 2: strcpy(childPath, "/dev/urandom"); return true; break;
+		case 3: strcpy(childPath, "/dev/ttyS0"); return true; break;
+	}
+	return false;
 }
 
 int kernelDevZeroReadFunctor(void) {
