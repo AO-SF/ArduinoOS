@@ -4,11 +4,24 @@
 
 #include "kernelfs.h"
 
+#define KernelTmpDataPoolSize 512
+uint8_t *kernelTmpDataPool=NULL;
+
+#define KernelEepromSize 1024
+#ifndef ARDUINO
+const char *kernelFakeEepromPath="./eeprom";
+FILE *kernelFakeEepromFile=NULL;
+#endif
+
 void kernelBoot(void);
 void kernelShutdown(void);
 
 bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
 bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
+int kernelHomeReadFunctor(KernelFsFileOffset addr);
+bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value);
+int kernelTmpReadFunctor(KernelFsFileOffset addr);
+bool kernelTmpWriteFunctor(KernelFsFileOffset addr, uint8_t value);
 int kernelDevZeroReadFunctor(void);
 bool kernelDevZeroWriteFunctor(uint8_t value);
 int kernelDevNullReadFunctor(void);
@@ -59,6 +72,14 @@ void kernelBoot(void) {
 	while (!Serial) ;
 #endif
 
+	// Allocate space for /tmp
+	kernelTmpDataPool=malloc(KernelTmpDataPoolSize); // TODO: Check return
+
+	// Non-arduino-only: create pretend EEPROM storage in a local file
+#ifndef ARDUINO
+	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "ab+"); // TODO: Check return
+#endif
+
 	// Init file system and add virtual devices
 	kernelFsInit();
 
@@ -66,6 +87,9 @@ void kernelBoot(void) {
 
 	error|=kernelFsAddDirectoryDeviceFile("/", &kernelRootGetChildFunctor);
 	error|=kernelFsAddDirectoryDeviceFile("/dev", &kernelDevGetChildFunctor);
+
+	error|=kernelFsAddBlockDevice("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, &kernelHomeWriteFunctor);
+	error|=kernelFsAddBlockDevice("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor);
 
 	error|=kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroWriteFunctor);
 	error|=kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullWriteFunctor);
@@ -82,6 +106,14 @@ void kernelShutdown(void) {
 	// Arduino-only: close serial connection (was mounted as /dev/ttyS0).
 #ifdef ARDUINO
 	Serial.end();
+#endif
+
+	// Free /tmp memory pool
+	free(kernelTmpDataPool);
+
+	// Non-arduino-only: close pretend EEPROM storage file
+#ifndef ARDUINO
+	fclose(kernelFakeEepromFile); // TODO: Check return
 #endif
 
 	// Halt
@@ -110,6 +142,34 @@ bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) 
 		case 3: strcpy(childPath, "/dev/ttyS0"); return true; break;
 	}
 	return false;
+}
+
+int kernelHomeReadFunctor(KernelFsFileOffset addr) {
+#ifdef ARDUINO
+	return EEPROM.read(addr);
+#else
+	fseek(kernelFakeEepromFile, addr, SEEK_SET);
+	return fgetc(kernelFakeEepromFile);
+#endif
+}
+
+bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value) {
+#ifdef ARDUINO
+	EEPROM.update(addr, value);
+	return true;
+#else
+	fseek(kernelFakeEepromFile, addr, SEEK_SET);
+	return (fgetc(kernelFakeEepromFile)!=EOF);
+#endif
+}
+
+int kernelTmpReadFunctor(KernelFsFileOffset addr) {
+	return kernelTmpDataPool[addr];
+}
+
+bool kernelTmpWriteFunctor(KernelFsFileOffset addr, uint8_t value) {
+	kernelTmpDataPool[addr]=value;
+	return true;
 }
 
 int kernelDevZeroReadFunctor(void) {
