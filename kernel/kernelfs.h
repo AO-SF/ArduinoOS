@@ -49,6 +49,9 @@ void kernelFsFileClose(KernelFsFd fd); // Accepts KernelFsFdInvalid (doing nothi
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes read
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes written
 
+// The following functions are for directory files only.
+bool kernelFsDirectionGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelPathMax]);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Path functions
 ////////////////////////////////////////////////////////////////////////////////

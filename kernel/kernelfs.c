@@ -210,6 +210,11 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 	return 0;
 }
 
+bool kernelFsDirectionGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelPathMax]) {
+	// TODO: this
+	return false;
+}
+
 bool kernelFsPathIsValid(const char *path) {
 	// All paths are absolute
 	if (path[0]!='/')
