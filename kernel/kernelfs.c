@@ -5,7 +5,7 @@
 
 #include "kernelfs.h"
 
-#define KernelFsDevicesMax 16
+#define KernelFsDevicesMax 32
 
 typedef enum {
 	KernelFsDeviceTypeBlock,
