@@ -104,6 +104,11 @@ bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDev
 	return false;
 }
 
+bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDeviceGetChildFunctor *getChildFunctor) {
+	// TODO: this
+	return false;
+}
+
 bool kernelFsFileExists(const char *path) {
 	// Check for virtual device path
 	if (kernelFsPathIsDevice(path))

@@ -15,6 +15,8 @@ typedef uint8_t KernelFsFd; // file-descriptor
 typedef int (KernelFsCharacterDeviceReadFunctor)(void); // returns -1 on failure
 typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value);
 
+typedef bool (KernelFsDirectoryDeviceGetChildFunctor)(unsigned childNum, char childPath[KernelPathMax]);
+
 typedef enum {
 	KernelFsFileOpenFlagsNone=0,
 	KernelFsFileOpenFlagsRO=1,
@@ -35,6 +37,7 @@ void kernelFsQuit(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor);
+bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDeviceGetChildFunctor *getChildFunctor);
 
 ////////////////////////////////////////////////////////////////////////////////
 // File functions -including directories (all paths are expected to be valid and normalised)
