@@ -109,7 +109,7 @@ bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDev
 	return false;
 }
 
-bool kernelFsAddBlockDevice(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor) {
+bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor) {
 	// TODO: this
 	return false;
 }
