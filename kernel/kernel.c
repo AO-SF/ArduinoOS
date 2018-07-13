@@ -13,6 +13,12 @@ const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
 #endif
 
+////////////////////////////////////////////////////////////////////////////////
+// Private prototypes
+////////////////////////////////////////////////////////////////////////////////
+
+void kernelTestIo(void);
+
 void kernelBoot(void);
 void kernelShutdown(void);
 
@@ -30,6 +36,27 @@ int kernelDevURandomReadFunctor(void);
 bool kernelDevURandomWriteFunctor(uint8_t value);
 int kernelDevTtyS0ReadFunctor(void);
 bool kernelDevTtyS0WriteFunctor(uint8_t value);
+
+////////////////////////////////////////////////////////////////////////////////
+// Public functions
+////////////////////////////////////////////////////////////////////////////////
+
+int main(int argc, char **argv) {
+	// Init
+	kernelBoot();
+
+	// For now simply test file IO
+	kernelTestIo();
+
+	// Quit
+	kernelShutdown();
+
+	return 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Private functions
+////////////////////////////////////////////////////////////////////////////////
 
 void kernelTestIo(void) {
 	#define DATALEN 16
@@ -50,19 +77,6 @@ void kernelTestIo(void) {
 	// Close files
 	kernelFsFileClose(randFd);
 	kernelFsFileClose(serialFd);
-}
-
-int main(int argc, char **argv) {
-	// Init
-	kernelBoot();
-
-	// For now simply test file IO
-	kernelTestIo();
-
-	// Quit
-	kernelShutdown();
-
-	return 0;
 }
 
 void kernelBoot(void) {
