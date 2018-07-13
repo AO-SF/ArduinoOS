@@ -41,6 +41,8 @@ KernelFsData kernelFsData;
 bool kernelFsPathIsDevice(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 
+KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType type);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,31 +79,16 @@ bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDev
 	assert(readFunctor!=NULL);
 	assert(writeFunctor!=NULL);
 
-	// Ensure this file does not already exist
-	if (kernelFsFileExists(mountPoint))
+	// Check mountPoint and attempt to add to device table.
+	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, KernelFsDeviceTypeCharacter);
+	if (device==NULL)
 		return false;
 
-	// Ensure the parent directory exists.
-	// TODO: this
+	// Set specific fields.
+	device->d.character.readFunctor=readFunctor;
+	device->d.character.writeFunctor=writeFunctor;
 
-	// Look for an empty slot in the device table
-	for(int i=0; i<KernelFsDevicesMax; ++i) {
-		KernelFsDevice *device=&kernelFsData.devices[i];
-		if (device->type!=KernelFsDeviceTypeNB)
-			continue;
-
-		device->mountPoint=malloc(strlen(mountPoint)+1);
-		if (device->mountPoint==NULL)
-			return false;
-		strcpy(device->mountPoint, mountPoint);
-		device->type=KernelFsDeviceTypeCharacter;
-		device->d.character.readFunctor=readFunctor;
-		device->d.character.writeFunctor=writeFunctor;
-
-		return true;
-	}
-
-	return false;
+	return true;
 }
 
 bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDeviceGetChildFunctor *getChildFunctor) {
@@ -264,5 +251,33 @@ KernelFsDevice *kernelFsGetDeviceFromPath(const char *path) {
 		if (device->type!=KernelFsDeviceTypeNB && strcmp(path, device->mountPoint)==0)
 			return device;
 	}
+	return NULL;
+}
+
+KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType type) {
+	assert(mountPoint!=NULL);
+
+	// Ensure this file does not already exist
+	if (kernelFsFileExists(mountPoint))
+		return NULL;
+
+	// Ensure the parent directory exists.
+	// TODO: this
+
+	// Look for an empty slot in the device table
+	for(int i=0; i<KernelFsDevicesMax; ++i) {
+		KernelFsDevice *device=&kernelFsData.devices[i];
+		if (device->type!=KernelFsDeviceTypeNB)
+			continue;
+
+		device->mountPoint=malloc(strlen(mountPoint)+1);
+		if (device->mountPoint==NULL)
+			return NULL;
+		strcpy(device->mountPoint, mountPoint);
+		device->type=type;
+
+		return device;
+	}
+
 	return NULL;
 }
