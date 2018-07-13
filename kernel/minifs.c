@@ -55,8 +55,6 @@ bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index);
 
 uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t *outIndex); // Returns 0 on failure to find
 
-uint8_t miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentLen); // Returns file index on success, MINIFSMAXFILES on failure. Does NOT check if the filename already exists.
-
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -175,6 +173,58 @@ void miniFsDebug(const MiniFs *fs) {
 
 bool miniFsFileExists(const MiniFs *fs, const char *filename) {
 	return (miniFsFilenameToIndex(fs, filename)!=MINIFSMAXFILES);
+}
+
+bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
+	uint8_t i;
+
+	// We cannot create a file if the FS is read-only
+	if (miniFsGetReadOnly(fs))
+		return false;
+
+	// File already exists?
+	if (miniFsFileExists(fs, filename))
+		return false;
+
+	// Look for first empty slot in header we could store the new file in
+	uint8_t nextFreeIndex;
+	for(nextFreeIndex=0; nextFreeIndex<MINIFSMAXFILES; ++nextFreeIndex) {
+		// Is this slot empty?
+		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, nextFreeIndex);
+		if (fileHeader.offsetFactor==0)
+			break;
+	}
+
+	if (nextFreeIndex==MINIFSMAXFILES)
+		return false; // No slots in header to store new file
+
+	// Look for large enough region of free space to store the file
+	uint16_t fileLength=strlen(filename)+1+contentSize;
+	uint8_t fileSizeFactor=(utilNextPow2(fileLength)+MINIFSFACTOR-1)/MINIFSFACTOR;
+
+	uint8_t newIndex;
+	uint8_t fileOffsetFactor=miniFsFindFreeRegionFactor(fs, fileSizeFactor, &newIndex);
+	if (fileOffsetFactor==0)
+		return false;
+
+	// Insert file offset and length factors into header in order, after shifting others up.
+	for(i=MINIFSMAXFILES-1; i>newIndex; --i) {
+		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+0, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+0));
+		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+1, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+1));
+	}
+
+	MiniFsFileHeader newFileHeader={.offsetFactor=fileOffsetFactor, .totalLength=fileLength};
+	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+0, newFileHeader.upper);
+	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+1, newFileHeader.lower);
+
+	// Write filename to start of file data
+	uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
+	i=0;
+	do {
+		miniFsWrite(fs, fileOffset+i, filename[i]);
+	} while(filename[i++]!='\0');
+
+	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -315,52 +365,4 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t
 
 	// No free region large enough
 	return 0;
-}
-
-uint8_t miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentLen) {
-	uint8_t i;
-
-	// We cannot create a file if the FS is read-only
-	if (miniFsGetReadOnly(fs))
-		return MINIFSMAXFILES;
-
-	// Look for first empty slot in header we could store the new file in
-	uint8_t nextFreeIndex;
-	for(nextFreeIndex=0; nextFreeIndex<MINIFSMAXFILES; ++nextFreeIndex) {
-		// Is this slot empty?
-		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, nextFreeIndex);
-		if (fileHeader.offsetFactor==0)
-			break;
-	}
-
-	if (nextFreeIndex==MINIFSMAXFILES)
-		return MINIFSMAXFILES; // No slots in header to store new file
-
-	// Look for large enough region of free space to store the file
-	uint16_t fileLength=strlen(filename)+1+contentLen;
-	uint8_t fileSizeFactor=(utilNextPow2(fileLength)+MINIFSFACTOR-1)/MINIFSFACTOR;
-
-	uint8_t newIndex;
-	uint8_t fileOffsetFactor=miniFsFindFreeRegionFactor(fs, fileSizeFactor, &newIndex);
-	if (fileOffsetFactor==0)
-		return MINIFSMAXFILES;
-
-	// Insert file offset and length factors into header in order, after shifting others up.
-	for(i=MINIFSMAXFILES-1; i>newIndex; --i) {
-		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+0, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+0));
-		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+1, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+1));
-	}
-
-	MiniFsFileHeader newFileHeader={.offsetFactor=fileOffsetFactor, .totalLength=fileLength};
-	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+0, newFileHeader.upper);
-	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+1, newFileHeader.lower);
-
-	// Write filename to start of file data
-	uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
-	i=0;
-	do {
-		miniFsWrite(fs, fileOffset+i, filename[i]);
-	} while(filename[i++]!='\0');
-
-	return newIndex;
 }
