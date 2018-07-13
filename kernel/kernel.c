@@ -26,6 +26,7 @@ void kernelShutdown(void);
 
 bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
 bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
+bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
 int kernelHomeReadFunctor(KernelFsFileOffset addr);
 bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value);
 uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr);
@@ -127,6 +128,7 @@ void kernelBoot(void) {
 
 	error|=kernelFsAddDirectoryDeviceFile("/", &kernelRootGetChildFunctor);
 	error|=kernelFsAddDirectoryDeviceFile("/dev", &kernelDevGetChildFunctor);
+	error|=kernelFsAddDirectoryDeviceFile("/media", &kernelMediaGetChildFunctor);
 
 	error|=kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, &kernelHomeWriteFunctor);
 	error|=kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor);
@@ -169,7 +171,8 @@ bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax])
 	switch(childNum) {
 		case 0: strcpy(childPath, "/dev"); return true; break;
 		case 1: strcpy(childPath, "/home"); return true; break;
-		case 2: strcpy(childPath, "/tmp"); return true; break;
+		case 2: strcpy(childPath, "/media"); return true; break;
+		case 3: strcpy(childPath, "/tmp"); return true; break;
 	}
 	return false;
 }
@@ -181,6 +184,11 @@ bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) 
 		case 2: strcpy(childPath, "/dev/urandom"); return true; break;
 		case 3: strcpy(childPath, "/dev/ttyS0"); return true; break;
 	}
+	return false;
+}
+
+bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) {
+	// TODO: this (along with implementing mounting of external drives)
 	return false;
 }
 
