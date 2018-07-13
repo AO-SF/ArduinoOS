@@ -37,4 +37,6 @@ void miniFsDebug(const MiniFs *fs);
 
 bool miniFsFileExists(const MiniFs *fs, const char *filename);
 
+bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t size);
+
 #endif
