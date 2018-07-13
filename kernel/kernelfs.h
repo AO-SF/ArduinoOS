@@ -25,14 +25,6 @@ typedef enum {
 typedef int (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr); // returns -1 on failure
 typedef bool (KernelFsBlockDeviceWriteFunctor)(KernelFsFileOffset addr, uint8_t value);
 
-typedef enum {
-	KernelFsFileOpenFlagsNone=0,
-	KernelFsFileOpenFlagsRO=1,
-	KernelFsFileOpenFlagsRW=2|KernelFsFileOpenFlagsRO,
-	KernelFsFileOpenFlagsCreate=4,
-	KernelFsFileOpenFlagsRWC=KernelFsFileOpenFlagsRW|KernelFsFileOpenFlagsCreate,
-} KernelFsFileOpenFlags;
-
 ////////////////////////////////////////////////////////////////////////////////
 // Initialisation etc
 ////////////////////////////////////////////////////////////////////////////////
@@ -54,7 +46,9 @@ bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceForma
 
 bool kernelFsFileExists(const char *path);
 
-KernelFsFd kernelFsFileOpen(const char *path, KernelFsFileOpenFlags flags); // Returns KernelFsFdInvalid on failure to open/create.
+bool kernelFsFileCreate(const char *path);
+
+KernelFsFd kernelFsFileOpen(const char *path); // File/directory must exist. Returns KernelFsFdInvalid on failure to open.
 void kernelFsFileClose(KernelFsFd fd); // Accepts KernelFsFdInvalid (doing nothing).
 
 // The following functions are for non-directory files only.

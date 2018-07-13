@@ -124,7 +124,12 @@ bool kernelFsFileExists(const char *path) {
 	return false;
 }
 
-KernelFsFd kernelFsFileOpen(const char *path, KernelFsFileOpenFlags flags) {
+bool kernelFsFileCreate(const char *path) {
+	// TODO: this
+	return false;
+}
+
+KernelFsFd kernelFsFileOpen(const char *path) {
 	// Check if this file is already open and also look for an empty slot to use if not.
 	KernelFsFd newFd=KernelFsFdInvalid;
 	for(int i=0; i<KernelFsFdMax; ++i) {
