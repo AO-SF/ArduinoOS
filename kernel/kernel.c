@@ -36,8 +36,8 @@ void kernelTestIo(void) {
 	uint8_t data[DATALEN];
 
 	// Open serial and random number generator
-	KernelFsFd serialFd=kernelFsFileOpen("/dev/ttyS0", KernelFsFileOpenFlagsRW);
-	KernelFsFd randFd=kernelFsFileOpen("/dev/urandom", KernelFsFileOpenFlagsRO);
+	KernelFsFd serialFd=kernelFsFileOpen("/dev/ttyS0");
+	KernelFsFd randFd=kernelFsFileOpen("/dev/urandom");
 
 	// Write bytes from random generator out to serial/stdout
 	KernelFsFileOffset readCount=kernelFsFileRead(randFd, data, DATALEN);
