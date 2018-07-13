@@ -41,7 +41,7 @@ bool kernelDevTtyS0WriteFunctor(uint8_t value);
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-int main(int argc, char **argv) {
+void setup() {
 	// Init
 	kernelBoot();
 
@@ -50,9 +50,19 @@ int main(int argc, char **argv) {
 
 	// Quit
 	kernelShutdown();
+}
 
+void loop() {
+	// Do nothing - we should never reach here
+}
+
+#ifndef ARDUINO
+int main(int argc, char **argv) {
+	setup();
+	loop();
 	return 0;
 }
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
