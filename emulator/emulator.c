@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef enum {
 	ProcessInstructionIdAdd=0,
@@ -37,6 +38,7 @@ typedef struct {
 } Process;
 
 Process *process=NULL;
+bool verbose=false;
 
 bool processRunNextInstruction(Process *process);
 void processDebug(const Process *process);
@@ -45,12 +47,13 @@ int main(int argc, char **argv) {
 	FILE *inputFile=NULL;
 
 	// Parse arguments
-	if (argc!=2) {
-		printf("Usage: %s inputfile\n", argv[0]);
+	if (argc!=2 && argc!=3) {
+		printf("Usage: %s inputfile [--verbose]\n", argv[0]);
 		goto done;
 	}
 
 	const char *inputPath=argv[1];
+	verbose=(argc>2 && strcmp(argv[2], "--verbose")==0);
 
 	// Allocate process data struct
 	process=malloc(sizeof(Process));
@@ -74,9 +77,10 @@ int main(int argc, char **argv) {
 		*next++=c;
 
 	// Run process
-	processDebug(process);
-	while(processRunNextInstruction(process))
-		processDebug(process);
+	do {
+		if (verbose)
+			processDebug(process);
+	} while(processRunNextInstruction(process));
 
 	// Done
 	done:
@@ -137,7 +141,8 @@ bool processRunNextInstruction(Process *process) {
 
 			process->ram[process->regs[addrReg]]=process->regs[valueReg];
 
-			printf("Set ram at addr stored in r%i to value in r%i (ram[%u]=%u)\n", addrReg, valueReg, process->regs[addrReg], process->regs[valueReg]);
+			if (verbose)
+				printf("Set ram at addr stored in r%i to value in r%i (ram[%u]=%u)\n", addrReg, valueReg, process->regs[addrReg], process->regs[valueReg]);
 		} break;
 		case ProcessInstructionIdLoad: {
 			int addrReg=ProcessInstructionGetOperandN(instructionFull, 0);
@@ -145,7 +150,8 @@ bool processRunNextInstruction(Process *process) {
 
 			process->regs[valueReg]=process->ram[addrReg];
 
-			printf("Load from ram at addr stored in r%i to reg r%i\n", addrReg, valueReg);
+			if (verbose)
+				printf("Load from ram at addr stored in r%i to reg r%i\n", addrReg, valueReg);
 		} break;
 		case ProcessInstructionIdCopy: {
 			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
@@ -153,7 +159,8 @@ bool processRunNextInstruction(Process *process) {
 
 			process->regs[destReg]=process->regs[srcReg];
 
-			printf("Copy r%i to reg r%i (r%i=%u)\n", srcReg, destReg, destReg, process->regs[srcReg]);
+			if (verbose)
+				printf("Copy r%i to reg r%i (r%i=%u)\n", srcReg, destReg, destReg, process->regs[srcReg]);
 		} break;
 		case ProcessInstructionIdSet: {
 			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
@@ -161,24 +168,33 @@ bool processRunNextInstruction(Process *process) {
 
 			process->regs[destReg]=value;
 
-			printf("Set r%i to %u\n", destReg, value);
+			if (verbose)
+				printf("Set r%i to %u\n", destReg, value);
 		} break;
 		case ProcessInstructionIdSyscall: {
 			uint16_t syscallId=process->regs[0];
 			switch(syscallId) {
 				case 1:
 					// write progmem
-					printf("Syscall (%i - writeprogmem, fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
+
+					if (verbose) {
+						printf("Syscall (%i - writeprogmem, fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
+						for(int i=0; i<process->regs[3]; ++i)
+							printf("%c", process->progmem[process->regs[2]+i]);
+						printf("], len=%u)\n", process->regs[3]);
+					}
+
 					for(int i=0; i<process->regs[3]; ++i)
 						printf("%c", process->progmem[process->regs[2]+i]);
-					printf("], len=%u)\n", process->regs[3]);
 				break;
 				case 2:
-					printf("Syscall (%i - exit, status=%u)\n", syscallId, process->regs[1]);
+					if (verbose)
+						printf("Syscall (%i - exit, status=%u)\n", syscallId, process->regs[1]);
 					return false;
 				break;
 				default:
-					printf("Syscall (%i - unknown)\n", syscallId);
+					if (verbose)
+						printf("Syscall (%i - unknown)\n", syscallId);
 					return false;
 				break;
 			}
