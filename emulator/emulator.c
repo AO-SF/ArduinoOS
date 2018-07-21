@@ -29,8 +29,9 @@ typedef enum {
 #define ProcessInstructionIdShift (16-(ProcessInstructionIdBits))
 #define ProcessInstructionGetOperandN(instructionFull, n) (((instructionFull)>>(8-3*(n)))&7)
 
+#define ProcessIPReg 7
+
 typedef struct {
-	uint16_t ip;
 	uint16_t regs[8];
 
 	uint8_t progmem[65536];
@@ -62,7 +63,7 @@ int main(int argc, char **argv) {
 		goto done;
 	}
 
-	process->ip=0;
+	process->regs[ProcessIPReg]=0;
 
 	// Read-in input file
 	inputFile=fopen(inputPath, "r");
@@ -92,9 +93,9 @@ int main(int argc, char **argv) {
 }
 
 bool processRunNextInstruction(Process *process) {
-	uint16_t instructionFull=process->progmem[process->ip++];
+	uint16_t instructionFull=process->progmem[process->regs[ProcessIPReg]++];
 	instructionFull<<=8;
-	instructionFull|=process->progmem[process->ip++];
+	instructionFull|=process->progmem[process->regs[ProcessIPReg]++];
 
 	uint16_t instructionId=(instructionFull >> ProcessInstructionIdShift) & (((1u)<<ProcessInstructionIdBits)-1);
 
@@ -209,7 +210,7 @@ bool processRunNextInstruction(Process *process) {
 
 void processDebug(const Process *process) {
 	printf("Process %p:\n", process);
-	printf("	IP: %u\n", process->ip);
+	printf("	IP: %u\n", process->regs[ProcessIPReg]);
 	printf("	Regs:");
 	for(int i=0; i<8; ++i)
 		printf(" r%i=%u", i, process->regs[i]);
