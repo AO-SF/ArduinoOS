@@ -100,42 +100,90 @@ bool processRunNextInstruction(Process *process) {
 	uint16_t instructionId=(instructionFull >> ProcessInstructionIdShift) & (((1u)<<ProcessInstructionIdBits)-1);
 
 	switch(instructionId) {
-		case ProcessInstructionIdAdd:
+		case ProcessInstructionIdAdd: {
+			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
+			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
+			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
+
+			int opA=process->regs[opAReg];
+			int opB=process->regs[opBReg];
+			process->regs[destReg]=opA+opB;
+
+			if (verbose)
+				printf("r%i=r%i+r%i (=%i+%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
+		} break;
+		case ProcessInstructionIdSub: {
+			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
+			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
+			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
+
+			int opA=process->regs[opAReg];
+			int opB=process->regs[opBReg];
+			process->regs[destReg]=opA-opB;
+
+			if (verbose)
+				printf("r%i=r%i-r%i (=%i-%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
+		} break;
+		case ProcessInstructionIdXor: {
+			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
+			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
+			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
+
+			int opA=process->regs[opAReg];
+			int opB=process->regs[opBReg];
+			process->regs[destReg]=opA^opB;
+
+			if (verbose)
+				printf("r%i=r%i^r%i (=%i^%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
+		} break;
+		case ProcessInstructionIdOr: {
+			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
+			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
+			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
+
+			int opA=process->regs[opAReg];
+			int opB=process->regs[opBReg];
+			process->regs[destReg]=opA|opB;
+
+			if (verbose)
+				printf("r%i=r%i|r%i (=%i|%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
+		} break;
+		case ProcessInstructionIdAnd: {
+			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
+			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
+			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
+
+			int opA=process->regs[opAReg];
+			int opB=process->regs[opBReg];
+			process->regs[destReg]=opA&opB;
+
+			if (verbose)
+				printf("r%i=r%i&r%i (=%i&%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
+		} break;
+		case ProcessInstructionIdNot: {
 			// TODO: this
 			return false;
-		break;
-		case ProcessInstructionIdSub:
+			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
+			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
+
+			int opA=process->regs[opAReg];
+			process->regs[destReg]=~opA;
+
+			if (verbose)
+				printf("r%i=~r%i (=~%i=%i)\n", destReg, opAReg, opA, process->regs[destReg]);
+		} break;
+		case ProcessInstructionIdCmp: {
 			// TODO: this
 			return false;
-		break;
-		case ProcessInstructionIdXor:
+		} break;
+		case ProcessInstructionIdShiftLeft: {
 			// TODO: this
 			return false;
-		break;
-		case ProcessInstructionIdOr:
+		} break;
+		case ProcessInstructionIdShiftRight: {
 			// TODO: this
 			return false;
-		break;
-		case ProcessInstructionIdAnd:
-			// TODO: this
-			return false;
-		break;
-		case ProcessInstructionIdNot:
-			// TODO: this
-			return false;
-		break;
-		case ProcessInstructionIdCmp:
-			// TODO: this
-			return false;
-		break;
-		case ProcessInstructionIdShiftLeft:
-			// TODO: this
-			return false;
-		break;
-		case ProcessInstructionIdShiftRight:
-			// TODO: this
-			return false;
-		break;
+		} break;
 		case ProcessInstructionIdStore: {
 			int addrReg=ProcessInstructionGetOperandN(instructionFull, 0);
 			int valueReg=ProcessInstructionGetOperandN(instructionFull, 1);
