@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef uint16_t ByteCodeWord;
+
 typedef enum {
 	BytecodeRegister0,
 	BytecodeRegister1,
@@ -31,7 +33,7 @@ typedef enum {
 } BytecodeInstructionLength;
 
 typedef uint8_t BytecodeInstructionShort;
-typedef uint16_t BytecodeInstructionLong;
+typedef ByteCodeWord BytecodeInstructionLong;
 
 typedef enum {
 	BytecodeInstructionMemoryTypeStore,
