@@ -278,7 +278,7 @@ int main(int argc, char **argv) {
 			instruction->d.define.totalSize=instruction->d.define.membSize*instruction->d.define.len;
 			instruction->d.define.symbol=symbol;
 		} else {
-			printf("error - unknown/unimplemented instruction '%s' (%u:'%s)'\n", first, assemblerLine->lineNum, assemblerLine->original);
+			printf("error - unknown/unimplemented instruction '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
 			free(lineCopy);
 			// goto done; TODO: put this back once we have implemented a few more instructions
 		}
