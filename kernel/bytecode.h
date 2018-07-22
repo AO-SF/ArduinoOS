@@ -52,10 +52,8 @@ typedef enum {
 	BytecodeInstructionAluCmpBitNotEqual,
 	BytecodeInstructionAluCmpBitNotEqualZero, // only uses opA
 	BytecodeInstructionAluCmpBitLessThan,
-	BytecodeInstructionAluCmpBitLessThanZero, // only uses opA
 	BytecodeInstructionAluCmpBitLessEqual,
 	BytecodeInstructionAluCmpBitGreaterThan,
-	BytecodeInstructionAluCmpBitGreaterThanZero, // only uses opA
 	BytecodeInstructionAluCmpBitGreaterEqual,
 	BytecodeInstructionAluCmpBitNB,
 } BytecodeInstructionAluCmpBit;
@@ -66,10 +64,8 @@ typedef enum {
 	BytecodeInstructionAluCmpMaskNotEqual=(1u<<BytecodeInstructionAluCmpBitNotEqual),
 	BytecodeInstructionAluCmpMaskNotEqualZero=(1u<<BytecodeInstructionAluCmpBitNotEqualZero),
 	BytecodeInstructionAluCmpMaskLessThan=(1u<<BytecodeInstructionAluCmpBitLessThan),
-	BytecodeInstructionAluCmpMaskLessThanZero=(1u<<BytecodeInstructionAluCmpBitLessThanZero),
 	BytecodeInstructionAluCmpMaskLessEqual=(1u<<BytecodeInstructionAluCmpBitLessEqual),
 	BytecodeInstructionAluCmpMaskGreaterThan=(1u<<BytecodeInstructionAluCmpBitGreaterThan),
-	BytecodeInstructionAluCmpMaskGreaterThanZero=(1u<<BytecodeInstructionAluCmpBitGreaterThanZero),
 	BytecodeInstructionAluCmpMaskGreaterEqual=(1u<<BytecodeInstructionAluCmpBitGreaterEqual),
 	BytecodeInstructionAluCmpMaskNB=(1u<<BytecodeInstructionAluCmpBitNB),
 } BytecodeInstructionAluCmpMask;
