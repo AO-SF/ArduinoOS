@@ -157,10 +157,8 @@ bool processRunNextInstruction(Process *process) {
 					*d|=(opA!=opB)<<BytecodeInstructionAluCmpBitNotEqual;
 					*d|=(opA!=0)<<BytecodeInstructionAluCmpBitNotEqualZero;
 					*d|=(opA<opB)<<BytecodeInstructionAluCmpBitLessThan;
-					*d|=(opA<0)<<BytecodeInstructionAluCmpBitLessThanZero;
 					*d|=(opA<=opB)<<BytecodeInstructionAluCmpBitLessEqual;
 					*d|=(opA>opB)<<BytecodeInstructionAluCmpBitGreaterThan;
-					*d|=(opA>0)<<BytecodeInstructionAluCmpBitGreaterThanZero;
 					*d|=(opA>=opB)<<BytecodeInstructionAluCmpBitGreaterEqual;
 				} break;
 				case BytecodeInstructionAluTypeShiftLeft:
