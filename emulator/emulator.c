@@ -4,32 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum {
-	ProcessInstructionIdAdd=0,
-	ProcessInstructionIdSub=1,
-	ProcessInstructionIdXor=2,
-	ProcessInstructionIdOr=3,
-	ProcessInstructionIdAnd=4,
-	ProcessInstructionIdNot=5,
-	ProcessInstructionIdCmp=6,
-	ProcessInstructionIdShiftLeft=7,
-	ProcessInstructionIdShiftRight=8,
-
-	ProcessInstructionIdStore=9,
-	ProcessInstructionIdLoad=10,
-	ProcessInstructionIdLoadProgmem=11,
-
-	ProcessInstructionIdCopy=12,
-	ProcessInstructionIdSet=13,
-
-	ProcessInstructionIdSyscall=14,
-} ProcessInstructionId;
-
-#define ProcessInstructionIdBits 5
-#define ProcessInstructionIdShift (16-(ProcessInstructionIdBits))
-#define ProcessInstructionGetOperandN(instructionFull, n) (((instructionFull)>>(8-3*(n)))&7)
-
-#define ProcessIPReg 7
+#include "../kernel/bytecode.h"
 
 typedef struct {
 	uint16_t regs[8];
@@ -63,7 +38,7 @@ int main(int argc, char **argv) {
 		goto done;
 	}
 
-	process->regs[ProcessIPReg]=0;
+	process->regs[ByteCodeRegisterIP]=0;
 
 	// Read-in input file
 	inputFile=fopen(inputPath, "r");
@@ -93,163 +68,143 @@ int main(int argc, char **argv) {
 }
 
 bool processRunNextInstruction(Process *process) {
-	uint16_t instructionFull=process->progmem[process->regs[ProcessIPReg]++];
-	instructionFull<<=8;
-	instructionFull|=process->progmem[process->regs[ProcessIPReg]++];
+	BytecodeInstructionLong instruction=(((BytecodeInstructionLong)process->progmem[process->regs[ByteCodeRegisterIP]++])<<8);
+	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
+	if (length==BytecodeInstructionLengthLong)
+		instruction|=process->progmem[process->regs[ByteCodeRegisterIP]++];
 
-	uint16_t instructionId=(instructionFull >> ProcessInstructionIdShift) & (((1u)<<ProcessInstructionIdBits)-1);
+	BytecodeInstructionInfo info;
+	if (!bytecodeInstructionParse(&info, instruction)) {
+		if (verbose)
+			printf("Invalid instruction\n");
+		return false;
+	}
 
-	switch(instructionId) {
-		case ProcessInstructionIdAdd: {
-			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
-			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
-
-			int opA=process->regs[opAReg];
-			int opB=process->regs[opBReg];
-			process->regs[destReg]=opA+opB;
-
-			if (verbose)
-				printf("r%i=r%i+r%i (=%i+%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
-		} break;
-		case ProcessInstructionIdSub: {
-			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
-			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
-
-			int opA=process->regs[opAReg];
-			int opB=process->regs[opBReg];
-			process->regs[destReg]=opA-opB;
-
-			if (verbose)
-				printf("r%i=r%i-r%i (=%i-%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
-		} break;
-		case ProcessInstructionIdXor: {
-			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
-			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
-
-			int opA=process->regs[opAReg];
-			int opB=process->regs[opBReg];
-			process->regs[destReg]=opA^opB;
-
-			if (verbose)
-				printf("r%i=r%i^r%i (=%i^%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
-		} break;
-		case ProcessInstructionIdOr: {
-			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
-			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
-
-			int opA=process->regs[opAReg];
-			int opB=process->regs[opBReg];
-			process->regs[destReg]=opA|opB;
-
-			if (verbose)
-				printf("r%i=r%i|r%i (=%i|%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
-		} break;
-		case ProcessInstructionIdAnd: {
-			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
-			int opBReg=ProcessInstructionGetOperandN(instructionFull, 2);
-
-			int opA=process->regs[opAReg];
-			int opB=process->regs[opBReg];
-			process->regs[destReg]=opA&opB;
-
-			if (verbose)
-				printf("r%i=r%i&r%i (=%i&%i=%i)\n", destReg, opAReg, opBReg, opA, opB, process->regs[destReg]);
-		} break;
-		case ProcessInstructionIdNot: {
-			// TODO: this
-			return false;
-			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int opAReg=ProcessInstructionGetOperandN(instructionFull, 1);
-
-			int opA=process->regs[opAReg];
-			process->regs[destReg]=~opA;
-
-			if (verbose)
-				printf("r%i=~r%i (=~%i=%i)\n", destReg, opAReg, opA, process->regs[destReg]);
-		} break;
-		case ProcessInstructionIdCmp: {
-			// TODO: this
-			return false;
-		} break;
-		case ProcessInstructionIdShiftLeft: {
-			// TODO: this
-			return false;
-		} break;
-		case ProcessInstructionIdShiftRight: {
-			// TODO: this
-			return false;
-		} break;
-		case ProcessInstructionIdStore: {
-			int addrReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int valueReg=ProcessInstructionGetOperandN(instructionFull, 1);
-
-			process->ram[process->regs[addrReg]]=process->regs[valueReg];
-
-			if (verbose)
-				printf("*r%i=r%i (*%u=%u)\n", addrReg, valueReg, process->regs[addrReg], process->regs[valueReg]);
-		} break;
-		case ProcessInstructionIdLoad: {
-			int addrReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int valueReg=ProcessInstructionGetOperandN(instructionFull, 1);
-
-			process->regs[valueReg]=process->ram[addrReg];
-
-			if (verbose)
-				printf("r%i=*r%i (=%i)\n", valueReg, addrReg, process->ram[addrReg]);
-		} break;
-		case ProcessInstructionIdCopy: {
-			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int srcReg=ProcessInstructionGetOperandN(instructionFull, 1);
-
-			process->regs[destReg]=process->regs[srcReg];
-
-			if (verbose)
-				printf("r%i=r%i (r%i=%u)\n", destReg, srcReg, destReg, process->regs[srcReg]);
-		} break;
-		case ProcessInstructionIdSet: {
-			int destReg=ProcessInstructionGetOperandN(instructionFull, 0);
-			int value=(instructionFull & 255);
-
-			process->regs[destReg]=value;
-
-			if (verbose)
-				printf("r%i=%u\n", destReg, value);
-		} break;
-		case ProcessInstructionIdSyscall: {
-			uint16_t syscallId=process->regs[0];
-			switch(syscallId) {
-				case 1:
-					// write progmem
-
-					if (verbose) {
-						printf("syscall(id=%i [writeprogmem], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
-						for(int i=0; i<process->regs[3]; ++i)
-							printf("%c", process->progmem[process->regs[2]+i]);
-						printf("], len=%u)\n", process->regs[3]);
-					}
-
-					for(int i=0; i<process->regs[3]; ++i)
-						printf("%c", process->progmem[process->regs[2]+i]);
-				break;
-				case 2:
+	switch(info.type) {
+		case BytecodeInstructionTypeMemory:
+			switch(info.d.memory.type) {
+				case BytecodeInstructionMemoryTypeStore:
+					process->ram[process->regs[info.d.memory.destReg]]=process->regs[info.d.memory.srcReg];
 					if (verbose)
-						printf("syscall(id=%i [exit], status=%u)\n", syscallId, process->regs[1]);
+						printf("*r%i=r%i (*%u=%u)\n", info.d.memory.destReg, info.d.memory.srcReg, process->regs[info.d.memory.destReg], process->regs[info.d.memory.srcReg]);
+				break;
+				case BytecodeInstructionMemoryTypeLoad:
+					process->regs[info.d.memory.destReg]=process->ram[info.d.memory.srcReg];
+					if (verbose)
+						printf("r%i=*r%i (=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, process->ram[info.d.memory.srcReg]);
+				break;
+				case BytecodeInstructionMemoryTypeLoadProgmem:
+					process->regs[info.d.memory.destReg]=process->progmem[info.d.memory.srcReg];
+					if (verbose)
+						printf("r%i=PROGMEM[r%i] (=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, process->progmem[info.d.memory.srcReg]);
+				break;
+			}
+		break;
+		case BytecodeInstructionTypeAlu: {
+			int opA=process->regs[info.d.alu.opAReg];
+			int opB=process->regs[info.d.alu.opBReg];
+			switch(info.d.alu.type) {
+				case BytecodeInstructionAluTypeInc: {
+					int pre=process->regs[info.d.alu.destReg]++;
+					if (verbose)
+						printf("r%i++ (r%i=%i+1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
+				} break;
+				case BytecodeInstructionAluTypeDec: {
+					int pre=process->regs[info.d.alu.destReg]--;
+					if (verbose)
+						printf("r%i-- (r%i=%i-1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
+				} break;
+				case BytecodeInstructionAluTypeAdd:
+					process->regs[info.d.alu.destReg]=opA+opB;
+					if (verbose)
+						printf("r%i=r%i+r%i (=%i+%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
+				break;
+				case BytecodeInstructionAluTypeSub:
+					process->regs[info.d.alu.destReg]=opA-opB;
+					if (verbose)
+						printf("r%i=r%i-r%i (=%i-%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
+				break;
+				case BytecodeInstructionAluTypeMul:
+					process->regs[info.d.alu.destReg]=opA*opB;
+					if (verbose)
+						printf("r%i=r%i*r%i (=%i*%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
+				break;
+				case BytecodeInstructionAluTypeXor:
+					process->regs[info.d.alu.destReg]=opA^opB;
+					if (verbose)
+						printf("r%i=r%i^r%i (=%i^%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
+				break;
+				case BytecodeInstructionAluTypeOr:
+					process->regs[info.d.alu.destReg]=opA|opB;
+					if (verbose)
+						printf("r%i=r%i|r%i (=%i|%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
+				break;
+				case BytecodeInstructionAluTypeAnd:
+					process->regs[info.d.alu.destReg]=opA&opB;
+					if (verbose)
+						printf("r%i=r%i&r%i (=%i&%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
+				break;
+				case BytecodeInstructionAluTypeNot:
+					process->regs[info.d.alu.destReg]=~opA;
+					if (verbose)
+						printf("r%i=~r%i (=~%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, opA, process->regs[info.d.alu.destReg]);
+				break;
+				case BytecodeInstructionAluTypeCmp:
+					// TODO: this
+					printf("Unimplemented instruction CMP\n");
 					return false;
 				break;
-				default:
+				case BytecodeInstructionAluTypeShiftLeft:
+					process->regs[info.d.alu.destReg]=opA<<opB;
 					if (verbose)
-						printf("syscall(id=%i [unknown])\n", syscallId);
-					return false;
+						printf("r%i=r%i<<r%i (=%i<<%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
+				break;
+				case BytecodeInstructionAluTypeShiftRight:
+					process->regs[info.d.alu.destReg]=opA>>opB;
+					if (verbose)
+						printf("r%i=r%i>>r%i (=%i>>%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 			}
 		} break;
-		default:
-			return false;
+		case BytecodeInstructionTypeMisc:
+			switch(info.d.misc.type) {
+				case BytecodeInstructionMiscTypeNop:
+					if (verbose)
+						printf("nop\n");
+				break;
+				case BytecodeInstructionMiscTypeSyscall: {
+					uint16_t syscallId=process->regs[0];
+					switch(syscallId) {
+						case 1:
+							// write progmem
+							if (verbose) {
+								printf("syscall(id=%i [writeprogmem], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
+								for(int i=0; i<process->regs[3]; ++i)
+									printf("%c", process->progmem[process->regs[2]+i]);
+								printf("], len=%u)\n", process->regs[3]);
+							}
+
+							for(int i=0; i<process->regs[3]; ++i)
+								printf("%c", process->progmem[process->regs[2]+i]);
+						break;
+						case 2:
+							if (verbose)
+								printf("syscall(id=%i [exit], status=%u)\n", syscallId, process->regs[1]);
+							return false;
+						break;
+						default:
+							if (verbose)
+								printf("syscall(id=%i [unknown])\n", syscallId);
+							return false;
+						break;
+					}
+				} break;
+				case BytecodeInstructionMiscTypeSet:
+					process->regs[info.d.misc.d.set.destReg]=info.d.misc.d.set.value;
+					if (verbose)
+						printf("r%i=%u\n", info.d.misc.d.set.destReg, info.d.misc.d.set.value);
+				break;
+			}
 		break;
 	}
 
@@ -258,7 +213,7 @@ bool processRunNextInstruction(Process *process) {
 
 void processDebug(const Process *process) {
 	printf("Process %p:\n", process);
-	printf("	IP: %u\n", process->regs[ProcessIPReg]);
+	printf("	IP: %u\n", process->regs[ByteCodeRegisterIP]);
 	printf("	Regs:");
 	for(int i=0; i<8; ++i)
 		printf(" r%i=%u", i, process->regs[i]);
