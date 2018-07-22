@@ -148,7 +148,7 @@ void disassemblerPrintV(uint16_t addr, BytecodeInstructionLong instruction, cons
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
 	if (length==BytecodeInstructionLengthShort) {
 		char c1=(isgraph(instruction>>8) ? (instruction>>8) : '.');
-		printf("%04X %02X..=%c. ", addr, (instruction>>8), c1);
+		printf("%04X   %02X=%c  ", addr, (instruction>>8), c1);
 	} else {
 		char c1=(isgraph(instruction>>8) ? (instruction>>8) : '.');
 		char c2=(isgraph(instruction&0xFF) ? (instruction&0xFF) : '.');
