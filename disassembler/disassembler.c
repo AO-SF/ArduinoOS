@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
 		}
 
 		// Update addr for next call
-		addr+=1+(length==BytecodeInstructionLengthLong);
+		addr+=1+(length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)+(length==BytecodeInstructionLengthLong);
 	}
 
 	// Done
