@@ -65,11 +65,12 @@ int main(int argc, char **argv) {
 
 	// Strip comments and excess white space
 	for(unsigned i=0; i<program->linesNext; ++i) {
+		bool inString;
+		char *c;
 		AssemblerLine *assemblerLine=program->lines[i];
 
 		// Convert all white-space to actual spaces, and strip of comment if any.
-		bool inString=false;
-		char *c;
+		inString=false;
 		for(c=assemblerLine->modified; *c!='\0'; ++c) {
 			if (inString) {
 				if (*c=='\'')
@@ -88,10 +89,36 @@ int main(int argc, char **argv) {
 		}
 
 		// Replace two or more spaces with a single space (outside of strings)
-		// TODO: this
+		bool change;
+		do {
+			change=false;
+			inString=false;
+			for(c=assemblerLine->modified; *c!='\0'; ++c) {
+				if (inString) {
+					if (*c=='\'')
+						inString=false;
+					else if (*c=='\\')
+						++c; // Skip escaped character
+				} else {
+					if (*c=='\'') {
+						inString=true;
+					} else if (*c==' ') {
+						if (c[1]=='\0')
+							break;
+						else if (c[1]==' ') {
+							memmove(c, c+1, strlen(c+1)+1);
+							change=true;
+						}
+					}
+				}
+			}
+		} while(change);
 
 		// Trim preceeding or trailing white space.
-		// TODO: this
+		if (assemblerLine->modified[0]==' ')
+			memmove(assemblerLine->modified, assemblerLine->modified+1, strlen(assemblerLine->modified+1)+1);
+		if (strlen(assemblerLine->modified)>0 && assemblerLine->modified[strlen(assemblerLine->modified)-1]==' ')
+			assemblerLine->modified[strlen(assemblerLine->modified)-1]='\0';
 	}
 
 	// Temporary debugging
