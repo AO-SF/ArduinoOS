@@ -47,6 +47,34 @@ typedef struct {
 } BytecodeInstructionMemoryInfo;
 
 typedef enum {
+	BytecodeInstructionAluCmpBitEqual,
+	BytecodeInstructionAluCmpBitEqualZero, // only uses opA
+	BytecodeInstructionAluCmpBitNotEqual,
+	BytecodeInstructionAluCmpBitNotEqualZero, // only uses opA
+	BytecodeInstructionAluCmpBitLessThan,
+	BytecodeInstructionAluCmpBitLessThanZero, // only uses opA
+	BytecodeInstructionAluCmpBitLessEqual,
+	BytecodeInstructionAluCmpBitGreaterThan,
+	BytecodeInstructionAluCmpBitGreaterThanZero, // only uses opA
+	BytecodeInstructionAluCmpBitGreaterEqual,
+	BytecodeInstructionAluCmpBitNB,
+} BytecodeInstructionAluCmpBit;
+
+typedef enum {
+	BytecodeInstructionAluCmpMaskEqual=(1u<<BytecodeInstructionAluCmpBitEqual),
+	BytecodeInstructionAluCmpMaskEqualZero=(1u<<BytecodeInstructionAluCmpBitEqualZero),
+	BytecodeInstructionAluCmpMaskNotEqual=(1u<<BytecodeInstructionAluCmpBitNotEqual),
+	BytecodeInstructionAluCmpMaskNotEqualZero=(1u<<BytecodeInstructionAluCmpBitNotEqualZero),
+	BytecodeInstructionAluCmpMaskLessThan=(1u<<BytecodeInstructionAluCmpBitLessThan),
+	BytecodeInstructionAluCmpMaskLessThanZero=(1u<<BytecodeInstructionAluCmpBitLessThanZero),
+	BytecodeInstructionAluCmpMaskLessEqual=(1u<<BytecodeInstructionAluCmpBitLessEqual),
+	BytecodeInstructionAluCmpMaskGreaterThan=(1u<<BytecodeInstructionAluCmpBitGreaterThan),
+	BytecodeInstructionAluCmpMaskGreaterThanZero=(1u<<BytecodeInstructionAluCmpBitGreaterThanZero),
+	BytecodeInstructionAluCmpMaskGreaterEqual=(1u<<BytecodeInstructionAluCmpBitGreaterEqual),
+	BytecodeInstructionAluCmpMaskNB=(1u<<BytecodeInstructionAluCmpBitNB),
+} BytecodeInstructionAluCmpMask;
+
+typedef enum {
 	BytecodeInstructionAluTypeInc,
 	BytecodeInstructionAluTypeDec,
 	BytecodeInstructionAluTypeAdd,
