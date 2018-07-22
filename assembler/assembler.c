@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../kernel/bytecode.h"
+
 #define AssemblerLinesMax 65536
 
 typedef enum {
@@ -17,7 +19,7 @@ typedef enum {
 typedef struct {
 	uint16_t membSize, len, totalSize; // for membSize: 1=byte, 2=word
 	const char *symbol;
-	uint8_t data[65536]; // TODO: this is pretty wasteful...
+	uint8_t data[1024]; // TODO: this is pretty wasteful...
 } AssemblerInstructionDefine;
 
 typedef struct {
@@ -33,6 +35,10 @@ typedef struct {
 		AssemblerInstructionDefine define;
 		AssemblerInstructionMov mov;
 	} d;
+
+	uint8_t machineCode[1024]; // TODO: this is pretty wasteful...
+	uint16_t machineCodeLen;
+	uint16_t machineCodeOffset;
 } AssemblerInstruction;
 
 typedef struct {
@@ -155,7 +161,7 @@ int main(int argc, char **argv) {
 			assemblerLine->modified[strlen(assemblerLine->modified)-1]='\0';
 	}
 
-	// Output
+	// Verbose output
 	if (verbose) {
 		printf("Non-blank input lines:\n");
 		for(unsigned i=0; i<program->linesNext; ++i) {
@@ -315,16 +321,130 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	// Output
+	// Move defines to be after everything else
+	bool change;
+	do {
+		change=false;
+		for(unsigned i=0; i<program->instructionsNext-1; ++i) {
+				AssemblerInstruction *instruction=&program->instructions[i];
+				AssemblerInstruction *nextInstruction=&program->instructions[i+1];
+
+				if (instruction->type==AssemblerInstructionTypeDefine && nextInstruction->type!=AssemblerInstructionTypeDefine) {
+					// Swap
+					AssemblerInstruction tempInstruction=*instruction;
+					*instruction=*nextInstruction;
+					*nextInstruction=tempInstruction;
+					change=true;
+				}
+		}
+	} while(change);
+
+	// Generate machine code for each instruction
+	for(unsigned genPass=0; genPass<3; ++genPass) {
+		// Passes:
+		// 0 - generates intitial machine code with placeholders
+		// 1 - computes offsets for all instructions in the final executable
+		// 2 - fills in symbol and label addresses computed in previous step
+		unsigned nextMachineCodeOffset=0;
+		for(unsigned i=0; i<program->instructionsNext; ++i) {
+			AssemblerInstruction *instruction=&program->instructions[i];
+			AssemblerLine *line=program->lines[instruction->lineIndex];
+
+			if (genPass==1) {
+				instruction->machineCodeOffset=nextMachineCodeOffset;
+				nextMachineCodeOffset+=instruction->machineCodeLen;
+				continue;
+			}
+
+			switch(instruction->type) {
+				case AssemblerInstructionTypeDefine:
+					switch(genPass) {
+						case 0:
+							// Simply copy data into program memory directly
+							for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
+								instruction->machineCode[instruction->machineCodeLen++]=instruction->d.define.data[j];
+						break;
+						case 2:
+							// Nothing to do
+						break;
+					}
+				break;
+				case AssemblerInstructionTypeMov:
+					switch(genPass) {
+						case 0:
+							// Reserve three bytes
+							instruction->machineCodeLen=3;
+						break;
+						case 2: {
+							// Verify dest is a valid register
+							if (instruction->d.mov.dest[0]!='r' || (instruction->d.mov.dest[1]<'0' || instruction->d.mov.dest[1]>'7') || instruction->d.mov.dest[2]!='\0') {
+								printf("error - expected register (r0-r7) as destination, instead got '%s' (%u:'%s')\n", instruction->d.mov.dest, line->lineNum, line->original);
+								goto done;
+							}
+
+							BytecodeRegister destReg=(instruction->d.mov.dest[1]-'0');
+
+							// Determine type of src
+							if (isdigit(instruction->d.mov.src[0])) {
+								// Integer
+								unsigned value=atoi(instruction->d.mov.src);
+								bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
+							} else if (instruction->d.mov.src[0]=='_' || isalnum(instruction->d.mov.src[0])) {
+								// Symbol
+
+								// Search through instructions looking for this symbol being defined
+								unsigned addr, k;
+								for(k=0; k<program->instructionsNext; ++k) {
+									AssemblerInstruction *loopInstruction=&program->instructions[k];
+									if (loopInstruction->type==AssemblerInstructionTypeDefine && strcmp(loopInstruction->d.define.symbol, instruction->d.mov.src)==0) {
+										addr=loopInstruction->machineCodeOffset;
+										break;
+									}
+								}
+								if (k==program->instructionsNext) {
+									printf("error - bad src '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+									goto done;
+								}
+
+								// Create instruction used the found address
+								bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, addr);
+							} else {
+								printf("error - bad src '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+								goto done;
+							}
+						} break;
+					}
+				break;
+				case AssemblerInstructionTypeSyscall:
+					switch(genPass) {
+						case 0:
+							instruction->machineCode[0]=bytecodeInstructionCreateMiscSyscall();
+							instruction->machineCodeLen=1;
+						break;
+						case 2:
+							// Nothing to do
+						break;
+					}
+				break;
+			}
+		}
+	}
+
+	// Verbose output
 	if (verbose) {
 		printf("Instructions:\n");
 		for(unsigned i=0; i<program->instructionsNext; ++i) {
 			AssemblerInstruction *instruction=&program->instructions[i];
 			AssemblerLine *line=program->lines[instruction->lineIndex];
 
+			printf("	%6u 0x%04X ", i, instruction->machineCodeOffset);
+			for(unsigned j=0; j<instruction->machineCodeLen; ++j)
+				printf("%02X", instruction->machineCode[j]);
+			printf(": ");
+
 			switch(instruction->type) {
 				case AssemblerInstructionTypeDefine:
-					printf("	%6u: define membSize=%u, len=%u, totalSize=%u, symbol=%s data=[", i, instruction->d.define.membSize, instruction->d.define.len, instruction->d.define.totalSize, instruction->d.define.symbol);
+					printf("define membSize=%u, len=%u, totalSize=%u, symbol=%s data=[", instruction->d.define.membSize, instruction->d.define.len, instruction->d.define.totalSize, instruction->d.define.symbol);
 					for(unsigned j=0; j<instruction->d.define.len; j++) {
 						unsigned value;
 						switch(instruction->d.define.membSize) {
@@ -345,14 +465,28 @@ int main(int argc, char **argv) {
 					printf("] (%u:'%s')\n", line->lineNum, line->original);
 				break;
 				case AssemblerInstructionTypeMov:
-					printf("	%6u: mov %s=%s (%u:'%s')\n", i, instruction->d.mov.dest, instruction->d.mov.src, line->lineNum, line->original);
+					printf("mov %s=%s (%u:'%s')\n", instruction->d.mov.dest, instruction->d.mov.src, line->lineNum, line->original);
 				break;
 				case AssemblerInstructionTypeSyscall:
-					printf("	%6u: syscall (%u:'%s')\n", i, line->lineNum, line->original);
+					printf("syscall (%u:'%s')\n", line->lineNum, line->original);
 				break;
 			}
 		}
 	}
+
+	// Output machine code
+	FILE *outputFile=fopen(outputPath, "w");
+	if (outputFile==NULL) {
+		printf("Could not open output file '%s' for writing\n", outputPath);
+		goto done;
+	}
+
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		AssemblerInstruction *instruction=&program->instructions[i];
+		fwrite(instruction->machineCode, 1, instruction->machineCodeLen, outputFile); // TODO: Check return
+	}
+
+	fclose(outputFile);
 
 	// Tidy up
 	done:
