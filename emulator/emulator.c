@@ -7,7 +7,7 @@
 #include "../kernel/bytecode.h"
 
 typedef struct {
-	uint16_t regs[8];
+	ByteCodeWord regs[8];
 
 	uint8_t progmem[65536];
 	uint8_t ram[65536];
