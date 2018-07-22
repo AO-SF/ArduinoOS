@@ -1,1 +1,5 @@
-*
+assembler
+disassembler
+eeprom
+emulator
+kernel
