@@ -33,15 +33,24 @@ int main(int argc, char **argv) {
 	int c;
 	while((c=fgetc(inputFile))!=EOF) {
 		// First see if we need to load another byte for a long instruction
-		BytecodeInstructionLong instruction=(((uint16_t)c)<<8)|0;
+		BytecodeInstructionLong instruction;
+		instruction[0]=c;
 		BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
+		if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong) {
+			c=fgetc(inputFile);
+			if (c==EOF) {
+				disassemblerPrint(addr, instruction, "Missing 2nd byte of instruction");
+				break;
+			}
+			instruction[1]=c;
+		}
 		if (length==BytecodeInstructionLengthLong) {
 			c=fgetc(inputFile);
 			if (c==EOF) {
-				disassemblerPrint(addr, instruction, "Missing lower half of final instruction");
+				disassemblerPrint(addr, instruction, "Missing 3rd byte of instruction");
 				break;
 			}
-			instruction|=(uint8_t)c;
+			instruction[2]=c;
 		}
 
 		// Parse instruction
@@ -117,8 +126,11 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionMiscTypeSyscall:
 							disassemblerPrint(addr, instruction, "syscall");
 						break;
-						case BytecodeInstructionMiscTypeSet:
-							disassemblerPrint(addr, instruction, "r%u=%u", info.d.misc.d.set.destReg, info.d.misc.d.set.value);
+						case BytecodeInstructionMiscTypeSet8:
+							disassemblerPrint(addr, instruction, "r%u=%u", info.d.misc.d.set8.destReg, info.d.misc.d.set8.value);
+						break;
+						case BytecodeInstructionMiscTypeSet16:
+							disassemblerPrint(addr, instruction, "r%u=%u", info.d.misc.d.set16.destReg, info.d.misc.d.set16.value);
 						break;
 					}
 				break;
@@ -146,13 +158,19 @@ void disassemblerPrint(uint16_t addr, BytecodeInstructionLong instruction, const
 
 void disassemblerPrintV(uint16_t addr, BytecodeInstructionLong instruction, const char *fmt, va_list ap) {
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
-	if (length==BytecodeInstructionLengthShort) {
-		char c1=(isgraph(instruction>>8) ? (instruction>>8) : '.');
-		printf("%04X   %02X=%c  ", addr, (instruction>>8), c1);
-	} else {
-		char c1=(isgraph(instruction>>8) ? (instruction>>8) : '.');
-		char c2=(isgraph(instruction&0xFF) ? (instruction&0xFF) : '.');
-		printf("%04X %04X=%c%c ", addr, instruction, c1, c2);
+	char c0=(isgraph(instruction[0]) ? (instruction[0]) : '.');
+	char c1=(isgraph(instruction[1]) ? (instruction[1]) : '.');
+	char c2=(isgraph(instruction[2]) ? (instruction[2]) : '.');
+	switch(length) {
+		case BytecodeInstructionLengthShort:
+			printf("%04X     %02X=%c   ", addr, (instruction[0]), c0);
+		break;
+		case BytecodeInstructionLengthStandard:
+			printf("%04X   %02X%02X=%c%c  ", addr, instruction[0], instruction[1], c0, c1);
+		break;
+		case BytecodeInstructionLengthLong:
+			printf("%04X %02X%02X%02X=%c%c%c ", addr, instruction[0], instruction[1], instruction[2], c0, c1, c2);
+		break;
 	}
 
 	vprintf(fmt, ap);
