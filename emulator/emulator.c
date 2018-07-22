@@ -68,10 +68,13 @@ int main(int argc, char **argv) {
 }
 
 bool processRunNextInstruction(Process *process) {
-	BytecodeInstructionLong instruction=(((BytecodeInstructionLong)process->progmem[process->regs[ByteCodeRegisterIP]++])<<8);
+	BytecodeInstructionLong instruction;
+	instruction[0]=process->progmem[process->regs[ByteCodeRegisterIP]++];
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
+	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
+		instruction[1]=process->progmem[process->regs[ByteCodeRegisterIP]++];
 	if (length==BytecodeInstructionLengthLong)
-		instruction|=process->progmem[process->regs[ByteCodeRegisterIP]++];
+		instruction[2]=process->progmem[process->regs[ByteCodeRegisterIP]++];
 
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
@@ -206,10 +209,15 @@ bool processRunNextInstruction(Process *process) {
 						break;
 					}
 				} break;
-				case BytecodeInstructionMiscTypeSet:
-					process->regs[info.d.misc.d.set.destReg]=info.d.misc.d.set.value;
+				case BytecodeInstructionMiscTypeSet8:
+					process->regs[info.d.misc.d.set8.destReg]=info.d.misc.d.set8.value;
 					if (verbose)
-						printf("r%i=%u\n", info.d.misc.d.set.destReg, info.d.misc.d.set.value);
+						printf("r%i=%u\n", info.d.misc.d.set8.destReg, info.d.misc.d.set8.value);
+				break;
+				case BytecodeInstructionMiscTypeSet16:
+					process->regs[info.d.misc.d.set16.destReg]=info.d.misc.d.set16.value;
+					if (verbose)
+						printf("r%i=%u\n", info.d.misc.d.set16.destReg, info.d.misc.d.set16.value);
 				break;
 			}
 		break;

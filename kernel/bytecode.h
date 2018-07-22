@@ -28,12 +28,13 @@ typedef enum {
 
 typedef enum {
 	BytecodeInstructionLengthShort,
+	BytecodeInstructionLengthStandard,
 	BytecodeInstructionLengthLong,
-	BytecodeInstructionLengthNB,
 } BytecodeInstructionLength;
 
 typedef uint8_t BytecodeInstructionShort;
-typedef ByteCodeWord BytecodeInstructionLong;
+typedef ByteCodeWord BytecodeInstructionStandard;
+typedef uint8_t BytecodeInstructionLong[3];
 
 typedef enum {
 	BytecodeInstructionMemoryTypeStore,
@@ -93,18 +94,25 @@ typedef struct {
 typedef enum {
 	BytecodeInstructionMiscTypeNop,
 	BytecodeInstructionMiscTypeSyscall,
-	BytecodeInstructionMiscTypeSet,
+	BytecodeInstructionMiscTypeSet8,
+	BytecodeInstructionMiscTypeSet16,
 } BytecodeInstructionMiscType;
 
 typedef struct {
 	BytecodeRegister destReg;
 	uint8_t value;
-} BytecodeInstructionMiscSetInfo;
+} BytecodeInstructionMiscSet8Info;
+
+typedef struct {
+	BytecodeRegister destReg;
+	uint16_t value;
+} BytecodeInstructionMiscSet16Info;
 
 typedef struct {
 	BytecodeInstructionMiscType type;
 	union {
-		BytecodeInstructionMiscSetInfo set;
+		BytecodeInstructionMiscSet8Info set8;
+		BytecodeInstructionMiscSet16Info set16;
 	} d;
 } BytecodeInstructionMiscInfo;
 
@@ -122,9 +130,10 @@ BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstructionLong
 bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstructionLong instruction);
 
 BytecodeInstructionShort bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg);
-BytecodeInstructionLong bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);
+BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);
 BytecodeInstructionShort bytecodeInstructionCreateMiscNop(void);
 BytecodeInstructionShort bytecodeInstructionCreateMiscSyscall(void);
-BytecodeInstructionLong bytecodeInstructionCreateMiscSet(BytecodeRegister destReg, uint8_t value);
+BytecodeInstructionStandard bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
+void bytecodeInstructionCreateMiscSet16(BytecodeInstructionLong instruction, BytecodeRegister destReg, uint16_t value);
 
 #endif
