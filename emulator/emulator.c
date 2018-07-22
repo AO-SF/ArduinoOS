@@ -149,11 +149,20 @@ bool processRunNextInstruction(Process *process) {
 					if (verbose)
 						printf("r%i=~r%i (=~%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, opA, process->regs[info.d.alu.destReg]);
 				break;
-				case BytecodeInstructionAluTypeCmp:
-					// TODO: this
-					printf("Unimplemented instruction CMP\n");
-					return false;
-				break;
+				case BytecodeInstructionAluTypeCmp: {
+					ByteCodeWord *d=&process->regs[info.d.alu.destReg];
+					*d=0;
+					*d|=(opA==opB)<<BytecodeInstructionAluCmpBitEqual;
+					*d|=(opA==0)<<BytecodeInstructionAluCmpBitEqualZero;
+					*d|=(opA!=opB)<<BytecodeInstructionAluCmpBitNotEqual;
+					*d|=(opA!=0)<<BytecodeInstructionAluCmpBitNotEqualZero;
+					*d|=(opA<opB)<<BytecodeInstructionAluCmpBitLessThan;
+					*d|=(opA<0)<<BytecodeInstructionAluCmpBitLessThanZero;
+					*d|=(opA<=opB)<<BytecodeInstructionAluCmpBitLessEqual;
+					*d|=(opA>opB)<<BytecodeInstructionAluCmpBitGreaterThan;
+					*d|=(opA>0)<<BytecodeInstructionAluCmpBitGreaterThanZero;
+					*d|=(opA>=opB)<<BytecodeInstructionAluCmpBitGreaterEqual;
+				} break;
 				case BytecodeInstructionAluTypeShiftLeft:
 					process->regs[info.d.alu.destReg]=opA<<opB;
 					if (verbose)
