@@ -16,6 +16,8 @@ typedef enum {
 	BytecodeRegisterNB,
 } BytecodeRegister;
 
+#define ByteCodeRegisterIP BytecodeRegister7
+
 typedef enum {
 	BytecodeInstructionTypeMemory,
 	BytecodeInstructionTypeAlu,
