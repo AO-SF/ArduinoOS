@@ -10,6 +10,7 @@
 
 typedef enum {
 	AssemblerInstructionTypeDefine,
+	AssemblerInstructionTypeMov,
 	AssemblerInstructionTypeSyscall,
 } AssemblerInstructionType;
 
@@ -20,11 +21,17 @@ typedef struct {
 } AssemblerInstructionDefine;
 
 typedef struct {
+	const char *dest;
+	const char *src;
+} AssemblerInstructionMov;
+
+typedef struct {
 	uint16_t lineIndex;
 	char *modifiedLineCopy; // so we can have fields pointing into this
 	AssemblerInstructionType type;
 	union {
 		AssemblerInstructionDefine define;
+		AssemblerInstructionMov mov;
 	} d;
 } AssemblerInstruction;
 
@@ -278,6 +285,24 @@ int main(int argc, char **argv) {
 
 			instruction->d.define.totalSize=instruction->d.define.membSize*instruction->d.define.len;
 			instruction->d.define.symbol=symbol;
+		} else if (strcmp(first, "mov")==0) {
+			char *dest=strtok_r(NULL, " ", &savePtr);
+			if (dest==NULL) {
+				printf("error - expected dest after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				goto done;
+			}
+			char *src=strtok_r(NULL, " ", &savePtr);
+			if (src==NULL) {
+				printf("error - expected src after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
+				goto done;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeMov;
+			instruction->d.mov.dest=dest;
+			instruction->d.mov.src=src;
 		} else if (strcmp(first, "syscall")==0) {
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
 			instruction->lineIndex=i;
@@ -286,7 +311,7 @@ int main(int argc, char **argv) {
 		} else {
 			printf("error - unknown/unimplemented instruction '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
 			free(lineCopy);
-			// goto done; TODO: put this back once we have implemented a few more instructions
+			goto done;
 		}
 	}
 
@@ -318,6 +343,9 @@ int main(int argc, char **argv) {
 							printf("=%c", value);
 					}
 					printf("] (%u:'%s')\n", line->lineNum, line->original);
+				break;
+				case AssemblerInstructionTypeMov:
+					printf("	%6u: mov %s=%s (%u:'%s')\n", i, instruction->d.mov.dest, instruction->d.mov.src, line->lineNum, line->original);
 				break;
 				case AssemblerInstructionTypeSyscall:
 					printf("	%6u: syscall (%u:'%s')\n", i, line->lineNum, line->original);
