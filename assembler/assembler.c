@@ -43,13 +43,14 @@ typedef struct {
 
 int main(int argc, char **argv) {
 	// Parse arguments
-	if (argc!=3) {
-		printf("Usage: %s inputfile outputfile\n", argv[0]);
+	if (argc!=3 && argc!=4) {
+		printf("Usage: %s inputfile outputfile [--verbose]\n", argv[0]);
 		return 1;
 	}
 
 	const char *inputPath=argv[1];
 	const char *outputPath=argv[2];
+	bool verbose=(argc==4 && strcmp(argv[3], "--verbose")==0);
 
 	// Parse input file
 	FILE *inputFile=fopen(inputPath, "r");
@@ -147,12 +148,14 @@ int main(int argc, char **argv) {
 	}
 
 	// Output
-	printf("Non-blank input lines:\n");
-	for(unsigned i=0; i<program->linesNext; ++i) {
-		AssemblerLine *assemblerLine=program->lines[i];
+	if (verbose) {
+		printf("Non-blank input lines:\n");
+		for(unsigned i=0; i<program->linesNext; ++i) {
+			AssemblerLine *assemblerLine=program->lines[i];
 
-		if (strlen(assemblerLine->modified)>0)
-			printf("	%6u: '%s' -> '%s'\n", assemblerLine->lineNum, assemblerLine->original, assemblerLine->modified);
+			if (strlen(assemblerLine->modified)>0)
+				printf("	%6u: '%s' -> '%s'\n", assemblerLine->lineNum, assemblerLine->original, assemblerLine->modified);
+		}
 	}
 
 	// Parse lines
@@ -282,33 +285,35 @@ int main(int argc, char **argv) {
 	}
 
 	// Output
-	printf("Instructions:\n");
-	for(unsigned i=0; i<program->instructionsNext; ++i) {
-		AssemblerInstruction *instruction=&program->instructions[i];
-		AssemblerLine *line=program->lines[instruction->lineIndex];
+	if (verbose) {
+		printf("Instructions:\n");
+		for(unsigned i=0; i<program->instructionsNext; ++i) {
+			AssemblerInstruction *instruction=&program->instructions[i];
+			AssemblerLine *line=program->lines[instruction->lineIndex];
 
-		switch(instruction->type) {
-			case AssemblerInstructionTypeDefine:
-				printf("	%6u: define membSize=%u, len=%u, totalSize=%u, symbol=%s data=[", i, instruction->d.define.membSize, instruction->d.define.len, instruction->d.define.totalSize, instruction->d.define.symbol);
-				for(unsigned j=0; j<instruction->d.define.len; j++) {
-					unsigned value;
-					switch(instruction->d.define.membSize) {
-						case 1:
-							value=instruction->d.define.data[j];
-						break;
-						case 2:
-							value=(((uint16_t)instruction->d.define.data[j*instruction->d.define.membSize])<<8)|(instruction->d.define.data[j*instruction->d.define.membSize+1]);
-						break;
-						default: assert(false); break; // TODO: handle better
+			switch(instruction->type) {
+				case AssemblerInstructionTypeDefine:
+					printf("	%6u: define membSize=%u, len=%u, totalSize=%u, symbol=%s data=[", i, instruction->d.define.membSize, instruction->d.define.len, instruction->d.define.totalSize, instruction->d.define.symbol);
+					for(unsigned j=0; j<instruction->d.define.len; j++) {
+						unsigned value;
+						switch(instruction->d.define.membSize) {
+							case 1:
+								value=instruction->d.define.data[j];
+							break;
+							case 2:
+								value=(((uint16_t)instruction->d.define.data[j*instruction->d.define.membSize])<<8)|(instruction->d.define.data[j*instruction->d.define.membSize+1]);
+							break;
+							default: assert(false); break; // TODO: handle better
+						}
+						if (j>0)
+							printf(", ");
+						printf("%u", value);
+						if (instruction->d.define.membSize==1 && isgraph(value))
+							printf("=%c", value);
 					}
-					if (j>0)
-						printf(", ");
-					printf("%u", value);
-					if (instruction->d.define.membSize==1 && isgraph(value))
-						printf("=%c", value);
-				}
-				printf("] (%u:'%s')\n", line->lineNum, line->original);
-			break;
+					printf("] (%u:'%s')\n", line->lineNum, line->original);
+				break;
+			}
 		}
 	}
 
