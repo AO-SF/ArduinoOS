@@ -2,7 +2,7 @@ CPP = clang
 CFLAGS = -std=gnu11 -Wall -O0 -ggdb3 -I../lib
 LFLAGS = -lm
 
-OBJS = emulator.o
+OBJS = emulator.o ../kernel/bytecode.o
 
 ALL: $(OBJS)
 	$(CPP) $(CFLAGS) $(OBJS) -o ../bin/emulator $(LFLAGS)
