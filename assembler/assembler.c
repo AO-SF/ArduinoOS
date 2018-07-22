@@ -10,6 +10,7 @@
 
 typedef enum {
 	AssemblerInstructionTypeDefine,
+	AssemblerInstructionTypeSyscall,
 } AssemblerInstructionType;
 
 typedef struct {
@@ -277,6 +278,11 @@ int main(int argc, char **argv) {
 
 			instruction->d.define.totalSize=instruction->d.define.membSize*instruction->d.define.len;
 			instruction->d.define.symbol=symbol;
+		} else if (strcmp(first, "syscall")==0) {
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeSyscall;
 		} else {
 			printf("error - unknown/unimplemented instruction '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
 			free(lineCopy);
@@ -312,6 +318,9 @@ int main(int argc, char **argv) {
 							printf("=%c", value);
 					}
 					printf("] (%u:'%s')\n", line->lineNum, line->original);
+				break;
+				case AssemblerInstructionTypeSyscall:
+					printf("	%6u: syscall (%u:'%s')\n", i, line->lineNum, line->original);
 				break;
 			}
 		}
