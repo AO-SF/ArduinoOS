@@ -202,6 +202,12 @@ bool processRunNextInstruction(Process *process) {
 								printf("syscall(id=%i [exit], status=%u)\n", syscallId, process->regs[1]);
 							return false;
 						break;
+						case 1337:
+							if (verbose)
+								printf("syscall(id=%i [temp. decimal print], value=%u)\n", syscallId, process->regs[1]);
+
+							printf("%i\n", process->regs[1]);
+						break;
 						default:
 							if (verbose)
 								printf("syscall(id=%i [unknown])\n", syscallId);
