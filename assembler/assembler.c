@@ -169,6 +169,8 @@ int assemblerGetDefineSymbolAddr(const AssemblerProgram *program, const char *sy
 int assemblerGetLabelSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found
 int assemblerGetLabelSymbolAddr(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found, otherwise result points into read-only program memory
 
+BytecodeRegister assemblerRegisterFromStr(const char *str); // Returns BytecodeRegisterNB on failure
+
 int main(int argc, char **argv) {
 	// Parse arguments
 	if (argc!=3 && argc!=4) {
@@ -851,24 +853,21 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			break;
 			case AssemblerInstructionTypeMov: {
 				// Verify dest is a valid register
-				if (instruction->d.mov.dest[0]!='r' || (instruction->d.mov.dest[1]<'0' || instruction->d.mov.dest[1]>'7') || instruction->d.mov.dest[2]!='\0') {
+				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.mov.dest);
+				if (destReg==BytecodeRegisterNB) {
 					printf("error - expected register (r0-r7) as destination, instead got '%s' (%s:%u '%s')\n", instruction->d.mov.dest, line->file, line->lineNum, line->original);
 					return false;
 				}
 
-				BytecodeRegister destReg=(instruction->d.mov.dest[1]-'0');
-
 				// Determine type of src
+				BytecodeRegister srcReg;
 				if (isdigit(instruction->d.mov.src[0])) {
 					// Integer - use set16 instruction
 					unsigned value=atoi(instruction->d.mov.src);
 					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
-				} else if (instruction->d.mov.src[0]=='r' && (instruction->d.mov.src[1]>='0' && instruction->d.mov.src[1]<='7') && instruction->d.mov.src[2]=='\0') {
-					// Register - use dest=src|src as a copy
-					// also add a nop to pad to 3 bytes
-					BytecodeRegister srcReg=instruction->d.mov.src[1]-'0';
+				} else if ((srcReg=assemblerRegisterFromStr(instruction->d.mov.src))!=BytecodeRegisterNB) {
+					// Register - use dest=src|src as a copy, and add a nop to pad to 3 bytes
 					BytecodeInstructionStandard copyOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, destReg, srcReg, srcReg);
-
 					instruction->machineCode[0]=(copyOp>>8);
 					instruction->machineCode[1]=(copyOp&0xFF);
 					instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
@@ -898,7 +897,6 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
 				} else if (instruction->d.mov.src[0]=='_' || isalnum(instruction->d.mov.src[0])) {
 					// Symbol
-
 					int addr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src);
 					if (addr==-1) {
 						printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
@@ -918,23 +916,16 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			break;
 			case AssemblerInstructionTypeAlu: {
 				// Verify dest is a valid register
-				if (instruction->d.alu.dest[0]!='r' || (instruction->d.alu.dest[1]<'0' || instruction->d.alu.dest[1]>'7') || instruction->d.alu.dest[2]!='\0') {
+				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.alu.dest);
+				if (destReg==BytecodeRegisterNB) {
 					printf("error - expected register (r0-r7) as destination, instead got '%s' (%s:%u '%s')\n", instruction->d.alu.dest, line->file, line->lineNum, line->original);
 					return false;
 				}
 
-				BytecodeRegister destReg=(instruction->d.alu.dest[1]-'0');
-
 				// Read operand registers
 				// TODO: This better (i.e. check how many we expect and error if not enough)
-				BytecodeRegister opAReg=BytecodeRegister0;
-				BytecodeRegister opBReg=BytecodeRegister0;
-
-				if (instruction->d.alu.opA!=NULL && instruction->d.alu.opA[0]=='r' && (instruction->d.alu.opA[1]>='0' && instruction->d.alu.opA[1]<='7') && instruction->d.alu.opA[2]=='\0')
-					opAReg=(instruction->d.alu.opA[1]-'0');
-
-				if (instruction->d.alu.opB!=NULL && instruction->d.alu.opB[0]=='r' && (instruction->d.alu.opB[1]>='0' && instruction->d.alu.opB[1]<='7') && instruction->d.alu.opB[2]=='\0')
-					opBReg=(instruction->d.alu.opB[1]-'0');
+				BytecodeRegister opAReg=assemblerRegisterFromStr(instruction->d.alu.opA);
+				BytecodeRegister opBReg=assemblerRegisterFromStr(instruction->d.alu.opB);
 
 				// Create instruction
 				if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip)
@@ -963,12 +954,11 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			} break;
 			case AssemblerInstructionTypePush: {
 				// Verify src is a valid register
-				if (instruction->d.push.src[0]!='r' || (instruction->d.push.src[1]<'0' || instruction->d.push.src[1]>'7') || instruction->d.push.src[2]!='\0') {
+				BytecodeRegister srcReg=assemblerRegisterFromStr(instruction->d.push.src);
+				if (srcReg==BytecodeRegisterNB) {
 					printf("error - expected register (r0-r7) as src, instead got '%s' (%s:%u '%s')\n", instruction->d.push.src, line->file, line->lineNum, line->original);
 					return false;
 				}
-
-				BytecodeRegister srcReg=(instruction->d.push.src[1]-'0');
 
 				// Create as two instructions: store16 SP srcReg; inc2 SP
 				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, ByteCodeRegisterSP, srcReg, 0);
@@ -981,12 +971,11 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			} break;
 			case AssemblerInstructionTypePop: {
 				// Verify dest is a valid register
-				if (instruction->d.pop.dest[0]!='r' || (instruction->d.pop.dest[1]<'0' || instruction->d.pop.dest[1]>'7') || instruction->d.pop.dest[2]!='\0') {
+				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.pop.dest);
+				if (destReg==BytecodeRegisterNB) {
 					printf("error - expected register (r0-r7) as dest, instead got '%s' (%s:%u '%s')\n", instruction->d.pop.dest, line->file, line->lineNum, line->original);
 					return false;
 				}
-
-				BytecodeRegister destReg=(instruction->d.pop.dest[1]-'0');
 
 				// Create as two instructions: dec2 SP; load16 destReg SP
 				BytecodeInstructionStandard dec2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 2);
@@ -1036,18 +1025,17 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			} break;
 			case AssemblerInstructionTypeStore8: {
 				// Verify dest and src are valid registers
-				if (instruction->d.store8.dest[0]!='r' || (instruction->d.store8.dest[1]<'0' || instruction->d.store8.dest[1]>'7') || instruction->d.store8.dest[2]!='\0') {
+				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.store8.dest);
+				if (destReg==BytecodeRegisterNB) {
 					printf("error - expected register (r0-r7) as destination address, instead got '%s' (%s:%u '%s')\n", instruction->d.store8.dest, line->file, line->lineNum, line->original);
 					return false;
 				}
 
-				if (instruction->d.store8.src[0]!='r' || (instruction->d.store8.src[1]<'0' || instruction->d.store8.src[1]>'7') || instruction->d.store8.src[2]!='\0') {
+				BytecodeRegister srcReg=assemblerRegisterFromStr(instruction->d.store8.src);
+				if (srcReg==BytecodeRegisterNB) {
 					printf("error - expected register (r0-r7) as src, instead got '%s' (%s:%u '%s')\n", instruction->d.store8.src, line->file, line->lineNum, line->original);
 					return false;
 				}
-
-				BytecodeRegister destReg=(instruction->d.store8.dest[1]-'0');
-				BytecodeRegister srcReg=(instruction->d.store8.src[1]-'0');
 
 				// Create instruction
 				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeStore, destReg, srcReg);
@@ -1251,4 +1239,11 @@ int assemblerGetLabelSymbolAddr(const AssemblerProgram *program, const char *sym
 		return -1;
 
 	return program->instructions[index].machineCodeOffset;
+}
+
+BytecodeRegister assemblerRegisterFromStr(const char *str) {
+	if (str==NULL || str[0]!='r' || (str[1]<'0' || str[1]>'7') || str[2]!='\0')
+		return BytecodeRegisterNB;
+	else
+		return str[1]-'0';
 }
