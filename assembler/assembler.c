@@ -141,7 +141,6 @@ typedef struct {
 } AssemblerProgram;
 
 AssemblerProgram *assemblerProgramNew(void);
-AssemblerProgram *assemblerProgramNewFromFile(const char *path);
 void assemblerProgramFree(AssemblerProgram *program);
 
 void assemblerInsertLine(AssemblerProgram *program, AssemblerLine *line, int offset);
@@ -182,10 +181,14 @@ int main(int argc, char **argv) {
 	const char *outputPath=argv[2];
 	bool verbose=(argc==4 && strcmp(argv[3], "--verbose")==0);
 
-	// Load program
-	AssemblerProgram *program=assemblerProgramNewFromFile(inputPath);
+	// Create program struct
+	AssemblerProgram *program=assemblerProgramNew();
 	if (program==NULL)
-		return 1;
+		goto done;
+
+	// Read input file line-by-line
+	if (!assemblerInsertLinesFromFile(program, inputPath, 0))
+		goto done;
 
 	// Preprocess (handle whitespace, includes etc)
 	bool change;
@@ -256,25 +259,6 @@ AssemblerProgram *assemblerProgramNew(void) {
 	program->instructionsNext=0;
 
 	return program;
-}
-
-AssemblerProgram *assemblerProgramNewFromFile(const char *path) {
-	assert(path!=NULL);
-
-	// Create program struct
-	AssemblerProgram *program=assemblerProgramNew();
-	if (program==NULL)
-		goto error;
-
-	// Read file line-by-line
-	if (!assemblerInsertLinesFromFile(program, path, 0))
-		goto error;
-
-	return program;
-
-	error:
-	assemblerProgramFree(program);
-	return NULL;
 }
 
 void assemblerProgramFree(AssemblerProgram *program) {
