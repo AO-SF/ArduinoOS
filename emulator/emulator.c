@@ -12,6 +12,8 @@ typedef struct {
 
 	uint8_t progmem[65536];
 	uint8_t ram[65536];
+
+	bool skipFlag; // skip next instruction?
 } Process;
 
 Process *process=NULL;
@@ -49,6 +51,7 @@ int main(int argc, char **argv) {
 	}
 
 	process->regs[ByteCodeRegisterIP]=0;
+	process->skipFlag=false;
 
 	// Read-in input file
 	inputFile=fopen(inputPath, "r");
@@ -94,6 +97,13 @@ bool processRunNextInstruction(Process *process) {
 		if (verbose)
 			printf("Invalid instruction\n");
 		return false;
+	}
+
+	if (process->skipFlag) {
+		if (verbose)
+			printf("skipping\n");
+		process->skipFlag=false;
+		return true;
 	}
 
 	switch(info.type) {
@@ -190,6 +200,12 @@ bool processRunNextInstruction(Process *process) {
 					if (verbose)
 						printf("r%i=r%i>>r%i (=%i>>%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
+				case BytecodeInstructionAluTypeSkip: {
+					process->skipFlag=(process->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg));
+
+					if (verbose)
+						printf("skip%u r%i (=%i, %s, skip=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, process->regs[info.d.alu.destReg], byteCodeInstructionAluCmpBitStrings[info.d.alu.opAReg], process->skipFlag);
+				} break;
 			}
 		} break;
 		case BytecodeInstructionTypeMisc:

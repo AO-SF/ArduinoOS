@@ -86,6 +86,7 @@ typedef enum {
 	BytecodeInstructionAluTypeCmp,
 	BytecodeInstructionAluTypeShiftLeft,
 	BytecodeInstructionAluTypeShiftRight,
+	BytecodeInstructionAluTypeSkip,
 } BytecodeInstructionAluType;
 
 typedef struct {
