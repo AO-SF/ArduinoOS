@@ -609,6 +609,30 @@ int main(int argc, char **argv) {
 								instruction->machineCode[0]=(copyOp>>8);
 								instruction->machineCode[1]=(copyOp&0xFF);
 								instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
+							} else if (instruction->d.mov.src[0]=='\'') {
+								char c=instruction->d.mov.src[1];
+								if (!isprint(c) || c=='\'' || instruction->d.mov.src[strlen(instruction->d.mov.src)-1]!='\'') {
+									printf("error - bad character constant '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+									goto done;
+								}
+
+								if (c=='\\') {
+									c=instruction->d.mov.src[2];
+									switch(c) {
+										case 'n': c='\n'; break;
+										case 'r': c='\r'; break;
+										case 't': c='\t'; break;
+										default:
+											printf("error - bad escaped character constant '%s' (expecting n, r or t) (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+											goto done;
+										break;
+									}
+								}
+
+								BytecodeInstructionStandard set8Op=bytecodeInstructionCreateMiscSet8(destReg, c);
+								instruction->machineCode[0]=(set8Op>>8);
+								instruction->machineCode[1]=(set8Op&0xFF);
+								instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
 							} else if (instruction->d.mov.src[0]=='_' || isalnum(instruction->d.mov.src[0])) {
 								// Symbol
 
