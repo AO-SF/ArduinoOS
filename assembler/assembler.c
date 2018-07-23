@@ -10,6 +10,37 @@
 
 #define AssemblerLinesMax 65536
 
+typedef struct {
+	BytecodeInstructionAluType type;
+	const char *str;
+	unsigned ops;
+	unsigned skipBit;
+} AssemblerInstructionAluData;
+
+const AssemblerInstructionAluData assemblerInstructionAluData[]={
+	{.type=BytecodeInstructionAluTypeInc, .str="inc", .ops=0},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec", .ops=0},
+	{.type=BytecodeInstructionAluTypeAdd, .str="add", .ops=2},
+	{.type=BytecodeInstructionAluTypeSub, .str="sub", .ops=2},
+	{.type=BytecodeInstructionAluTypeMul, .str="mul", .ops=2},
+	{.type=BytecodeInstructionAluTypeDiv, .str="div", .ops=2},
+	{.type=BytecodeInstructionAluTypeXor, .str="xor", .ops=2},
+	{.type=BytecodeInstructionAluTypeOr, .str="or", .ops=2},
+	{.type=BytecodeInstructionAluTypeAnd, .str="and", .ops=2},
+	{.type=BytecodeInstructionAluTypeNot, .str="not", .ops=1},
+	{.type=BytecodeInstructionAluTypeCmp, .str="cmp", .ops=2},
+	{.type=BytecodeInstructionAluTypeShiftLeft, .str="shl", .ops=2},
+	{.type=BytecodeInstructionAluTypeShiftRight, .str="shr", .ops=2},
+	{.type=BytecodeInstructionAluTypeSkip, .str="skipeq", .ops=1, .skipBit=BytecodeInstructionAluCmpBitEqual},
+	{.type=BytecodeInstructionAluTypeSkip, .str="skipeqz", .ops=1, .skipBit=BytecodeInstructionAluCmpBitEqualZero},
+	{.type=BytecodeInstructionAluTypeSkip, .str="skipneq", .ops=1, .skipBit=BytecodeInstructionAluCmpBitNotEqual},
+	{.type=BytecodeInstructionAluTypeSkip, .str="skipneqz", .ops=1, .skipBit=BytecodeInstructionAluCmpBitNotEqualZero},
+	{.type=BytecodeInstructionAluTypeSkip, .str="skiplt", .ops=1, .skipBit=BytecodeInstructionAluCmpBitLessThan},
+	{.type=BytecodeInstructionAluTypeSkip, .str="skiple", .ops=1, .skipBit=BytecodeInstructionAluCmpBitLessEqual},
+	{.type=BytecodeInstructionAluTypeSkip, .str="skipgt", .ops=1, .skipBit=BytecodeInstructionAluCmpBitGreaterThan},
+	{.type=BytecodeInstructionAluTypeSkip, .str="skipge", .ops=1, .skipBit=BytecodeInstructionAluCmpBitGreaterEqual},
+};
+
 typedef enum {
 	AssemblerInstructionTypeDefine,
 	AssemblerInstructionTypeMov,
@@ -348,50 +379,6 @@ int main(int argc, char **argv) {
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeSyscall;
-		} else if (strcmp(first, "cmp")==0 || strcmp(first, "shr")==0 || strcmp(first, "and")==0 || strcmp(first, "mul")==0 || strcmp(first, "add")==0 || strcmp(first, "skiplt")==0) {
-			char *dest=strtok_r(NULL, " ", &savePtr);
-			if (dest==NULL) {
-				printf("error - expected dest after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
-			}
-
-			char *opA=NULL, *opB=NULL;
-
-			if (strcmp(first, "skiplt")!=0) {
-				opA=strtok_r(NULL, " ", &savePtr);
-				if (opA==NULL) {
-					printf("error - expected operand A after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
-					goto done;
-				}
-
-				opB=strtok_r(NULL, " ", &savePtr);
-				if (opB==NULL) {
-					printf("error - expected operand B after '%s' (%u:'%s')\n", opA, assemblerLine->lineNum, assemblerLine->original);
-					goto done;
-				}
-			}
-
-			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
-			instruction->lineIndex=i;
-			instruction->modifiedLineCopy=lineCopy;
-			instruction->type=AssemblerInstructionTypeAlu;
-			if (strcmp(first, "cmp")==0)
-				instruction->d.alu.type=BytecodeInstructionAluTypeCmp;
-			else if (strcmp(first, "shr")==0)
-				instruction->d.alu.type=BytecodeInstructionAluTypeShiftRight;
-			else if (strcmp(first, "and")==0)
-				instruction->d.alu.type=BytecodeInstructionAluTypeAnd;
-			else if (strcmp(first, "mul")==0)
-				instruction->d.alu.type=BytecodeInstructionAluTypeMul;
-			else if (strcmp(first, "add")==0)
-				instruction->d.alu.type=BytecodeInstructionAluTypeAdd;
-			else if (strcmp(first, "skiplt")==0) {
-				instruction->d.alu.type=BytecodeInstructionAluTypeSkip;
-				instruction->d.alu.skipBit=BytecodeInstructionAluCmpBitLessThan;
-			}
-			instruction->d.alu.dest=dest;
-			instruction->d.alu.opA=opA;
-			instruction->d.alu.opB=opB;
 		} else if (strcmp(first, "jmp")==0) {
 			char *addr=strtok_r(NULL, " ", &savePtr);
 			if (addr==NULL) {
@@ -405,9 +392,53 @@ int main(int argc, char **argv) {
 			instruction->type=AssemblerInstructionTypeJmp;
 			instruction->d.jmp.addr=addr;
 		} else {
-			printf("error - unknown/unimplemented instruction '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-			free(lineCopy);
-			goto done;
+			// Check for an ALU operation
+			unsigned j;
+			for(j=0; j<sizeof(assemblerInstructionAluData)/sizeof(assemblerInstructionAluData[0]); ++j)
+				if (strcmp(first, assemblerInstructionAluData[j].str)==0)
+					break;
+
+			if (j!=sizeof(assemblerInstructionAluData)/sizeof(assemblerInstructionAluData[0])) {
+				// ALU op
+				char *dest=strtok_r(NULL, " ", &savePtr);
+				if (dest==NULL) {
+					printf("error - expected dest after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+					goto done;
+				}
+
+				char *opA=NULL, *opB=NULL;
+
+				if (assemblerInstructionAluData[j].ops>=1) {
+					opA=strtok_r(NULL, " ", &savePtr);
+					if (opA==NULL) {
+						printf("error - expected operand A after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
+						goto done;
+					}
+				}
+
+				if (assemblerInstructionAluData[j].ops>=2) {
+					opB=strtok_r(NULL, " ", &savePtr);
+					if (opB==NULL) {
+						printf("error - expected operand B after '%s' (%u:'%s')\n", opA, assemblerLine->lineNum, assemblerLine->original);
+						goto done;
+					}
+				}
+
+				AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+				instruction->lineIndex=i;
+				instruction->modifiedLineCopy=lineCopy;
+				instruction->type=AssemblerInstructionTypeAlu;
+				instruction->d.alu.type=assemblerInstructionAluData[j].type;
+				if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip)
+					instruction->d.alu.skipBit=assemblerInstructionAluData[j].skipBit;
+				instruction->d.alu.dest=dest;
+				instruction->d.alu.opA=opA;
+				instruction->d.alu.opB=opB;
+			} else {
+				printf("error - unknown/unimplemented instruction '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				free(lineCopy);
+				goto done;
+			}
 		}
 	}
 
