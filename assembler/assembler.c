@@ -53,6 +53,8 @@ typedef enum {
 	AssemblerInstructionTypeSyscall,
 	AssemblerInstructionTypeAlu,
 	AssemblerInstructionTypeJmp,
+	AssemblerInstructionTypePush,
+	AssemblerInstructionTypePop,
 } AssemblerInstructionType;
 
 typedef struct {
@@ -84,6 +86,14 @@ typedef struct {
 } AssemblerInstructionJmp;
 
 typedef struct {
+	const char *src;
+} AssemblerInstructionPush;
+
+typedef struct {
+	const char *dest;
+} AssemblerInstructionPop;
+
+typedef struct {
 	uint16_t lineIndex;
 	char *modifiedLineCopy; // so we can have fields pointing into this
 	AssemblerInstructionType type;
@@ -93,6 +103,8 @@ typedef struct {
 		AssemblerInstructionLabel label;
 		AssemblerInstructionAlu alu;
 		AssemblerInstructionJmp jmp;
+		AssemblerInstructionPush push;
+		AssemblerInstructionPop pop;
 	} d;
 
 	uint8_t machineCode[1024]; // TODO: this is pretty wasteful...
@@ -397,6 +409,30 @@ int main(int argc, char **argv) {
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeJmp;
 			instruction->d.jmp.addr=addr;
+		} else if (strcmp(first, "push")==0) {
+			char *src=strtok_r(NULL, " ", &savePtr);
+			if (src==NULL) {
+				printf("error - expected src register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				goto done;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypePush;
+			instruction->d.push.src=src;
+		} else if (strcmp(first, "pop")==0) {
+			char *dest=strtok_r(NULL, " ", &savePtr);
+			if (dest==NULL) {
+				printf("error - expected dest register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				goto done;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypePop;
+			instruction->d.pop.dest=dest;
 		} else {
 			// Check for an ALU operation
 			unsigned j;
@@ -633,6 +669,58 @@ int main(int argc, char **argv) {
 						} break;
 					}
 				break;
+				case AssemblerInstructionTypePush:
+					switch(genPass) {
+						case 0:
+							// Reserve four bytes (store16 + inc2)
+							instruction->machineCodeLen=4;
+						break;
+						case 2: {
+							// Verify src is a valid register
+							if (instruction->d.push.src[0]!='r' || (instruction->d.push.src[1]<'0' || instruction->d.push.src[1]>'7') || instruction->d.push.src[2]!='\0') {
+								printf("error - expected register (r0-r7) as src, instead got '%s' (%u:'%s')\n", instruction->d.push.src, line->lineNum, line->original);
+								goto done;
+							}
+
+							BytecodeRegister srcReg=(instruction->d.push.src[1]-'0');
+
+							// Create as two instructions: store16 SP srcReg; inc2 SP
+							BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, ByteCodeRegisterSP, srcReg, 0);
+							instruction->machineCode[0]=(store16Op>>8);
+							instruction->machineCode[1]=(store16Op&0xFF);
+
+							BytecodeInstructionStandard inc2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterSP, 2);
+							instruction->machineCode[2]=(inc2Op>>8);
+							instruction->machineCode[3]=(inc2Op&0xFF);
+						} break;
+					}
+				break;
+				case AssemblerInstructionTypePop:
+					switch(genPass) {
+						case 0:
+							// Reserve four bytes (dec2 + load16)
+							instruction->machineCodeLen=4;
+						break;
+						case 2: {
+							// Verify dest is a valid register
+							if (instruction->d.pop.dest[0]!='r' || (instruction->d.pop.dest[1]<'0' || instruction->d.pop.dest[1]>'7') || instruction->d.pop.dest[2]!='\0') {
+								printf("error - expected register (r0-r7) as dest, instead got '%s' (%u:'%s')\n", instruction->d.pop.dest, line->lineNum, line->original);
+								goto done;
+							}
+
+							BytecodeRegister destReg=(instruction->d.pop.dest[1]-'0');
+
+							// Create as two instructions: dec2 SP; load16 destReg SP
+							BytecodeInstructionStandard dec2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 2);
+							instruction->machineCode[0]=(dec2Op>>8);
+							instruction->machineCode[1]=(dec2Op&0xFF);
+
+							BytecodeInstructionStandard loadOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, destReg, ByteCodeRegisterSP, 0);
+							instruction->machineCode[2]=(loadOp>>8);
+							instruction->machineCode[3]=(loadOp&0xFF);
+						} break;
+					}
+				break;
 			}
 		}
 	}
@@ -740,6 +828,12 @@ int main(int argc, char **argv) {
 				break;
 				case AssemblerInstructionTypeJmp:
 					printf("jmp %s (%u:'%s')\n", instruction->d.jmp.addr, line->lineNum, line->original);
+				break;
+				case AssemblerInstructionTypePush:
+					printf("push %s (%u:'%s')\n", instruction->d.push.src, line->lineNum, line->original);
+				break;
+				case AssemblerInstructionTypePop:
+					printf("pop %s (%u:'%s')\n", instruction->d.pop.dest, line->lineNum, line->original);
 				break;
 			}
 		}

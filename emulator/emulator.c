@@ -54,6 +54,7 @@ int main(int argc, char **argv) {
 		goto done;
 	}
 
+	process->regs[ByteCodeRegisterSP]=0;
 	process->regs[ByteCodeRegisterIP]=0;
 	process->skipFlag=false;
 	process->instructionCount=0;
@@ -338,6 +339,7 @@ void processDebug(const Process *process) {
 	printf("Info:\n");
 	printf("	PID: %u\n", process->pid);
 	printf("	IP: %u\n", process->regs[ByteCodeRegisterIP]);
+	printf("	SP: %u\n", process->regs[ByteCodeRegisterSP]);
 	printf("	Instruction count: %u\n", process->instructionCount);
 	printf("	Regs:");
 	for(int i=0; i<8; ++i)
