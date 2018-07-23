@@ -18,6 +18,8 @@ typedef enum {
 	BytecodeRegisterNB,
 } BytecodeRegister;
 
+#define ByteCodeRegisterS BytecodeRegister5
+#define ByteCodeRegisterSP BytecodeRegister6
 #define ByteCodeRegisterIP BytecodeRegister7
 
 typedef enum {
