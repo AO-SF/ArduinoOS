@@ -46,11 +46,24 @@ mov r2 0 ; print flag set once we have found a non-zero digit
 label printDecLoopStart
 div r3 r0 r1 ; division to get most significant digit
 
+cmp r4 r3 r3
+skipeqz r4 ; if this digit is zero it may not need printing
+jmp printDecLoopPrintStart
+cmp r4 r2 r2
+skipeqz r4 ; if we have not yet found any significant digits, we may not need to print this one
+jmp printDecLoopPrintStart
+mov r4 1
+cmp r4 r1 r4
+skipneq r4 ; if this not the last digit we do not have to print it
+jmp printDecLoopPrintStart
+jmp printDecLoopPrintEnd ; otherwise avoid printing insignificant 0
+
 label printDecLoopPrintStart
+; protect x, divisor and digit
 push r0
 push r1
 push r3
-
+; print digit
 mov r2 48
 add r3 r3 r2
 mov r2 1024 ; TODO: Use dw to create a symbol for this
@@ -59,11 +72,12 @@ mov r0 257 ; write syscall
 mov r1 1 ; stdout fd
 mov r3 2
 syscall
-
+; restore values
 pop r3
 pop r1
 pop r0
-mov r2 1 ; set print flag
+; set print flag
+mov r2 1
 label printDecLoopPrintEnd
 
 ; Stop once divisor=1
