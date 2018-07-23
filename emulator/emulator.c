@@ -14,6 +14,8 @@ typedef struct {
 	uint8_t ram[65536];
 
 	bool skipFlag; // skip next instruction?
+
+	unsigned instructionCount;
 } Process;
 
 Process *process=NULL;
@@ -52,6 +54,7 @@ int main(int argc, char **argv) {
 
 	process->regs[ByteCodeRegisterIP]=0;
 	process->skipFlag=false;
+	process->instructionCount=0;
 
 	// Read-in input file
 	inputFile=fopen(inputPath, "r");
@@ -261,12 +264,15 @@ bool processRunNextInstruction(Process *process) {
 		break;
 	}
 
+	++process->instructionCount;
+
 	return true;
 }
 
 void processDebug(const Process *process) {
 	printf("Process %p:\n", process);
 	printf("	IP: %u\n", process->regs[ByteCodeRegisterIP]);
+	printf("	Instruction count: %u\n", process->instructionCount);
 	printf("	Regs:");
 	for(int i=0; i<8; ++i)
 		printf(" r%i=%u", i, process->regs[i]);
