@@ -119,6 +119,12 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionAluTypeSkip:
 							disassemblerPrint(addr, instruction, "skip%u r%u (%s)", info.d.alu.opAReg, info.d.alu.destReg, byteCodeInstructionAluCmpBitStrings[info.d.alu.opAReg]);
 						break;
+						case BytecodeInstructionAluTypeStore16:
+							disassemblerPrint(addr, instruction, "[r%u]=r%u (16 bit)", info.d.alu.destReg, info.d.alu.opAReg);
+						break;
+						case BytecodeInstructionAluTypeLoad16:
+							disassemblerPrint(addr, instruction, "r%u=[r%u] (16 bit)", info.d.alu.destReg, info.d.alu.opAReg);
+						break;
 						default:
 							disassemblerPrint(addr, instruction, "unknown ALU operation");
 						break;

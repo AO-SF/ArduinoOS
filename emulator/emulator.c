@@ -212,12 +212,24 @@ bool processRunNextInstruction(Process *process) {
 					if (verbose)
 						printf("Info: r%i=r%i>>r%i (=%i>>%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
-				case BytecodeInstructionAluTypeSkip: {
+				case BytecodeInstructionAluTypeSkip:
 					process->skipFlag=(process->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg));
 
 					if (verbose)
 						printf("Info: skip%u r%i (=%i, %s, skip=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, process->regs[info.d.alu.destReg], byteCodeInstructionAluCmpBitStrings[info.d.alu.opAReg], process->skipFlag);
-				} break;
+				break;
+				case BytecodeInstructionAluTypeStore16:
+					process->ram[process->regs[info.d.alu.destReg]]=(process->regs[info.d.alu.opAReg]>>8);
+					process->ram[process->regs[info.d.alu.destReg]+1]=(process->regs[info.d.alu.opAReg]&0xFF);
+					if (verbose)
+						printf("Info: [r%i]=r%i (16 bit) ([%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.destReg], opA);
+				break;
+				case BytecodeInstructionAluTypeLoad16:
+					process->regs[info.d.alu.destReg]=(((ByteCodeWord)process->ram[process->regs[info.d.alu.opAReg]])<<8) |
+					                                   process->ram[process->regs[info.d.alu.opAReg]+1];
+					if (verbose)
+						printf("Info: r%i=[r%i] (16 bit) (=[%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, opA, process->regs[info.d.alu.destReg]);
+				break;
 			}
 		} break;
 		case BytecodeInstructionTypeMisc:

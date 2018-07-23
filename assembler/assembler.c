@@ -39,6 +39,8 @@ const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeSkip, .str="skiple", .ops=1, .skipBit=BytecodeInstructionAluCmpBitLessEqual},
 	{.type=BytecodeInstructionAluTypeSkip, .str="skipgt", .ops=1, .skipBit=BytecodeInstructionAluCmpBitGreaterThan},
 	{.type=BytecodeInstructionAluTypeSkip, .str="skipge", .ops=1, .skipBit=BytecodeInstructionAluCmpBitGreaterEqual},
+	{.type=BytecodeInstructionAluTypeStore16, .str="store16", .ops=1},
+	{.type=BytecodeInstructionAluTypeLoad16, .str="load16", .ops=1},
 };
 
 typedef enum {
@@ -707,9 +709,14 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionAluTypeShiftRight:
 							printf("%s=%s>>%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
 						break;
-						case BytecodeInstructionAluTypeSkip: {
+						case BytecodeInstructionAluTypeSkip:
 							printf("skip if %s has bit %u set (%s) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.skipBit, byteCodeInstructionAluCmpBitStrings[instruction->d.alu.skipBit], line->lineNum, line->original);
-						}
+						break;
+						case BytecodeInstructionAluTypeStore16:
+							printf("[%s]=%s (16 bit) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
+						break;
+						case BytecodeInstructionAluTypeLoad16:
+							printf("%s=[%s] (16 bit) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
 						break;
 					}
 				break;
