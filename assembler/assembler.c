@@ -1179,17 +1179,21 @@ bool assemblerProgramWriteMachineCode(const AssemblerProgram *program, const cha
 	FILE *file=fopen(path, "w");
 	if (file==NULL) {
 		printf("Could not open output file '%s' for writing\n", path);
-		return false;
+		goto error;
 	}
 
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
 		const AssemblerInstruction *instruction=&program->instructions[i];
-		fwrite(instruction->machineCode, 1, instruction->machineCodeLen, file); // TODO: Check return
+		if (fwrite(instruction->machineCode, 1, instruction->machineCodeLen, file)!=instruction->machineCodeLen)
+			goto error;
 	}
 
 	fclose(file);
-
 	return true;
+
+	error:
+	fclose(file);
+	return false;
 }
 
 int assemblerGetDefineSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol) {
