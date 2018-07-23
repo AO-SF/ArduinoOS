@@ -1,3 +1,5 @@
+ab printDecScratchByte 1
+
 ; Print unsigned decimal routine (takes value x from r0)
 label printDec
 mov r1 10000 ; divisor
@@ -27,7 +29,7 @@ push r3
 ; print digit
 mov r2 '0' ; add '0' to make ascii character
 add r3 r3 r2
-mov r2 1024 ; TODO: Use dw to create a symbol for this
+mov r2 printDecScratchByte
 store8 r2 r3 ; store this character into ram for the write syscall to access
 mov r0 257 ; write syscall
 mov r1 1 ; stdout fd
