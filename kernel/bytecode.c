@@ -1,5 +1,16 @@
 #include "bytecode.h"
 
+const char *byteCodeInstructionAluCmpBitStrings[BytecodeInstructionAluCmpBitNB]={
+	[BytecodeInstructionAluCmpBitEqual]="Equal",
+	[BytecodeInstructionAluCmpBitEqualZero]="EqualZero",
+	[BytecodeInstructionAluCmpBitNotEqual]="NotEqual",
+	[BytecodeInstructionAluCmpBitNotEqualZero]="NotEqualZero",
+	[BytecodeInstructionAluCmpBitLessThan]="LessThan",
+	[BytecodeInstructionAluCmpBitLessEqual]="LessEqual",
+	[BytecodeInstructionAluCmpBitGreaterThan]="GreaterThan",
+	[BytecodeInstructionAluCmpBitGreaterEqual]="GreaterEqual",
+};
+
 BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstructionLong instruction) {
 	if ((instruction[0]>>4)<0xD)
 		return BytecodeInstructionLengthShort;
