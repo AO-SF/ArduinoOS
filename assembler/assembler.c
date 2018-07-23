@@ -166,6 +166,9 @@ bool assemblerProgramWriteMachineCode(const AssemblerProgram *program, const cha
 int assemblerGetDefineSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found
 int assemblerGetDefineSymbolAddr(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found, otherwise result points into read-only program memory
 
+int assemblerGetLabelSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found
+int assemblerGetLabelSymbolAddr(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found, otherwise result points into read-only program memory
+
 int main(int argc, char **argv) {
 	// Parse arguments
 	if (argc!=3 && argc!=4) {
@@ -949,15 +952,8 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			} break;
 			case AssemblerInstructionTypeJmp: {
 				// Search through instructions looking for the label being defined
-				unsigned addr, k;
-				for(k=0; k<program->instructionsNext; ++k) {
-					AssemblerInstruction *loopInstruction=&program->instructions[k];
-					if (loopInstruction->type==AssemblerInstructionTypeLabel && strcmp(loopInstruction->d.label.symbol, instruction->d.jmp.addr)==0) {
-						addr=loopInstruction->machineCodeOffset;
-						break;
-					}
-				}
-				if (k==program->instructionsNext) {
+				int addr=assemblerGetLabelSymbolAddr(program, instruction->d.jmp.addr);
+				if (addr==-1) {
 					printf("error - bad jump label '%s' (%s:%u '%s')\n", instruction->d.jmp.addr, line->file, line->lineNum, line->original);
 					return false;
 				}
@@ -1003,15 +999,8 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			} break;
 			case AssemblerInstructionTypeCall: {
 				// Search through instructions looking for the label being defined
-				unsigned addr, k;
-				for(k=0; k<program->instructionsNext; ++k) {
-					AssemblerInstruction *loopInstruction=&program->instructions[k];
-					if (loopInstruction->type==AssemblerInstructionTypeLabel && strcmp(loopInstruction->d.label.symbol, instruction->d.jmp.addr)==0) {
-						addr=loopInstruction->machineCodeOffset;
-						break;
-					}
-				}
-				if (k==program->instructionsNext) {
+				int addr=assemblerGetLabelSymbolAddr(program, instruction->d.call.label);
+				if (addr==-1) {
 					printf("error - bad call label '%s' (%s:%u '%s')\n", instruction->d.call.label, line->file, line->lineNum, line->original);
 					return false;
 				}
@@ -1233,6 +1222,31 @@ int assemblerGetDefineSymbolAddr(const AssemblerProgram *program, const char *sy
 	assert(symbol!=NULL);
 
 	int index=assemblerGetDefineSymbolInstructionIndex(program, symbol);
+	if (index==-1)
+		return -1;
+
+	return program->instructions[index].machineCodeOffset;
+}
+
+int assemblerGetLabelSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol) {
+	assert(program!=NULL);
+	assert(symbol!=NULL);
+
+	// Search through instructions looking for this symbol being defined
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		const AssemblerInstruction *loopInstruction=&program->instructions[i];
+		if (loopInstruction->type==AssemblerInstructionTypeLabel && strcmp(loopInstruction->d.label.symbol, symbol)==0)
+			return i;
+	}
+
+	return -1;
+}
+
+int assemblerGetLabelSymbolAddr(const AssemblerProgram *program, const char *symbol) {
+	assert(program!=NULL);
+	assert(symbol!=NULL);
+
+	int index=assemblerGetLabelSymbolInstructionIndex(program, symbol);
 	if (index==-1)
 		return -1;
 
