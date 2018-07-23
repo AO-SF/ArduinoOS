@@ -92,6 +92,9 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionAluTypeMul:
 							disassemblerPrint(addr, instruction, "r%u=r%u*r%u", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg);
 						break;
+						case BytecodeInstructionAluTypeDiv:
+							disassemblerPrint(addr, instruction, "r%u=r%u/r%u", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg);
+						break;
 						case BytecodeInstructionAluTypeXor:
 							disassemblerPrint(addr, instruction, "r%u=r%u^r%u", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg);
 						break;

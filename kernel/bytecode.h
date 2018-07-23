@@ -79,6 +79,7 @@ typedef enum {
 	BytecodeInstructionAluTypeAdd,
 	BytecodeInstructionAluTypeSub,
 	BytecodeInstructionAluTypeMul,
+	BytecodeInstructionAluTypeDiv,
 	BytecodeInstructionAluTypeXor,
 	BytecodeInstructionAluTypeOr,
 	BytecodeInstructionAluTypeAnd,
