@@ -187,6 +187,7 @@ int main(int argc, char **argv) {
 	if (program==NULL)
 		return 1;
 
+	// Preprocess (handle whitespace, includes etc)
 	bool change;
 	do {
 		change=false;
