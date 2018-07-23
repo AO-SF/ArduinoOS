@@ -91,8 +91,9 @@ BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluT
 	assert(opAReg<BytecodeRegisterNB);
 	assert(opBReg<BytecodeRegisterNB);
 
-	uint8_t upper=(0xE0|(((uint8_t)type)<<1)|(destReg>>2));
-	uint8_t lower=(((destReg&3)<<6)|(opAReg<<3)|opBReg);
+	uint8_t upper=(((uint8_t)0xE0)|(((uint8_t)type)<<1)|(((uint8_t)destReg)>>2));
+	uint8_t lower=(((((uint8_t)destReg)&3)<<6)|(((uint8_t)opAReg)<<3)|opBReg);
+
 	return (((uint16_t)upper)<<8)|lower;
 }
 
