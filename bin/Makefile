@@ -8,6 +8,7 @@ ALL:
 	./assembler ./true.s ./true.o
 	./assembler ./helloworld.s ./helloworld.o
 	./assembler ./fib.s ./fib.o
+	./assembler ./echo.s ./echo.o
 clean:
 	cd ../assembler && make clean
 	cd ../disassembler && make clean
