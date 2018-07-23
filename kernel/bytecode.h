@@ -95,6 +95,19 @@ typedef struct {
 } BytecodeInstructionAluInfo;
 
 typedef enum {
+	ByteCodeSyscallIdExit=0,
+	ByteCodeSyscallIdGetPid=1,
+	ByteCodeSyscallIdRead=256,
+	ByteCodeSyscallIdWrite=257,
+	ByteCodeSyscallIdWriteProgmem=258,
+} ByteCodeSyscallId;
+
+typedef enum {
+	ByteCodeFdStdin=0,
+	ByteCodeFdStdout=1,
+} ByteCodeFd;
+
+typedef enum {
 	BytecodeInstructionMiscTypeNop,
 	BytecodeInstructionMiscTypeSyscall,
 	BytecodeInstructionMiscTypeSet8,
