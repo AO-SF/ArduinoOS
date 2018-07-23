@@ -163,6 +163,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program);
 
 bool assemblerProgramWriteMachineCode(const AssemblerProgram *program, const char *path); // returns false on failure
 
+int assemblerGetDefineSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found
+int assemblerGetDefineSymbolAddr(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found, otherwise result points into read-only program memory
+
 int main(int argc, char **argv) {
 	// Parse arguments
 	if (argc!=3 && argc!=4) {
@@ -893,16 +896,8 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				} else if (instruction->d.mov.src[0]=='_' || isalnum(instruction->d.mov.src[0])) {
 					// Symbol
 
-					// Search through instructions looking for this symbol being defined
-					unsigned addr, k;
-					for(k=0; k<program->instructionsNext; ++k) {
-						AssemblerInstruction *loopInstruction=&program->instructions[k];
-						if (loopInstruction->type==AssemblerInstructionTypeDefine && strcmp(loopInstruction->d.define.symbol, instruction->d.mov.src)==0) {
-							addr=loopInstruction->machineCodeOffset;
-							break;
-						}
-					}
-					if (k==program->instructionsNext) {
+					int addr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src);
+					if (addr==-1) {
 						printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 						return false;
 					}
@@ -1217,4 +1212,29 @@ bool assemblerProgramWriteMachineCode(const AssemblerProgram *program, const cha
 	fclose(file);
 
 	return true;
+}
+
+int assemblerGetDefineSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol) {
+	assert(program!=NULL);
+	assert(symbol!=NULL);
+
+	// Search through instructions looking for this symbol being defined
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		const AssemblerInstruction *loopInstruction=&program->instructions[i];
+		if (loopInstruction->type==AssemblerInstructionTypeDefine && strcmp(loopInstruction->d.define.symbol, symbol)==0)
+			return i;
+	}
+
+	return -1;
+}
+
+int assemblerGetDefineSymbolAddr(const AssemblerProgram *program, const char *symbol) {
+	assert(program!=NULL);
+	assert(symbol!=NULL);
+
+	int index=assemblerGetDefineSymbolInstructionIndex(program, symbol);
+	if (index==-1)
+		return -1;
+
+	return program->instructions[index].machineCodeOffset;
 }
