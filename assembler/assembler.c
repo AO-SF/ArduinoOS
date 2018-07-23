@@ -126,6 +126,7 @@ typedef struct {
 } AssemblerInstruction;
 
 typedef struct {
+	char *file;
 	unsigned lineNum;
 	char *original;
 	char *modified;
@@ -181,7 +182,7 @@ int main(int argc, char **argv) {
 		for(unsigned i=0; i<program->linesNext; ++i) {
 			AssemblerLine *assemblerLine=program->lines[i];
 			if (strlen(assemblerLine->modified)>0)
-				printf("	%6u: '%s' -> '%s'\n", assemblerLine->lineNum, assemblerLine->original, assemblerLine->modified);
+				printf("	%s:%4u '%s' -> '%s'\n", assemblerLine->file, assemblerLine->lineNum, assemblerLine->original, assemblerLine->modified);
 		}
 	}
 
@@ -251,6 +252,8 @@ AssemblerProgram *assemblerProgramNewFromFile(const char *path) {
 		program->lines[program->linesNext++]=assemblerLine;
 
 		assemblerLine->lineNum=lineNum;
+		assemblerLine->file=malloc(strlen(path)+1); // TODO: Check return
+		strcpy(assemblerLine->file, path);
 		assemblerLine->original=malloc(strlen(line)+1); // TODO: Check return
 		strcpy(assemblerLine->original, line);
 		assemblerLine->modified=malloc(strlen(line)+1); // TODO: Check return
@@ -280,6 +283,7 @@ void assemblerProgramFree(AssemblerProgram *program) {
 	// Free lines
 	for(unsigned i=0; i<program->linesNext; ++i) {
 		AssemblerLine *assemblerLine=program->lines[i];
+		free(assemblerLine->file);
 		free(assemblerLine->original);
 		free(assemblerLine->modified);
 		free(assemblerLine);
