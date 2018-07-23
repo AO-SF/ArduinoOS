@@ -47,6 +47,7 @@ const AssemblerInstructionAluData assemblerInstructionAluData[]={
 };
 
 typedef enum {
+	AssemblerInstructionTypeAllocation,
 	AssemblerInstructionTypeDefine,
 	AssemblerInstructionTypeMov,
 	AssemblerInstructionTypeLabel,
@@ -63,12 +64,19 @@ typedef enum {
 typedef struct {
 	uint16_t membSize, len, totalSize; // for membSize: 1=byte, 2=word
 	const char *symbol;
+
+	uint16_t ramOffset;
+} AssemblerInstructionAllocation;
+
+typedef struct {
+	uint16_t membSize, len, totalSize; // for membSize: 1=byte, 2=word
+	const char *symbol;
 	uint8_t data[1024]; // TODO: this is pretty wasteful...
 } AssemblerInstructionDefine;
 
 typedef struct {
 	const char *dest;
-	const char *src;
+	char *src;
 } AssemblerInstructionMov;
 
 typedef struct {
@@ -109,6 +117,7 @@ typedef struct {
 	char *modifiedLineCopy; // so we can have fields pointing into this
 	AssemblerInstructionType type;
 	union {
+		AssemblerInstructionAllocation allocation;
 		AssemblerInstructionDefine define;
 		AssemblerInstructionMov mov;
 		AssemblerInstructionLabel label;
@@ -138,6 +147,9 @@ typedef struct {
 
 	AssemblerInstruction instructions[AssemblerLinesMax];
 	size_t instructionsNext;
+
+	uint16_t setSpLineIndex;
+	uint16_t stackRamOffset;
 } AssemblerProgram;
 
 AssemblerProgram *assemblerProgramNew(void);
@@ -161,6 +173,9 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program); // retu
 void assemblerProgramDebugInstructions(const AssemblerProgram *program);
 
 bool assemblerProgramWriteMachineCode(const AssemblerProgram *program, const char *path); // returns false on failure
+
+int assemblerGetAllocationSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found
+int assemblerGetAllocationSymbolAddr(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found, otherwise result points into RAM memory
 
 int assemblerGetDefineSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found
 int assemblerGetDefineSymbolAddr(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found, otherwise result points into read-only program memory
@@ -186,8 +201,26 @@ int main(int argc, char **argv) {
 	if (program==NULL)
 		goto done;
 
+	// Add line to set the stack pointer (this is just reserving it for now)
+	const char *spFile="<auto>";
+	char spLine[64];
+	sprintf(spLine, "mov r%u 65535", ByteCodeRegisterSP);
+
+	AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+	assemblerLine->lineNum=1;
+	assemblerLine->file=malloc(strlen(spFile)+1); // TODO: Check return
+	strcpy(assemblerLine->file, spFile);
+	assemblerLine->original=malloc(strlen(spLine)+1); // TODO: Check return
+	strcpy(assemblerLine->original, spLine);
+	assemblerLine->modified=malloc(strlen(spLine)+1); // TODO: Check return
+	strcpy(assemblerLine->modified, spLine);
+
+	assemblerInsertLine(program, assemblerLine, 0);
+
+	program->setSpLineIndex=0;
+
 	// Read input file line-by-line
-	if (!assemblerInsertLinesFromFile(program, inputPath, 0))
+	if (!assemblerInsertLinesFromFile(program, inputPath, 1))
 		goto done;
 
 	// Preprocess (handle whitespace, includes etc)
@@ -227,7 +260,20 @@ int main(int argc, char **argv) {
 	// Generate machine code for each instruction
 	if (!assemblerProgramGenerateInitialMachineCode(program))
 		goto done;
+
 	assemblerProgramComputeMachineCodeOffsets(program);
+
+	// Update instruction we created earlier to set the stack pointer register (now that we have computed offsets)
+	// TODO: Check for not finding
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		AssemblerInstruction *instruction=&program->instructions[i];
+		if (instruction->lineIndex==program->setSpLineIndex) {
+			// Update line to put correct ram offset in. No need to update dest or src pointers as the start of the string has not changed, and we know this is safe because the new offset cannot be longer than the one we used when allocating the line in the first place.
+			sprintf(instruction->d.mov.src, "%u", program->stackRamOffset);
+			break;
+		}
+	}
+
 	if (!assemblerProgramComputeFinalMachineCode(program))
 		goto done;
 
@@ -476,7 +522,38 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			continue;
 		}
 
-		if (strcmp(first, "db")==0 || strcmp(first, "dw")==0) {
+		if (strcmp(first, "ab")==0 || strcmp(first, "aw")==0) {
+			unsigned membSize=0;
+			switch(first[1]) {
+				case 'b': membSize=1; break;
+				case 'w': membSize=2; break;
+			}
+			assert(membSize!=0);
+
+			char *symbol=strtok_r(NULL, " ", &savePtr);
+			if (symbol==NULL) {
+				printf("error - expected symbol name after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			char *lenStr=strtok_r(NULL, " ", &savePtr);
+			if (lenStr==NULL) {
+				printf("error - expected length constant after '%s' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeAllocation;
+			instruction->d.allocation.membSize=membSize;
+			instruction->d.allocation.len=atoi(lenStr);
+			instruction->d.allocation.totalSize=instruction->d.allocation.membSize*instruction->d.allocation.len;
+			instruction->d.allocation.symbol=symbol;
+
+			if (instruction->d.allocation.len==0)
+				printf("warning - 0 length allocation (%s:%u '%s')\n", assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+		} else if (strcmp(first, "db")==0 || strcmp(first, "dw")==0) {
 			unsigned membSize=0;
 			switch(first[1]) {
 				case 'b': membSize=1; break;
@@ -771,6 +848,9 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 		AssemblerInstruction *instruction=&program->instructions[i];
 
 		switch(instruction->type) {
+			case AssemblerInstructionTypeAllocation:
+				instruction->machineCodeLen=0; // These are reserved in RAM not program memory
+			break;
 			case AssemblerInstructionTypeDefine:
 				// Simply copy data into program memory directly
 				for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
@@ -817,13 +897,20 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program) {
 	assert(program!=NULL);
 
-	unsigned nextMachineCodeOffset=0;
+	unsigned nextMachineCodeOffset=0, nextRamOffset=0;
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
 		AssemblerInstruction *instruction=&program->instructions[i];
 
 		instruction->machineCodeOffset=nextMachineCodeOffset;
 		nextMachineCodeOffset+=instruction->machineCodeLen;
+
+		if (instruction->type==AssemblerInstructionTypeAllocation) {
+			instruction->d.allocation.ramOffset=nextRamOffset;
+			nextRamOffset+=instruction->d.allocation.totalSize;
+		}
 	}
+
+	program->stackRamOffset=nextRamOffset;
 }
 
 bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
@@ -834,6 +921,8 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 		AssemblerLine *line=program->lines[instruction->lineIndex];
 
 		switch(instruction->type) {
+			case AssemblerInstructionTypeAllocation:
+			break;
 			case AssemblerInstructionTypeDefine:
 			break;
 			case AssemblerInstructionTypeMov: {
@@ -846,6 +935,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 
 				// Determine type of src
 				BytecodeRegister srcReg;
+				int defineAddr, allocationAddr;
 				if (isdigit(instruction->d.mov.src[0])) {
 					// Integer - use set16 instruction
 					unsigned value=atoi(instruction->d.mov.src);
@@ -880,16 +970,11 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					instruction->machineCode[0]=(set8Op>>8);
 					instruction->machineCode[1]=(set8Op&0xFF);
 					instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
-				} else if (instruction->d.mov.src[0]=='_' || isalnum(instruction->d.mov.src[0])) {
-					// Symbol
-					int addr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src);
-					if (addr==-1) {
-						printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
-						return false;
-					}
-
-					// Create instruction using the found address
-					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, addr);
+				} else if ((defineAddr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src))!=-1) {
+					// Define symbol
+					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, defineAddr);
+				} else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1) {
+					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, allocationAddr);
 				} else {
 					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 					return false;
@@ -1049,6 +1134,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 		printf(": ");
 
 		switch(instruction->type) {
+			case AssemblerInstructionTypeAllocation:
+				printf("allocation membSize=%u, len=%u, totalSize=%u, symbol=%s, ramOffset=%04X (%s:%u '%s')\n", instruction->d.allocation.membSize, instruction->d.allocation.len, instruction->d.allocation.totalSize, instruction->d.allocation.symbol, instruction->d.allocation.ramOffset, line->file, line->lineNum, line->original);
+			break;
 			case AssemblerInstructionTypeDefine:
 				printf("define membSize=%u, len=%u, totalSize=%u, symbol=%s data=[", instruction->d.define.membSize, instruction->d.define.len, instruction->d.define.totalSize, instruction->d.define.symbol);
 				for(unsigned j=0; j<instruction->d.define.len; j++) {
@@ -1182,6 +1270,31 @@ bool assemblerProgramWriteMachineCode(const AssemblerProgram *program, const cha
 	error:
 	fclose(file);
 	return false;
+}
+
+int assemblerGetAllocationSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol) {
+	assert(program!=NULL);
+	assert(symbol!=NULL);
+
+	// Search through instructions looking for this symbol being allocated
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		const AssemblerInstruction *loopInstruction=&program->instructions[i];
+		if (loopInstruction->type==AssemblerInstructionTypeAllocation && strcmp(loopInstruction->d.allocation.symbol, symbol)==0)
+			return i;
+	}
+
+	return -1;
+}
+
+int assemblerGetAllocationSymbolAddr(const AssemblerProgram *program, const char *symbol) {
+	assert(program!=NULL);
+	assert(symbol!=NULL);
+
+	int index=assemblerGetAllocationSymbolInstructionIndex(program, symbol);
+	if (index==-1)
+		return -1;
+
+	return program->instructions[index].d.allocation.ramOffset;
 }
 
 int assemblerGetDefineSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol) {
