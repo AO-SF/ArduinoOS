@@ -59,6 +59,8 @@ typedef enum {
 	BytecodeInstructionAluCmpBitNB,
 } BytecodeInstructionAluCmpBit;
 
+extern const char *byteCodeInstructionAluCmpBitStrings[BytecodeInstructionAluCmpBitNB];
+
 typedef enum {
 	BytecodeInstructionAluCmpMaskEqual=(1u<<BytecodeInstructionAluCmpBitEqual),
 	BytecodeInstructionAluCmpMaskEqualZero=(1u<<BytecodeInstructionAluCmpBitEqualZero),
