@@ -57,6 +57,7 @@ typedef enum {
 	AssemblerInstructionTypePop,
 	AssemblerInstructionTypeCall,
 	AssemblerInstructionTypeRet,
+	AssemblerInstructionTypeStore8,
 } AssemblerInstructionType;
 
 typedef struct {
@@ -100,6 +101,10 @@ typedef struct {
 } AssemblerInstructionCall;
 
 typedef struct {
+	const char *dest, *src;
+} AssemblerInstructionStore8;
+
+typedef struct {
 	uint16_t lineIndex;
 	char *modifiedLineCopy; // so we can have fields pointing into this
 	AssemblerInstructionType type;
@@ -112,6 +117,7 @@ typedef struct {
 		AssemblerInstructionPush push;
 		AssemblerInstructionPop pop;
 		AssemblerInstructionCall call;
+		AssemblerInstructionStore8 store8;
 	} d;
 
 	uint8_t machineCode[1024]; // TODO: this is pretty wasteful...
@@ -457,6 +463,25 @@ int main(int argc, char **argv) {
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeRet;
+		} else if (strcmp(first, "store8")==0) {
+			char *dest=strtok_r(NULL, " ", &savePtr);
+			if (dest==NULL) {
+				printf("error - expected dest addr register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				goto done;
+			}
+
+			char *src=strtok_r(NULL, " ", &savePtr);
+			if (src==NULL) {
+				printf("error - expected src register after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
+				goto done;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeStore8;
+			instruction->d.store8.dest=dest;
+			instruction->d.store8.src=src;
 		} else {
 			// Check for an ALU operation
 			unsigned j;
@@ -805,6 +830,32 @@ int main(int argc, char **argv) {
 						} break;
 					}
 				break;
+				case AssemblerInstructionTypeStore8:
+					switch(genPass) {
+						case 0:
+							// Reserve one byte
+							instruction->machineCodeLen=1;
+						break;
+						case 2: {
+							// Verify dest and src are valid registers
+							if (instruction->d.store8.dest[0]!='r' || (instruction->d.store8.dest[1]<'0' || instruction->d.store8.dest[1]>'7') || instruction->d.store8.dest[2]!='\0') {
+								printf("error - expected register (r0-r7) as destination address, instead got '%s' (%u:'%s')\n", instruction->d.store8.dest, line->lineNum, line->original);
+								goto done;
+							}
+
+							if (instruction->d.store8.src[0]!='r' || (instruction->d.store8.src[1]<'0' || instruction->d.store8.src[1]>'7') || instruction->d.store8.src[2]!='\0') {
+								printf("error - expected register (r0-r7) as src, instead got '%s' (%u:'%s')\n", instruction->d.store8.src, line->lineNum, line->original);
+								goto done;
+							}
+
+							BytecodeRegister destReg=(instruction->d.store8.dest[1]-'0');
+							BytecodeRegister srcReg=(instruction->d.store8.src[1]-'0');
+
+							// Create instruction
+							instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeStore, destReg, srcReg);
+						} break;
+					}
+				break;
 			}
 		}
 	}
@@ -924,6 +975,9 @@ int main(int argc, char **argv) {
 				break;
 				case AssemblerInstructionTypeRet:
 					printf("ret (%u:'%s')\n", line->lineNum, line->original);
+				break;
+				case AssemblerInstructionTypeStore8:
+					printf("[%s]=%s (8 bit) (%u:'%s')\n", instruction->d.store8.dest, instruction->d.store8.src, line->lineNum, line->original);
 				break;
 			}
 		}
