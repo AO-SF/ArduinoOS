@@ -15,11 +15,14 @@ typedef struct {
 	const char *str;
 	unsigned ops;
 	unsigned skipBit;
+	unsigned incDecValue;
 } AssemblerInstructionAluData;
 
 const AssemblerInstructionAluData assemblerInstructionAluData[]={
-	{.type=BytecodeInstructionAluTypeInc, .str="inc", .ops=0},
-	{.type=BytecodeInstructionAluTypeDec, .str="dec", .ops=0},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc", .ops=0, .incDecValue=1},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc2", .ops=0, .incDecValue=2},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec", .ops=0, .incDecValue=1},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec2", .ops=0, .incDecValue=2},
 	{.type=BytecodeInstructionAluTypeAdd, .str="add", .ops=2},
 	{.type=BytecodeInstructionAluTypeSub, .str="sub", .ops=2},
 	{.type=BytecodeInstructionAluTypeMul, .str="mul", .ops=2},
@@ -73,6 +76,7 @@ typedef struct {
 	const char *opA;
 	const char *opB;
 	uint8_t skipBit;
+	uint8_t incDecValue;
 } AssemblerInstructionAlu;
 
 typedef struct {
@@ -433,6 +437,8 @@ int main(int argc, char **argv) {
 				instruction->d.alu.type=assemblerInstructionAluData[j].type;
 				if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip)
 					instruction->d.alu.skipBit=assemblerInstructionAluData[j].skipBit;
+				if (instruction->d.alu.type==BytecodeInstructionAluTypeInc || instruction->d.alu.type==BytecodeInstructionAluTypeDec)
+					instruction->d.alu.incDecValue=assemblerInstructionAluData[j].incDecValue;
 				instruction->d.alu.dest=dest;
 				instruction->d.alu.opA=opA;
 				instruction->d.alu.opB=opB;
@@ -589,7 +595,13 @@ int main(int argc, char **argv) {
 							if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip)
 								// Special case to encode literal bit index
 								opAReg=instruction->d.alu.skipBit;
+							if (instruction->d.alu.type==BytecodeInstructionAluTypeInc || instruction->d.alu.type==BytecodeInstructionAluTypeDec) {
+								// Special case to encode literal add/sub delta
+								opAReg=(instruction->d.alu.incDecValue-1)>>3;
+								opBReg=(instruction->d.alu.incDecValue-1)&7;
+							}
 							BytecodeInstructionStandard aluOp=bytecodeInstructionCreateAlu(instruction->d.alu.type, destReg, opAReg, opBReg);
+
 							instruction->machineCode[0]=(aluOp>>8);
 							instruction->machineCode[1]=(aluOp&0xFF);
 						} break;
@@ -671,10 +683,16 @@ int main(int argc, char **argv) {
 				case AssemblerInstructionTypeAlu:
 					switch(instruction->d.alu.type) {
 						case BytecodeInstructionAluTypeInc:
-							printf("%s++ (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+							if (instruction->d.alu.incDecValue==1)
+								printf("%s++ (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+							else
+								printf("%s+=%u (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->lineNum, line->original);
 						break;
 						case BytecodeInstructionAluTypeDec:
-							printf("%s-- (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+							if (instruction->d.alu.incDecValue==1)
+								printf("%s-- (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+							else
+								printf("%s-=%u (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->lineNum, line->original);
 						break;
 						case BytecodeInstructionAluTypeAdd:
 							printf("%s=%s+%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);

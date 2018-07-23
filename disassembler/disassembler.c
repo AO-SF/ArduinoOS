@@ -78,10 +78,16 @@ int main(int argc, char **argv) {
 				case BytecodeInstructionTypeAlu:
 					switch(info.d.alu.type) {
 						case BytecodeInstructionAluTypeInc:
-							disassemblerPrint(addr, instruction, "r%u++", info.d.alu.destReg);
+							if (info.d.alu.incDecValue==1)
+								disassemblerPrint(addr, instruction, "r%u++", info.d.alu.destReg);
+							else
+								disassemblerPrint(addr, instruction, "r%u+=%u", info.d.alu.destReg, info.d.alu.incDecValue);
 						break;
 						case BytecodeInstructionAluTypeDec:
-							disassemblerPrint(addr, instruction, "r%u--", info.d.alu.destReg);
+							if (info.d.alu.incDecValue==1)
+								disassemblerPrint(addr, instruction, "r%u--", info.d.alu.destReg);
+							else
+								disassemblerPrint(addr, instruction, "r%u-=%u", info.d.alu.destReg, info.d.alu.incDecValue);
 						break;
 						case BytecodeInstructionAluTypeAdd:
 							disassemblerPrint(addr, instruction, "r%u=r%u+r%u", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg);
