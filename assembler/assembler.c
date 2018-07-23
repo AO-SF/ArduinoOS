@@ -139,6 +139,22 @@ typedef struct {
 	size_t instructionsNext;
 } AssemblerProgram;
 
+AssemblerProgram *assemblerProgramNewFromFile(const char *path);
+void assemblerProgramFree(AssemblerProgram *program);
+
+bool assemblerProgramPreprocess(AssemblerProgram *program); // strips comments, whitespace etc. returns true if any changes made
+bool assemblerProgramParseLines(AssemblerProgram *program); // converts lines to initial instructions, returns false on error
+
+bool assemblerProgramShiftDefines(AssemblerProgram *program); // moves defines to the end to avoid getting in the way of code, returns true if any changes made
+
+bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program); // returns false on failure
+void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program);
+bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program); // returns false on failure
+
+void assemblerProgramDebugInstructions(const AssemblerProgram *program);
+
+bool assemblerProgramWriteMachineCode(const AssemblerProgram *program, const char *path); // returns false on failure
+
 int main(int argc, char **argv) {
 	// Parse arguments
 	if (argc!=3 && argc!=4) {
@@ -150,28 +166,88 @@ int main(int argc, char **argv) {
 	const char *outputPath=argv[2];
 	bool verbose=(argc==4 && strcmp(argv[3], "--verbose")==0);
 
-	// Parse input file
-	FILE *inputFile=fopen(inputPath, "r");
-	if (inputFile==NULL) {
-		printf("Could not open input file '%s' for reading\n", inputPath);
+	// Load program
+	AssemblerProgram *program=assemblerProgramNewFromFile(inputPath);
+	if (program==NULL)
 		return 1;
+
+	// Preprocess (strip whitespace, comments, etc)
+	while(assemblerProgramPreprocess(program))
+		;
+
+	// Verbose output
+	if (verbose) {
+		printf("Non-blank input lines:\n");
+		for(unsigned i=0; i<program->linesNext; ++i) {
+			AssemblerLine *assemblerLine=program->lines[i];
+			if (strlen(assemblerLine->modified)>0)
+				printf("	%6u: '%s' -> '%s'\n", assemblerLine->lineNum, assemblerLine->original, assemblerLine->modified);
+		}
 	}
 
-	// Read line-by-line
-	AssemblerProgram *program=malloc(sizeof(AssemblerProgram)); // TODO: Check return
+	// Parse lines into initial instructions
+	if (!assemblerProgramParseLines(program))
+		goto done;
+
+	// Move defines to be after everything else
+	while(assemblerProgramShiftDefines(program))
+		;
+
+	// Generate machine code for each instruction
+	if (!assemblerProgramGenerateInitialMachineCode(program))
+		goto done;
+	assemblerProgramComputeMachineCodeOffsets(program);
+	if (!assemblerProgramComputeFinalMachineCode(program))
+		goto done;
+
+	// Verbose output
+	if (verbose)
+		assemblerProgramDebugInstructions(program);
+
+	// Output machine code
+	if (!assemblerProgramWriteMachineCode(program, outputPath)) {
+		printf("Could not write machine code to '%s'\n", outputPath);
+		goto done;
+	}
+
+	// Tidy up
+	done:
+	assemblerProgramFree(program);
+
+	return 0;
+}
+
+AssemblerProgram *assemblerProgramNewFromFile(const char *path) {
+	FILE *file=NULL;
+	AssemblerProgram *program=NULL;
+
+	// Open input file
+	file=fopen(path, "r");
+	if (file==NULL) {
+		printf("Could not open input file '%s' for reading\n", path);
+		goto error;
+	}
+
+	// Create program struct
+	program=malloc(sizeof(AssemblerProgram));
+	if (program==NULL) {
+		printf("Could not allocate memory for program data\n");
+		goto error;
+	}
 	program->linesNext=0;
 	program->instructionsNext=0;
 
+	// Read file line-by-line
 	char *line=NULL;
 	size_t lineSize=0;
 	unsigned lineNum=1;
-	while(getline(&line, &lineSize, inputFile)>0) {
+	while(getline(&line, &lineSize, file)>0) {
 		// Trim trailing newline
 		if (line[strlen(line)-1]=='\n')
 			line[strlen(line)-1]='\0';
 
 		// Begin creating structure to represent this line
-		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine));
+		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
 		program->lines[program->linesNext++]=assemblerLine;
 
 		assemblerLine->lineNum=lineNum;
@@ -185,7 +261,44 @@ int main(int argc, char **argv) {
 	}
 	free(line);
 
-	fclose(inputFile);
+	fclose(file);
+
+	return program;
+
+	error:
+	fclose(file);
+	free(program);
+	// TODO: Free lines entries
+	return NULL;
+}
+
+void assemblerProgramFree(AssemblerProgram *program) {
+	// NULL check
+	if (program==NULL)
+		return;
+
+	// Free lines
+	for(unsigned i=0; i<program->linesNext; ++i) {
+		AssemblerLine *assemblerLine=program->lines[i];
+		free(assemblerLine->original);
+		free(assemblerLine->modified);
+		free(assemblerLine);
+	}
+
+	// Free instructions
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		AssemblerInstruction *instruction=&program->instructions[i];
+		free(instruction->modifiedLineCopy);
+	}
+
+	// Free struct memory
+	free(program);
+}
+
+bool assemblerProgramPreprocess(AssemblerProgram *program) {
+	assert(program!=NULL);
+
+	bool change=false;
 
 	// Strip comments and excess white space
 	for(unsigned i=0; i<program->linesNext; ++i) {
@@ -205,6 +318,7 @@ int main(int argc, char **argv) {
 				if (*c=='\'') {
 					inString=true;
 				} else if (*c==';') {
+					change=true;
 					*c='\0';
 					break;
 				} else if (isspace(*c))
@@ -213,9 +327,9 @@ int main(int argc, char **argv) {
 		}
 
 		// Replace two or more spaces with a single space (outside of strings)
-		bool change;
+		bool localChange;
 		do {
-			change=false;
+			localChange=false;
 			inString=false;
 			for(c=assemblerLine->modified; *c!='\0'; ++c) {
 				if (inString) {
@@ -231,30 +345,30 @@ int main(int argc, char **argv) {
 							break;
 						else if (c[1]==' ') {
 							memmove(c, c+1, strlen(c+1)+1);
+							localChange=true;
 							change=true;
 						}
 					}
 				}
 			}
-		} while(change);
+		} while(localChange);
 
 		// Trim preceeding or trailing white space.
-		if (assemblerLine->modified[0]==' ')
+		if (assemblerLine->modified[0]==' ') {
 			memmove(assemblerLine->modified, assemblerLine->modified+1, strlen(assemblerLine->modified+1)+1);
-		if (strlen(assemblerLine->modified)>0 && assemblerLine->modified[strlen(assemblerLine->modified)-1]==' ')
+			change=true;
+		}
+		if (strlen(assemblerLine->modified)>0 && assemblerLine->modified[strlen(assemblerLine->modified)-1]==' ') {
 			assemblerLine->modified[strlen(assemblerLine->modified)-1]='\0';
-	}
-
-	// Verbose output
-	if (verbose) {
-		printf("Non-blank input lines:\n");
-		for(unsigned i=0; i<program->linesNext; ++i) {
-			AssemblerLine *assemblerLine=program->lines[i];
-
-			if (strlen(assemblerLine->modified)>0)
-				printf("	%6u: '%s' -> '%s'\n", assemblerLine->lineNum, assemblerLine->original, assemblerLine->modified);
+			change=true;
 		}
 	}
+
+	return change;
+}
+
+bool assemblerProgramParseLines(AssemblerProgram *program) {
+	assert(program!=NULL);
 
 	// Parse lines
 	for(unsigned i=0; i<program->linesNext; ++i) {
@@ -265,7 +379,7 @@ int main(int argc, char **argv) {
 			continue;
 
 		// Parse operation
-		char *lineCopy=malloc(strlen(assemblerLine->modified)+1); // TODO: Check
+		char *lineCopy=malloc(strlen(assemblerLine->modified)+1); // TODO: Check return
 		strcpy(lineCopy, assemblerLine->modified);
 
 		char *savePtr;
@@ -286,7 +400,7 @@ int main(int argc, char **argv) {
 			char *symbol=strtok_r(NULL, " ", &savePtr);
 			if (symbol==NULL) {
 				printf("error - expected symbol name after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
@@ -379,12 +493,12 @@ int main(int argc, char **argv) {
 			char *dest=strtok_r(NULL, " ", &savePtr);
 			if (dest==NULL) {
 				printf("error - expected dest after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 			char *src=strtok_r(NULL, " ", &savePtr);
 			if (src==NULL) {
 				printf("error - expected src after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
@@ -397,7 +511,7 @@ int main(int argc, char **argv) {
 			char *symbol=strtok_r(NULL, " ", &savePtr);
 			if (symbol==NULL) {
 				printf("error - expected symbol after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
@@ -414,7 +528,7 @@ int main(int argc, char **argv) {
 			char *addr=strtok_r(NULL, " ", &savePtr);
 			if (addr==NULL) {
 				printf("error - expected address label after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
@@ -426,7 +540,7 @@ int main(int argc, char **argv) {
 			char *src=strtok_r(NULL, " ", &savePtr);
 			if (src==NULL) {
 				printf("error - expected src register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
@@ -438,7 +552,7 @@ int main(int argc, char **argv) {
 			char *dest=strtok_r(NULL, " ", &savePtr);
 			if (dest==NULL) {
 				printf("error - expected dest register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
@@ -450,7 +564,7 @@ int main(int argc, char **argv) {
 			char *label=strtok_r(NULL, " ", &savePtr);
 			if (label==NULL) {
 				printf("error - expected label register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
@@ -467,13 +581,13 @@ int main(int argc, char **argv) {
 			char *dest=strtok_r(NULL, " ", &savePtr);
 			if (dest==NULL) {
 				printf("error - expected dest addr register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 
 			char *src=strtok_r(NULL, " ", &savePtr);
 			if (src==NULL) {
 				printf("error - expected src register after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+				return false;
 			}
 
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
@@ -494,7 +608,7 @@ int main(int argc, char **argv) {
 				char *dest=strtok_r(NULL, " ", &savePtr);
 				if (dest==NULL) {
 					printf("error - expected dest after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
-					goto done;
+					return false;
 				}
 
 				char *opA=NULL, *opB=NULL;
@@ -503,7 +617,7 @@ int main(int argc, char **argv) {
 					opA=strtok_r(NULL, " ", &savePtr);
 					if (opA==NULL) {
 						printf("error - expected operand A after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
-						goto done;
+						return false;
 					}
 				}
 
@@ -511,7 +625,7 @@ int main(int argc, char **argv) {
 					opB=strtok_r(NULL, " ", &savePtr);
 					if (opB==NULL) {
 						printf("error - expected operand B after '%s' (%u:'%s')\n", opA, assemblerLine->lineNum, assemblerLine->original);
-						goto done;
+						return false;
 					}
 				}
 
@@ -530,12 +644,19 @@ int main(int argc, char **argv) {
 			} else {
 				printf("error - unknown/unimplemented instruction '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
 				free(lineCopy);
-				goto done;
+				return false;
 			}
 		}
 	}
 
+	return true;
+}
+
+bool assemblerProgramShiftDefines(AssemblerProgram *program) {
+	assert(program!=NULL);
+
 	// Move defines to be after everything else
+	bool anyChange=false;
 	bool change;
 	do {
 		change=false;
@@ -551,488 +672,455 @@ int main(int argc, char **argv) {
 					change=true;
 				}
 		}
+		anyChange|=change;
 	} while(change);
+	return anyChange;
+}
 
-	// Generate machine code for each instruction
-	for(unsigned genPass=0; genPass<3; ++genPass) {
-		// Passes:
-		// 0 - generates intitial machine code with placeholders
-		// 1 - computes offsets for all instructions in the final executable
-		// 2 - fills in symbol and label addresses computed in previous step
-		unsigned nextMachineCodeOffset=0;
-		for(unsigned i=0; i<program->instructionsNext; ++i) {
-			AssemblerInstruction *instruction=&program->instructions[i];
-			AssemblerLine *line=program->lines[instruction->lineIndex];
+bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
+	assert(program!=NULL);
 
-			if (genPass==1) {
-				instruction->machineCodeOffset=nextMachineCodeOffset;
-				nextMachineCodeOffset+=instruction->machineCodeLen;
-				continue;
-			}
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		AssemblerInstruction *instruction=&program->instructions[i];
 
-			switch(instruction->type) {
-				case AssemblerInstructionTypeDefine:
-					switch(genPass) {
-						case 0:
-							// Simply copy data into program memory directly
-							for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
-								instruction->machineCode[instruction->machineCodeLen++]=instruction->d.define.data[j];
-						break;
-					}
-				break;
-				case AssemblerInstructionTypeMov:
-					switch(genPass) {
-						case 0:
-							// Reserve three bytes
-							instruction->machineCodeLen=3;
-						break;
-						case 2: {
-							// Verify dest is a valid register
-							if (instruction->d.mov.dest[0]!='r' || (instruction->d.mov.dest[1]<'0' || instruction->d.mov.dest[1]>'7') || instruction->d.mov.dest[2]!='\0') {
-								printf("error - expected register (r0-r7) as destination, instead got '%s' (%u:'%s')\n", instruction->d.mov.dest, line->lineNum, line->original);
-								goto done;
-							}
-
-							BytecodeRegister destReg=(instruction->d.mov.dest[1]-'0');
-
-							// Determine type of src
-							if (isdigit(instruction->d.mov.src[0])) {
-								// Integer - use set16 instruction
-								unsigned value=atoi(instruction->d.mov.src);
-								bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
-							} else if (instruction->d.mov.src[0]=='r' && (instruction->d.mov.src[1]>='0' && instruction->d.mov.src[1]<='7') && instruction->d.mov.src[2]=='\0') {
-								// Register - use dest=src|src as a copy
-								// also add a nop to pad to 3 bytes
-								BytecodeRegister srcReg=instruction->d.mov.src[1]-'0';
-								BytecodeInstructionStandard copyOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, destReg, srcReg, srcReg);
-
-								instruction->machineCode[0]=(copyOp>>8);
-								instruction->machineCode[1]=(copyOp&0xFF);
-								instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
-							} else if (instruction->d.mov.src[0]=='\'') {
-								char c=instruction->d.mov.src[1];
-								if (!isprint(c) || c=='\'' || instruction->d.mov.src[strlen(instruction->d.mov.src)-1]!='\'') {
-									printf("error - bad character constant '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
-									goto done;
-								}
-
-								if (c=='\\') {
-									c=instruction->d.mov.src[2];
-									switch(c) {
-										case 'n': c='\n'; break;
-										case 'r': c='\r'; break;
-										case 't': c='\t'; break;
-										default:
-											printf("error - bad escaped character constant '%s' (expecting n, r or t) (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
-											goto done;
-										break;
-									}
-								}
-
-								BytecodeInstructionStandard set8Op=bytecodeInstructionCreateMiscSet8(destReg, c);
-								instruction->machineCode[0]=(set8Op>>8);
-								instruction->machineCode[1]=(set8Op&0xFF);
-								instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
-							} else if (instruction->d.mov.src[0]=='_' || isalnum(instruction->d.mov.src[0])) {
-								// Symbol
-
-								// Search through instructions looking for this symbol being defined
-								unsigned addr, k;
-								for(k=0; k<program->instructionsNext; ++k) {
-									AssemblerInstruction *loopInstruction=&program->instructions[k];
-									if (loopInstruction->type==AssemblerInstructionTypeDefine && strcmp(loopInstruction->d.define.symbol, instruction->d.mov.src)==0) {
-										addr=loopInstruction->machineCodeOffset;
-										break;
-									}
-								}
-								if (k==program->instructionsNext) {
-									printf("error - bad src '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
-									goto done;
-								}
-
-								// Create instruction using the found address
-								bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, addr);
-							} else {
-								printf("error - bad src '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
-								goto done;
-							}
-						} break;
-					}
-				break;
-				case AssemblerInstructionTypeLabel:
-					switch(genPass) {
-						case 0:
-							instruction->machineCodeLen=0;
-						break;
-					}
-				break;
-				case AssemblerInstructionTypeSyscall:
-					switch(genPass) {
-						case 0:
-							instruction->machineCode[0]=bytecodeInstructionCreateMiscSyscall();
-							instruction->machineCodeLen=1;
-						break;
-					}
-				break;
-				case AssemblerInstructionTypeAlu:
-					switch(genPass) {
-						case 0:
-							// Reserve two bytes
-							instruction->machineCodeLen=2;
-						break;
-						case 2: {
-							// Verify dest is a valid register
-							if (instruction->d.alu.dest[0]!='r' || (instruction->d.alu.dest[1]<'0' || instruction->d.alu.dest[1]>'7') || instruction->d.alu.dest[2]!='\0') {
-								printf("error - expected register (r0-r7) as destination, instead got '%s' (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
-								goto done;
-							}
-
-							BytecodeRegister destReg=(instruction->d.alu.dest[1]-'0');
-
-							// Read operand registers
-							// TODO: This better (i.e. check how many we expect and error if not enough)
-							BytecodeRegister opAReg=BytecodeRegister0;
-							BytecodeRegister opBReg=BytecodeRegister0;
-
-							if (instruction->d.alu.opA!=NULL && instruction->d.alu.opA[0]=='r' && (instruction->d.alu.opA[1]>='0' && instruction->d.alu.opA[1]<='7') && instruction->d.alu.opA[2]=='\0')
-								opAReg=(instruction->d.alu.opA[1]-'0');
-
-							if (instruction->d.alu.opB!=NULL && instruction->d.alu.opB[0]=='r' && (instruction->d.alu.opB[1]>='0' && instruction->d.alu.opB[1]<='7') && instruction->d.alu.opB[2]=='\0')
-								opBReg=(instruction->d.alu.opB[1]-'0');
-
-							// Create instruction
-							if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip)
-								// Special case to encode literal bit index
-								opAReg=instruction->d.alu.skipBit;
-							if (instruction->d.alu.type==BytecodeInstructionAluTypeInc || instruction->d.alu.type==BytecodeInstructionAluTypeDec) {
-								// Special case to encode literal add/sub delta
-								opAReg=(instruction->d.alu.incDecValue-1)>>3;
-								opBReg=(instruction->d.alu.incDecValue-1)&7;
-							}
-							BytecodeInstructionStandard aluOp=bytecodeInstructionCreateAlu(instruction->d.alu.type, destReg, opAReg, opBReg);
-
-							instruction->machineCode[0]=(aluOp>>8);
-							instruction->machineCode[1]=(aluOp&0xFF);
-						} break;
-					}
-				break;
-				case AssemblerInstructionTypeJmp:
-					switch(genPass) {
-						case 0:
-							// Reserve three bytes for set16 instruction
-							instruction->machineCodeLen=3;
-						break;
-						case 2: {
-							// Search through instructions looking for the label being defined
-							unsigned addr, k;
-							for(k=0; k<program->instructionsNext; ++k) {
-								AssemblerInstruction *loopInstruction=&program->instructions[k];
-								if (loopInstruction->type==AssemblerInstructionTypeLabel && strcmp(loopInstruction->d.label.symbol, instruction->d.jmp.addr)==0) {
-									addr=loopInstruction->machineCodeOffset;
-									break;
-								}
-							}
-							if (k==program->instructionsNext) {
-								printf("error - bad jump label '%s' (%u:'%s')\n", instruction->d.jmp.addr, line->lineNum, line->original);
-								goto done;
-							}
-
-							// Create instruction which sets the IP register
-							bytecodeInstructionCreateMiscSet16(instruction->machineCode, ByteCodeRegisterIP, addr);
-						} break;
-					}
-				break;
-				case AssemblerInstructionTypePush:
-					switch(genPass) {
-						case 0:
-							// Reserve four bytes (store16 + inc2)
-							instruction->machineCodeLen=4;
-						break;
-						case 2: {
-							// Verify src is a valid register
-							if (instruction->d.push.src[0]!='r' || (instruction->d.push.src[1]<'0' || instruction->d.push.src[1]>'7') || instruction->d.push.src[2]!='\0') {
-								printf("error - expected register (r0-r7) as src, instead got '%s' (%u:'%s')\n", instruction->d.push.src, line->lineNum, line->original);
-								goto done;
-							}
-
-							BytecodeRegister srcReg=(instruction->d.push.src[1]-'0');
-
-							// Create as two instructions: store16 SP srcReg; inc2 SP
-							BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, ByteCodeRegisterSP, srcReg, 0);
-							instruction->machineCode[0]=(store16Op>>8);
-							instruction->machineCode[1]=(store16Op&0xFF);
-
-							BytecodeInstructionStandard inc2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterSP, 2);
-							instruction->machineCode[2]=(inc2Op>>8);
-							instruction->machineCode[3]=(inc2Op&0xFF);
-						} break;
-					}
-				break;
-				case AssemblerInstructionTypePop:
-					switch(genPass) {
-						case 0:
-							// Reserve four bytes (dec2 + load16)
-							instruction->machineCodeLen=4;
-						break;
-						case 2: {
-							// Verify dest is a valid register
-							if (instruction->d.pop.dest[0]!='r' || (instruction->d.pop.dest[1]<'0' || instruction->d.pop.dest[1]>'7') || instruction->d.pop.dest[2]!='\0') {
-								printf("error - expected register (r0-r7) as dest, instead got '%s' (%u:'%s')\n", instruction->d.pop.dest, line->lineNum, line->original);
-								goto done;
-							}
-
-							BytecodeRegister destReg=(instruction->d.pop.dest[1]-'0');
-
-							// Create as two instructions: dec2 SP; load16 destReg SP
-							BytecodeInstructionStandard dec2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 2);
-							instruction->machineCode[0]=(dec2Op>>8);
-							instruction->machineCode[1]=(dec2Op&0xFF);
-
-							BytecodeInstructionStandard loadOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, destReg, ByteCodeRegisterSP, 0);
-							instruction->machineCode[2]=(loadOp>>8);
-							instruction->machineCode[3]=(loadOp&0xFF);
-						} break;
-					}
-				break;
-				case AssemblerInstructionTypeCall:
-					switch(genPass) {
-						case 0:
-							// Reserve seven bytes (2+2+3)
-							instruction->machineCodeLen=7;
-						break;
-						case 2: {
-							// Search through instructions looking for the label being defined
-							unsigned addr, k;
-							for(k=0; k<program->instructionsNext; ++k) {
-								AssemblerInstruction *loopInstruction=&program->instructions[k];
-								if (loopInstruction->type==AssemblerInstructionTypeLabel && strcmp(loopInstruction->d.label.symbol, instruction->d.jmp.addr)==0) {
-									addr=loopInstruction->machineCodeOffset;
-									break;
-								}
-							}
-							if (k==program->instructionsNext) {
-								printf("error - bad call label '%s' (%u:'%s')\n", instruction->d.call.label, line->lineNum, line->original);
-								goto done;
-							}
-
-							// Create instructions (push IP onto stack and jump into function)
-							BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, ByteCodeRegisterSP, ByteCodeRegisterIP, 0);
-							instruction->machineCode[0]=(store16Op>>8);
-							instruction->machineCode[1]=(store16Op&0xFF);
-
-							BytecodeInstructionStandard incOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterSP, 2);
-							instruction->machineCode[2]=(incOp>>8);
-							instruction->machineCode[3]=(incOp&0xFF);
-
-							bytecodeInstructionCreateMiscSet16(instruction->machineCode+4, ByteCodeRegisterIP, addr);
-						} break;
-					}
-				break;
-				case AssemblerInstructionTypeRet:
-					switch(genPass) {
-						case 0:
-							// Reserve eight bytes (2+2+2+2)
-							instruction->machineCodeLen=8;
-						break;
-						case 2: {
-							// Create instructions (pop ret addr off stack, adjust it to skip call pseudo instructions, and then jump)
-							BytecodeInstructionStandard decOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 2);
-							instruction->machineCode[0]=(decOp>>8);
-							instruction->machineCode[1]=(decOp&0xFF);
-
-							BytecodeInstructionStandard load16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, ByteCodeRegisterS, ByteCodeRegisterSP, 0);
-							instruction->machineCode[2]=(load16Op>>8);
-							instruction->machineCode[3]=(load16Op&0xFF);
-
-							BytecodeInstructionStandard incOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterS, 5);
-							instruction->machineCode[4]=(incOp>>8);
-							instruction->machineCode[5]=(incOp&0xFF);
-
-							BytecodeInstructionStandard setIpOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, ByteCodeRegisterIP, ByteCodeRegisterS, ByteCodeRegisterS);
-							instruction->machineCode[6]=(setIpOp>>8);
-							instruction->machineCode[7]=(setIpOp&0xFF);
-						} break;
-					}
-				break;
-				case AssemblerInstructionTypeStore8:
-					switch(genPass) {
-						case 0:
-							// Reserve one byte
-							instruction->machineCodeLen=1;
-						break;
-						case 2: {
-							// Verify dest and src are valid registers
-							if (instruction->d.store8.dest[0]!='r' || (instruction->d.store8.dest[1]<'0' || instruction->d.store8.dest[1]>'7') || instruction->d.store8.dest[2]!='\0') {
-								printf("error - expected register (r0-r7) as destination address, instead got '%s' (%u:'%s')\n", instruction->d.store8.dest, line->lineNum, line->original);
-								goto done;
-							}
-
-							if (instruction->d.store8.src[0]!='r' || (instruction->d.store8.src[1]<'0' || instruction->d.store8.src[1]>'7') || instruction->d.store8.src[2]!='\0') {
-								printf("error - expected register (r0-r7) as src, instead got '%s' (%u:'%s')\n", instruction->d.store8.src, line->lineNum, line->original);
-								goto done;
-							}
-
-							BytecodeRegister destReg=(instruction->d.store8.dest[1]-'0');
-							BytecodeRegister srcReg=(instruction->d.store8.src[1]-'0');
-
-							// Create instruction
-							instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeStore, destReg, srcReg);
-						} break;
-					}
-				break;
-			}
+		switch(instruction->type) {
+			case AssemblerInstructionTypeDefine:
+				// Simply copy data into program memory directly
+				for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
+					instruction->machineCode[instruction->machineCodeLen++]=instruction->d.define.data[j];
+			break;
+			case AssemblerInstructionTypeMov:
+					instruction->machineCodeLen=3; // worst case we need 3 bytes to do a 16 bit set
+			break;
+			case AssemblerInstructionTypeLabel:
+				instruction->machineCodeLen=0;
+			break;
+			case AssemblerInstructionTypeSyscall:
+				instruction->machineCode[0]=bytecodeInstructionCreateMiscSyscall();
+				instruction->machineCodeLen=1;
+			break;
+			case AssemblerInstructionTypeAlu:
+				instruction->machineCodeLen=2; // all ALU instructions take 2 bytes
+			break;
+			case AssemblerInstructionTypeJmp:
+				instruction->machineCodeLen=3; // Reserve three bytes for set16 instruction
+			break;
+			case AssemblerInstructionTypePush:
+				instruction->machineCodeLen=4; // Reserve four bytes (store16 + inc2)
+			break;
+			case AssemblerInstructionTypePop:
+				instruction->machineCodeLen=4; // Reserve four bytes (dec2 + load16)
+			break;
+			case AssemblerInstructionTypeCall:
+				instruction->machineCodeLen=7; // Reserve seven bytes (store16, inc2, set16)
+			break;
+			case AssemblerInstructionTypeRet:
+				instruction->machineCodeLen=8; // Reserve eight bytes (dec2, load16, inc5, or)
+			break;
+			case AssemblerInstructionTypeStore8:
+				instruction->machineCodeLen=1;
+			break;
 		}
 	}
 
-	// Verbose output
-	if (verbose) {
-		printf("Instructions:\n");
-		for(unsigned i=0; i<program->instructionsNext; ++i) {
-			AssemblerInstruction *instruction=&program->instructions[i];
-			AssemblerLine *line=program->lines[instruction->lineIndex];
 
-			printf("	%6u 0x%04X ", i, instruction->machineCodeOffset);
-			for(unsigned j=0; j<instruction->machineCodeLen; ++j)
-				printf("%02X", instruction->machineCode[j]);
-			printf(": ");
+	return true;
+}
 
-			switch(instruction->type) {
-				case AssemblerInstructionTypeDefine:
-					printf("define membSize=%u, len=%u, totalSize=%u, symbol=%s data=[", instruction->d.define.membSize, instruction->d.define.len, instruction->d.define.totalSize, instruction->d.define.symbol);
-					for(unsigned j=0; j<instruction->d.define.len; j++) {
-						unsigned value;
-						switch(instruction->d.define.membSize) {
-							case 1:
-								value=instruction->d.define.data[j];
+void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program) {
+	assert(program!=NULL);
+
+	unsigned nextMachineCodeOffset=0;
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		AssemblerInstruction *instruction=&program->instructions[i];
+
+		instruction->machineCodeOffset=nextMachineCodeOffset;
+		nextMachineCodeOffset+=instruction->machineCodeLen;
+	}
+}
+
+bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
+	assert(program!=NULL);
+
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		AssemblerInstruction *instruction=&program->instructions[i];
+		AssemblerLine *line=program->lines[instruction->lineIndex];
+
+		switch(instruction->type) {
+			case AssemblerInstructionTypeDefine:
+			break;
+			case AssemblerInstructionTypeMov: {
+				// Verify dest is a valid register
+				if (instruction->d.mov.dest[0]!='r' || (instruction->d.mov.dest[1]<'0' || instruction->d.mov.dest[1]>'7') || instruction->d.mov.dest[2]!='\0') {
+					printf("error - expected register (r0-r7) as destination, instead got '%s' (%u:'%s')\n", instruction->d.mov.dest, line->lineNum, line->original);
+					return false;
+				}
+
+				BytecodeRegister destReg=(instruction->d.mov.dest[1]-'0');
+
+				// Determine type of src
+				if (isdigit(instruction->d.mov.src[0])) {
+					// Integer - use set16 instruction
+					unsigned value=atoi(instruction->d.mov.src);
+					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
+				} else if (instruction->d.mov.src[0]=='r' && (instruction->d.mov.src[1]>='0' && instruction->d.mov.src[1]<='7') && instruction->d.mov.src[2]=='\0') {
+					// Register - use dest=src|src as a copy
+					// also add a nop to pad to 3 bytes
+					BytecodeRegister srcReg=instruction->d.mov.src[1]-'0';
+					BytecodeInstructionStandard copyOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, destReg, srcReg, srcReg);
+
+					instruction->machineCode[0]=(copyOp>>8);
+					instruction->machineCode[1]=(copyOp&0xFF);
+					instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
+				} else if (instruction->d.mov.src[0]=='\'') {
+					char c=instruction->d.mov.src[1];
+					if (!isprint(c) || c=='\'' || instruction->d.mov.src[strlen(instruction->d.mov.src)-1]!='\'') {
+						printf("error - bad character constant '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+						return false;
+					}
+
+					if (c=='\\') {
+						c=instruction->d.mov.src[2];
+						switch(c) {
+							case 'n': c='\n'; break;
+							case 'r': c='\r'; break;
+							case 't': c='\t'; break;
+							default:
+								printf("error - bad escaped character constant '%s' (expecting n, r or t) (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+								return false;
 							break;
-							case 2:
-								value=(((uint16_t)instruction->d.define.data[j*instruction->d.define.membSize])<<8)|(instruction->d.define.data[j*instruction->d.define.membSize+1]);
-							break;
-							default: assert(false); break; // TODO: handle better
 						}
-						if (j>0)
-							printf(", ");
-						printf("%u", value);
-						if (instruction->d.define.membSize==1 && isgraph(value))
-							printf("=%c", value);
 					}
-					printf("] (%u:'%s')\n", line->lineNum, line->original);
-				break;
-				case AssemblerInstructionTypeMov:
-					printf("mov %s=%s (%u:'%s')\n", instruction->d.mov.dest, instruction->d.mov.src, line->lineNum, line->original);
-				break;
-				case AssemblerInstructionTypeLabel:
-					printf("label %s (%u:'%s')\n", instruction->d.label.symbol, line->lineNum, line->original);
-				break;
-				case AssemblerInstructionTypeSyscall:
-					printf("syscall (%u:'%s')\n", line->lineNum, line->original);
-				break;
-				case AssemblerInstructionTypeAlu:
-					switch(instruction->d.alu.type) {
-						case BytecodeInstructionAluTypeInc:
-							if (instruction->d.alu.incDecValue==1)
-								printf("%s++ (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
-							else
-								printf("%s+=%u (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeDec:
-							if (instruction->d.alu.incDecValue==1)
-								printf("%s-- (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
-							else
-								printf("%s-=%u (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeAdd:
-							printf("%s=%s+%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeSub:
-							printf("%s=%s-%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeMul:
-							printf("%s=%s*%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeDiv:
-							printf("%s=%s/%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeXor:
-							printf("%s=%s^%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeOr:
-							printf("%s=%s|%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeAnd:
-							printf("%s=%s&%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeNot:
-							printf("%s=~%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeCmp:
-							printf("%s=cmp(%s,%s) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeShiftLeft:
-							printf("%s=%s<<%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeShiftRight:
-							printf("%s=%s>>%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeSkip:
-							printf("skip if %s has bit %u set (%s) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.skipBit, byteCodeInstructionAluCmpBitStrings[instruction->d.alu.skipBit], line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeStore16:
-							printf("[%s]=%s (16 bit) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
-						break;
-						case BytecodeInstructionAluTypeLoad16:
-							printf("%s=[%s] (16 bit) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
+
+					BytecodeInstructionStandard set8Op=bytecodeInstructionCreateMiscSet8(destReg, c);
+					instruction->machineCode[0]=(set8Op>>8);
+					instruction->machineCode[1]=(set8Op&0xFF);
+					instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
+				} else if (instruction->d.mov.src[0]=='_' || isalnum(instruction->d.mov.src[0])) {
+					// Symbol
+
+					// Search through instructions looking for this symbol being defined
+					unsigned addr, k;
+					for(k=0; k<program->instructionsNext; ++k) {
+						AssemblerInstruction *loopInstruction=&program->instructions[k];
+						if (loopInstruction->type==AssemblerInstructionTypeDefine && strcmp(loopInstruction->d.define.symbol, instruction->d.mov.src)==0) {
+							addr=loopInstruction->machineCodeOffset;
+							break;
+						}
+					}
+					if (k==program->instructionsNext) {
+						printf("error - bad src '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+						return false;
+					}
+
+					// Create instruction using the found address
+					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, addr);
+				} else {
+					printf("error - bad src '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+					return false;
+				}
+			} break;
+			case AssemblerInstructionTypeLabel:
+			break;
+			case AssemblerInstructionTypeSyscall:
+			break;
+			case AssemblerInstructionTypeAlu: {
+				// Verify dest is a valid register
+				if (instruction->d.alu.dest[0]!='r' || (instruction->d.alu.dest[1]<'0' || instruction->d.alu.dest[1]>'7') || instruction->d.alu.dest[2]!='\0') {
+					printf("error - expected register (r0-r7) as destination, instead got '%s' (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+					return false;
+				}
+
+				BytecodeRegister destReg=(instruction->d.alu.dest[1]-'0');
+
+				// Read operand registers
+				// TODO: This better (i.e. check how many we expect and error if not enough)
+				BytecodeRegister opAReg=BytecodeRegister0;
+				BytecodeRegister opBReg=BytecodeRegister0;
+
+				if (instruction->d.alu.opA!=NULL && instruction->d.alu.opA[0]=='r' && (instruction->d.alu.opA[1]>='0' && instruction->d.alu.opA[1]<='7') && instruction->d.alu.opA[2]=='\0')
+					opAReg=(instruction->d.alu.opA[1]-'0');
+
+				if (instruction->d.alu.opB!=NULL && instruction->d.alu.opB[0]=='r' && (instruction->d.alu.opB[1]>='0' && instruction->d.alu.opB[1]<='7') && instruction->d.alu.opB[2]=='\0')
+					opBReg=(instruction->d.alu.opB[1]-'0');
+
+				// Create instruction
+				if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip)
+					// Special case to encode literal bit index
+					opAReg=instruction->d.alu.skipBit;
+				if (instruction->d.alu.type==BytecodeInstructionAluTypeInc || instruction->d.alu.type==BytecodeInstructionAluTypeDec) {
+					// Special case to encode literal add/sub delta
+					opAReg=(instruction->d.alu.incDecValue-1)>>3;
+					opBReg=(instruction->d.alu.incDecValue-1)&7;
+				}
+				BytecodeInstructionStandard aluOp=bytecodeInstructionCreateAlu(instruction->d.alu.type, destReg, opAReg, opBReg);
+
+				instruction->machineCode[0]=(aluOp>>8);
+				instruction->machineCode[1]=(aluOp&0xFF);
+			} break;
+			case AssemblerInstructionTypeJmp: {
+				// Search through instructions looking for the label being defined
+				unsigned addr, k;
+				for(k=0; k<program->instructionsNext; ++k) {
+					AssemblerInstruction *loopInstruction=&program->instructions[k];
+					if (loopInstruction->type==AssemblerInstructionTypeLabel && strcmp(loopInstruction->d.label.symbol, instruction->d.jmp.addr)==0) {
+						addr=loopInstruction->machineCodeOffset;
 						break;
 					}
-				break;
-				case AssemblerInstructionTypeJmp:
-					printf("jmp %s (%u:'%s')\n", instruction->d.jmp.addr, line->lineNum, line->original);
-				break;
-				case AssemblerInstructionTypePush:
-					printf("push %s (%u:'%s')\n", instruction->d.push.src, line->lineNum, line->original);
-				break;
-				case AssemblerInstructionTypePop:
-					printf("pop %s (%u:'%s')\n", instruction->d.pop.dest, line->lineNum, line->original);
-				break;
-				case AssemblerInstructionTypeCall:
-					printf("call %s (%u:'%s')\n", instruction->d.call.label, line->lineNum, line->original);
-				break;
-				case AssemblerInstructionTypeRet:
-					printf("ret (%u:'%s')\n", line->lineNum, line->original);
-				break;
-				case AssemblerInstructionTypeStore8:
-					printf("[%s]=%s (8 bit) (%u:'%s')\n", instruction->d.store8.dest, instruction->d.store8.src, line->lineNum, line->original);
-				break;
-			}
+				}
+				if (k==program->instructionsNext) {
+					printf("error - bad jump label '%s' (%u:'%s')\n", instruction->d.jmp.addr, line->lineNum, line->original);
+					return false;
+				}
+
+				// Create instruction which sets the IP register
+				bytecodeInstructionCreateMiscSet16(instruction->machineCode, ByteCodeRegisterIP, addr);
+			} break;
+			case AssemblerInstructionTypePush: {
+				// Verify src is a valid register
+				if (instruction->d.push.src[0]!='r' || (instruction->d.push.src[1]<'0' || instruction->d.push.src[1]>'7') || instruction->d.push.src[2]!='\0') {
+					printf("error - expected register (r0-r7) as src, instead got '%s' (%u:'%s')\n", instruction->d.push.src, line->lineNum, line->original);
+					return false;
+				}
+
+				BytecodeRegister srcReg=(instruction->d.push.src[1]-'0');
+
+				// Create as two instructions: store16 SP srcReg; inc2 SP
+				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, ByteCodeRegisterSP, srcReg, 0);
+				instruction->machineCode[0]=(store16Op>>8);
+				instruction->machineCode[1]=(store16Op&0xFF);
+
+				BytecodeInstructionStandard inc2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterSP, 2);
+				instruction->machineCode[2]=(inc2Op>>8);
+				instruction->machineCode[3]=(inc2Op&0xFF);
+			} break;
+			case AssemblerInstructionTypePop: {
+				// Verify dest is a valid register
+				if (instruction->d.pop.dest[0]!='r' || (instruction->d.pop.dest[1]<'0' || instruction->d.pop.dest[1]>'7') || instruction->d.pop.dest[2]!='\0') {
+					printf("error - expected register (r0-r7) as dest, instead got '%s' (%u:'%s')\n", instruction->d.pop.dest, line->lineNum, line->original);
+					return false;
+				}
+
+				BytecodeRegister destReg=(instruction->d.pop.dest[1]-'0');
+
+				// Create as two instructions: dec2 SP; load16 destReg SP
+				BytecodeInstructionStandard dec2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 2);
+				instruction->machineCode[0]=(dec2Op>>8);
+				instruction->machineCode[1]=(dec2Op&0xFF);
+
+				BytecodeInstructionStandard loadOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, destReg, ByteCodeRegisterSP, 0);
+				instruction->machineCode[2]=(loadOp>>8);
+				instruction->machineCode[3]=(loadOp&0xFF);
+			} break;
+			case AssemblerInstructionTypeCall: {
+				// Search through instructions looking for the label being defined
+				unsigned addr, k;
+				for(k=0; k<program->instructionsNext; ++k) {
+					AssemblerInstruction *loopInstruction=&program->instructions[k];
+					if (loopInstruction->type==AssemblerInstructionTypeLabel && strcmp(loopInstruction->d.label.symbol, instruction->d.jmp.addr)==0) {
+						addr=loopInstruction->machineCodeOffset;
+						break;
+					}
+				}
+				if (k==program->instructionsNext) {
+					printf("error - bad call label '%s' (%u:'%s')\n", instruction->d.call.label, line->lineNum, line->original);
+					return false;
+				}
+
+				// Create instructions (push IP onto stack and jump into function)
+				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, ByteCodeRegisterSP, ByteCodeRegisterIP, 0);
+				instruction->machineCode[0]=(store16Op>>8);
+				instruction->machineCode[1]=(store16Op&0xFF);
+
+				BytecodeInstructionStandard incOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterSP, 2);
+				instruction->machineCode[2]=(incOp>>8);
+				instruction->machineCode[3]=(incOp&0xFF);
+
+				bytecodeInstructionCreateMiscSet16(instruction->machineCode+4, ByteCodeRegisterIP, addr);
+			} break;
+			case AssemblerInstructionTypeRet: {
+				// Create instructions (pop ret addr off stack, adjust it to skip call pseudo instructions, and then jump)
+				BytecodeInstructionStandard decOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 2);
+				instruction->machineCode[0]=(decOp>>8);
+				instruction->machineCode[1]=(decOp&0xFF);
+
+				BytecodeInstructionStandard load16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, ByteCodeRegisterS, ByteCodeRegisterSP, 0);
+				instruction->machineCode[2]=(load16Op>>8);
+				instruction->machineCode[3]=(load16Op&0xFF);
+
+				BytecodeInstructionStandard incOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterS, 5);
+				instruction->machineCode[4]=(incOp>>8);
+				instruction->machineCode[5]=(incOp&0xFF);
+
+				BytecodeInstructionStandard setIpOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, ByteCodeRegisterIP, ByteCodeRegisterS, ByteCodeRegisterS);
+				instruction->machineCode[6]=(setIpOp>>8);
+				instruction->machineCode[7]=(setIpOp&0xFF);
+			} break;
+			case AssemblerInstructionTypeStore8: {
+				// Verify dest and src are valid registers
+				if (instruction->d.store8.dest[0]!='r' || (instruction->d.store8.dest[1]<'0' || instruction->d.store8.dest[1]>'7') || instruction->d.store8.dest[2]!='\0') {
+					printf("error - expected register (r0-r7) as destination address, instead got '%s' (%u:'%s')\n", instruction->d.store8.dest, line->lineNum, line->original);
+					return false;
+				}
+
+				if (instruction->d.store8.src[0]!='r' || (instruction->d.store8.src[1]<'0' || instruction->d.store8.src[1]>'7') || instruction->d.store8.src[2]!='\0') {
+					printf("error - expected register (r0-r7) as src, instead got '%s' (%u:'%s')\n", instruction->d.store8.src, line->lineNum, line->original);
+					return false;
+				}
+
+				BytecodeRegister destReg=(instruction->d.store8.dest[1]-'0');
+				BytecodeRegister srcReg=(instruction->d.store8.src[1]-'0');
+
+				// Create instruction
+				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeStore, destReg, srcReg);
+			} break;
 		}
 	}
 
-	// Output machine code
-	FILE *outputFile=fopen(outputPath, "w");
-	if (outputFile==NULL) {
-		printf("Could not open output file '%s' for writing\n", outputPath);
-		goto done;
+	return true;
+}
+
+void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
+	assert(program!=NULL);
+
+	printf("Instructions:\n");
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		const AssemblerInstruction *instruction=&program->instructions[i];
+		const AssemblerLine *line=program->lines[instruction->lineIndex];
+
+		printf("	%6u 0x%04X ", i, instruction->machineCodeOffset);
+		for(unsigned j=0; j<instruction->machineCodeLen; ++j)
+			printf("%02X", instruction->machineCode[j]);
+		printf(": ");
+
+		switch(instruction->type) {
+			case AssemblerInstructionTypeDefine:
+				printf("define membSize=%u, len=%u, totalSize=%u, symbol=%s data=[", instruction->d.define.membSize, instruction->d.define.len, instruction->d.define.totalSize, instruction->d.define.symbol);
+				for(unsigned j=0; j<instruction->d.define.len; j++) {
+					unsigned value;
+					switch(instruction->d.define.membSize) {
+						case 1:
+							value=instruction->d.define.data[j];
+						break;
+						case 2:
+							value=(((uint16_t)instruction->d.define.data[j*instruction->d.define.membSize])<<8)|(instruction->d.define.data[j*instruction->d.define.membSize+1]);
+						break;
+						default: assert(false); break; // TODO: handle better
+					}
+					if (j>0)
+						printf(", ");
+					printf("%u", value);
+					if (instruction->d.define.membSize==1 && isgraph(value))
+						printf("=%c", value);
+				}
+				printf("] (%u:'%s')\n", line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeMov:
+				printf("mov %s=%s (%u:'%s')\n", instruction->d.mov.dest, instruction->d.mov.src, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeLabel:
+				printf("label %s (%u:'%s')\n", instruction->d.label.symbol, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeSyscall:
+				printf("syscall (%u:'%s')\n", line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeAlu:
+				switch(instruction->d.alu.type) {
+					case BytecodeInstructionAluTypeInc:
+						if (instruction->d.alu.incDecValue==1)
+							printf("%s++ (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+						else
+							printf("%s+=%u (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeDec:
+						if (instruction->d.alu.incDecValue==1)
+							printf("%s-- (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+						else
+							printf("%s-=%u (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeAdd:
+						printf("%s=%s+%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeSub:
+						printf("%s=%s-%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeMul:
+						printf("%s=%s*%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeDiv:
+						printf("%s=%s/%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeXor:
+						printf("%s=%s^%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeOr:
+						printf("%s=%s|%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeAnd:
+						printf("%s=%s&%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeNot:
+						printf("%s=~%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeCmp:
+						printf("%s=cmp(%s,%s) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeShiftLeft:
+						printf("%s=%s<<%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeShiftRight:
+						printf("%s=%s>>%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeSkip:
+						printf("skip if %s has bit %u set (%s) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.skipBit, byteCodeInstructionAluCmpBitStrings[instruction->d.alu.skipBit], line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeStore16:
+						printf("[%s]=%s (16 bit) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
+					break;
+					case BytecodeInstructionAluTypeLoad16:
+						printf("%s=[%s] (16 bit) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
+					break;
+				}
+			break;
+			case AssemblerInstructionTypeJmp:
+				printf("jmp %s (%u:'%s')\n", instruction->d.jmp.addr, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypePush:
+				printf("push %s (%u:'%s')\n", instruction->d.push.src, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypePop:
+				printf("pop %s (%u:'%s')\n", instruction->d.pop.dest, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeCall:
+				printf("call %s (%u:'%s')\n", instruction->d.call.label, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeRet:
+				printf("ret (%u:'%s')\n", line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeStore8:
+				printf("[%s]=%s (8 bit) (%u:'%s')\n", instruction->d.store8.dest, instruction->d.store8.src, line->lineNum, line->original);
+			break;
+		}
+	}
+}
+
+bool assemblerProgramWriteMachineCode(const AssemblerProgram *program, const char *path) {
+	assert(program!=NULL);
+	assert(path!=NULL);
+
+	// Open file
+	FILE *file=fopen(path, "w");
+	if (file==NULL) {
+		printf("Could not open output file '%s' for writing\n", path);
+		return false;
 	}
 
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
-		AssemblerInstruction *instruction=&program->instructions[i];
-		fwrite(instruction->machineCode, 1, instruction->machineCodeLen, outputFile); // TODO: Check return
+		const AssemblerInstruction *instruction=&program->instructions[i];
+		fwrite(instruction->machineCode, 1, instruction->machineCodeLen, file); // TODO: Check return
 	}
 
-	fclose(outputFile);
+	fclose(file);
 
-	// Tidy up
-	done:
-	for(unsigned i=0; i<program->linesNext; ++i) {
-		AssemblerLine *assemblerLine=program->lines[i];
-		free(assemblerLine->original);
-		free(assemblerLine->modified);
-		free(assemblerLine);
-	}
-	for(unsigned i=0; i<program->instructionsNext; ++i) {
-		AssemblerInstruction *instruction=&program->instructions[i];
-		free(instruction->modifiedLineCopy);
-	}
-
-	return 0;
+	return true;
 }
