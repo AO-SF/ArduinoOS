@@ -64,7 +64,7 @@ push r0
 push r1
 push r3
 ; print digit
-mov r2 48
+mov r2 '0'
 add r3 r3 r2
 mov r2 1024 ; TODO: Use dw to create a symbol for this
 store8 r2 r3
