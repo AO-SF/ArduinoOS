@@ -88,6 +88,8 @@ typedef enum {
 	BytecodeInstructionAluTypeShiftLeft,
 	BytecodeInstructionAluTypeShiftRight,
 	BytecodeInstructionAluTypeSkip,
+	BytecodeInstructionAluTypeStore16,
+	BytecodeInstructionAluTypeLoad16,
 } BytecodeInstructionAluType;
 
 typedef struct {
