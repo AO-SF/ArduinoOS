@@ -176,6 +176,9 @@ bool processRunNextInstruction(Process *process) {
 					*d|=(opA<=opB)<<BytecodeInstructionAluCmpBitLessEqual;
 					*d|=(opA>opB)<<BytecodeInstructionAluCmpBitGreaterThan;
 					*d|=(opA>=opB)<<BytecodeInstructionAluCmpBitGreaterEqual;
+
+					if (verbose)
+						printf("r%i=cmp(r%i,r%i) (=cmp(%i,%i)=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				} break;
 				case BytecodeInstructionAluTypeShiftLeft:
 					process->regs[info.d.alu.destReg]=opA<<opB;
