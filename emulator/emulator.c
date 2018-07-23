@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "../kernel/bytecode.h"
 
@@ -15,6 +16,7 @@ typedef struct {
 
 Process *process=NULL;
 bool verbose=false;
+bool slow=false;
 
 bool processRunNextInstruction(Process *process);
 void processDebug(const Process *process);
@@ -23,13 +25,21 @@ int main(int argc, char **argv) {
 	FILE *inputFile=NULL;
 
 	// Parse arguments
-	if (argc!=2 && argc!=3) {
-		printf("Usage: %s inputfile [--verbose]\n", argv[0]);
+	if (argc<2) {
+		printf("Usage: %s inputfile [--verbose] [--slow]\n", argv[0]);
 		goto done;
 	}
 
 	const char *inputPath=argv[1];
-	verbose=(argc>2 && strcmp(argv[2], "--verbose")==0);
+
+	for(int i=2; i<argc; ++i) {
+		if (strcmp(argv[i], "--verbose")==0)
+			verbose=true;
+		else if (strcmp(argv[i], "--slow")==0)
+			slow=true;
+		else
+			printf("Warning: unknown option '%s'\n", argv[i]);
+	}
 
 	// Allocate process data struct
 	process=malloc(sizeof(Process));
@@ -54,6 +64,9 @@ int main(int argc, char **argv) {
 
 	// Run process
 	do {
+		if (slow)
+			sleep(1);
+
 		if (verbose)
 			processDebug(process);
 	} while(processRunNextInstruction(process));
