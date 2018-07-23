@@ -1,4 +1,4 @@
-ab printDecScratchByte 1
+ab libScratchByte 1
 
 ; Print unsigned decimal routine (takes value x from r0)
 label printDec
@@ -29,7 +29,7 @@ push r3
 ; print digit
 mov r2 '0' ; add '0' to make ascii character
 add r3 r3 r2
-mov r2 printDecScratchByte
+mov r2 libScratchByte
 store8 r2 r3 ; store this character into ram for the write syscall to access
 mov r0 257 ; write syscall
 mov r1 1 ; stdout fd
@@ -56,3 +56,17 @@ sub r0 r0 r3
 mov r3 10 ; reduce divisor by factor 10 ready for next iteration
 div r1 r1 r3
 jmp printDecLoopStart
+
+; Print char function (with char c taken from r0)
+label printChar
+; Store given char into scratch byte as a mini-buffer
+mov r1 r0
+mov r0 libScratchByte
+store8 r0 r1
+; Call write syscall with fd=stdout
+mov r0 257
+mov r1 1
+mov r2 libScratchByte
+mov r3 1
+syscall
+ret
