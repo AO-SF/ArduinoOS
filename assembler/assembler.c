@@ -493,7 +493,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 
 			char *symbol=strtok_r(NULL, " ", &savePtr);
 			if (symbol==NULL) {
-				printf("error - expected symbol name after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected symbol name after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -586,12 +586,12 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 		} else if (strcmp(first, "mov")==0) {
 			char *dest=strtok_r(NULL, " ", &savePtr);
 			if (dest==NULL) {
-				printf("error - expected dest after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected dest after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 			char *src=strtok_r(NULL, " ", &savePtr);
 			if (src==NULL) {
-				printf("error - expected src after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected src after '%s' (%s:%u '%s')\n", dest, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -604,7 +604,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 		} else if (strcmp(first, "label")==0) {
 			char *symbol=strtok_r(NULL, " ", &savePtr);
 			if (symbol==NULL) {
-				printf("error - expected symbol after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected symbol after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -621,7 +621,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 		} else if (strcmp(first, "jmp")==0) {
 			char *addr=strtok_r(NULL, " ", &savePtr);
 			if (addr==NULL) {
-				printf("error - expected address label after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected address label after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -633,7 +633,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 		} else if (strcmp(first, "push")==0) {
 			char *src=strtok_r(NULL, " ", &savePtr);
 			if (src==NULL) {
-				printf("error - expected src register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected src register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -645,7 +645,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 		} else if (strcmp(first, "pop")==0) {
 			char *dest=strtok_r(NULL, " ", &savePtr);
 			if (dest==NULL) {
-				printf("error - expected dest register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected dest register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -657,7 +657,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 		} else if (strcmp(first, "call")==0) {
 			char *label=strtok_r(NULL, " ", &savePtr);
 			if (label==NULL) {
-				printf("error - expected label register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected label register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -674,13 +674,13 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 		} else if (strcmp(first, "store8")==0) {
 			char *dest=strtok_r(NULL, " ", &savePtr);
 			if (dest==NULL) {
-				printf("error - expected dest addr register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected dest addr register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
 			char *src=strtok_r(NULL, " ", &savePtr);
 			if (src==NULL) {
-				printf("error - expected src register after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - expected src register after '%s' (%s:%u '%s')\n", dest, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -701,7 +701,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				// ALU op
 				char *dest=strtok_r(NULL, " ", &savePtr);
 				if (dest==NULL) {
-					printf("error - expected dest after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+					printf("error - expected dest after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 					return false;
 				}
 
@@ -710,7 +710,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				if (assemblerInstructionAluData[j].ops>=1) {
 					opA=strtok_r(NULL, " ", &savePtr);
 					if (opA==NULL) {
-						printf("error - expected operand A after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
+						printf("error - expected operand A after '%s' (%s:%u '%s')\n", dest, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 						return false;
 					}
 				}
@@ -718,7 +718,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				if (assemblerInstructionAluData[j].ops>=2) {
 					opB=strtok_r(NULL, " ", &savePtr);
 					if (opB==NULL) {
-						printf("error - expected operand B after '%s' (%u:'%s')\n", opA, assemblerLine->lineNum, assemblerLine->original);
+						printf("error - expected operand B after '%s' (%s:%u '%s')\n", opA, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 						return false;
 					}
 				}
@@ -736,7 +736,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				instruction->d.alu.opA=opA;
 				instruction->d.alu.opB=opB;
 			} else {
-				printf("error - unknown/unimplemented instruction '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				printf("error - unknown/unimplemented instruction '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				free(lineCopy);
 				return false;
 			}
@@ -846,7 +846,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeMov: {
 				// Verify dest is a valid register
 				if (instruction->d.mov.dest[0]!='r' || (instruction->d.mov.dest[1]<'0' || instruction->d.mov.dest[1]>'7') || instruction->d.mov.dest[2]!='\0') {
-					printf("error - expected register (r0-r7) as destination, instead got '%s' (%u:'%s')\n", instruction->d.mov.dest, line->lineNum, line->original);
+					printf("error - expected register (r0-r7) as destination, instead got '%s' (%s:%u '%s')\n", instruction->d.mov.dest, line->file, line->lineNum, line->original);
 					return false;
 				}
 
@@ -869,7 +869,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				} else if (instruction->d.mov.src[0]=='\'') {
 					char c=instruction->d.mov.src[1];
 					if (!isprint(c) || c=='\'' || instruction->d.mov.src[strlen(instruction->d.mov.src)-1]!='\'') {
-						printf("error - bad character constant '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+						printf("error - bad character constant '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 						return false;
 					}
 
@@ -880,7 +880,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 							case 'r': c='\r'; break;
 							case 't': c='\t'; break;
 							default:
-								printf("error - bad escaped character constant '%s' (expecting n, r or t) (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+								printf("error - bad escaped character constant '%s' (expecting n, r or t) (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 								return false;
 							break;
 						}
@@ -903,14 +903,14 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 						}
 					}
 					if (k==program->instructionsNext) {
-						printf("error - bad src '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+						printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 						return false;
 					}
 
 					// Create instruction using the found address
 					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, addr);
 				} else {
-					printf("error - bad src '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 					return false;
 				}
 			} break;
@@ -921,7 +921,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeAlu: {
 				// Verify dest is a valid register
 				if (instruction->d.alu.dest[0]!='r' || (instruction->d.alu.dest[1]<'0' || instruction->d.alu.dest[1]>'7') || instruction->d.alu.dest[2]!='\0') {
-					printf("error - expected register (r0-r7) as destination, instead got '%s' (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+					printf("error - expected register (r0-r7) as destination, instead got '%s' (%s:%u '%s')\n", instruction->d.alu.dest, line->file, line->lineNum, line->original);
 					return false;
 				}
 
@@ -963,7 +963,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					}
 				}
 				if (k==program->instructionsNext) {
-					printf("error - bad jump label '%s' (%u:'%s')\n", instruction->d.jmp.addr, line->lineNum, line->original);
+					printf("error - bad jump label '%s' (%s:%u '%s')\n", instruction->d.jmp.addr, line->file, line->lineNum, line->original);
 					return false;
 				}
 
@@ -973,7 +973,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypePush: {
 				// Verify src is a valid register
 				if (instruction->d.push.src[0]!='r' || (instruction->d.push.src[1]<'0' || instruction->d.push.src[1]>'7') || instruction->d.push.src[2]!='\0') {
-					printf("error - expected register (r0-r7) as src, instead got '%s' (%u:'%s')\n", instruction->d.push.src, line->lineNum, line->original);
+					printf("error - expected register (r0-r7) as src, instead got '%s' (%s:%u '%s')\n", instruction->d.push.src, line->file, line->lineNum, line->original);
 					return false;
 				}
 
@@ -991,7 +991,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypePop: {
 				// Verify dest is a valid register
 				if (instruction->d.pop.dest[0]!='r' || (instruction->d.pop.dest[1]<'0' || instruction->d.pop.dest[1]>'7') || instruction->d.pop.dest[2]!='\0') {
-					printf("error - expected register (r0-r7) as dest, instead got '%s' (%u:'%s')\n", instruction->d.pop.dest, line->lineNum, line->original);
+					printf("error - expected register (r0-r7) as dest, instead got '%s' (%s:%u '%s')\n", instruction->d.pop.dest, line->file, line->lineNum, line->original);
 					return false;
 				}
 
@@ -1017,7 +1017,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					}
 				}
 				if (k==program->instructionsNext) {
-					printf("error - bad call label '%s' (%u:'%s')\n", instruction->d.call.label, line->lineNum, line->original);
+					printf("error - bad call label '%s' (%s:%u '%s')\n", instruction->d.call.label, line->file, line->lineNum, line->original);
 					return false;
 				}
 
@@ -1053,12 +1053,12 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeStore8: {
 				// Verify dest and src are valid registers
 				if (instruction->d.store8.dest[0]!='r' || (instruction->d.store8.dest[1]<'0' || instruction->d.store8.dest[1]>'7') || instruction->d.store8.dest[2]!='\0') {
-					printf("error - expected register (r0-r7) as destination address, instead got '%s' (%u:'%s')\n", instruction->d.store8.dest, line->lineNum, line->original);
+					printf("error - expected register (r0-r7) as destination address, instead got '%s' (%s:%u '%s')\n", instruction->d.store8.dest, line->file, line->lineNum, line->original);
 					return false;
 				}
 
 				if (instruction->d.store8.src[0]!='r' || (instruction->d.store8.src[1]<'0' || instruction->d.store8.src[1]>'7') || instruction->d.store8.src[2]!='\0') {
-					printf("error - expected register (r0-r7) as src, instead got '%s' (%u:'%s')\n", instruction->d.store8.src, line->lineNum, line->original);
+					printf("error - expected register (r0-r7) as src, instead got '%s' (%s:%u '%s')\n", instruction->d.store8.src, line->file, line->lineNum, line->original);
 					return false;
 				}
 
@@ -1107,92 +1107,92 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 					if (instruction->d.define.membSize==1 && isgraph(value))
 						printf("=%c", value);
 				}
-				printf("] (%u:'%s')\n", line->lineNum, line->original);
+				printf("] (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeMov:
-				printf("mov %s=%s (%u:'%s')\n", instruction->d.mov.dest, instruction->d.mov.src, line->lineNum, line->original);
+				printf("mov %s=%s (%s:%u '%s')\n", instruction->d.mov.dest, instruction->d.mov.src, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeLabel:
-				printf("label %s (%u:'%s')\n", instruction->d.label.symbol, line->lineNum, line->original);
+				printf("label %s (%s:%u '%s')\n", instruction->d.label.symbol, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeSyscall:
-				printf("syscall (%u:'%s')\n", line->lineNum, line->original);
+				printf("syscall (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeAlu:
 				switch(instruction->d.alu.type) {
 					case BytecodeInstructionAluTypeInc:
 						if (instruction->d.alu.incDecValue==1)
-							printf("%s++ (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+							printf("%s++ (%s:%u '%s')\n", instruction->d.alu.dest, line->file, line->lineNum, line->original);
 						else
-							printf("%s+=%u (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->lineNum, line->original);
+							printf("%s+=%u (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeDec:
 						if (instruction->d.alu.incDecValue==1)
-							printf("%s-- (%u:'%s')\n", instruction->d.alu.dest, line->lineNum, line->original);
+							printf("%s-- (%s:%u '%s')\n", instruction->d.alu.dest, line->file, line->lineNum, line->original);
 						else
-							printf("%s-=%u (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->lineNum, line->original);
+							printf("%s-=%u (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.incDecValue, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeAdd:
-						printf("%s=%s+%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=%s+%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeSub:
-						printf("%s=%s-%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=%s-%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeMul:
-						printf("%s=%s*%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=%s*%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeDiv:
-						printf("%s=%s/%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=%s/%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeXor:
-						printf("%s=%s^%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=%s^%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeOr:
-						printf("%s=%s|%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=%s|%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeAnd:
-						printf("%s=%s&%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=%s&%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeNot:
-						printf("%s=~%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
+						printf("%s=~%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeCmp:
-						printf("%s=cmp(%s,%s) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=cmp(%s,%s) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeShiftLeft:
-						printf("%s=%s<<%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=%s<<%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeShiftRight:
-						printf("%s=%s>>%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						printf("%s=%s>>%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeSkip:
-						printf("skip if %s has bit %u set (%s) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.skipBit, byteCodeInstructionAluCmpBitStrings[instruction->d.alu.skipBit], line->lineNum, line->original);
+						printf("skip if %s has bit %u set (%s) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.skipBit, byteCodeInstructionAluCmpBitStrings[instruction->d.alu.skipBit], line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeStore16:
-						printf("[%s]=%s (16 bit) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
+						printf("[%s]=%s (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
 					break;
 					case BytecodeInstructionAluTypeLoad16:
-						printf("%s=[%s] (16 bit) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->lineNum, line->original);
+						printf("%s=[%s] (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
 					break;
 				}
 			break;
 			case AssemblerInstructionTypeJmp:
-				printf("jmp %s (%u:'%s')\n", instruction->d.jmp.addr, line->lineNum, line->original);
+				printf("jmp %s (%s:%u '%s')\n", instruction->d.jmp.addr, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypePush:
-				printf("push %s (%u:'%s')\n", instruction->d.push.src, line->lineNum, line->original);
+				printf("push %s (%s:%u '%s')\n", instruction->d.push.src, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypePop:
-				printf("pop %s (%u:'%s')\n", instruction->d.pop.dest, line->lineNum, line->original);
+				printf("pop %s (%s:%u '%s')\n", instruction->d.pop.dest, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeCall:
-				printf("call %s (%u:'%s')\n", instruction->d.call.label, line->lineNum, line->original);
+				printf("call %s (%s:%u '%s')\n", instruction->d.call.label, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeRet:
-				printf("ret (%u:'%s')\n", line->lineNum, line->original);
+				printf("ret (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeStore8:
-				printf("[%s]=%s (8 bit) (%u:'%s')\n", instruction->d.store8.dest, instruction->d.store8.src, line->lineNum, line->original);
+				printf("[%s]=%s (8 bit) (%s:%u '%s')\n", instruction->d.store8.dest, instruction->d.store8.src, line->file, line->lineNum, line->original);
 			break;
 		}
 	}
