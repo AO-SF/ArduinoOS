@@ -3,3 +3,4 @@ disassembler
 eeprom
 emulator
 kernel
+*.o
