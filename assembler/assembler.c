@@ -55,6 +55,8 @@ typedef enum {
 	AssemblerInstructionTypeJmp,
 	AssemblerInstructionTypePush,
 	AssemblerInstructionTypePop,
+	AssemblerInstructionTypeCall,
+	AssemblerInstructionTypeRet,
 } AssemblerInstructionType;
 
 typedef struct {
@@ -94,6 +96,10 @@ typedef struct {
 } AssemblerInstructionPop;
 
 typedef struct {
+	const char *label;
+} AssemblerInstructionCall;
+
+typedef struct {
 	uint16_t lineIndex;
 	char *modifiedLineCopy; // so we can have fields pointing into this
 	AssemblerInstructionType type;
@@ -105,6 +111,7 @@ typedef struct {
 		AssemblerInstructionJmp jmp;
 		AssemblerInstructionPush push;
 		AssemblerInstructionPop pop;
+		AssemblerInstructionCall call;
 	} d;
 
 	uint8_t machineCode[1024]; // TODO: this is pretty wasteful...
@@ -433,6 +440,23 @@ int main(int argc, char **argv) {
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypePop;
 			instruction->d.pop.dest=dest;
+		} else if (strcmp(first, "call")==0) {
+			char *label=strtok_r(NULL, " ", &savePtr);
+			if (label==NULL) {
+				printf("error - expected label register after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
+				goto done;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeCall;
+			instruction->d.call.label=label;
+		} else if (strcmp(first, "ret")==0) {
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeRet;
 		} else {
 			// Check for an ALU operation
 			unsigned j;
@@ -721,6 +745,66 @@ int main(int argc, char **argv) {
 						} break;
 					}
 				break;
+				case AssemblerInstructionTypeCall:
+					switch(genPass) {
+						case 0:
+							// Reserve seven bytes (2+2+3)
+							instruction->machineCodeLen=7;
+						break;
+						case 2: {
+							// Search through instructions looking for the label being defined
+							unsigned addr, k;
+							for(k=0; k<program->instructionsNext; ++k) {
+								AssemblerInstruction *loopInstruction=&program->instructions[k];
+								if (loopInstruction->type==AssemblerInstructionTypeLabel && strcmp(loopInstruction->d.label.symbol, instruction->d.jmp.addr)==0) {
+									addr=loopInstruction->machineCodeOffset;
+									break;
+								}
+							}
+							if (k==program->instructionsNext) {
+								printf("error - bad call label '%s' (%u:'%s')\n", instruction->d.call.label, line->lineNum, line->original);
+								goto done;
+							}
+
+							// Create instructions (push IP onto stack and jump into function)
+							BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, ByteCodeRegisterSP, ByteCodeRegisterIP, 0);
+							instruction->machineCode[0]=(store16Op>>8);
+							instruction->machineCode[1]=(store16Op&0xFF);
+
+							BytecodeInstructionStandard incOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterSP, 2);
+							instruction->machineCode[2]=(incOp>>8);
+							instruction->machineCode[3]=(incOp&0xFF);
+
+							bytecodeInstructionCreateMiscSet16(instruction->machineCode+4, ByteCodeRegisterIP, addr);
+						} break;
+					}
+				break;
+				case AssemblerInstructionTypeRet:
+					switch(genPass) {
+						case 0:
+							// Reserve eight bytes (2+2+2+2)
+							instruction->machineCodeLen=8;
+						break;
+						case 2: {
+							// Create instructions (pop ret addr off stack, adjust it to skip call pseudo instructions, and then jump)
+							BytecodeInstructionStandard decOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 2);
+							instruction->machineCode[0]=(decOp>>8);
+							instruction->machineCode[1]=(decOp&0xFF);
+
+							BytecodeInstructionStandard load16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, ByteCodeRegisterS, ByteCodeRegisterSP, 0);
+							instruction->machineCode[2]=(load16Op>>8);
+							instruction->machineCode[3]=(load16Op&0xFF);
+
+							BytecodeInstructionStandard incOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterS, 5);
+							instruction->machineCode[4]=(incOp>>8);
+							instruction->machineCode[5]=(incOp&0xFF);
+
+							BytecodeInstructionStandard setIpOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, ByteCodeRegisterIP, ByteCodeRegisterS, ByteCodeRegisterS);
+							instruction->machineCode[6]=(setIpOp>>8);
+							instruction->machineCode[7]=(setIpOp&0xFF);
+						} break;
+					}
+				break;
 			}
 		}
 	}
@@ -834,6 +918,12 @@ int main(int argc, char **argv) {
 				break;
 				case AssemblerInstructionTypePop:
 					printf("pop %s (%u:'%s')\n", instruction->d.pop.dest, line->lineNum, line->original);
+				break;
+				case AssemblerInstructionTypeCall:
+					printf("call %s (%u:'%s')\n", instruction->d.call.label, line->lineNum, line->original);
+				break;
+				case AssemblerInstructionTypeRet:
+					printf("ret (%u:'%s')\n", line->lineNum, line->original);
 				break;
 			}
 		}
