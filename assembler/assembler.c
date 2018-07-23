@@ -164,7 +164,7 @@ int main(int argc, char **argv) {
 
 	char *line=NULL;
 	size_t lineSize=0;
-	unsigned lineNum=0;
+	unsigned lineNum=1;
 	while(getline(&line, &lineSize, inputFile)>0) {
 		// Trim trailing newline
 		if (line[strlen(line)-1]=='\n')
