@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #include "bytecode.h"
 
 const char *byteCodeInstructionAluCmpBitStrings[BytecodeInstructionAluCmpBitNB]={
@@ -43,6 +45,7 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 		info->d.alu.destReg=((upper16>>6)&0x7);
 		info->d.alu.opAReg=((upper16>>3)&0x7);
 		info->d.alu.opBReg=(upper16&0x7);
+		info->d.alu.incDecValue=(upper16&63)+1;
 
 		return true;
 	}
@@ -87,6 +90,16 @@ BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluT
 	uint8_t upper=(0xE0|(((uint8_t)type)<<1)|(destReg>>2));
 	uint8_t lower=(((destReg&3)<<6)|(opAReg<<3)|opBReg);
 	return (((uint16_t)upper)<<8)|lower;
+}
+
+BytecodeInstructionStandard bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue) {
+	assert(type==BytecodeInstructionAluTypeInc || type==BytecodeInstructionAluTypeDec);
+	assert(incDecValue>0 && incDecValue<64);
+
+	BytecodeRegister opAReg=(incDecValue-1)>>3;
+	BytecodeRegister opBReg=(incDecValue-1)&7;
+
+	return bytecodeInstructionCreateAlu(type, destReg, opAReg, opBReg);
 }
 
 BytecodeInstructionShort bytecodeInstructionCreateMiscNop(void) {

@@ -138,14 +138,22 @@ bool processRunNextInstruction(Process *process) {
 			int opB=process->regs[info.d.alu.opBReg];
 			switch(info.d.alu.type) {
 				case BytecodeInstructionAluTypeInc: {
-					int pre=process->regs[info.d.alu.destReg]++;
-					if (verbose)
-						printf("Info: r%i++ (r%i=%i+1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
+					int pre=process->regs[info.d.alu.destReg]+=info.d.alu.incDecValue;
+					if (verbose) {
+						if (info.d.alu.incDecValue==1)
+							printf("Info: r%i++ (r%i=%i+1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
+						else
+							printf("Info: r%i+=%i (r%i=%i+%i=%i)\n", info.d.alu.destReg, info.d.alu.incDecValue, info.d.alu.destReg, pre, info.d.alu.incDecValue, process->regs[info.d.alu.destReg]);
+					}
 				} break;
 				case BytecodeInstructionAluTypeDec: {
-					int pre=process->regs[info.d.alu.destReg]--;
-					if (verbose)
-						printf("Info: r%i-- (r%i=%i-1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
+					int pre=process->regs[info.d.alu.destReg]-=info.d.alu.incDecValue;
+					if (verbose) {
+						if (info.d.alu.incDecValue==1)
+							printf("Info: r%i-- (r%i=%i-1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
+						else
+							printf("Info: r%i-=%i (r%i=%i-%i=%i)\n", info.d.alu.destReg, info.d.alu.incDecValue, info.d.alu.destReg, pre, info.d.alu.incDecValue, process->regs[info.d.alu.destReg]);
+					}
 				} break;
 				case BytecodeInstructionAluTypeAdd:
 					process->regs[info.d.alu.destReg]=opA+opB;

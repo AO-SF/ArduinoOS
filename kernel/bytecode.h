@@ -95,6 +95,7 @@ typedef enum {
 typedef struct {
 	BytecodeInstructionAluType type;
 	BytecodeRegister destReg, opAReg, opBReg;
+	uint8_t incDecValue; // post adjustment (i.e. true value)
 } BytecodeInstructionAluInfo;
 
 typedef enum {
@@ -150,6 +151,7 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 
 BytecodeInstructionShort bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg);
 BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);
+BytecodeInstructionStandard bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue);
 BytecodeInstructionShort bytecodeInstructionCreateMiscNop(void);
 BytecodeInstructionShort bytecodeInstructionCreateMiscSyscall(void);
 BytecodeInstructionStandard bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
