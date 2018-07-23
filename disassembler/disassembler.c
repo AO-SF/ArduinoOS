@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
 		goto done;
 	}
 
-	printf("ADDR INSTRUC Description\n");
+	printf("Addr Instruction Description\n");
 	unsigned addr=0;
 	int c;
 	while((c=fgetc(inputFile))!=EOF) {
@@ -166,13 +166,13 @@ void disassemblerPrintV(uint16_t addr, BytecodeInstructionLong instruction, cons
 	char c2=(isgraph(instruction[2]) ? (instruction[2]) : '.');
 	switch(length) {
 		case BytecodeInstructionLengthShort:
-			printf("%04X     %02X=%c   ", addr, (instruction[0]), c0);
+			printf("%04X      %02X=%c   ", addr, (instruction[0]), c0);
 		break;
 		case BytecodeInstructionLengthStandard:
-			printf("%04X   %02X%02X=%c%c  ", addr, instruction[0], instruction[1], c0, c1);
+			printf("%04X    %02X%02X=%c%c  ", addr, instruction[0], instruction[1], c0, c1);
 		break;
 		case BytecodeInstructionLengthLong:
-			printf("%04X %02X%02X%02X=%c%c%c ", addr, instruction[0], instruction[1], instruction[2], c0, c1, c2);
+			printf("%04X  %02X%02X%02X=%c%c%c ", addr, instruction[0], instruction[1], instruction[2], c0, c1, c2);
 		break;
 	}
 
