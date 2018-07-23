@@ -39,6 +39,7 @@ typedef struct {
 	const char *dest;
 	const char *opA;
 	const char *opB;
+	uint8_t skipBit;
 } AssemblerInstructionAlu;
 
 typedef struct {
@@ -347,23 +348,27 @@ int main(int argc, char **argv) {
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeSyscall;
-		} else if (strcmp(first, "cmp")==0 || strcmp(first, "shr")==0 || strcmp(first, "and")==0 || strcmp(first, "mul")==0 || strcmp(first, "add")==0) {
+		} else if (strcmp(first, "cmp")==0 || strcmp(first, "shr")==0 || strcmp(first, "and")==0 || strcmp(first, "mul")==0 || strcmp(first, "add")==0 || strcmp(first, "skiplt")==0) {
 			char *dest=strtok_r(NULL, " ", &savePtr);
 			if (dest==NULL) {
 				printf("error - expected dest after '%s' (%u:'%s')\n", first, assemblerLine->lineNum, assemblerLine->original);
 				goto done;
 			}
 
-			char *opA=strtok_r(NULL, " ", &savePtr);
-			if (opA==NULL) {
-				printf("error - expected operand A after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
-			}
+			char *opA=NULL, *opB=NULL;
 
-			char *opB=strtok_r(NULL, " ", &savePtr);
-			if (opB==NULL) {
-				printf("error - expected operand B after '%s' (%u:'%s')\n", opA, assemblerLine->lineNum, assemblerLine->original);
-				goto done;
+			if (strcmp(first, "skiplt")!=0) {
+				opA=strtok_r(NULL, " ", &savePtr);
+				if (opA==NULL) {
+					printf("error - expected operand A after '%s' (%u:'%s')\n", dest, assemblerLine->lineNum, assemblerLine->original);
+					goto done;
+				}
+
+				opB=strtok_r(NULL, " ", &savePtr);
+				if (opB==NULL) {
+					printf("error - expected operand B after '%s' (%u:'%s')\n", opA, assemblerLine->lineNum, assemblerLine->original);
+					goto done;
+				}
 			}
 
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
@@ -380,6 +385,10 @@ int main(int argc, char **argv) {
 				instruction->d.alu.type=BytecodeInstructionAluTypeMul;
 			else if (strcmp(first, "add")==0)
 				instruction->d.alu.type=BytecodeInstructionAluTypeAdd;
+			else if (strcmp(first, "skiplt")==0) {
+				instruction->d.alu.type=BytecodeInstructionAluTypeSkip;
+				instruction->d.alu.skipBit=BytecodeInstructionAluCmpBitLessThan;
+			}
 			instruction->d.alu.dest=dest;
 			instruction->d.alu.opA=opA;
 			instruction->d.alu.opB=opB;
@@ -537,13 +546,16 @@ int main(int argc, char **argv) {
 							BytecodeRegister opAReg=BytecodeRegister0;
 							BytecodeRegister opBReg=BytecodeRegister0;
 
-							if (instruction->d.alu.opA[0]=='r' && (instruction->d.alu.opA[1]>='0' && instruction->d.alu.opA[1]<='7') && instruction->d.alu.opA[2]=='\0')
+							if (instruction->d.alu.opA!=NULL && instruction->d.alu.opA[0]=='r' && (instruction->d.alu.opA[1]>='0' && instruction->d.alu.opA[1]<='7') && instruction->d.alu.opA[2]=='\0')
 								opAReg=(instruction->d.alu.opA[1]-'0');
 
-							if (instruction->d.alu.opB[0]=='r' && (instruction->d.alu.opB[1]>='0' && instruction->d.alu.opB[1]<='7') && instruction->d.alu.opB[2]=='\0')
+							if (instruction->d.alu.opB!=NULL && instruction->d.alu.opB[0]=='r' && (instruction->d.alu.opB[1]>='0' && instruction->d.alu.opB[1]<='7') && instruction->d.alu.opB[2]=='\0')
 								opBReg=(instruction->d.alu.opB[1]-'0');
 
 							// Create instruction
+							if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip)
+								// Special case to encode literal bit index
+								opAReg=instruction->d.alu.skipBit;
 							BytecodeInstructionStandard aluOp=bytecodeInstructionCreateAlu(instruction->d.alu.type, destReg, opAReg, opBReg);
 							instruction->machineCode[0]=(aluOp>>8);
 							instruction->machineCode[1]=(aluOp&0xFF);
@@ -660,6 +672,10 @@ int main(int argc, char **argv) {
 						break;
 						case BytecodeInstructionAluTypeShiftRight:
 							printf("%s=%s>>%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						break;
+						case BytecodeInstructionAluTypeSkip: {
+							printf("skip if %s has bit %u set (%s) (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.skipBit, byteCodeInstructionAluCmpBitStrings[instruction->d.alu.skipBit], line->lineNum, line->original);
+						}
 						break;
 					}
 				break;

@@ -113,6 +113,9 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionAluTypeShiftRight:
 							disassemblerPrint(addr, instruction, "r%u=r%u>>r%u", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg);
 						break;
+						case BytecodeInstructionAluTypeSkip:
+							disassemblerPrint(addr, instruction, "skip%u r%u (%s)", info.d.alu.opAReg, info.d.alu.destReg, byteCodeInstructionAluCmpBitStrings[info.d.alu.opAReg]);
+						break;
 						default:
 							disassemblerPrint(addr, instruction, "unknown ALU operation");
 						break;
