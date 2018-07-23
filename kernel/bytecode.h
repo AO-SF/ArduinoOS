@@ -101,11 +101,13 @@ typedef struct {
 } BytecodeInstructionAluInfo;
 
 typedef enum {
-	ByteCodeSyscallIdExit=0,
-	ByteCodeSyscallIdGetPid=1,
-	ByteCodeSyscallIdRead=256,
-	ByteCodeSyscallIdWrite=257,
-	ByteCodeSyscallIdWriteProgmem=258,
+	ByteCodeSyscallIdExit=(0|0),
+	ByteCodeSyscallIdGetPid=(0|1),
+	ByteCodeSyscallIdGetArgC=(0|2),
+	ByteCodeSyscallIdGetArgVN=(0|3),
+	ByteCodeSyscallIdRead=(256|0),
+	ByteCodeSyscallIdWrite=(256|1),
+	ByteCodeSyscallIdWriteProgmem=(256|2),
 } ByteCodeSyscallId;
 
 typedef enum {

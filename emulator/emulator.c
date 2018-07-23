@@ -18,6 +18,9 @@ typedef struct {
 
 	unsigned instructionCount;
 	ByteCodeWord pid;
+
+	int argc;
+	char **argv;
 } Process;
 
 Process *process=NULL;
@@ -32,13 +35,14 @@ int main(int argc, char **argv) {
 
 	// Parse arguments
 	if (argc<2) {
-		printf("Usage: %s inputfile [--verbose] [--slow]\n", argv[0]);
+		printf("Usage: %s [--verbose] [--slow] inputfile [inputargs ...]\n", argv[0]);
 		goto done;
 	}
 
-	const char *inputPath=argv[1];
-
-	for(int i=2; i<argc; ++i) {
+	int i;
+	for(i=1; i<argc; ++i) {
+		if (strncmp(argv[i], "--", 2)!=0)
+			break;
 		if (strcmp(argv[i], "--verbose")==0)
 			verbose=true;
 		else if (strcmp(argv[i], "--slow")==0)
@@ -46,6 +50,8 @@ int main(int argc, char **argv) {
 		else
 			printf("Warning: unknown option '%s'\n", argv[i]);
 	}
+
+	const int inputArgBaseIndex=i;
 
 	// Allocate process data struct
 	process=malloc(sizeof(Process));
@@ -60,6 +66,9 @@ int main(int argc, char **argv) {
 	process->instructionCount=0;
 	srand(time(NULL));
 	process->pid=(rand()&1023);
+	process->argc=argc-inputArgBaseIndex;
+	process->argv=argv+inputArgBaseIndex;
+	const char *inputPath=argv[inputArgBaseIndex];
 
 	// Read-in input file
 	inputFile=fopen(inputPath, "r");
@@ -260,6 +269,29 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [getpid], return=%u)\n", syscallId, process->pid);
 
 							process->regs[0]=process->pid;
+						} break;
+						case ByteCodeSyscallIdGetArgC: {
+							if (verbose)
+								printf("Info: syscall(id=%i [getargc], return=%u)\n", syscallId, process->argc);
+
+							process->regs[0]=process->argc;
+						} break;
+						case ByteCodeSyscallIdGetArgVN: {
+							// TODO: Check n is sensible
+
+							int n=process->regs[1];
+							int buf=process->regs[2];
+							int len=process->regs[3];
+
+							const char *str=process->argv[n];
+							int trueLen=strlen(str);
+
+							if (verbose)
+								printf("Info: syscall(id=%i [getargvn], n=%i, buf=%i, len=%i, return=%u with '%s')\n", syscallId, n, buf, len, trueLen, str);
+
+							for(int i=0; i<len && i<trueLen; ++i)
+								process->ram[buf+i]=str[i];
+							process->regs[0]=trueLen;
 						} break;
 						case ByteCodeSyscallIdRead:
 							if (process->regs[1]==ByteCodeFdStdin) {
