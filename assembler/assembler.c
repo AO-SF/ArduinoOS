@@ -911,6 +911,10 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				// TODO: This better (i.e. check how many we expect and error if not enough)
 				BytecodeRegister opAReg=assemblerRegisterFromStr(instruction->d.alu.opA);
 				BytecodeRegister opBReg=assemblerRegisterFromStr(instruction->d.alu.opB);
+				if (opAReg==BytecodeRegisterNB)
+					opAReg=0;
+				if (opBReg==BytecodeRegisterNB)
+					opBReg=0;
 
 				// Create instruction
 				if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip)
