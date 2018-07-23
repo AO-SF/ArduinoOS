@@ -140,10 +140,17 @@ typedef struct {
 	size_t instructionsNext;
 } AssemblerProgram;
 
+AssemblerProgram *assemblerProgramNew(void);
 AssemblerProgram *assemblerProgramNewFromFile(const char *path);
 void assemblerProgramFree(AssemblerProgram *program);
 
+void assemblerInsertLine(AssemblerProgram *program, AssemblerLine *line, int offset);
+bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *path, int offset);
+void assemblerRemoveLine(AssemblerProgram *program, int offset);
+
 bool assemblerProgramPreprocess(AssemblerProgram *program); // strips comments, whitespace etc. returns true if any changes made
+bool assemblerProgramHandleIncludes(AssemblerProgram *program, bool *change); // returns false on failure
+
 bool assemblerProgramParseLines(AssemblerProgram *program); // converts lines to initial instructions, returns false on error
 
 bool assemblerProgramShiftDefines(AssemblerProgram *program); // moves defines to the end to avoid getting in the way of code, returns true if any changes made
@@ -172,9 +179,20 @@ int main(int argc, char **argv) {
 	if (program==NULL)
 		return 1;
 
-	// Preprocess (strip whitespace, comments, etc)
-	while(assemblerProgramPreprocess(program))
-		;
+	bool change;
+	do {
+		change=false;
+
+		// Preprocess (strip whitespace, comments, etc)
+		while(assemblerProgramPreprocess(program))
+			change=true;
+
+		// Handle includes
+		bool includeChange=false;
+		if (!assemblerProgramHandleIncludes(program, &includeChange))
+			goto done;
+		change|=includeChange;
+	} while(change);
 
 	// Verbose output
 	if (verbose) {
@@ -218,60 +236,35 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-AssemblerProgram *assemblerProgramNewFromFile(const char *path) {
-	FILE *file=NULL;
-	AssemblerProgram *program=NULL;
-
-	// Open input file
-	file=fopen(path, "r");
-	if (file==NULL) {
-		printf("Could not open input file '%s' for reading\n", path);
-		goto error;
-	}
-
-	// Create program struct
-	program=malloc(sizeof(AssemblerProgram));
+AssemblerProgram *assemblerProgramNew(void) {
+	AssemblerProgram *program=malloc(sizeof(AssemblerProgram));
 	if (program==NULL) {
 		printf("Could not allocate memory for program data\n");
-		goto error;
+		return NULL;
 	}
+
 	program->linesNext=0;
 	program->instructionsNext=0;
 
+	return program;
+}
+
+AssemblerProgram *assemblerProgramNewFromFile(const char *path) {
+	assert(path!=NULL);
+
+	// Create program struct
+	AssemblerProgram *program=assemblerProgramNew();
+	if (program==NULL)
+		goto error;
+
 	// Read file line-by-line
-	char *line=NULL;
-	size_t lineSize=0;
-	unsigned lineNum=1;
-	while(getline(&line, &lineSize, file)>0) {
-		// Trim trailing newline
-		if (line[strlen(line)-1]=='\n')
-			line[strlen(line)-1]='\0';
-
-		// Begin creating structure to represent this line
-		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
-		program->lines[program->linesNext++]=assemblerLine;
-
-		assemblerLine->lineNum=lineNum;
-		assemblerLine->file=malloc(strlen(path)+1); // TODO: Check return
-		strcpy(assemblerLine->file, path);
-		assemblerLine->original=malloc(strlen(line)+1); // TODO: Check return
-		strcpy(assemblerLine->original, line);
-		assemblerLine->modified=malloc(strlen(line)+1); // TODO: Check return
-		strcpy(assemblerLine->modified, line);
-
-		// Advance to next line
-		++lineNum;
-	}
-	free(line);
-
-	fclose(file);
+	if (!assemblerInsertLinesFromFile(program, path, 0))
+		goto error;
 
 	return program;
 
 	error:
-	fclose(file);
-	free(program);
-	// TODO: Free lines entries
+	assemblerProgramFree(program);
 	return NULL;
 }
 
@@ -297,6 +290,72 @@ void assemblerProgramFree(AssemblerProgram *program) {
 
 	// Free struct memory
 	free(program);
+}
+
+void assemblerInsertLine(AssemblerProgram *program, AssemblerLine *line, int offset) {
+	assert(program!=NULL);
+	assert(line!=NULL);
+	assert(offset<=program->linesNext);
+
+	memmove(program->lines+offset+1, program->lines+offset, sizeof(AssemblerLine *)*(program->linesNext-offset));
+	program->lines[offset]=line;
+	program->linesNext++;
+}
+
+bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *path, int offset) {
+	assert(program!=NULL);
+	assert(path!=NULL);
+
+	// Open input file
+	FILE *file=fopen(path, "r");
+	if (file==NULL) {
+		printf("Could not open input file '%s' for reading\n", path);
+		return false;
+	}
+
+	// Read file line-by-line
+	char *line=NULL;
+	size_t lineSize=0;
+	unsigned lineNum=1;
+	while(getline(&line, &lineSize, file)>0) {
+		// Trim trailing newline
+		if (line[strlen(line)-1]=='\n')
+			line[strlen(line)-1]='\0';
+
+		// Begin creating structure to represent this line
+		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+
+		assemblerLine->lineNum=lineNum;
+		assemblerLine->file=malloc(strlen(path)+1); // TODO: Check return
+		strcpy(assemblerLine->file, path);
+		assemblerLine->original=malloc(strlen(line)+1); // TODO: Check return
+		strcpy(assemblerLine->original, line);
+		assemblerLine->modified=malloc(strlen(line)+1); // TODO: Check return
+		strcpy(assemblerLine->modified, line);
+
+		assemblerInsertLine(program, assemblerLine, offset++);
+
+		// Advance to next line
+		++lineNum;
+	}
+	free(line);
+
+	fclose(file);
+
+	return true;
+}
+
+void assemblerRemoveLine(AssemblerProgram *program, int offset) {
+	assert(program!=NULL);
+	assert(offset<program->linesNext);
+
+	AssemblerLine *line=program->lines[offset];
+	free(line->file);
+	free(line->original);
+	free(line->modified);
+	free(line);
+
+	memmove(program->lines+offset, program->lines+offset+1, sizeof(AssemblerLine *)*((--program->linesNext)-offset));
 }
 
 bool assemblerProgramPreprocess(AssemblerProgram *program) {
@@ -369,6 +428,37 @@ bool assemblerProgramPreprocess(AssemblerProgram *program) {
 	}
 
 	return change;
+}
+
+bool assemblerProgramHandleIncludes(AssemblerProgram *program, bool *change) {
+	assert(program!=NULL);
+
+	if (change!=NULL)
+		*change=false;
+
+	// Loop over lines looking for those which start with 'include '.
+	for(unsigned i=0; i<program->linesNext; ++i) {
+		AssemblerLine *assemblerLine=program->lines[i];
+
+		// Skip non-matching lines
+		if (strncmp(assemblerLine->modified, "include ", strlen("include "))!=0)
+			continue;
+
+		if (change!=NULL)
+			*change=true;
+
+		// Extract path
+		const char *path=assemblerLine->modified+strlen("include ");
+
+		// Read line-by-line
+		if (!assemblerInsertLinesFromFile(program, path, i+1))
+			return false;
+
+		// Remove this line
+		assemblerRemoveLine(program, i);
+	}
+
+	return true;
 }
 
 bool assemblerProgramParseLines(AssemblerProgram *program) {
