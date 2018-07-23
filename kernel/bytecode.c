@@ -87,6 +87,10 @@ BytecodeInstructionShort bytecodeInstructionCreateMemory(BytecodeInstructionMemo
 }
 
 BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg) {
+	assert(destReg<BytecodeRegisterNB);
+	assert(opAReg<BytecodeRegisterNB);
+	assert(opBReg<BytecodeRegisterNB);
+
 	uint8_t upper=(0xE0|(((uint8_t)type)<<1)|(destReg>>2));
 	uint8_t lower=(((destReg&3)<<6)|(opAReg<<3)|opBReg);
 	return (((uint16_t)upper)<<8)|lower;
