@@ -162,6 +162,11 @@ bool processRunNextInstruction(Process *process) {
 					if (verbose)
 						printf("Info: r%i=r%i*r%i (=%i*%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
+				case BytecodeInstructionAluTypeDiv:
+					process->regs[info.d.alu.destReg]=opA/opB;
+					if (verbose)
+						printf("Info: r%i=r%i/r%i (=%i/%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
+				break;
 				case BytecodeInstructionAluTypeXor:
 					process->regs[info.d.alu.destReg]=opA^opB;
 					if (verbose)

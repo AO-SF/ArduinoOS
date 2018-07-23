@@ -652,6 +652,9 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionAluTypeMul:
 							printf("%s=%s*%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
 						break;
+						case BytecodeInstructionAluTypeDiv:
+							printf("%s=%s/%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
+						break;
 						case BytecodeInstructionAluTypeXor:
 							printf("%s=%s^%s (%u:'%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->lineNum, line->original);
 						break;
