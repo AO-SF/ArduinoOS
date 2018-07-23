@@ -709,7 +709,7 @@ int main(int argc, char **argv) {
 								}
 							}
 							if (k==program->instructionsNext) {
-								printf("error - bad jump label '%s' (%u:'%s')\n", instruction->d.mov.src, line->lineNum, line->original);
+								printf("error - bad jump label '%s' (%u:'%s')\n", instruction->d.jmp.addr, line->lineNum, line->original);
 								goto done;
 							}
 
