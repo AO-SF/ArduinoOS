@@ -659,8 +659,10 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				printf("error - expected dest after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
-			char *src=strtok_r(NULL, " ", &savePtr);
-			if (src==NULL) {
+
+			// Note: we cannot use strtok here as it might insert extra earlier NULL in case of e.g. character constant ' '
+			char *src=dest+strlen(dest)+1;
+			if (*src=='\0') {
 				printf("error - expected src after '%s' (%s:%u '%s')\n", dest, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
