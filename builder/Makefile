@@ -2,7 +2,7 @@ CPP = clang
 CFLAGS = -std=gnu11 -Wall -O0 -ggdb3 -I../lib
 LFLAGS = -lm
 
-OBJS = builder.o
+OBJS = builder.o ../kernel/minifs.o ../kernel/util.o
 
 ALL: $(OBJS)
 	$(CPP) $(CFLAGS) $(OBJS) -o ../bin/builder $(LFLAGS)
