@@ -23,6 +23,8 @@ FILE *kernelFakeEepromFile=NULL;
 ////////////////////////////////////////////////////////////////////////////////
 
 void kernelTestIo(void);
+void kernelDebugFs();
+void kernelDebugFsHelper(const char *path, int indent);
 
 void kernelBoot(void);
 void kernelShutdown(void);
@@ -56,8 +58,9 @@ void setup() {
 	// Init
 	kernelBoot();
 
-	// For now simply test file IO
+	// For now simply do a few tests
 	kernelTestIo();
+	kernelDebugFs();
 
 	// Quit
 	kernelShutdown();
@@ -98,6 +101,48 @@ void kernelTestIo(void) {
 	// Close files
 	kernelFsFileClose(randFd);
 	kernelFsFileClose(serialFd);
+}
+
+void kernelDebugFs() {
+	kernelDebugFsHelper("/", 0);
+}
+
+void kernelDebugFsHelper(const char *path, int indent) {
+	// handle indent
+	for(int i=0; i<indent; ++i)
+		printf("  ");
+
+	// open file/dir
+	KernelFsFd fd=kernelFsFileOpen(path);
+	if (fd==KernelFsFdInvalid) {
+		printf("error openning file\n");
+		return;
+	}
+
+	// print name
+	char pathCopy[KernelPathMax];
+	strcpy(pathCopy, path);
+	char *dirname, *basename;
+	if (strcmp(path, "/")==0)
+		dirname="", basename="/";
+	else
+		kernelFsPathSplit(pathCopy, &dirname, &basename);
+
+	printf("%s\n", basename);
+
+	// If directory print children recursively
+	if (1) { // TODO: check if is directory
+		char childPath[KernelPathMax];
+		unsigned childNum;
+		for(childNum=0; ; ++childNum) {
+			if (!kernelFsDirectoryGetChild(fd, childNum, childPath))
+				break;
+			kernelDebugFsHelper(childPath, indent+1);
+		}
+	}
+
+	// close file
+	kernelFsFileClose(fd);
 }
 
 void kernelBoot(void) {
