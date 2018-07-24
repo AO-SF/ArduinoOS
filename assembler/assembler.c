@@ -892,14 +892,14 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 		}
 	}
 
-
 	return true;
 }
 
 void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program) {
 	assert(program!=NULL);
 
-	unsigned nextMachineCodeOffset=0, nextRamOffset=0;
+	unsigned nextMachineCodeOffset=ByteCodeMemoryProgmemAddr;
+	unsigned nextRamOffset=ByteCodeMemoryRamAddr;
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
 		AssemblerInstruction *instruction=&program->instructions[i];
 

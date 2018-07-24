@@ -6,6 +6,12 @@
 
 typedef uint16_t ByteCodeWord;
 
+#define ByteCodeMemoryTotalSize ((ByteCodeWord)0xFFFF) // 64kb
+#define ByteCodeMemoryProgmemAddr ((ByteCodeWord)0x0000) // progmem in lower 32kb
+#define ByteCodeMemoryProgmemSize ((ByteCodeWord)0x8000)
+#define ByteCodeMemoryRamAddr (ByteCodeMemoryProgmemAddr+ByteCodeMemoryProgmemSize) // ram in upper 32kb
+#define ByteCodeMemoryRamSize (ByteCodeMemoryTotalSize-ByteCodeMemoryProgmemSize)
+
 typedef enum {
 	BytecodeRegister0,
 	BytecodeRegister1,
@@ -41,7 +47,7 @@ typedef uint8_t BytecodeInstructionLong[3];
 typedef enum {
 	BytecodeInstructionMemoryTypeStore,
 	BytecodeInstructionMemoryTypeLoad,
-	BytecodeInstructionMemoryTypeLoadProgmem,
+	BytecodeInstructionMemoryTypeReserved,
 } BytecodeInstructionMemoryType;
 
 typedef struct {
