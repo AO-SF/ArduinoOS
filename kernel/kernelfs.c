@@ -286,6 +286,18 @@ void kernelFsPathNormalise(char *path) {
 	// TODO: this (e.g. replace '//' with '/')
 }
 
+void kernelFsPathSplit(char *path, char **dirnamePtr, char **basenamePtr) {
+	assert(path!=NULL);
+	assert(kernelFsPathIsValid(path));
+
+	// Work backwards looking for final slash
+	char *lastSlash=strrchr(path, '/');
+	assert(lastSlash!=NULL);
+	*lastSlash='\0';
+	*basenamePtr=lastSlash+1;
+	*dirnamePtr=path;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
