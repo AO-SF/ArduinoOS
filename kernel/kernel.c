@@ -108,7 +108,7 @@ void kernelBoot(void) {
 
 	// Non-arduino-only: create pretend EEPROM storage in a local file
 #ifndef ARDUINO
-	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "ab+"); // TODO: Check return
+	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "r+"); // TODO: Check return
 #endif
 
 	// Format /home if it does not look like it has been already
@@ -196,8 +196,14 @@ int kernelHomeReadFunctor(KernelFsFileOffset addr) {
 #ifdef ARDUINO
 	return EEPROM.read(addr);
 #else
-	fseek(kernelFakeEepromFile, addr, SEEK_SET);
-	return fgetc(kernelFakeEepromFile);
+	int res=fseek(kernelFakeEepromFile, addr, SEEK_SET);
+	assert(res==0);
+	assert(ftell(kernelFakeEepromFile)==addr);
+	int c=fgetc(kernelFakeEepromFile);
+	if (c==EOF)
+		return -1;
+	else
+		return c;
 #endif
 }
 
@@ -206,8 +212,10 @@ bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value) {
 	EEPROM.update(addr, value);
 	return true;
 #else
-	fseek(kernelFakeEepromFile, addr, SEEK_SET);
-	return (fgetc(kernelFakeEepromFile)!=EOF);
+	bool res=fseek(kernelFakeEepromFile, addr, SEEK_SET);
+	assert(res==0);
+	assert(ftell(kernelFakeEepromFile)==addr);
+	return (fputc(value, kernelFakeEepromFile)!=EOF);
 #endif
 }
 
