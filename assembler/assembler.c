@@ -950,7 +950,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
 				} else if (instruction->d.mov.src[0]=='\'') {
 					char c=instruction->d.mov.src[1];
-					if (!isprint(c) || c=='\'' || instruction->d.mov.src[strlen(instruction->d.mov.src)-1]!='\'') {
+					if (!(isprint(c) || c=='\t') || c=='\'' || instruction->d.mov.src[strlen(instruction->d.mov.src)-1]!='\'') {
 						printf("error - bad character constant '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 						return false;
 					}
