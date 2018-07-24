@@ -2,7 +2,7 @@ ALL:
 	cd ../assembler && make
 	cd ../disassembler && make
 	cd ../emulator && make
-	#cd ../kernel && make
+	cd ../kernel && make
 
 	./assembler ./false.s ./false.o
 	./assembler ./true.s ./true.o
