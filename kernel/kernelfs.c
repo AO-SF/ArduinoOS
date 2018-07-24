@@ -151,13 +151,74 @@ bool kernelFsFileExists(const char *path) {
 	if (kernelFsPathIsDevice(path))
 		return true;
 
-	// TODO: Check for standard files/directories
+	// Find dirname and basename
+	char modPath[256]; // TODO: better
+	strcpy(modPath, path);
+	char *dirname, *basename;
+	kernelFsPathSplit(modPath, &dirname, &basename);
 
+	// Check for node at dirname
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(basename);
+	if (device!=NULL) {
+		switch(device->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(device->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						return miniFsFileExists(&device->d.block.d.customMiniFs.miniFs, basename);
+					break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// Not used as directories
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
+			break;
+		}
+	}
+
+	// TODO: Others
+
+	// No suitable node found
 	return false;
 }
 
 bool kernelFsFileCreate(const char *path) {
-	// TODO: this
+	// Find dirname and basename
+	char modPath[256]; // TODO: better
+	strcpy(modPath, path);
+	char *dirname, *basename;
+	kernelFsPathSplit(modPath, &dirname, &basename);
+
+	// Check for node at dirname
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(dirname);
+	if (device!=NULL) {
+		switch(device->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(device->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						// In theory we can create files on a MiniFs if it is not mounted read only
+						uint16_t initialSize=32; // TODO: think about this
+						return miniFsFileCreate(&device->d.block.d.customMiniFs.miniFs, basename, initialSize);
+					} break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// Not used as directories
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
+			break;
+		}
+	}
+
+	// No suitable node found
 	return false;
 }
 
@@ -317,6 +378,7 @@ KernelFsDevice *kernelFsGetDeviceFromPath(const char *path) {
 
 KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType type) {
 	assert(mountPoint!=NULL);
+	assert(type<KernelFsDeviceTypeNB);
 
 	// Ensure this file does not already exist
 	if (kernelFsFileExists(mountPoint))
