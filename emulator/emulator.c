@@ -11,8 +11,7 @@
 typedef struct {
 	ByteCodeWord regs[8];
 
-	uint8_t progmem[65536];
-	uint8_t ram[65536];
+	uint8_t memory[ByteCodeMemoryTotalSize]; // combined progmem+ram
 
 	bool skipFlag; // skip next instruction?
 
@@ -78,7 +77,7 @@ int main(int argc, char **argv) {
 	}
 
 	int c;
-	uint8_t *next=process->progmem;
+	uint8_t *next=process->memory;
 	while((c=fgetc(inputFile))!=EOF)
 		*next++=c;
 
@@ -102,17 +101,17 @@ int main(int argc, char **argv) {
 
 bool processRunNextInstruction(Process *process) {
 	BytecodeInstructionLong instruction;
-	instruction[0]=process->progmem[process->regs[ByteCodeRegisterIP]++];
+	instruction[0]=process->memory[process->regs[ByteCodeRegisterIP]++];
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
 	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
-		instruction[1]=process->progmem[process->regs[ByteCodeRegisterIP]++];
+		instruction[1]=process->memory[process->regs[ByteCodeRegisterIP]++];
 	if (length==BytecodeInstructionLengthLong)
-		instruction[2]=process->progmem[process->regs[ByteCodeRegisterIP]++];
+		instruction[2]=process->memory[process->regs[ByteCodeRegisterIP]++];
 
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
 		if (verbose)
-			printf("Error: Invalid instruction\n");
+			printf("Error: Invalid instruction (bad bit sequence)\n");
 		return false;
 	}
 
@@ -127,19 +126,18 @@ bool processRunNextInstruction(Process *process) {
 		case BytecodeInstructionTypeMemory:
 			switch(info.d.memory.type) {
 				case BytecodeInstructionMemoryTypeStore:
-					process->ram[process->regs[info.d.memory.destReg]]=process->regs[info.d.memory.srcReg];
+					process->memory[process->regs[info.d.memory.destReg]]=process->regs[info.d.memory.srcReg];
 					if (verbose)
 						printf("Info: *r%i=r%i (*%u=%u)\n", info.d.memory.destReg, info.d.memory.srcReg, process->regs[info.d.memory.destReg], process->regs[info.d.memory.srcReg]);
 				break;
 				case BytecodeInstructionMemoryTypeLoad:
-					process->regs[info.d.memory.destReg]=process->ram[info.d.memory.srcReg];
+					process->regs[info.d.memory.destReg]=process->memory[info.d.memory.srcReg];
 					if (verbose)
-						printf("Info: r%i=*r%i (=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, process->ram[info.d.memory.srcReg]);
+						printf("Info: r%i=*r%i (=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, process->memory[info.d.memory.srcReg]);
 				break;
-				case BytecodeInstructionMemoryTypeLoadProgmem:
-					process->regs[info.d.memory.destReg]=process->progmem[info.d.memory.srcReg];
-					if (verbose)
-						printf("Info: r%i=PROGMEM[r%i] (=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, process->progmem[info.d.memory.srcReg]);
+				case BytecodeInstructionMemoryTypeReserved:
+					printf("Error: Invalid instruction (reserved bit sequence)\n");
+					return false;
 				break;
 			}
 		break;
@@ -237,14 +235,14 @@ bool processRunNextInstruction(Process *process) {
 						printf("Info: skip%u r%i (=%i, %s, skip=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, process->regs[info.d.alu.destReg], byteCodeInstructionAluCmpBitStrings[info.d.alu.opAReg], process->skipFlag);
 				break;
 				case BytecodeInstructionAluTypeStore16:
-					process->ram[process->regs[info.d.alu.destReg]]=(process->regs[info.d.alu.opAReg]>>8);
-					process->ram[process->regs[info.d.alu.destReg]+1]=(process->regs[info.d.alu.opAReg]&0xFF);
+					process->memory[process->regs[info.d.alu.destReg]]=(process->regs[info.d.alu.opAReg]>>8);
+					process->memory[process->regs[info.d.alu.destReg]+1]=(process->regs[info.d.alu.opAReg]&0xFF);
 					if (verbose)
 						printf("Info: [r%i]=r%i (16 bit) ([%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.destReg], opA);
 				break;
 				case BytecodeInstructionAluTypeLoad16:
-					process->regs[info.d.alu.destReg]=(((ByteCodeWord)process->ram[process->regs[info.d.alu.opAReg]])<<8) |
-					                                   process->ram[process->regs[info.d.alu.opAReg]+1];
+					process->regs[info.d.alu.destReg]=(((ByteCodeWord)process->memory[process->regs[info.d.alu.opAReg]])<<8) |
+					                                   process->memory[process->regs[info.d.alu.opAReg]+1];
 					if (verbose)
 						printf("Info: r%i=[r%i] (16 bit) (=[%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, opA, process->regs[info.d.alu.destReg]);
 				break;
@@ -290,12 +288,12 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [getargvn], n=%i, buf=%i, len=%i, return=%u with '%s')\n", syscallId, n, buf, len, trueLen, str);
 
 							for(int i=0; i<len && i<trueLen; ++i)
-								process->ram[buf+i]=str[i];
+								process->memory[buf+i]=str[i];
 							process->regs[0]=trueLen;
 						} break;
 						case ByteCodeSyscallIdRead:
 							if (process->regs[1]==ByteCodeFdStdin) {
-								ssize_t result=read(STDIN_FILENO, &process->ram[process->regs[2]], process->regs[3]);
+								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
 								if (result>=0)
 									process->regs[0]=result;
 								else
@@ -306,14 +304,14 @@ bool processRunNextInstruction(Process *process) {
 							if (verbose) {
 								printf("Info: syscall(id=%i [read], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
 								for(int i=0; i<process->regs[0]; ++i)
-									printf("%c", process->ram[process->regs[2]+i]);
+									printf("%c", process->memory[process->regs[2]+i]);
 								printf("], len=%u, read=%u)\n", process->regs[3], process->regs[0]);
 							}
 						break;
 						case ByteCodeSyscallIdWrite:
 							if (process->regs[1]==ByteCodeFdStdout) {
 								for(int i=0; i<process->regs[3]; ++i)
-									printf("%c", process->ram[process->regs[2]+i]);
+									printf("%c", process->memory[process->regs[2]+i]);
 								process->regs[0]=process->regs[3];
 							} else
 								process->regs[0]=0;
@@ -321,22 +319,7 @@ bool processRunNextInstruction(Process *process) {
 							if (verbose) {
 								printf("Info: syscall(id=%i [write], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
 								for(int i=0; i<process->regs[3]; ++i)
-									printf("%c", process->ram[process->regs[2]+i]);
-								printf("], len=%u, written=%u)\n", process->regs[3], process->regs[0]);
-							}
-						break;
-						case ByteCodeSyscallIdWriteProgmem:
-							if (process->regs[1]==ByteCodeFdStdout) {
-								for(int i=0; i<process->regs[3]; ++i)
-									printf("%c", process->progmem[process->regs[2]+i]);
-								process->regs[0]=process->regs[3];
-							} else
-								process->regs[0]=0;
-
-							if (verbose) {
-								printf("Info: syscall(id=%i [writeprogmem], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
-								for(int i=0; i<process->regs[3]; ++i)
-									printf("%c", process->progmem[process->regs[2]+i]);
+									printf("%c", process->memory[process->regs[2]+i]);
 								printf("], len=%u, written=%u)\n", process->regs[3], process->regs[0]);
 							}
 						break;
