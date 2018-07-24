@@ -262,7 +262,7 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 	return 0;
 }
 
-bool kernelFsDirectionGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelPathMax]) {
+bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelPathMax]) {
 	// TODO: this
 	return false;
 }

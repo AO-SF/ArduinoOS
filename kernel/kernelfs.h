@@ -57,7 +57,7 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes written
 
 // The following functions are for directory files only.
-bool kernelFsDirectionGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelPathMax]);
+bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelPathMax]);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Path functions
