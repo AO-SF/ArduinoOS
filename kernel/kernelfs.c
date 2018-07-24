@@ -11,6 +11,7 @@
 typedef enum {
 	KernelFsDeviceTypeBlock,
 	KernelFsDeviceTypeCharacter,
+	KernelFsDeviceTypeDirectory,
 	KernelFsDeviceTypeNB,
 } KernelFsDeviceType;
 
@@ -33,11 +34,16 @@ typedef struct {
 } KernelFsDeviceBlock;
 
 typedef struct {
+	KernelFsDirectoryDeviceGetChildFunctor *getChildFunctor;
+} KernelFsDeviceDirectory;
+
+typedef struct {
 	KernelFsDeviceType type;
 	char *mountPoint;
 	union {
 		KernelFsDeviceBlock block;
 		KernelFsDeviceCharacter character;
+		KernelFsDeviceDirectory directory;
 	} d;
 } KernelFsDevice;
 
@@ -110,8 +116,18 @@ bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDev
 }
 
 bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDeviceGetChildFunctor *getChildFunctor) {
-	// TODO: this
-	return false;
+	assert(mountPoint!=NULL);
+	assert(getChildFunctor!=NULL);
+
+	// Check mountPoint and attempt to add to device table.
+	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, KernelFsDeviceTypeDirectory);
+	if (device==NULL)
+		return false;
+
+	// Set specific fields.
+	device->d.directory.getChildFunctor=getChildFunctor;
+
+	return true;
 }
 
 bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor) {
@@ -174,6 +190,10 @@ bool kernelFsFileExists(const char *path) {
 			case KernelFsDeviceTypeCharacter:
 				// Not used as directories
 			break;
+			case KernelFsDeviceTypeDirectory:
+				// TODO: this
+				return false;
+			break;
 			case KernelFsDeviceTypeNB:
 				assert(false);
 			break;
@@ -211,6 +231,10 @@ bool kernelFsFileCreate(const char *path) {
 			break;
 			case KernelFsDeviceTypeCharacter:
 				// Not used as directories
+			break;
+			case KernelFsDeviceTypeDirectory:
+				// Device directories are currently read-only
+				return false;
 			break;
 			case KernelFsDeviceTypeNB:
 				assert(false);
@@ -282,6 +306,10 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 				}
 				return read;
 			} break;
+			case KernelFsDeviceTypeDirectory:
+				// This operation cannot be performed on a directory
+				return 0;
+			break;
 			case KernelFsDeviceTypeNB:
 			break;
 		}
@@ -312,6 +340,10 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 						break;
 				return written;
 			} break;
+			case KernelFsDeviceTypeDirectory:
+				// This operation cannot be performed on a directory
+				return 0;
+			break;
 			case KernelFsDeviceTypeNB:
 			break;
 		}
