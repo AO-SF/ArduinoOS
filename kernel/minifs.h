@@ -6,24 +6,25 @@
 
 #define MINIFSMAXFILES 63
 
-typedef uint8_t (MiniFsReadFunctor)(uint16_t addr);
-typedef void (MiniFsWriteFunctor)(uint16_t addr, uint8_t value);
+typedef uint8_t (MiniFsReadFunctor)(uint16_t addr, void *userData);
+typedef void (MiniFsWriteFunctor)(uint16_t addr, uint8_t value, void *userData);
 
 typedef struct {
 	// Members are to be considered private
 	MiniFsReadFunctor *readFunctor;
 	MiniFsWriteFunctor *writeFunctor; // NULL if read-only
+	void *functorUserData;
 } MiniFs;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Volume functions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, uint16_t totalSize); // Total size may be rounded down
+bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, void *functorUserData, uint16_t totalSize); // Total size may be rounded down
 
 // In the following two functions the readFunctor is required, but the writeFunctor may be null to mount as read-only.
-bool miniFsMountFast(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor); // No integrity checking performed (at all)
-bool miniFsMountSafe(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor); // Verify the header is sensible before mounting
+bool miniFsMountFast(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor, void *functorUserData); // No integrity checking performed (at all)
+bool miniFsMountSafe(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor, void *functorUserData); // Verify the header is sensible before mounting
 void miniFsUnmount(MiniFs *fs);
 
 bool miniFsGetReadOnly(const MiniFs *fs);

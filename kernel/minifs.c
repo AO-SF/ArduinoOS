@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,7 +60,9 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, uint16_t maxTotalSize) {
+bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, void *functorUserData, uint16_t maxTotalSize) {
+	assert(writeFunctor!=NULL);
+
 	uint16_t totalSizeFactor=maxTotalSize/MINIFSFACTOR;
 	uint16_t totalSize=totalSizeFactor*MINIFSFACTOR;
 
@@ -68,30 +71,31 @@ bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, uint16_t maxTotalSize) {
 		return false;
 
 	// Write magic number
-	writeFunctor(MINIFSHEADERMAGICBYTEADDR, MINIFSHEADERMAGICBYTEVALUE);
+	writeFunctor(MINIFSHEADERMAGICBYTEADDR, MINIFSHEADERMAGICBYTEVALUE, functorUserData);
 
 	// Write total size
-	writeFunctor(MINIFSHEADERTOTALSIZEADDR, totalSizeFactor);
+	writeFunctor(MINIFSHEADERTOTALSIZEADDR, totalSizeFactor, functorUserData);
 
 	// Clear file list
 	MiniFsFileHeader nullFileHeader={.offsetFactor=0, .totalLength=0};
-	writeFunctor(MINIFSHEADERFILEBASEADDR+2*0+0, nullFileHeader.upper);
-	writeFunctor(MINIFSHEADERFILEBASEADDR+2*0+1, nullFileHeader.lower);
+	writeFunctor(MINIFSHEADERFILEBASEADDR+2*0+0, nullFileHeader.upper, functorUserData);
+	writeFunctor(MINIFSHEADERFILEBASEADDR+2*0+1, nullFileHeader.lower, functorUserData);
 
 	return true;
 }
 
-bool miniFsMountFast(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor) {
+bool miniFsMountFast(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor, void *functorUserData) {
 	// Simply copy IO functors and clear open bitset
 	fs->readFunctor=readFunctor;
 	fs->writeFunctor=writeFunctor;
+	fs->functorUserData=functorUserData;
 
 	return true;
 }
 
-bool miniFsMountSafe(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor) {
+bool miniFsMountSafe(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor, void *functorUserData) {
 	// Call fast function to do basic initialisation
-	if (!miniFsMountFast(fs, readFunctor, writeFunctor))
+	if (!miniFsMountFast(fs, readFunctor, writeFunctor, functorUserData))
 		return false;
 
 	// Verify header
@@ -241,13 +245,13 @@ uint8_t miniFsGetTotalSizeFactor(const MiniFs *fs) {
 }
 
 uint8_t miniFsRead(const MiniFs *fs, uint16_t addr) {
-	return fs->readFunctor(addr);
+	return fs->readFunctor(addr, fs->functorUserData);
 }
 
 void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value) {
 	uint8_t originalValue=miniFsRead(fs, addr);
 	if (value!=originalValue)
-		fs->writeFunctor(addr, value);
+		fs->writeFunctor(addr, value, fs->functorUserData);
 }
 
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
