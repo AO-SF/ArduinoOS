@@ -284,6 +284,10 @@ void kernelFsFileClose(KernelFsFd fd) {
 	kernelFsData.fdt[fd]=NULL;
 }
 
+const char *kernelFsGetFilePath(KernelFsFd fd) {
+	return kernelFsData.fdt[fd];
+}
+
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen) {
 	// Invalid fd?
 	if (kernelFsData.fdt[fd]==NULL)
