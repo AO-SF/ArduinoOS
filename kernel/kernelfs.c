@@ -174,7 +174,7 @@ bool kernelFsFileExists(const char *path) {
 	kernelFsPathSplit(modPath, &dirname, &basename);
 
 	// Check for node at dirname
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(basename);
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(dirname);
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
