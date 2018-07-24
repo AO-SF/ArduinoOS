@@ -3,11 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "binprogmem.h"
 #include "kernelfs.h"
 #include "minifs.h"
 
 #define KernelTmpDataPoolSize 512
 uint8_t *kernelTmpDataPool=NULL;
+
+#define KernelBinSize 2048
 
 #define KernelEepromSize 1024
 #ifndef ARDUINO
@@ -27,6 +30,7 @@ void kernelShutdown(void);
 bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
 bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
 bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
+int kernelBinReadFunctor(KernelFsFileOffset addr);
 int kernelHomeReadFunctor(KernelFsFileOffset addr);
 bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value);
 uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr, void *userData);
@@ -139,6 +143,7 @@ void kernelBoot(void) {
 	error|=kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0WriteFunctor);
 
 	// TODO: handle error
+	kernelFsAddBlockDeviceFile("/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelBinSize, &kernelBinReadFunctor, NULL);
 }
 
 void kernelShutdown(void) {
@@ -190,6 +195,12 @@ bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) 
 bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) {
 	// TODO: this (along with implementing mounting of external drives)
 	return false;
+}
+
+int kernelBinReadFunctor(KernelFsFileOffset addr) {
+	assert(addr<KernelBinSize);
+
+	return binProgmemData[addr];
 }
 
 int kernelHomeReadFunctor(KernelFsFileOffset addr) {
