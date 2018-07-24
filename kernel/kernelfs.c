@@ -272,6 +272,10 @@ bool kernelFsPathIsValid(const char *path) {
 	if (path[0]!='/')
 		return false;
 
+	// Only '/' root directory can end in a slash
+	if (strcmp(path, "/")!=0 && path[strlen(path)-1]=='/')
+		return false;
+
 	return true;
 }
 
