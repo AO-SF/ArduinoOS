@@ -1,6 +1,6 @@
 jmp start
 
-include lib.s
+include ../binutilities/lib.s
 
 label start
 ; Init sequence
