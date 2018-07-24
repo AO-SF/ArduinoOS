@@ -29,12 +29,12 @@ bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
 bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
 int kernelHomeReadFunctor(KernelFsFileOffset addr);
 bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value);
-uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr);
-void kernelHomeMiniFsWriteFunctor(uint16_t addr, uint8_t value);
+uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr, void *userData);
+void kernelHomeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
 int kernelTmpReadFunctor(KernelFsFileOffset addr);
 bool kernelTmpWriteFunctor(KernelFsFileOffset addr, uint8_t value);
-uint8_t kernelTmpMiniFsReadFunctor(uint16_t addr);
-void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value);
+uint8_t kernelTmpMiniFsReadFunctor(uint16_t addr, void *userData);
+void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
 int kernelDevZeroReadFunctor(void);
 bool kernelDevZeroWriteFunctor(uint8_t value);
 int kernelDevNullReadFunctor(void);
@@ -113,13 +113,13 @@ void kernelBoot(void) {
 
 	// Format /home if it does not look like it has been already
 	MiniFs homeMiniFs;
-	if (miniFsMountSafe(&homeMiniFs, &kernelHomeMiniFsReadFunctor, &kernelHomeMiniFsWriteFunctor))
+	if (miniFsMountSafe(&homeMiniFs, &kernelHomeMiniFsReadFunctor, &kernelHomeMiniFsWriteFunctor, NULL))
 		miniFsUnmount(&homeMiniFs);
 	else
-		miniFsFormat(&kernelHomeMiniFsWriteFunctor, KernelEepromSize); // TODO: check return
+		miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromSize); // TODO: check return
 
 	// Format RAM used for /tmp
-	miniFsFormat(&kernelTmpMiniFsWriteFunctor, KernelTmpDataPoolSize); // TODO: check return
+	miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize); // TODO: check return
 
 	// Init file system and add virtual devices
 	kernelFsInit();
@@ -211,13 +211,13 @@ bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value) {
 #endif
 }
 
-uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr) {
+uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr, void *userData) {
 	int value=kernelHomeReadFunctor(addr);
 	assert(value>=0 && value<256);
 	return value;
 }
 
-void kernelHomeMiniFsWriteFunctor(uint16_t addr, uint8_t value) {
+void kernelHomeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
 	bool result=kernelHomeWriteFunctor(addr, value);
 	assert(result);
 }
@@ -231,13 +231,13 @@ bool kernelTmpWriteFunctor(KernelFsFileOffset addr, uint8_t value) {
 	return true;
 }
 
-uint8_t kernelTmpMiniFsReadFunctor(uint16_t addr) {
+uint8_t kernelTmpMiniFsReadFunctor(uint16_t addr, void *userData) {
 	int value=kernelTmpReadFunctor(addr);
 	assert(value>=0 && value<256);
 	return value;
 }
 
-void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value) {
+void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
 	bool result=kernelTmpWriteFunctor(addr, value);
 	assert(result);
 }

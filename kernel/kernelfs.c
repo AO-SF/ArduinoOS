@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "kernelfs.h"
+#include "minifs.h"
 
 #define KernelFsDevicesMax 32
 
@@ -19,9 +20,23 @@ typedef struct {
 } KernelFsDeviceCharacter;
 
 typedef struct {
+	MiniFs miniFs;
+} KernelFsDeviceBlockCustomMiniFs;
+
+typedef struct {
+	KernelFsBlockDeviceFormat format;
+	KernelFsBlockDeviceReadFunctor *readFunctor;
+	KernelFsBlockDeviceWriteFunctor *writeFunctor;
+	union {
+		KernelFsDeviceBlockCustomMiniFs customMiniFs;
+	} d;
+} KernelFsDeviceBlock;
+
+typedef struct {
 	KernelFsDeviceType type;
 	char *mountPoint;
 	union {
+		KernelFsDeviceBlock block;
 		KernelFsDeviceCharacter character;
 	} d;
 } KernelFsDevice;
@@ -42,6 +57,9 @@ bool kernelFsPathIsDevice(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 
 KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType type);
+
+uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData);
+void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -97,7 +115,34 @@ bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDev
 }
 
 bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor) {
-	// TODO: this
+	assert(mountPoint!=NULL);
+	assert(readFunctor!=NULL);
+
+	// Check mountPoint and attempt to add to device table.
+	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, KernelFsDeviceTypeBlock);
+	if (device==NULL)
+		return false;
+	device->d.block.format=KernelFsBlockDeviceFormatCustomMiniFs;
+	device->d.block.readFunctor=readFunctor;
+	device->d.block.writeFunctor=writeFunctor;
+
+	// Attempt to mount
+	switch(format) {
+		case KernelFsBlockDeviceFormatCustomMiniFs:
+			if (!miniFsMountSafe(&device->d.block.d.customMiniFs.miniFs, &kernelFsMiniFsReadWrapper, &kernelFsMiniFsWriteWrapper, device))
+				goto error;
+		break;
+		case KernelFsBlockDeviceFormatNB:
+			goto error;
+		break;
+	}
+
+	return true;
+
+	error:
+
+	// TODO: remove device if managed to add
+
 	return false;
 }
 
@@ -280,4 +325,31 @@ KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType
 	}
 
 	return NULL;
+}
+
+uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData) {
+	assert(userData!=NULL);
+
+	KernelFsDevice *device=(KernelFsDevice *)userData;
+	assert(device->type==KernelFsDeviceTypeBlock);
+	assert(device->d.block.format==KernelFsBlockDeviceFormatCustomMiniFs);
+
+	int c=device->d.block.readFunctor(addr);
+	if (c==-1)
+		c=255; // TODO: think about this
+
+	return c;
+}
+
+void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData) {
+	assert(userData!=NULL);
+
+	KernelFsDevice *device=(KernelFsDevice *)userData;
+	assert(device->type==KernelFsDeviceTypeBlock);
+	assert(device->d.block.format==KernelFsBlockDeviceFormatCustomMiniFs);
+
+	if (device->d.block.writeFunctor==NULL)
+		return; // TODO: think about this
+
+	device->d.block.writeFunctor(addr, value); // TODO: think about return
 }
