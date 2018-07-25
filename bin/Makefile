@@ -6,6 +6,8 @@ ALL:
 	cd ../disassembler && make
 	cd ../emulator && make
 
+	rm -r ../binmockup/*
+
 	./assembler ../binutilities/false.s ../binmockup/false.o
 	./assembler ../binutilities/true.s ../binmockup/true.o
 	./assembler ../binutilities/helloworld.s ../binmockup/helloworld.o
