@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -27,6 +28,7 @@ ProcMan procManData;
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManProcess *procManGetProcessByPid(ProcManPid pid);
+ProcManPid procManGetPidFromProcess(ProcManProcess *process);
 
 ProcManPid procManFindUnusedPid(void);
 
@@ -134,10 +136,13 @@ void procManProcessTick(ProcManPid pid) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManProcess *procManGetProcessByPid(ProcManPid pid) {
-	for(int i=0; i<ProcManPidMax; ++i)
-		if (procManData.processes[i].progmemFd!=KernelFsFdInvalid)
-			return procManData.processes+i;
+	if (procManData.processes[pid].progmemFd!=KernelFsFdInvalid)
+		return procManData.processes+pid;
 	return NULL;
+}
+
+ProcManPid procManGetPidFromProcess(ProcManProcess *process) {
+	return process-procManData.processes;
 }
 
 ProcManPid procManFindUnusedPid(void) {
