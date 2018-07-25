@@ -22,6 +22,7 @@ int procManGetProcessCount(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManPid procManProcessNew(const char *programPath); // Returns ProcManPidMax on failure
+void procManProcessKill(ProcManPid pid);
 
 void procManProcessTick(ProcManPid pid);
 

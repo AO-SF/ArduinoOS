@@ -52,18 +52,9 @@ void procManInit(void) {
 }
 
 void procManQuit(void) {
-	// Close all FDs
-	for(int i=0; i<ProcManPidMax; ++i) {
-		if (procManData.processes[i].progmemFd!=KernelFsFdInvalid) {
-			kernelFsFileClose(procManData.processes[i].progmemFd);
-			procManData.processes[i].progmemFd=KernelFsFdInvalid;
-		}
-
-		if (procManData.processes[i].tmpFd!=KernelFsFdInvalid) {
-			kernelFsFileClose(procManData.processes[i].tmpFd);
-			procManData.processes[i].tmpFd=KernelFsFdInvalid;
-		}
-	}
+	// Kill all processes
+	for(int i=0; i<ProcManPidMax; ++i)
+		procManProcessKill(i);
 }
 
 void procManTickAll(void) {
@@ -129,6 +120,19 @@ ProcManPid procManProcessNew(const char *programPath) {
 	return ProcManPidMax;
 }
 
+void procManProcessKill(ProcManPid pid) {
+	// Close FDs
+	if (procManData.processes[pid].progmemFd!=KernelFsFdInvalid) {
+		kernelFsFileClose(procManData.processes[pid].progmemFd);
+		procManData.processes[pid].progmemFd=KernelFsFdInvalid;
+	}
+
+	if (procManData.processes[pid].tmpFd!=KernelFsFdInvalid) {
+		kernelFsFileClose(procManData.processes[pid].tmpFd);
+		procManData.processes[pid].tmpFd=KernelFsFdInvalid;
+	}
+}
+
 void procManProcessTick(ProcManPid pid) {
 	// Find process from PID
 	ProcManProcess *process=procManGetProcessByPid(pid);
@@ -157,8 +161,8 @@ void procManProcessTick(ProcManPid pid) {
 
 	// Execute instruction
 	if (!procManProcessExecInstruction(process, &tmpData, instruction)) {
-		// TODO: kill process
-		exit(0); // TODO: remove - only temporary
+		procManProcessKill(pid);
+		return; // return to avoid saving data
 	}
 
 	// Save tmp data
