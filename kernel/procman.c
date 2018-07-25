@@ -9,6 +9,8 @@ typedef struct {
 	ProcManProcess processes[ProcManPidMax];
 } ProcMan;
 
+ProcMan procManData;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -18,11 +20,26 @@ typedef struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 void procManInit(void) {
-	// TODO: this (set all fds to invalid)
+	// Clear fds
+	for(int i=0; i<ProcManPidMax; ++i) {
+		procManData.processes[i].progmemFd=KernelFsFdInvalid;
+		procManData.processes[i].ramFd=KernelFsFdInvalid;
+	}
 }
 
 void procManQuit(void) {
-	// TODO: this (should we close all files?)
+	// Close all FDs
+	for(int i=0; i<ProcManPidMax; ++i) {
+		if (procManData.processes[i].progmemFd!=KernelFsFdInvalid) {
+			kernelFsFileClose(procManData.processes[i].progmemFd);
+			procManData.processes[i].progmemFd=KernelFsFdInvalid;
+		}
+
+		if (procManData.processes[i].ramFd!=KernelFsFdInvalid) {
+			kernelFsFileClose(procManData.processes[i].ramFd);
+			procManData.processes[i].ramFd=KernelFsFdInvalid;
+		}
+	}
 }
 
 ProcManPid procManProcessNew(const char *programPath) {
