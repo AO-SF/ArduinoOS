@@ -56,7 +56,24 @@ int main(int agrc, char **argv) {
 				continue;
 			}
 
-			// TODO: Write data once miniFs has functions implemented
+			// Copy data from file to file
+			FILE *file=fopen(fullName, "r");
+			if (file==NULL) {
+				printf("warning unable to open file '%s' for reading\n", fullName);
+				continue;
+			}
+
+			for(uint16_t offset=0; 1; ++offset) {
+				int value=fgetc(file);
+				if (value==-1)
+					break;
+				if (!miniFsFileWrite(&miniFs, dp->d_name, offset, value)) {
+					printf("warning unable to write complete data for '%s' representing '%s' (managed %i bytes)\n", dp->d_name, fullName, offset);
+					break;
+				}
+			}
+
+			fclose(file);
 		}
 	}
 
