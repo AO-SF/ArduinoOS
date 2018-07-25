@@ -49,6 +49,7 @@ uint8_t miniFsGetTotalSizeFactor(const MiniFs *fs);
 uint8_t miniFsRead(const MiniFs *fs, uint16_t addr);
 void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value);
 
+bool miniFsGetFilenameFromIndex(const MiniFs *fs, uint8_t index, char filename[MiniFsPathMax]);
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename); // Returns MINIFSMAXFILES if no such file exists
 MiniFsFileHeader miniFsReadFileHeaderFromIndex(const MiniFs *fs, uint8_t index);
 bool miniFsReadFileInfoFromIndex(const MiniFs *fs, MiniFsFileInfo *info, uint8_t index);
@@ -143,6 +144,12 @@ bool miniFsGetReadOnly(const MiniFs *fs) {
 
 uint16_t miniFsGetTotalSize(const MiniFs *fs) {
 	return ((uint16_t)miniFsGetTotalSizeFactor(fs))*MINIFSFACTOR;
+}
+
+bool miniFsGetChildN(const MiniFs *fs, unsigned childNum, char childPath[MiniFsPathMax]) {
+	assert(childNum<MINIFSMAXFILES);
+
+	return miniFsGetFilenameFromIndex(fs, childNum, childPath);
 }
 
 void miniFsDebug(const MiniFs *fs) {
@@ -252,6 +259,29 @@ void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value) {
 	uint8_t originalValue=miniFsRead(fs, addr);
 	if (value!=originalValue)
 		fs->writeFunctor(addr, value, fs->functorUserData);
+}
+
+bool miniFsGetFilenameFromIndex(const MiniFs *fs, uint8_t index, char filename[MiniFsPathMax]) {
+	// Parse header
+	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
+
+	// Is there not even a file using this slot?
+	if (fileHeader.offsetFactor==0)
+		return false;
+
+	// Copy filename
+	uint16_t fileOffset=((uint16_t)fileHeader.offsetFactor)*MINIFSFACTOR;
+	char *dest;
+	for(dest=filename; dest+1<filename+MiniFsPathMax; dest++, fileOffset++) {
+		uint8_t src=miniFsRead(fs, fileOffset);
+		*dest=src;
+		if (src=='\0')
+			break;
+	}
+
+	*dest='\0';
+
+	return true;
 }
 
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
