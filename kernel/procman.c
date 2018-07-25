@@ -135,7 +135,36 @@ void procManProcessTick(ProcManPid pid) {
 	if (process==NULL)
 		return;
 
-	// TODO: this
+	// Load tmp data
+	ProcManProcessTmpData tmpData;
+	bool res=procManProcessGetTmpData(process, &tmpData);
+	assert(res);
+
+	// Grab instruction
+	BytecodeInstructionLong instruction;
+	instruction[0]=procManProcessMemoryRead(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++);
+	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
+	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
+		instruction[1]=procManProcessMemoryRead(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++);
+	if (length==BytecodeInstructionLengthLong)
+		instruction[2]=procManProcessMemoryRead(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++);
+
+	// Are we meant to skip this instruction? (due to a previous skipN instruction)
+	if (tmpData.skipFlag) {
+		tmpData.skipFlag=false;
+		goto done;
+	}
+
+	// Execute instruction
+	if (!procManProcessExecInstruction(process, &tmpData, instruction)) {
+		// TODO: kill process
+		exit(0); // TODO: remove - only temporary
+	}
+
+	// Save tmp data
+	done:
+	if (kernelFsFileWriteOffset(process->tmpFd, 0, (const uint8_t *)&tmpData, sizeof(ProcManProcessTmpData))!=sizeof(ProcManProcessTmpData)) {
+		assert(false);
 	}
 }
 
