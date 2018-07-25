@@ -1,4 +1,4 @@
-db stdioPath '/dev/ttyS0'
+db stdioPath '/dev/ttyS0', 0
 
 db msg 'Hello world from init!\n'
 dw msgLen 23
@@ -10,12 +10,12 @@ syscall
 
 ; Check for bad file-descriptor
 cmp r1 r0 r0
-skipneq r1
+skipneqz r1
 jmp error
 
 ; Write message
+mov r1 r0 ; fd
 mov r0 257
-; r1 already contains fd
 mov r2 msg
 mov r3 msgLen
 syscall
