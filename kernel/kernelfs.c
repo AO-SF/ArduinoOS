@@ -289,6 +289,10 @@ const char *kernelFsGetFilePath(KernelFsFd fd) {
 }
 
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen) {
+	return kernelFsFileReadOffset(fd, 0, data, dataLen);
+}
+
+KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen) {
 	// Invalid fd?
 	if (kernelFsData.fdt[fd]==NULL)
 		return 0;
@@ -302,6 +306,7 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 				return 0;
 			break;
 			case KernelFsDeviceTypeCharacter: {
+				// offset is ignored as these are not seekable
 				KernelFsFileOffset read;
 				for(read=0; read<dataLen; ++read) {
 					int c=device->d.character.readFunctor();
@@ -336,7 +341,7 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						KernelFsFileOffset i;
 						for(i=0; i<dataLen; ++i) {
-							int res=miniFsFileRead(&parentDevice->d.block.d.customMiniFs.miniFs, basename, i);
+							int res=miniFsFileRead(&parentDevice->d.block.d.customMiniFs.miniFs, basename, offset+i);
 							if (res==-1)
 								break;
 							data[i]=res;
@@ -370,6 +375,10 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 }
 
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen) {
+	return kernelFsFileWriteOffset(fd, 0, data, dataLen);
+}
+
+KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset offset, const uint8_t *data, KernelFsFileOffset dataLen) {
 	// Invalid fd?
 	if (kernelFsData.fdt[fd]==NULL)
 		return 0;
@@ -383,6 +392,7 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 				return 0;
 			break;
 			case KernelFsDeviceTypeCharacter: {
+				// offset is ignored as these are not seekable
 				KernelFsFileOffset written;
 				for(written=0; written<dataLen; ++written)
 					if (!device->d.character.writeFunctor(data[written]))
@@ -414,7 +424,7 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						KernelFsFileOffset i;
 						for(i=0; i<dataLen; ++i) {
-							if (!miniFsFileWrite(&parentDevice->d.block.d.customMiniFs.miniFs, basename, i, data[i]))
+							if (!miniFsFileWrite(&parentDevice->d.block.d.customMiniFs.miniFs, basename, offset+i, data[i]))
 								break;
 						}
 						return i;
