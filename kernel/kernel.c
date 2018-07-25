@@ -6,6 +6,7 @@
 #include "binprogmem.h"
 #include "kernelfs.h"
 #include "minifs.h"
+#include "procman.h"
 
 #define KernelTmpDataPoolSize 512
 uint8_t *kernelTmpDataPool=NULL;
@@ -185,9 +186,15 @@ void kernelBoot(void) {
 	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomWriteFunctor);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0WriteFunctor);
 	// TODO: handle error
+
+	// Initialise process manager
+	procManInit();
 }
 
 void kernelShutdown(void) {
+	// Quit process manager
+	procManQuit();
+
 	// Quit file system
 	kernelFsQuit();
 
