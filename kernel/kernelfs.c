@@ -360,7 +360,7 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 	return 0;
 }
 
-bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelPathMax]) {
+bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelFsPathMax]) {
 	// Invalid fd?
 	if (kernelFsData.fdt[fd]==NULL)
 		return false;

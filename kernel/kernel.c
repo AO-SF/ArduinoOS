@@ -30,9 +30,9 @@ void kernelDebugFsHelper(const char *path, int indent);
 void kernelBoot(void);
 void kernelShutdown(void);
 
-bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
-bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
-bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]);
+bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
+bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
+bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 int kernelBinReadFunctor(KernelFsFileOffset addr);
 int kernelHomeReadFunctor(KernelFsFileOffset addr);
 bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value);
@@ -121,7 +121,7 @@ void kernelDebugFsHelper(const char *path, int indent) {
 	}
 
 	// print name
-	char pathCopy[KernelPathMax];
+	char pathCopy[KernelFsPathMax];
 	strcpy(pathCopy, path);
 	char *dirname, *basename;
 	if (strcmp(path, "/")==0)
@@ -133,7 +133,7 @@ void kernelDebugFsHelper(const char *path, int indent) {
 
 	// If directory print children recursively
 	if (1) { // TODO: check if is directory
-		char childPath[KernelPathMax];
+		char childPath[KernelFsPathMax];
 		unsigned childNum;
 		for(childNum=0; ; ++childNum) {
 			if (!kernelFsDirectoryGetChild(fd, childNum, childPath))
@@ -231,7 +231,7 @@ void kernelShutdown(void) {
 #endif
 }
 
-bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) {
+bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
 	switch(childNum) {
 		case 0: strcpy(childPath, "/bin"); return true; break;
 		case 1: strcpy(childPath, "/dev"); return true; break;
@@ -242,7 +242,7 @@ bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax])
 	return false;
 }
 
-bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) {
+bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
 	switch(childNum) {
 		case 0: strcpy(childPath, "/dev/zero"); return true; break;
 		case 1: strcpy(childPath, "/dev/null"); return true; break;
@@ -252,7 +252,7 @@ bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) 
 	return false;
 }
 
-bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) {
+bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
 	// TODO: this (along with implementing mounting of external drives)
 	return false;
 }
