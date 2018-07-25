@@ -59,6 +59,7 @@ typedef enum {
 	AssemblerInstructionTypeCall,
 	AssemblerInstructionTypeRet,
 	AssemblerInstructionTypeStore8,
+	AssemblerInstructionTypeLoad8,
 } AssemblerInstructionType;
 
 typedef struct {
@@ -113,6 +114,10 @@ typedef struct {
 } AssemblerInstructionStore8;
 
 typedef struct {
+	const char *dest, *src;
+} AssemblerInstructionLoad8;
+
+typedef struct {
 	uint16_t lineIndex;
 	char *modifiedLineCopy; // so we can have fields pointing into this
 	AssemblerInstructionType type;
@@ -127,6 +132,7 @@ typedef struct {
 		AssemblerInstructionPop pop;
 		AssemblerInstructionCall call;
 		AssemblerInstructionStore8 store8;
+		AssemblerInstructionLoad8 load8;
 	} d;
 
 	uint8_t machineCode[1024]; // TODO: this is pretty wasteful...
@@ -762,6 +768,25 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->type=AssemblerInstructionTypeStore8;
 			instruction->d.store8.dest=dest;
 			instruction->d.store8.src=src;
+		} else if (strcmp(first, "load8")==0) {
+			char *dest=strtok_r(NULL, " ", &savePtr);
+			if (dest==NULL) {
+				printf("error - expected dest register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			char *src=strtok_r(NULL, " ", &savePtr);
+			if (src==NULL) {
+				printf("error - expected src addr register after '%s' (%s:%u '%s')\n", dest, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeLoad8;
+			instruction->d.load8.dest=dest;
+			instruction->d.load8.src=src;
 		} else {
 			// Check for an ALU operation
 			unsigned j;
@@ -887,6 +912,9 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeLen=8; // Reserve eight bytes (dec2, load16, inc5, or)
 			break;
 			case AssemblerInstructionTypeStore8:
+				instruction->machineCodeLen=1;
+			break;
+			case AssemblerInstructionTypeLoad8:
 				instruction->machineCodeLen=1;
 			break;
 		}
@@ -1116,6 +1144,23 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				// Create instruction
 				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeStore, destReg, srcReg);
 			} break;
+			case AssemblerInstructionTypeLoad8: {
+				// Verify dest and src are valid registers
+				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.load8.dest);
+				if (destReg==BytecodeRegisterNB) {
+					printf("error - expected register (r0-r7) as destination, instead got '%s' (%s:%u '%s')\n", instruction->d.load8.dest, line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				BytecodeRegister srcReg=assemblerRegisterFromStr(instruction->d.load8.src);
+				if (srcReg==BytecodeRegisterNB) {
+					printf("error - expected register (r0-r7) as src address, instead got '%s' (%s:%u '%s')\n", instruction->d.load8.src, line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				// Create instruction
+				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeLoad, destReg, srcReg);
+			} break;
 		}
 	}
 
@@ -1244,6 +1289,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			break;
 			case AssemblerInstructionTypeStore8:
 				printf("[%s]=%s (8 bit) (%s:%u '%s')\n", instruction->d.store8.dest, instruction->d.store8.src, line->file, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeLoad8:
+				printf("%s=[%s] (8 bit) (%s:%u '%s')\n", instruction->d.load8.dest, instruction->d.load8.src, line->file, line->lineNum, line->original);
 			break;
 		}
 	}
