@@ -15,6 +15,8 @@ ProcMan procManData;
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
+ProcManProcess *procManGetProcessByPid(ProcManPid pid);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -42,6 +44,14 @@ void procManQuit(void) {
 	}
 }
 
+int procManGetProcessCount(void) {
+	int count=0;
+	ProcManPid pid;
+	for(pid=0; pid<ProcManPidMax; ++pid)
+		count+=(procManGetProcessByPid(pid)!=NULL);
+	return count;
+}
+
 ProcManPid procManProcessNew(const char *programPath) {
 	// TODO: this
 
@@ -51,3 +61,10 @@ ProcManPid procManProcessNew(const char *programPath) {
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
+
+ProcManProcess *procManGetProcessByPid(ProcManPid pid) {
+	for(int i=0; i<ProcManPidMax; ++i)
+		if (procManData.processes[i].progmemFd!=KernelFsFdInvalid)
+			return procManData.processes+i;
+	return NULL;
+}
