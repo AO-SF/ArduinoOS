@@ -158,13 +158,24 @@ void kernelBoot(void) {
 
 	// Non-arduino-only: create pretend EEPROM storage in a local file
 #ifndef ARDUINO
+	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "a+"); // TODO: Check return
+	fclose(kernelFakeEepromFile);
+
 	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "r+"); // TODO: Check return
+
+	fseek(kernelFakeEepromFile, 0L, SEEK_END);
+	int eepromInitialSize=ftell(kernelFakeEepromFile);
+
+	while(eepromInitialSize<KernelEepromSize) {
+		fputc(0xFF, kernelFakeEepromFile);
+		++eepromInitialSize;
+	}
 #endif
 
 	// Format /home if it does not look like it has been already
 	MiniFs homeMiniFs;
 	if (miniFsMountSafe(&homeMiniFs, &kernelHomeMiniFsReadFunctor, &kernelHomeMiniFsWriteFunctor, NULL))
-		miniFsUnmount(&homeMiniFs);
+		miniFsUnmount(&homeMiniFs); // Unmount so we can mount again when we initialise the file system
 	else
 		miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromSize); // TODO: check return
 
@@ -272,7 +283,7 @@ bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value) {
 	EEPROM.update(addr, value);
 	return true;
 #else
-	bool res=fseek(kernelFakeEepromFile, addr, SEEK_SET);
+	int res=fseek(kernelFakeEepromFile, addr, SEEK_SET);
 	assert(res==0);
 	assert(ftell(kernelFakeEepromFile)==addr);
 	return (fputc(value, kernelFakeEepromFile)!=EOF);
