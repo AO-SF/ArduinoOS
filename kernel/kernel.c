@@ -129,7 +129,24 @@ void kernelDebugFsHelper(const char *path, int indent) {
 	else
 		kernelFsPathSplit(pathCopy, &dirname, &basename);
 
-	printf("%s\n", basename);
+	printf("%s", basename);
+
+	// print first few bytes of content
+#define CONTENTSIZE 8
+	if (strcmp(path, "/dev/ttyS0")!=0) {
+		for(int i=0; i<16-strlen(basename); ++i)
+			printf(" ");
+		uint8_t content[CONTENTSIZE];
+		KernelFsFileOffset readCount=kernelFsFileRead(fd, content, CONTENTSIZE);
+		printf(" data:");
+		for(KernelFsFileOffset i=0; i<readCount; ++i)
+			printf(" 0x%02X", content[i]);
+		if (readCount==CONTENTSIZE)
+			printf(" ...");
+	}
+#undef CONTENTSIZE
+
+	printf("\n");
 
 	// If directory print children recursively
 	if (1) { // TODO: check if is directory
