@@ -363,7 +363,7 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelPathMax]) {
 	// Invalid fd?
 	if (kernelFsData.fdt[fd]==NULL)
-		return 0;
+		return false;
 
 	// Is this a virtual device file?
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(kernelFsData.fdt[fd]);
