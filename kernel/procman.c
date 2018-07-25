@@ -57,6 +57,12 @@ void procManQuit(void) {
 	}
 }
 
+void procManTickAll(void) {
+	ProcManPid pid;
+	for(pid=0; pid<ProcManPidMax; ++pid)
+		procManProcessTick(pid);
+}
+
 int procManGetProcessCount(void) {
 	int count=0;
 	ProcManPid pid;
@@ -112,6 +118,15 @@ ProcManPid procManProcessNew(const char *programPath) {
 	}
 
 	return ProcManPidMax;
+}
+
+void procManProcessTick(ProcManPid pid) {
+	// Find process from PID
+	ProcManProcess *process=procManGetProcessByPid(pid);
+	if (process==NULL)
+		return;
+
+	// TODO: this
 }
 
 ////////////////////////////////////////////////////////////////////////////////
