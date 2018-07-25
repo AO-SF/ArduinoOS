@@ -222,7 +222,7 @@ bool kernelFsFileCreate(const char *path) {
 				switch(device->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						// In theory we can create files on a MiniFs if it is not mounted read only
-						uint16_t initialSize=32; // TODO: think about this
+						uint16_t initialSize=256; // TODO: think about this
 						return miniFsFileCreate(&device->d.block.d.customMiniFs.miniFs, basename, initialSize);
 					} break;
 					case KernelFsBlockDeviceFormatNB:
