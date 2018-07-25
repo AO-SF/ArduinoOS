@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,20 +50,24 @@ int main(int agrc, char **argv) {
 		if ((stbuf.st_mode & S_IFMT)==S_IFDIR)
 			continue; // Skip directories
 		else {
-			// Create file in minifs volume to represent this one
-			uint16_t fileSize=32; // TODO: Get this properly
-			if (!miniFsFileCreate(&miniFs, dp->d_name,fileSize)) {
-				printf("warning unable to create file '%s' representing '%s'\n", dp->d_name, fullName);
-				continue;
-			}
-
-			// Copy data from file to file
+			// Open src file for reading
 			FILE *file=fopen(fullName, "r");
 			if (file==NULL) {
 				printf("warning unable to open file '%s' for reading\n", fullName);
 				continue;
 			}
 
+			// Create file in minifs volume to represent this onernel.c:
+			fseek(file, 0L, SEEK_END);
+			uint16_t fileSize=ftell(file);
+			if (!miniFsFileCreate(&miniFs, dp->d_name, fileSize)) {
+				printf("warning unable to create file '%s' representing '%s'\n", dp->d_name, fullName);
+				fclose(file);
+				continue;
+			}
+
+			// Copy data from file to file
+			fseek(file, 0L, SEEK_SET);
 			for(uint16_t offset=0; 1; ++offset) {
 				int value=fgetc(file);
 				if (value==-1)
