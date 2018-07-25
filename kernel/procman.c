@@ -32,6 +32,11 @@ ProcManPid procManGetPidFromProcess(ProcManProcess *process);
 
 ProcManPid procManFindUnusedPid(void);
 
+bool procManProcessGetTmpData(ProcManProcess *process, ProcManProcessTmpData *tmpData);
+uint8_t procManProcessMemoryRead(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr);
+void procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, char *str, uint16_t len);
+void procManProcessMemoryWrite(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, uint8_t value);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -129,6 +134,7 @@ void procManProcessTick(ProcManPid pid) {
 		return;
 
 	// TODO: this
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -150,4 +156,34 @@ ProcManPid procManFindUnusedPid(void) {
 		if (procManData.processes[i].progmemFd==KernelFsFdInvalid)
 			return i;
 	return ProcManPidMax;
+}
+
+bool procManProcessGetTmpData(ProcManProcess *process, ProcManProcessTmpData *tmpData) {
+	return(kernelFsFileReadOffset(process->tmpFd, 0, (uint8_t *)tmpData, sizeof(ProcManProcessTmpData))==sizeof(ProcManProcessTmpData));
+}
+
+uint8_t procManProcessMemoryRead(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr) {
+	if (addr<ByteCodeMemoryRamAddr) {
+		uint8_t value=0xFF;
+		bool res=kernelFsFileReadOffset(process->progmemFd, addr, &value, 1);
+		assert(res==1);
+		return value;
+	} else
+		return tmpData->ram[addr-ByteCodeMemoryRamAddr];
+}
+
+void procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, char *str, uint16_t len) {
+	while(len-->0) {
+		uint8_t c=procManProcessMemoryRead(process, tmpData, addr++);
+		*str++=c;
+		if (c=='\0')
+			break;
+	}
+}
+
+void procManProcessMemoryWrite(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, uint8_t value) {
+	if (addr<ByteCodeMemoryRamAddr)
+		assert(false); // read-only
+	else
+		tmpData->ram[addr-ByteCodeMemoryRamAddr]=value;
 }
