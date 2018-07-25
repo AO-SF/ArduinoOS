@@ -91,11 +91,17 @@ int main(int agrc, char **argv) {
 	fprintf(file, "#include \"binprogmem.h\"\n\n");
 	fprintf(file, "const uint8_t binProgmemData[%u]={\n", totalSize);
 	fprintf(file, "\t");
-	for(unsigned i=0; i<totalSize; ++i) {
+	const int perLine=16;
+	for(int i=0; i<totalSize; ++i) {
 		fprintf(file, "0x%02X", dataArray[i]);
 		if (i+1<totalSize)
 			fprintf(file, ",");
-		if ((i+1)%16==0) {
+		if ((i+1)%perLine==0) {
+			fprintf(file, " // ");
+			for(int j=0; j<perLine; ++j) {
+				int c=dataArray[i+1-perLine+j];
+				fprintf(file, "%c", isgraph(c) ? c : '.');
+			}
 			fprintf(file, "\n");
 			if (i+1!=totalSize)
 				fprintf(file, "\t");
