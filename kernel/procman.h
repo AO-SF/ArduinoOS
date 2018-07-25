@@ -13,6 +13,8 @@ typedef uint8_t ProcManPid;
 void procManInit(void);
 void procManQuit(void);
 
+void procManTickAll(void);
+
 int procManGetProcessCount(void);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -20,5 +22,7 @@ int procManGetProcessCount(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManPid procManProcessNew(const char *programPath); // Returns ProcManPidMax on failure
+
+void procManProcessTick(ProcManPid pid);
 
 #endif
