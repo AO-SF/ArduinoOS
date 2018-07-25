@@ -10,12 +10,12 @@ typedef uint8_t KernelFsFd; // file-descriptor
 #define KernelFsFdInvalid 0
 #define KernelFsFdMax 256
 
-#define KernelPathMax 63
+#define KernelFsPathMax 63
 
 typedef int (KernelFsCharacterDeviceReadFunctor)(void); // returns -1 on failure
 typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value);
 
-typedef bool (KernelFsDirectoryDeviceGetChildFunctor)(unsigned childNum, char childPath[KernelPathMax]);
+typedef bool (KernelFsDirectoryDeviceGetChildFunctor)(unsigned childNum, char childPath[KernelFsPathMax]);
 
 typedef enum {
 	KernelFsBlockDeviceFormatCustomMiniFs,
@@ -59,7 +59,7 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes written
 
 // The following functions are for directory files only.
-bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelPathMax]);
+bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelFsPathMax]);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Path functions
