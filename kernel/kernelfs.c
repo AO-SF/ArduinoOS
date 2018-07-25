@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -369,7 +370,24 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
-				// TODO: this
+				switch(device->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						int j=0;
+						for(int i=0; i<MINIFSMAXFILES; ++i) {
+							sprintf(childPath, "%s/", kernelFsData.fdt[fd]);
+							if (!miniFsGetChildN(&device->d.block.d.customMiniFs.miniFs, i, childPath+strlen(childPath)))
+								continue;
+							if (j==childNum)
+								return true;
+							++j;
+						}
+						return false;
+					} break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+					break;
+				}
+				return false;
 			break;
 			case KernelFsDeviceTypeCharacter: {
 				// Character files cannot be directories
