@@ -1,7 +1,7 @@
 db stdioPath '/dev/ttyS0', 0
 
 db msg 'Hello world from init!\n'
-dw msgLen 23
+db msgLen 23
 
 ; Open stdin/stdout
 mov r0 258
@@ -18,6 +18,7 @@ mov r1 r0 ; fd
 mov r0 257
 mov r2 msg
 mov r3 msgLen
+load8 r3 r3
 syscall
 
 ; Exit (success)
