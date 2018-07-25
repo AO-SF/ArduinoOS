@@ -41,6 +41,8 @@ void miniFsDebug(const MiniFs *fs);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool miniFsFileExists(const MiniFs *fs, const char *filename);
+uint16_t miniFsFileGetLen(const MiniFs *fs, const char *filename);
+uint16_t miniFsFileGetSize(const MiniFs *fs, const char *filename);
 
 bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t size);
 bool miniFsFileDelete(MiniFs *fs, const char *filename);

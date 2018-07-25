@@ -188,6 +188,32 @@ bool miniFsFileExists(const MiniFs *fs, const char *filename) {
 	return (miniFsFilenameToIndex(fs, filename)!=MINIFSMAXFILES);
 }
 
+uint16_t miniFsFileGetLen(const MiniFs *fs, const char *filename) {
+	uint8_t index=miniFsFilenameToIndex(fs, filename);
+	if (index==MINIFSMAXFILES)
+		return 0;
+
+	MiniFsFileInfo fileInfo;
+	if (!miniFsReadFileInfoFromIndex(fs, &fileInfo, index))
+		return 0;
+
+	return fileInfo.contentLen;
+}
+
+uint16_t miniFsFileGetSize(const MiniFs *fs, const char *filename) {
+	// This is the size available for content, not the true size (so does not include the filename)
+
+	uint8_t index=miniFsFilenameToIndex(fs, filename);
+	if (index==MINIFSMAXFILES)
+		return 0;
+
+	MiniFsFileInfo fileInfo;
+	if (!miniFsReadFileInfoFromIndex(fs, &fileInfo, index))
+		return 0;
+
+	return fileInfo.contentLen+fileInfo.spare;
+}
+
 bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 	uint8_t i;
 
