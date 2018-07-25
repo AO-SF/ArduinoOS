@@ -79,8 +79,10 @@ bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, void *functorUserData, uint1
 
 	// Clear file list
 	MiniFsFileHeader nullFileHeader={.offsetFactor=0, .totalLength=0};
-	writeFunctor(MINIFSHEADERFILEBASEADDR+2*0+0, nullFileHeader.upper, functorUserData);
-	writeFunctor(MINIFSHEADERFILEBASEADDR+2*0+1, nullFileHeader.lower, functorUserData);
+	for(uint8_t i=0; i<MINIFSMAXFILES; ++i) {
+		writeFunctor(MINIFSHEADERFILEBASEADDR+2*i+0, nullFileHeader.upper, functorUserData);
+		writeFunctor(MINIFSHEADERFILEBASEADDR+2*i+1, nullFileHeader.lower, functorUserData);
+	}
 
 	return true;
 }
