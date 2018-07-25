@@ -2,13 +2,12 @@
 #include "procman.h"
 
 typedef struct {
-	KernelFsFd progmemFd, ramFd;
+	KernelFsFd progmemFd, tmpFd;
 } ProcManProcess;
 
 typedef struct {
 	ProcManProcess processes[ProcManPidMax];
 } ProcMan;
-
 ProcMan procManData;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -16,6 +15,8 @@ ProcMan procManData;
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManProcess *procManGetProcessByPid(ProcManPid pid);
+
+ProcManPid procManFindUnusedPid(void);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -25,7 +26,7 @@ void procManInit(void) {
 	// Clear fds
 	for(int i=0; i<ProcManPidMax; ++i) {
 		procManData.processes[i].progmemFd=KernelFsFdInvalid;
-		procManData.processes[i].ramFd=KernelFsFdInvalid;
+		procManData.processes[i].tmpFd=KernelFsFdInvalid;
 	}
 }
 
@@ -37,9 +38,9 @@ void procManQuit(void) {
 			procManData.processes[i].progmemFd=KernelFsFdInvalid;
 		}
 
-		if (procManData.processes[i].ramFd!=KernelFsFdInvalid) {
-			kernelFsFileClose(procManData.processes[i].ramFd);
-			procManData.processes[i].ramFd=KernelFsFdInvalid;
+		if (procManData.processes[i].tmpFd!=KernelFsFdInvalid) {
+			kernelFsFileClose(procManData.processes[i].tmpFd);
+			procManData.processes[i].tmpFd=KernelFsFdInvalid;
 		}
 	}
 }
@@ -67,4 +68,11 @@ ProcManProcess *procManGetProcessByPid(ProcManPid pid) {
 		if (procManData.processes[i].progmemFd!=KernelFsFdInvalid)
 			return procManData.processes+i;
 	return NULL;
+}
+
+ProcManPid procManFindUnusedPid(void) {
+	for(int i=0; i<ProcManPidMax; ++i)
+		if (procManData.processes[i].progmemFd==KernelFsFdInvalid)
+			return i;
+	return ProcManPidMax;
 }
