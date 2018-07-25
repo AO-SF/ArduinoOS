@@ -1,5 +1,17 @@
+#include <stdlib.h>
+#include <stdio.h>
+
+#include "bytecode.h"
 #include "kernelfs.h"
 #include "procman.h"
+
+#define ProcManProcessRamSize 128 // TODO: Allow this to be dynamic
+
+typedef struct {
+	ByteCodeWord regs[BytecodeRegisterNB];
+	bool skipFlag; // skip next instruction?
+	uint8_t ram[ProcManProcessRamSize];
+} ProcManProcessTmpData;
 
 typedef struct {
 	KernelFsFd progmemFd, tmpFd;
@@ -54,7 +66,50 @@ int procManGetProcessCount(void) {
 }
 
 ProcManPid procManProcessNew(const char *programPath) {
-	// TODO: this
+	// Find a PID for the new process
+	ProcManPid pid=procManFindUnusedPid();
+	if (pid==ProcManPidMax)
+		goto error;
+
+	// Construct tmp file path
+	// TODO: Try others if exists
+	char tmpPath[KernelFsPathMax];
+	sprintf(tmpPath, "/tmp/proc%u", pid);
+
+	// Attempt to open program file
+	procManData.processes[pid].progmemFd=kernelFsFileOpen(programPath);
+	if (procManData.processes[pid].progmemFd==KernelFsFdInvalid)
+		goto error;
+
+	// Attempt to create tmp file
+	// TODO: Ensure size is right (either on creation by specifying size, or by filling ram with say 0xFF)
+	if (!kernelFsFileCreate(tmpPath))
+		goto error;
+
+	// Attempt to open tmp file
+	procManData.processes[pid].tmpFd=kernelFsFileOpen(tmpPath);
+	if (procManData.processes[pid].tmpFd==KernelFsFdInvalid)
+		goto error;
+
+	// Initialise tmp file:
+	ProcManProcessTmpData procTmpData;
+	procTmpData.regs[ByteCodeRegisterIP]=0;
+	procTmpData.skipFlag=false;
+
+	KernelFsFileOffset written=kernelFsFileWrite(procManData.processes[pid].tmpFd, (const uint8_t *)&procTmpData, sizeof(procTmpData));
+	if (written<sizeof(procTmpData))
+		goto error;
+
+	return pid;
+
+	error:
+	if (pid!=ProcManPidMax) {
+		kernelFsFileClose(procManData.processes[pid].progmemFd);
+		procManData.processes[pid].progmemFd=KernelFsFdInvalid;
+		kernelFsFileClose(procManData.processes[pid].tmpFd);
+		procManData.processes[pid].tmpFd=KernelFsFdInvalid;
+		kernelFsFileDelete(tmpPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+	}
 
 	return ProcManPidMax;
 }
