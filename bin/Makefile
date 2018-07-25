@@ -11,8 +11,11 @@ ALL:
 	./assembler ../binutilities/false.s ../binmockup/false.o
 	./assembler ../binutilities/true.s ../binmockup/true.o
 	./assembler ../binutilities/helloworld.s ../binmockup/helloworld.o
-	./assembler ../binutilities/fib.s ../binmockup/fib.o
-	./assembler ../binutilities/echo.s ../binmockup/echo.o
+	#./assembler ../binutilities/fib.s ../binmockup/fib.o
+	#./assembler ../binutilities/echo.s ../binmockup/echo.o
+	# FIXME: problem with long files? or could be due to other fixed limits somewhere, even total volume size perhaps
+	# corrupted immediately after building in builder
+	./assembler ../binutilities/init.s ../binmockup/init.o
 
 	./builder
 
