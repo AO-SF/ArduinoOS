@@ -6,6 +6,8 @@
 
 #define MINIFSMAXFILES 63
 
+#define MiniFsPathMax 63 // TODO: think about this - not enforced anywhere either, only used for miniFsGetChildN
+
 typedef uint8_t (MiniFsReadFunctor)(uint16_t addr, void *userData);
 typedef void (MiniFsWriteFunctor)(uint16_t addr, uint8_t value, void *userData);
 
