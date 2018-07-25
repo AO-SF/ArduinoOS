@@ -57,6 +57,8 @@ bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index);
 
 uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t *outIndex); // Returns 0 on failure to find
 
+uint16_t miniFsFileHeaderGetContentOffset(const MiniFs *fs, const MiniFsFileHeader *fileHeader);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -271,6 +273,40 @@ bool miniFsFileDelete(MiniFs *fs, const char *filename) {
 	return false;
 }
 
+int miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset) {
+	// Find index for this filename
+	uint8_t index=miniFsFilenameToIndex(fs, filename);
+	if (index==MINIFSMAXFILES)
+		return -1;
+
+	// Check offset against length
+	if (offset>=miniFsFileGetLen(fs, filename))
+		return -1;
+
+	// Read byte
+	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
+	uint16_t contentOffset=miniFsFileHeaderGetContentOffset(fs, &fileHeader);
+	return miniFsRead(fs, contentOffset+offset);
+}
+
+bool miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, uint8_t value) {
+	// Find index for this filename
+	uint8_t index=miniFsFilenameToIndex(fs, filename);
+	if (index==MINIFSMAXFILES)
+		return false;
+
+	// Check offset against length
+	if (offset>=miniFsFileGetLen(fs, filename))
+		return false;
+
+	// Write byte
+	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
+	uint16_t contentOffset=miniFsFileHeaderGetContentOffset(fs, &fileHeader);
+	miniFsWrite(fs, contentOffset+offset, value);
+
+	return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -431,5 +467,16 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t
 	}
 
 	// No free region large enough
+	return 0;
+}
+
+uint16_t miniFsFileHeaderGetContentOffset(const MiniFs *fs, const MiniFsFileHeader *fileHeader) {
+	// Skip past name
+	uint16_t fileOffset=((uint16_t)fileHeader->offsetFactor)*MINIFSFACTOR;
+	while(1) {
+		uint8_t c=miniFsRead(fs, fileOffset++);
+		if (c=='\0')
+			return fileOffset;
+	}
 	return 0;
 }
