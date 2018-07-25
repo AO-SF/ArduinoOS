@@ -59,9 +59,9 @@ void setup() {
 	// Init
 	kernelBoot();
 
-	// For now simply do a few tests
-	kernelTestIo();
-	kernelDebugFs();
+	// Run processes
+	while(procManGetProcessCount()>0)
+		procManTickAll();
 
 	// Quit
 	kernelShutdown();
@@ -215,8 +215,10 @@ void kernelBoot(void) {
 	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0WriteFunctor);
 	// TODO: handle error
 
-	// Initialise process manager
+	// Initialise process manager and start init process
 	procManInit();
+
+	procManProcessNew("/bin/init.o"); // TODO: Check return
 }
 
 void kernelShutdown(void) {
