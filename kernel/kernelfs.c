@@ -247,9 +247,8 @@ bool kernelFsFileCreate(const char *path) {
 	return false;
 }
 
-bool kernelFsFileDelete(const char *path) {
+void kernelFsFileDelete(const char *path) {
 	// TODO: this
-	return false;
 }
 
 KernelFsFd kernelFsFileOpen(const char *path) {
