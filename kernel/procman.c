@@ -37,6 +37,8 @@ uint8_t procManProcessMemoryRead(ProcManProcess *process, ProcManProcessTmpData 
 void procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, char *str, uint16_t len);
 void procManProcessMemoryWrite(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, uint8_t value);
 
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -186,4 +188,161 @@ void procManProcessMemoryWrite(ProcManProcess *process, ProcManProcessTmpData *t
 		assert(false); // read-only
 	else
 		tmpData->ram[addr-ByteCodeMemoryRamAddr]=value;
+}
+
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction) {
+	// Parse instruction
+	BytecodeInstructionInfo info;
+	if (!bytecodeInstructionParse(&info, instruction))
+		return false;
+
+	// Execute instruction
+	switch(info.type) {
+		case BytecodeInstructionTypeMemory:
+			switch(info.d.memory.type) {
+				case BytecodeInstructionMemoryTypeStore:
+					procManProcessMemoryWrite(process, tmpData, tmpData->regs[info.d.memory.destReg], tmpData->regs[info.d.memory.srcReg]);
+				break;
+				case BytecodeInstructionMemoryTypeLoad:
+					tmpData->regs[info.d.memory.destReg]=procManProcessMemoryRead(process, tmpData, tmpData->regs[info.d.memory.srcReg]);
+				break;
+				case BytecodeInstructionMemoryTypeReserved:
+					return false;
+				break;
+			}
+		break;
+		case BytecodeInstructionTypeAlu: {
+			int opA=tmpData->regs[info.d.alu.opAReg];
+			int opB=tmpData->regs[info.d.alu.opBReg];
+			switch(info.d.alu.type) {
+				case BytecodeInstructionAluTypeInc: {
+					tmpData->regs[info.d.alu.destReg]+=info.d.alu.incDecValue;
+				} break;
+				case BytecodeInstructionAluTypeDec: {
+					tmpData->regs[info.d.alu.destReg]-=info.d.alu.incDecValue;
+				} break;
+				case BytecodeInstructionAluTypeAdd:
+					tmpData->regs[info.d.alu.destReg]=opA+opB;
+				break;
+				case BytecodeInstructionAluTypeSub:
+					tmpData->regs[info.d.alu.destReg]=opA-opB;
+				break;
+				case BytecodeInstructionAluTypeMul:
+					tmpData->regs[info.d.alu.destReg]=opA*opB;
+				break;
+				case BytecodeInstructionAluTypeDiv:
+					tmpData->regs[info.d.alu.destReg]=opA/opB;
+				break;
+				case BytecodeInstructionAluTypeXor:
+					tmpData->regs[info.d.alu.destReg]=opA^opB;
+				break;
+				case BytecodeInstructionAluTypeOr:
+					tmpData->regs[info.d.alu.destReg]=opA|opB;
+				break;
+				case BytecodeInstructionAluTypeAnd:
+					tmpData->regs[info.d.alu.destReg]=opA&opB;
+				break;
+				case BytecodeInstructionAluTypeNot:
+					tmpData->regs[info.d.alu.destReg]=~opA;
+				break;
+				case BytecodeInstructionAluTypeCmp: {
+					ByteCodeWord *d=&tmpData->regs[info.d.alu.destReg];
+					*d=0;
+					*d|=(opA==opB)<<BytecodeInstructionAluCmpBitEqual;
+					*d|=(opA==0)<<BytecodeInstructionAluCmpBitEqualZero;
+					*d|=(opA!=opB)<<BytecodeInstructionAluCmpBitNotEqual;
+					*d|=(opA!=0)<<BytecodeInstructionAluCmpBitNotEqualZero;
+					*d|=(opA<opB)<<BytecodeInstructionAluCmpBitLessThan;
+					*d|=(opA<=opB)<<BytecodeInstructionAluCmpBitLessEqual;
+					*d|=(opA>opB)<<BytecodeInstructionAluCmpBitGreaterThan;
+					*d|=(opA>=opB)<<BytecodeInstructionAluCmpBitGreaterEqual;
+				} break;
+				case BytecodeInstructionAluTypeShiftLeft:
+					tmpData->regs[info.d.alu.destReg]=opA<<opB;
+				break;
+				case BytecodeInstructionAluTypeShiftRight:
+					tmpData->regs[info.d.alu.destReg]=opA>>opB;
+				break;
+				case BytecodeInstructionAluTypeSkip:
+					tmpData->skipFlag=(tmpData->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg));
+				break;
+				case BytecodeInstructionAluTypeStore16:
+					procManProcessMemoryWrite(process, tmpData, tmpData->regs[info.d.alu.destReg], (tmpData->regs[info.d.alu.opAReg]>>8));
+					procManProcessMemoryWrite(process, tmpData, tmpData->regs[info.d.alu.destReg]+1, (tmpData->regs[info.d.alu.opAReg]&0xFF));
+				break;
+				case BytecodeInstructionAluTypeLoad16:
+					tmpData->regs[info.d.alu.destReg]=procManProcessMemoryRead(process, tmpData, tmpData->regs[info.d.alu.opAReg]);
+					tmpData->regs[info.d.alu.destReg]<<=8;
+					tmpData->regs[info.d.alu.destReg]|=procManProcessMemoryRead(process, tmpData, tmpData->regs[info.d.alu.opAReg]+1);
+				break;
+			}
+		} break;
+		case BytecodeInstructionTypeMisc:
+			switch(info.d.misc.type) {
+				case BytecodeInstructionMiscTypeNop:
+				break;
+				case BytecodeInstructionMiscTypeSyscall: {
+					uint16_t syscallId=tmpData->regs[0];
+					switch(syscallId) {
+						case ByteCodeSyscallIdExit:
+							return false; // TODO: pass on exit status
+						break;
+						case ByteCodeSyscallIdGetPid: {
+							tmpData->regs[0]=procManGetPidFromProcess(process);
+						} break;
+						case ByteCodeSyscallIdGetArgC: {
+							tmpData->regs[0]=0; // TODO: this
+						} break;
+						case ByteCodeSyscallIdGetArgVN: {
+							tmpData->regs[0]=0; // TODO: this
+						} break;
+						case ByteCodeSyscallIdRead: {
+							KernelFsFd fd=tmpData->regs[1];
+							uint16_t bufAddr=tmpData->regs[2];
+							KernelFsFileOffset len=tmpData->regs[3];
+
+							KernelFsFileOffset i;
+							for(i=0; i<len; ++i) {
+								uint8_t value;
+								if (kernelFsFileReadOffset(fd, i, &value, 1)!=1)
+									break;
+								procManProcessMemoryWrite(process, tmpData, bufAddr+i, value);
+							}
+							tmpData->regs[0]=i;
+						} break;
+						break;
+						case ByteCodeSyscallIdWrite: {
+							KernelFsFd fd=tmpData->regs[1];
+							uint16_t bufAddr=tmpData->regs[2];
+							KernelFsFileOffset len=tmpData->regs[3];
+
+							KernelFsFileOffset i;
+							for(i=0; i<len; ++i) {
+								uint8_t value=procManProcessMemoryRead(process, tmpData, bufAddr+i);
+								if (kernelFsFileWriteOffset(fd, i, &value, 1)!=1)
+									break;
+							}
+							tmpData->regs[0]=i;
+						} break;
+						case ByteCodeSyscallIdOpen: {
+							char path[KernelFsPathMax];
+							procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], path, KernelFsPathMax);
+							tmpData->regs[0]=kernelFsFileOpen(path);
+						} break;
+						default:
+							return false;
+						break;
+					}
+				} break;
+				case BytecodeInstructionMiscTypeSet8:
+					tmpData->regs[info.d.misc.d.set8.destReg]=info.d.misc.d.set8.value;
+				break;
+				case BytecodeInstructionMiscTypeSet16:
+					tmpData->regs[info.d.misc.d.set16.destReg]=info.d.misc.d.set16.value;
+				break;
+			}
+		break;
+	}
+
+	return true;
 }
