@@ -115,7 +115,7 @@ void kernelDebugFsHelper(const char *path, int indent) {
 	// open file/dir
 	KernelFsFd fd=kernelFsFileOpen(path);
 	if (fd==KernelFsFdInvalid) {
-		printf("error openning file\n");
+		printf("error openning file '%s'\n", path);
 		return;
 	}
 
@@ -215,10 +215,11 @@ void kernelShutdown(void) {
 
 bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelPathMax]) {
 	switch(childNum) {
-		case 0: strcpy(childPath, "/dev"); return true; break;
-		case 1: strcpy(childPath, "/home"); return true; break;
-		case 2: strcpy(childPath, "/media"); return true; break;
-		case 3: strcpy(childPath, "/tmp"); return true; break;
+		case 0: strcpy(childPath, "/bin"); return true; break;
+		case 1: strcpy(childPath, "/dev"); return true; break;
+		case 2: strcpy(childPath, "/home"); return true; break;
+		case 3: strcpy(childPath, "/media"); return true; break;
+		case 4: strcpy(childPath, "/tmp"); return true; break;
 	}
 	return false;
 }
