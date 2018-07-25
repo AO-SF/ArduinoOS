@@ -298,7 +298,8 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
-				// TODO: this
+				// These act as directories at the top level (we check below for child)
+				return 0;
 			break;
 			case KernelFsDeviceTypeCharacter: {
 				KernelFsFileOffset read;
@@ -319,6 +320,49 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 		}
 	}
 
+	// Check for being a child of a virtual block device
+	const char *path=kernelFsGetFilePath(fd);
+
+	char modPath[256]; // TODO: better
+	strcpy(modPath, path);
+	char *dirname, *basename;
+	kernelFsPathSplit(modPath, &dirname, &basename);
+
+	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
+	if (parentDevice!=NULL) {
+		switch(parentDevice->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(parentDevice->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						KernelFsFileOffset i;
+						for(i=0; i<dataLen; ++i) {
+							int res=miniFsFileRead(&parentDevice->d.block.d.customMiniFs.miniFs, basename, i);
+							if (res==-1)
+								break;
+							data[i]=res;
+						}
+						return i;
+					} break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+						return 0;
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// These are files and thus cannot contain other files
+				return 0;
+			break;
+			case KernelFsDeviceTypeDirectory:
+				// Device directories can only contain other virtual devices (which are handled above)
+				return 0;
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
+			break;
+		}
+	}
+
 	// Handle standard files.
 	// TODO: this
 
@@ -335,7 +379,8 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
-				// TODO: this
+				// These act as directories at the top level (we check below for child)
+				return 0;
 			break;
 			case KernelFsDeviceTypeCharacter: {
 				KernelFsFileOffset written;
@@ -349,6 +394,47 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 				return 0;
 			break;
 			case KernelFsDeviceTypeNB:
+			break;
+		}
+	}
+
+	// Check for being a child of a virtual block device
+	const char *path=kernelFsGetFilePath(fd);
+
+	char modPath[256]; // TODO: better
+	strcpy(modPath, path);
+	char *dirname, *basename;
+	kernelFsPathSplit(modPath, &dirname, &basename);
+
+	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
+	if (parentDevice!=NULL) {
+		switch(parentDevice->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(parentDevice->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						KernelFsFileOffset i;
+						for(i=0; i<dataLen; ++i) {
+							if (!miniFsFileWrite(&parentDevice->d.block.d.customMiniFs.miniFs, basename, i, data[i]))
+								break;
+						}
+						return i;
+					} break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+						return 0;
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// These are files and thus cannot contain other files
+				return 0;
+			break;
+			case KernelFsDeviceTypeDirectory:
+				// Device directories can only contain other virtual devices (which are handled above)
+				return 0;
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
 			break;
 		}
 	}
