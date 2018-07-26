@@ -114,6 +114,7 @@ typedef enum {
 	ByteCodeSyscallIdRead=(256|0),
 	ByteCodeSyscallIdWrite=(256|1),
 	ByteCodeSyscallIdOpen=(256|2),
+	ByteCodeSyscallIdClose=(256|3),
 } ByteCodeSyscallId;
 
 typedef enum {

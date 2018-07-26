@@ -21,6 +21,11 @@ mov r3 msgLen
 load8 r3 r3
 syscall
 
+; Close stdin/stdout
+mov r0 259
+; r1 still has fd
+syscall
+
 ; Exit (success)
 mov r0 0
 mov r1 0
