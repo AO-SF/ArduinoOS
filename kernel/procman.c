@@ -330,15 +330,15 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdExit:
 							return false; // TODO: pass on exit status
 						break;
-						case ByteCodeSyscallIdGetPid: {
+						case ByteCodeSyscallIdGetPid:
 							tmpData->regs[0]=procManGetPidFromProcess(process);
-						} break;
-						case ByteCodeSyscallIdGetArgC: {
+						break;
+						case ByteCodeSyscallIdGetArgC:
 							tmpData->regs[0]=0; // TODO: this
-						} break;
-						case ByteCodeSyscallIdGetArgVN: {
+						break;
+						case ByteCodeSyscallIdGetArgVN:
 							tmpData->regs[0]=0; // TODO: this
-						} break;
+						break;
 						case ByteCodeSyscallIdFork:
 							procManProcessFork(process, tmpData);
 						break;
