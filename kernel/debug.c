@@ -38,43 +38,59 @@ void debugFsHelper(const char *path, int indent) {
 	for(int i=0; i<indent; ++i)
 		printf("  ");
 
-	// open file/dir
-	KernelFsFd fd=kernelFsFileOpen(path);
-	if (fd==KernelFsFdInvalid) {
-		printf("error openning file '%s'\n", path);
+	// file does not exist? (should not happen)
+	if (!kernelFsFileExists(path))
 		return;
-	}
 
 	// print name
 	char pathCopy[KernelFsPathMax];
 	strcpy(pathCopy, path);
 	char *dirname, *basename;
-	if (strcmp(path, "/")==0)
-		dirname="", basename="/";
-	else
+	if (strcmp(path, "/")==0) {
+		dirname="";
+		basename="/";
+	} else
 		kernelFsPathSplit(pathCopy, &dirname, &basename);
 
-	printf("%s", basename);
+	printf("%s ", basename);
+
+	// is file already open?
+	if (kernelFsFileIsOpen(path)) {
+		printf("(open)\n");
+		return;
+	}
+
+	// open file/dir
+	KernelFsFd fd=kernelFsFileOpen(path);
+	if (fd==KernelFsFdInvalid) {
+		printf("(error openning)\n");
+		return;
+	}
+
+	bool isDir=kernelFsFileIsDir(path);
 
 	// print first few bytes of content
+	if (!isDir) {
 #define CONTENTSIZE 8
-	if (strcmp(path, "/dev/ttyS0")!=0) {
-		for(int i=0; i<16-strlen(basename); ++i)
-			printf(" ");
-		uint8_t content[CONTENTSIZE];
-		KernelFsFileOffset readCount=kernelFsFileRead(fd, content, CONTENTSIZE);
-		printf(" data:");
-		for(KernelFsFileOffset i=0; i<readCount; ++i)
-			printf(" 0x%02X", content[i]);
-		if (readCount==CONTENTSIZE)
-			printf(" ...");
+		if (strcmp(path, "/dev/ttyS0")!=0) {
+			for(int i=0; i<16-strlen(basename); ++i)
+				printf(" ");
+			uint8_t content[CONTENTSIZE];
+			KernelFsFileOffset readCount=kernelFsFileRead(fd, content, CONTENTSIZE);
+			printf("data:");
+			for(KernelFsFileOffset i=0; i<readCount; ++i)
+				printf(" 0x%02X", content[i]);
+			if (readCount==CONTENTSIZE)
+				printf(" ...");
+		} else
+			printf("(skipped)");
 	}
 #undef CONTENTSIZE
 
 	printf("\n");
 
 	// If directory print children recursively
-	if (1) { // TODO: check if is directory
+	if (isDir) {
 		char childPath[KernelFsPathMax];
 		unsigned childNum;
 		for(childNum=0; ; ++childNum) {
