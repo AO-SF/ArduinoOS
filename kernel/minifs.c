@@ -104,7 +104,6 @@ bool miniFsMountSafe(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunc
 		return false;
 
 	// Verify header
-	// TODO: Either give better errors on failure (such as bad magic byte), or allow mounting anyway but mention as warnings (such as individually courrupted files).
 	uint8_t magicByte=miniFsRead(fs, MINIFSHEADERMAGICBYTEADDR);
 	if (magicByte!=MINIFSHEADERMAGICBYTEVALUE)
 		return false;
