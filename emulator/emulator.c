@@ -323,6 +323,13 @@ bool processRunNextInstruction(Process *process) {
 								printf("], len=%u, written=%u)\n", process->regs[3], process->regs[0]);
 							}
 						break;
+						case ByteCodeSyscallIdOpen:
+							if (verbose)
+								printf("Info: syscall(id=%i [open] (unimplemented)\n", syscallId);
+
+							// This is not implemented - simply return invalid fd
+							process->regs[0]=0;
+						break;
 						default:
 							if (verbose)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);
