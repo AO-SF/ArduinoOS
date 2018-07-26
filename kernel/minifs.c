@@ -225,6 +225,10 @@ uint16_t miniFsFileGetSize(const MiniFs *fs, const char *filename) {
 bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 	uint8_t i;
 
+	// Is filename too long?
+	if (strlen(filename)>=MiniFsPathMax)
+		return false;
+
 	// We cannot create a file if the FS is read-only
 	if (miniFsGetReadOnly(fs))
 		return false;
