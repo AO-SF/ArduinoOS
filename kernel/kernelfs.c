@@ -794,8 +794,11 @@ uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData) {
 	assert(device->d.block.format==KernelFsBlockDeviceFormatCustomMiniFs);
 
 	int c=device->d.block.readFunctor(addr);
-	if (c==-1)
-		c=255; // TODO: think about this
+	if (c==-1) {
+		// TODO: think about this
+		assert(false);
+		c=255;
+	}
 
 	return c;
 }
@@ -807,8 +810,11 @@ void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData) {
 	assert(device->type==KernelFsDeviceTypeBlock);
 	assert(device->d.block.format==KernelFsBlockDeviceFormatCustomMiniFs);
 
-	if (device->d.block.writeFunctor==NULL)
-		return; // TODO: think about this
+	if (device->d.block.writeFunctor==NULL) {
+		// TODO: think about this
+		assert(false);
+		return;
+	}
 
 	device->d.block.writeFunctor(addr, value); // TODO: think about return
 }
