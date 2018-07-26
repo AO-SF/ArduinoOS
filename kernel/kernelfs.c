@@ -293,6 +293,10 @@ bool kernelFsFileIsDirEmpty(const char *path) {
 }
 
 bool kernelFsFileCreate(const char *path) {
+	return kernelFsFileCreateWithSize(path, 0);
+}
+
+bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size) {
 	// Find dirname and basename
 	char modPath[KernelFsPathMax];
 	strcpy(modPath, path);
@@ -307,8 +311,7 @@ bool kernelFsFileCreate(const char *path) {
 				switch(device->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						// In theory we can create files on a MiniFs if it is not mounted read only
-						uint16_t initialSize=256; // TODO: think about this
-						return miniFsFileCreate(&device->d.block.d.customMiniFs.miniFs, basename, initialSize);
+						return miniFsFileCreate(&device->d.block.d.customMiniFs.miniFs, basename, size);
 					} break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
