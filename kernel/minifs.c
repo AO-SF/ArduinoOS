@@ -313,6 +313,10 @@ int miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset) {
 }
 
 bool miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, uint8_t value) {
+	// Is this file system read only?
+	if (miniFsGetReadOnly(fs))
+		return false;
+
 	// Find index for this filename
 	uint8_t index=miniFsFilenameToIndex(fs, filename);
 	if (index==MINIFSMAXFILES)
