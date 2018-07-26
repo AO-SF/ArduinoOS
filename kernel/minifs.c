@@ -121,8 +121,7 @@ bool miniFsMountSafe(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunc
 		if (fileHeader.offsetFactor==0)
 			break; // No other slots should have files in
 
-		// Check the file offset does not overlap the header or exceed the size of the volume.
-		// TODO: Check for exceeding volume size.
+		// Check the file offset does not overlap the header
 		if (fileHeader.offsetFactor<MINIFSFILEMINOFFSETFACTOR)
 			return false;
 
@@ -130,8 +129,6 @@ bool miniFsMountSafe(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunc
 		if (fileHeader.offsetFactor<prevOffsetFactor)
 			return false;
 		prevOffsetFactor=fileHeader.offsetFactor;
-
-		// TODO: Checks on file length and total length/size.
 	}
 
 	return true;
