@@ -457,10 +457,8 @@ void procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 
 	// Attempt to open new program file
 	KernelFsFd newProgmemFd=kernelFsFileOpen(execPath);
-	if (newProgmemFd==KernelFsFdInvalid) {
-		tmpData->regs[0]=0; // indicate failure
+	if (newProgmemFd==KernelFsFdInvalid)
 		return;
-	}
 
 	// Close old fd (if not shared)
 	ProcManPid pid=procManGetPidFromProcess(process);
@@ -476,9 +474,6 @@ void procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 
 	// Reset instruction pointer
 	tmpData->regs[ByteCodeRegisterIP]=0;
-
-	// Indicate success
-	tmpData->regs[0]=0;
 
 	return;
 }
