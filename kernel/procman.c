@@ -314,11 +314,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 					procManProcessMemoryWrite(process, tmpData, tmpData->regs[info.d.alu.destReg], (tmpData->regs[info.d.alu.opAReg]>>8));
 					procManProcessMemoryWrite(process, tmpData, tmpData->regs[info.d.alu.destReg]+1, (tmpData->regs[info.d.alu.opAReg]&0xFF));
 				break;
-				case BytecodeInstructionAluTypeLoad16:
-					tmpData->regs[info.d.alu.destReg]=procManProcessMemoryRead(process, tmpData, tmpData->regs[info.d.alu.opAReg]);
+				case BytecodeInstructionAluTypeLoad16: {
+					ByteCodeWord srcAddr=tmpData->regs[info.d.alu.opAReg];
+					tmpData->regs[info.d.alu.destReg]=procManProcessMemoryRead(process, tmpData, srcAddr);
 					tmpData->regs[info.d.alu.destReg]<<=8;
-					tmpData->regs[info.d.alu.destReg]|=procManProcessMemoryRead(process, tmpData, tmpData->regs[info.d.alu.opAReg]+1);
-				break;
+					tmpData->regs[info.d.alu.destReg]|=procManProcessMemoryRead(process, tmpData, srcAddr+1);
+				} break;
 			}
 		} break;
 		case BytecodeInstructionTypeMisc:
