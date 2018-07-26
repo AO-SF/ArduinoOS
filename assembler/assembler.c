@@ -566,6 +566,26 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				return false;
 			}
 
+			if (assemblerRegisterFromStr(symbol)!=BytecodeRegisterNB) {
+				printf("error - cannot use reserved symbol '%s' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetAllocationSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as an 'allocation' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetDefineSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a 'define' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetLabelSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a label (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
@@ -588,6 +608,26 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			char *symbol=strtok_r(NULL, " ", &savePtr);
 			if (symbol==NULL) {
 				printf("error - expected symbol name after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerRegisterFromStr(symbol)!=BytecodeRegisterNB) {
+				printf("error - cannot use reserved symbol '%s' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetAllocationSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as an 'allocation' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetDefineSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a 'define' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetLabelSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a label (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -701,6 +741,26 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			char *symbol=strtok_r(NULL, " ", &savePtr);
 			if (symbol==NULL) {
 				printf("error - expected symbol after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerRegisterFromStr(symbol)!=BytecodeRegisterNB) {
+				printf("error - cannot use reserved symbol '%s' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetAllocationSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as an 'allocation' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetDefineSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a 'define' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetLabelSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a label (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
