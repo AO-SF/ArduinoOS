@@ -33,6 +33,7 @@ bool miniFsGetReadOnly(const MiniFs *fs);
 uint16_t miniFsGetTotalSize(const MiniFs *fs); // Total size available for whole file system (including metadata)
 
 bool miniFsGetChildN(const MiniFs *fs, unsigned childNum, char childPath[MiniFsPathMax]); // n<MINIFSMAXFILES, gaps
+uint8_t miniFsGetChildCount(const MiniFs *fs);
 
 void miniFsDebug(const MiniFs *fs);
 

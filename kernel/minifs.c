@@ -155,6 +155,13 @@ bool miniFsGetChildN(const MiniFs *fs, unsigned childNum, char childPath[MiniFsP
 	return miniFsGetFilenameFromIndex(fs, childNum, childPath);
 }
 
+uint8_t miniFsGetChildCount(const MiniFs *fs) {
+	uint8_t count=0;
+	for(uint8_t i=0; i<MINIFSMAXFILES; ++i)
+		count+=!miniFsIsFileSlotEmpty(fs, i);
+	return count;
+}
+
 void miniFsDebug(const MiniFs *fs) {
 	printf("Volume debug:\n");
 	printf("	max total size: %u bytes\n", miniFsGetTotalSize(fs));
