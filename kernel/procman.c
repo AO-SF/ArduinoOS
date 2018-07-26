@@ -40,6 +40,7 @@ void procManProcessMemoryWrite(ProcManProcess *process, ProcManProcessTmpData *t
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction);
 
 void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData);
+void procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -342,6 +343,9 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdFork:
 							procManProcessFork(process, tmpData);
 						break;
+						case ByteCodeSyscallIdExec:
+							procManProcessExec(process, tmpData);
+						break;
 						case ByteCodeSyscallIdRead: {
 							KernelFsFd fd=tmpData->regs[1];
 							uint16_t bufAddr=tmpData->regs[2];
@@ -444,4 +448,37 @@ void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 
 	// Indicate error
 	tmpData->regs[0]=ProcManPidMax;
+}
+
+void procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData) {
+	// Grab path
+	char execPath[KernelFsPathMax];
+	procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], execPath, KernelFsPathMax);
+
+	// Attempt to open new program file
+	KernelFsFd newProgmemFd=kernelFsFileOpen(execPath);
+	if (newProgmemFd==KernelFsFdInvalid) {
+		tmpData->regs[0]=0; // indicate failure
+		return;
+	}
+
+	// Close old fd (if not shared)
+	ProcManPid pid=procManGetPidFromProcess(process);
+	KernelFsFd oldProgmemFd=procManData.processes[pid].progmemFd;
+	procManData.processes[pid].progmemFd=newProgmemFd;
+
+	unsigned i;
+	for(i=0; i<ProcManPidMax; ++i)
+		if (procManData.processes[i].progmemFd==oldProgmemFd)
+			break;
+	if (i==ProcManPidMax)
+		kernelFsFileClose(oldProgmemFd);
+
+	// Reset instruction pointer
+	tmpData->regs[ByteCodeRegisterIP]=0;
+
+	// Indicate success
+	tmpData->regs[0]=0;
+
+	return;
 }
