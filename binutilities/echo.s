@@ -2,7 +2,7 @@ jmp start
 
 ab buf 32
 
-include ../binutilities/lib.s
+include lib.s
 
 label start
 ; Get argc

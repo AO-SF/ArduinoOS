@@ -501,10 +501,20 @@ bool assemblerProgramHandleIncludes(AssemblerProgram *program, bool *change) {
 			*change=true;
 
 		// Extract path
-		const char *path=assemblerLine->modified+strlen("include ");
+		char includePath[1024]; // TODO: Avoid hardcoded size
+		strcpy(includePath, assemblerLine->file);
+
+		char *lastSlash=strrchr(includePath, '/');
+		if (lastSlash!=NULL)
+			lastSlash[1]='\0';
+		else
+			includePath[0]='\0';
+
+		const char *relPath=assemblerLine->modified+strlen("include ");
+		strcat(includePath, relPath);
 
 		// Read line-by-line
-		if (!assemblerInsertLinesFromFile(program, path, i+1))
+		if (!assemblerInsertLinesFromFile(program, includePath, i+1))
 			return false;
 
 		// Remove this line
