@@ -526,9 +526,6 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 		}
 	}
 
-	// Handle standard files.
-	// TODO: this
-
 	return 0;
 }
 
@@ -607,9 +604,6 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 		}
 	}
 
-	// Handle standard files.
-	// TODO: this
-
 	return 0;
 }
 
@@ -653,9 +647,6 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 			break;
 		}
 	}
-
-	// Handle standard files.
-	// TODO: this
 
 	return false;
 }
