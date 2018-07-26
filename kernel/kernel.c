@@ -41,6 +41,8 @@ uint8_t kernelTmpMiniFsReadFunctor(uint16_t addr, void *userData);
 void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
 int kernelDevZeroReadFunctor(void);
 bool kernelDevZeroWriteFunctor(uint8_t value);
+int kernelDevFullReadFunctor(void);
+bool kernelDevFullWriteFunctor(uint8_t value);
 int kernelDevNullReadFunctor(void);
 bool kernelDevNullWriteFunctor(uint8_t value);
 int kernelDevURandomReadFunctor(void);
@@ -127,6 +129,7 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, kernelHomeWriteFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, kernelTmpWriteFunctor);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroWriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullWriteFunctor);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullWriteFunctor);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomWriteFunctor);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0WriteFunctor);
@@ -181,9 +184,10 @@ bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax
 bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
 	switch(childNum) {
 		case 0: strcpy(childPath, "/dev/zero"); return true; break;
-		case 1: strcpy(childPath, "/dev/null"); return true; break;
-		case 2: strcpy(childPath, "/dev/urandom"); return true; break;
-		case 3: strcpy(childPath, "/dev/ttyS0"); return true; break;
+		case 1: strcpy(childPath, "/dev/full"); return true; break;
+		case 2: strcpy(childPath, "/dev/null"); return true; break;
+		case 3: strcpy(childPath, "/dev/urandom"); return true; break;
+		case 4: strcpy(childPath, "/dev/ttyS0"); return true; break;
 	}
 	return false;
 }
@@ -262,6 +266,14 @@ int kernelDevZeroReadFunctor(void) {
 }
 
 bool kernelDevZeroWriteFunctor(uint8_t value) {
+	return true;
+}
+
+int kernelDevFullReadFunctor(void) {
+	return 0;
+}
+
+bool kernelDevFullWriteFunctor(uint8_t value) {
 	return false;
 }
 
