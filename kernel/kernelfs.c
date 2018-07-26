@@ -207,6 +207,17 @@ bool kernelFsFileExists(const char *path) {
 	return false;
 }
 
+bool kernelFsFileIsOpen(const char *path) {
+	for(int i=0; i<KernelFsFdMax; ++i) {
+		if (i==KernelFsFdInvalid)
+			continue;
+
+		if (kernelFsData.fdt[i]!=NULL && strcmp(path, kernelFsData.fdt[i])==0)
+			return true;
+	}
+	return false;
+}
+
 bool kernelFsFileCreate(const char *path) {
 	// Find dirname and basename
 	char modPath[KernelFsPathMax];
