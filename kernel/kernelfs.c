@@ -218,6 +218,75 @@ bool kernelFsFileIsOpen(const char *path) {
 	return false;
 }
 
+bool kernelFsFileIsDir(const char *path) {
+	// Currently directories can only exist as device files
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device==NULL)
+		return false;
+
+	// Only block and directory type devices operate as directories
+	switch(device->type) {
+		case KernelFsDeviceTypeBlock:
+			switch(device->d.block.format) {
+				case KernelFsBlockDeviceFormatCustomMiniFs:
+					return true;
+				break;
+				case KernelFsBlockDeviceFormatNB:
+					assert(false);
+					return false;
+				break;
+			}
+		break;
+		case KernelFsDeviceTypeCharacter:
+			return false;
+		break;
+		case KernelFsDeviceTypeDirectory:
+			return true;
+		break;
+		case KernelFsDeviceTypeNB:
+			assert(false);
+			return false;
+		break;
+	}
+
+	return false;
+}
+
+bool kernelFsFileIsDirEmpty(const char *path) {
+	// Currently directories can only exist as device files
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device==NULL)
+		return false;
+
+	// Only block and directory type devices operate as directories
+	switch(device->type) {
+		case KernelFsDeviceTypeBlock:
+			switch(device->d.block.format) {
+				case KernelFsBlockDeviceFormatCustomMiniFs:
+					return (miniFsGetChildCount(&device->d.block.d.customMiniFs.miniFs)==0);
+				break;
+				case KernelFsBlockDeviceFormatNB:
+					assert(false);
+					return false;
+				break;
+			}
+		break;
+		case KernelFsDeviceTypeCharacter:
+			return false;
+		break;
+		case KernelFsDeviceTypeDirectory: {
+			char dummyPath[KernelFsPathMax];
+			return (!device->d.directory.getChildFunctor(0, dummyPath));
+		} break;
+		case KernelFsDeviceTypeNB:
+			assert(false);
+			return false;
+		break;
+	}
+
+	return false;
+}
+
 bool kernelFsFileCreate(const char *path) {
 	// Find dirname and basename
 	char modPath[KernelFsPathMax];
