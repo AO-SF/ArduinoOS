@@ -50,7 +50,7 @@ bool kernelFsFileIsDir(const char *path);
 bool kernelFsFileIsDirEmpty(const char *path);
 
 bool kernelFsFileCreate(const char *path);
-void kernelFsFileDelete(const char *path);
+bool kernelFsFileDelete(const char *path); // fails if file is open, or path is a non-empty directory (can remove devices files also, unmounting as required)
 
 KernelFsFd kernelFsFileOpen(const char *path); // File/directory must exist. Returns KernelFsFdInvalid on failure to open.
 void kernelFsFileClose(KernelFsFd fd); // Accepts KernelFsFdInvalid (doing nothing).
