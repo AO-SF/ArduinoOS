@@ -392,7 +392,7 @@ bool kernelFsFileDelete(const char *path) {
 			case KernelFsDeviceTypeBlock:
 				switch(parentDevice->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
-						return miniFsFileDelete(&device->d.block.d.customMiniFs.miniFs, basename);
+						return miniFsFileDelete(&parentDevice->d.block.d.customMiniFs.miniFs, basename);
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
