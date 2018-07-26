@@ -299,6 +299,13 @@ bool processRunNextInstruction(Process *process) {
 							// This is not implemented - simply return error
 							process->regs[0]=ProcManPidMax;
 						break;
+						case ByteCodeSyscallIdExec:
+							if (verbose)
+								printf("Info: syscall(id=%i [exec] (unimplemented)\n", syscallId);
+
+							// This is not implemented - simply return false
+							process->regs[0]=0;
+						break;
 						case ByteCodeSyscallIdRead:
 							if (process->regs[1]==ByteCodeFdStdin) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
