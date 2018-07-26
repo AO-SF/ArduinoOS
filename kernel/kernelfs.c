@@ -169,7 +169,7 @@ bool kernelFsFileExists(const char *path) {
 		return true;
 
 	// Find dirname and basename
-	char modPath[256]; // TODO: better
+	char modPath[KernelFsPathMax];
 	strcpy(modPath, path);
 	char *dirname, *basename;
 	kernelFsPathSplit(modPath, &dirname, &basename);
@@ -209,7 +209,7 @@ bool kernelFsFileExists(const char *path) {
 
 bool kernelFsFileCreate(const char *path) {
 	// Find dirname and basename
-	char modPath[256]; // TODO: better
+	char modPath[KernelFsPathMax];
 	strcpy(modPath, path);
 	char *dirname, *basename;
 	kernelFsPathSplit(modPath, &dirname, &basename);
@@ -328,7 +328,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 	// Check for being a child of a virtual block device
 	const char *path=kernelFsGetFilePath(fd);
 
-	char modPath[256]; // TODO: better
+	char modPath[KernelFsPathMax];
 	strcpy(modPath, path);
 	char *dirname, *basename;
 	kernelFsPathSplit(modPath, &dirname, &basename);
@@ -411,7 +411,7 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 	// Check for being a child of a virtual block device
 	const char *path=kernelFsGetFilePath(fd);
 
-	char modPath[256]; // TODO: better
+	char modPath[KernelFsPathMax];
 	strcpy(modPath, path);
 	char *dirname, *basename;
 	kernelFsPathSplit(modPath, &dirname, &basename);
