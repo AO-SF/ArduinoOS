@@ -192,8 +192,13 @@ bool kernelFsFileExists(const char *path) {
 				// Not used as directories
 			break;
 			case KernelFsDeviceTypeDirectory:
-				// TODO: this
-				return false;
+				for(uint8_t i=0; ; ++i) {
+					char childPath[KernelFsPathMax];
+					if (!device->d.directory.getChildFunctor(i, childPath))
+						return false;
+					if (strcmp(childPath, basename)==0)
+						return true;
+				}
 			break;
 			case KernelFsDeviceTypeNB:
 				assert(false);
