@@ -712,8 +712,20 @@ KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType
 	if (kernelFsFileExists(mountPoint))
 		return NULL;
 
-	// Ensure the parent directory exists.
-	// TODO: this
+	// Ensure the parent directory exists (skipped for root)
+	if (strcmp(mountPoint, "/")!=0) {
+		char mountPointMod[KernelFsPathMax];
+		strcpy(mountPointMod, mountPoint);
+		char *dirname, *basename;
+		kernelFsPathSplit(mountPointMod, &dirname, &basename);
+
+		if (strlen(dirname)==0) {
+			// Special case for files in root directory
+			if (!kernelFsFileExists("/"))
+				return NULL;
+		} else if (!kernelFsFileExists(dirname))
+			return NULL;
+	}
 
 	// Look for an empty slot in the device table
 	for(int i=0; i<KernelFsDevicesMax; ++i) {
