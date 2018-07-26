@@ -39,6 +39,8 @@ void procManProcessMemoryWrite(ProcManProcess *process, ProcManProcessTmpData *t
 
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction);
 
+void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -121,9 +123,18 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 void procManProcessKill(ProcManPid pid) {
 	// Close FDs
-	if (procManData.processes[pid].progmemFd!=KernelFsFdInvalid) {
-		kernelFsFileClose(procManData.processes[pid].progmemFd);
+	KernelFsFd progmemFd=procManData.processes[pid].progmemFd;
+	if (progmemFd!=KernelFsFdInvalid) {
+		// progmemFd may be shared so check if anyone else is still using this one before closing it
 		procManData.processes[pid].progmemFd=KernelFsFdInvalid;
+
+		unsigned i;
+		for(i=0; i<ProcManPidMax; ++i)
+			if (procManData.processes[i].progmemFd==progmemFd)
+				break;
+
+		if (i==ProcManPidMax)
+			kernelFsFileClose(progmemFd);
 	}
 
 	if (procManData.processes[pid].tmpFd!=KernelFsFdInvalid) {
@@ -328,6 +339,9 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdGetArgVN: {
 							tmpData->regs[0]=0; // TODO: this
 						} break;
+						case ByteCodeSyscallIdFork:
+							procManProcessFork(process, tmpData);
+						break;
 						case ByteCodeSyscallIdRead: {
 							KernelFsFd fd=tmpData->regs[1];
 							uint16_t bufAddr=tmpData->regs[2];
@@ -380,4 +394,54 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 	}
 
 	return true;
+}
+
+void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData) {
+	ProcManPid parentPid=procManGetPidFromProcess(process);
+
+	// Find a PID for the new process
+	ProcManPid childPid=procManFindUnusedPid();
+	if (childPid==ProcManPidMax)
+		goto error;
+
+	// Construct tmp file path
+	// TODO: Try others if exists
+	char childTmpPath[KernelFsPathMax];
+	sprintf(childTmpPath, "/tmp/proc%u", childPid);
+
+	// Attempt to create tmp file
+	if (!kernelFsFileCreateWithSize(childTmpPath, sizeof(ProcManProcessTmpData)))
+		goto error;
+
+	// Attempt to open tmp file
+	procManData.processes[childPid].tmpFd=kernelFsFileOpen(childTmpPath);
+	if (procManData.processes[childPid].tmpFd==KernelFsFdInvalid)
+		goto error;
+
+	// Initialise tmp file:
+	ProcManProcessTmpData childTmpData=*tmpData;
+	childTmpData.regs[0]=0; // indicate success in the child
+
+	KernelFsFileOffset written=kernelFsFileWrite(procManData.processes[childPid].tmpFd, (const uint8_t *)&childTmpData, sizeof(childTmpData));
+	if (written<sizeof(childTmpData))
+		goto error;
+
+	// Simply use same FD as parent for the program data
+	procManData.processes[childPid].progmemFd=procManData.processes[parentPid].progmemFd;
+
+	// Update parent return value with child's PID
+	tmpData->regs[0]=childPid;
+
+	return;
+
+	error:
+	if (childPid!=ProcManPidMax) {
+		procManData.processes[childPid].progmemFd=KernelFsFdInvalid;
+		kernelFsFileClose(procManData.processes[childPid].tmpFd);
+		procManData.processes[childPid].tmpFd=KernelFsFdInvalid;
+		kernelFsFileDelete(childTmpPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+	}
+
+	// Indicate error
+	tmpData->regs[0]=ProcManPidMax;
 }

@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "../kernel/bytecode.h"
+#include "../kernel/procman.h"
 
 typedef struct {
 	ByteCodeWord regs[8];
@@ -291,6 +292,13 @@ bool processRunNextInstruction(Process *process) {
 								process->memory[buf+i]=str[i];
 							process->regs[0]=trueLen;
 						} break;
+						case ByteCodeSyscallIdFork:
+							if (verbose)
+								printf("Info: syscall(id=%i [fork] (unimplemented)\n", syscallId);
+
+							// This is not implemented - simply return error
+							process->regs[0]=ProcManPidMax;
+						break;
 						case ByteCodeSyscallIdRead:
 							if (process->regs[1]==ByteCodeFdStdin) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
