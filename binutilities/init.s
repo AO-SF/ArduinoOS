@@ -1,32 +1,34 @@
-db stdioPath '/dev/ttyS0', 0
+; Example init file - calls fork & exec to run another program
 
-db msg 'Hello world from init!\n'
-db msgLen 23
+db execPath '/bin/helloworld2.o', 0
 
-; Open stdin/stdout
-mov r0 258
-mov r1 stdioPath
+; Call fork
+mov r0 4
 syscall
 
-; Check for bad file-descriptor
-cmp r1 r0 r0
+; Check fork return
+mov r1 64 ; ProcManPidMax
+cmp r1 r0 r1
 skipneqz r1
-jmp error
+jmp forkRetChild
+skipneq r1
+jmp forkRetFail
 
-; Write message
-mov r1 r0 ; fd
-mov r0 257
-mov r2 msg
-mov r3 msgLen
-load8 r3 r3
-syscall
+label forkRetParent
+jmp success;
 
-; Close stdin/stdout
-mov r0 259
-; r1 still has fd
+label forkRetChild
+; Exec
+mov r0 5
+mov r1 execPath
 syscall
+jmp error ; exec only returns on failure
+
+label forkRetFail
+jmp error;
 
 ; Exit (success)
+label success
 mov r0 0
 mov r1 0
 syscall
