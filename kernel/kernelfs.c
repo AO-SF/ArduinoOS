@@ -327,8 +327,86 @@ bool kernelFsFileCreate(const char *path) {
 	return false;
 }
 
-void kernelFsFileDelete(const char *path) {
-	// TODO: this
+bool kernelFsFileDelete(const char *path) {
+	// Ensure this file is not open
+	if (kernelFsFileIsOpen(path))
+		return false;
+
+	// If this is a directory, check if empty
+	if (kernelFsFileIsDir(path) && !kernelFsFileIsDirEmpty(path))
+		return false;
+
+	// Is this a virtual device file?
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device!=NULL) {
+		// Type-specific logic
+		switch(device->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(device->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						miniFsUnmount(&device->d.block.d.customMiniFs.miniFs);
+					break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+			case KernelFsDeviceTypeDirectory:
+				// Nothing to do
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
+				return false;
+			break;
+		}
+
+		// Remove device
+		int slot=device-kernelFsData.devices;
+		assert(&kernelFsData.devices[slot]==device);
+
+		free(device->mountPoint);
+		device->mountPoint=NULL;
+		device->type=KernelFsDeviceTypeNB;
+
+		return true;
+	}
+
+	// Check for being a child of a virtual block device
+	char modPath[KernelFsPathMax];
+	strcpy(modPath, path);
+	char *dirname, *basename;
+	kernelFsPathSplit(modPath, &dirname, &basename);
+
+	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
+	if (parentDevice!=NULL) {
+		switch(parentDevice->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(parentDevice->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						return miniFsFileDelete(&device->d.block.d.customMiniFs.miniFs, basename);
+					break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+						return false;
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// These cannot act as directories
+				return false;
+			break;
+			case KernelFsDeviceTypeDirectory:
+				// Currently these can only contain other virtual devices, and so we would have found it above
+				return false;
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
+			break;
+		}
+	}
+
+	return false;
 }
 
 KernelFsFd kernelFsFileOpen(const char *path) {
