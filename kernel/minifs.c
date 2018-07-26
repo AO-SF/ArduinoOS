@@ -279,8 +279,21 @@ bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 }
 
 bool miniFsFileDelete(MiniFs *fs, const char *filename) {
-	// TODO: this
-	return false;
+	// Is this file system read only?
+	if (miniFsGetReadOnly(fs))
+		return false;
+
+	// Find index for this filename
+	uint8_t index=miniFsFilenameToIndex(fs, filename);
+	if (index==MINIFSMAXFILES)
+		return false;
+
+	// Write null entry into header at found index
+	MiniFsFileHeader nullFileHeader={.offsetFactor=0, .totalLength=0};
+	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*index+0, nullFileHeader.upper);
+	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*index+1, nullFileHeader.lower);
+
+	return true;
 }
 
 int miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset) {
