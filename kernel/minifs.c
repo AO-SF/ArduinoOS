@@ -467,7 +467,7 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t
 			break; // No more files
 
 		// Calculate space between.
-		uint16_t firstFileSize=utilNextPow2(firstFileHeader.totalLength)*MINIFSFACTOR;
+		uint16_t firstFileSize=utilNextPow2(firstFileHeader.totalLength);
 		uint8_t firstFileSizeFactor=(firstFileSize+MINIFSFACTOR-1)/MINIFSFACTOR;
 		if (sizeFactor<=secondFileHeader.offsetFactor-(firstFileHeader.offsetFactor+firstFileSizeFactor)) {
 			*outIndex=i;
