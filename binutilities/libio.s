@@ -1,5 +1,29 @@
 ab libIoScratchByte 1
 
+; r0=fgetc(fd=r0), returns 256 on failure
+label fgetc
+
+; read single character into libIoScratchByte
+mov r1 r0
+mov r0 256
+mov r2 libIoScratchByte
+mov r3 1
+syscall
+
+; check for failure
+cmp r0 r0 r0
+skipeqz r0
+jmp fgetcDone
+
+; failed
+mov r0 256
+ret
+
+label fgetcDone
+mov r0 libIoScratchByte
+load8 r0 r0
+ret
+
 ; fputs(fd=r0, strAddr=r1)
 label fputs
 
