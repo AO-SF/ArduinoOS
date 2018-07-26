@@ -29,7 +29,7 @@ skipgt r0
 jmp skipspace
 
 ; Print space
-mov r0 32 ; TODO: use ' ' constant once supported
+mov r0 ' '
 call printChar
 label skipspace
 
