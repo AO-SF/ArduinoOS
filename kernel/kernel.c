@@ -9,7 +9,7 @@
 #include "minifs.h"
 #include "procman.h"
 
-#define KernelTmpDataPoolSize 512
+#define KernelTmpDataPoolSize 1024
 uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize 2048
