@@ -27,7 +27,7 @@ push r4
 push r5
 mov r0 ','
 call printChar
-mov r0 32 ; TODO: Use ' ' constant once supported
+mov r0 ' '
 call printChar
 pop r5
 pop r4
