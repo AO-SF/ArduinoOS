@@ -46,6 +46,8 @@ bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceForma
 
 bool kernelFsFileExists(const char *path);
 bool kernelFsFileIsOpen(const char *path);
+bool kernelFsFileIsDir(const char *path);
+bool kernelFsFileIsDirEmpty(const char *path);
 
 bool kernelFsFileCreate(const char *path);
 void kernelFsFileDelete(const char *path);
