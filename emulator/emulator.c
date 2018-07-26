@@ -330,6 +330,10 @@ bool processRunNextInstruction(Process *process) {
 							// This is not implemented - simply return invalid fd
 							process->regs[0]=0;
 						break;
+						case ByteCodeSyscallIdClose:
+							if (verbose)
+								printf("Info: syscall(id=%i [close] (unimplemented)\n", syscallId);
+						break;
 						default:
 							if (verbose)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);
