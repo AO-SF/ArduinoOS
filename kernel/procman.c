@@ -88,8 +88,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 		goto error;
 
 	// Attempt to create tmp file
-	// TODO: Ensure size is right (either on creation by specifying size, or by filling ram with say 0xFF)
-	if (!kernelFsFileCreate(tmpPath))
+	if (!kernelFsFileCreateWithSize(tmpPath, sizeof(ProcManProcessTmpData)))
 		goto error;
 
 	// Attempt to open tmp file
