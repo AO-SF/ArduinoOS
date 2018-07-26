@@ -6,7 +6,7 @@
 #include "kernelfs.h"
 #include "procman.h"
 
-#define ProcManProcessRamSize 128 // TODO: Allow this to be dynamic
+#define ProcManProcessRamSize 512 // TODO: Allow this to be dynamic
 
 typedef struct {
 	ByteCodeWord regs[BytecodeRegisterNB];
