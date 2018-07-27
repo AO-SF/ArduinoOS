@@ -9,6 +9,7 @@ ab inputBuf 64 ;
 jmp start
 
 require libio.s
+require libproc.s
 require libstr.s
 
 label start
@@ -35,9 +36,8 @@ syscall
 
 label inputLoopStart
 ; Print pwd (reuse inputBuf to save space)
-mov r0 514
-mov r1 inputBuf
-syscall
+mov r0 inputBuf
+call getpwd
 mov r0 inputBuf
 call puts
 
@@ -90,14 +90,12 @@ syscall
 
 ; Exit (success)
 mov r0 0
-mov r1 0
-syscall
+call exit
 
 ; Exit (failure)
 label error
-mov r0 0
-mov r1 1
-syscall
+mov r0 1
+call exit
 
 label shellForkExec
 ; Fork
