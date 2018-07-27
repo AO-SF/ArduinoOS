@@ -1,5 +1,4 @@
 db stdioPath '/dev/ttyS0', 0
-db initialPwd '/home', 0
 db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
@@ -28,11 +27,6 @@ jmp error
 ; Save stdio fd to environment variables
 mov r1 r0
 mov r0 513
-syscall
-
-; Copy initial working directory into environment variable
-mov r0 515
-mov r1 initialPwd
 syscall
 
 label inputLoopStart

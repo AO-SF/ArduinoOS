@@ -119,7 +119,11 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procTmpData.skipFlag=false;
 	procTmpData.state=ProcManProcessStateActive;
 	procTmpData.envVars.stdioFd=KernelFsFdInvalid;
-	strcpy(procTmpData.envVars.pwd, "/");
+
+	strcpy(procTmpData.envVars.pwd, programPath);
+	char *dirname, *basename;
+	kernelFsPathSplit(procTmpData.envVars.pwd, &dirname, &basename);
+	assert(dirname==procTmpData.envVars.pwd);
 
 	KernelFsFileOffset written=kernelFsFileWrite(procManData.processes[pid].tmpFd, (const uint8_t *)&procTmpData, sizeof(procTmpData));
 	if (written<sizeof(procTmpData))
