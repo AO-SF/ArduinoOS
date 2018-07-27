@@ -6,12 +6,18 @@ require libstr.s
 
 ab pathBuf 64
 ab pwdFd 1
+ab pwdLen 1
 
 label start
 
-; Grab pwd
+; Grab pwd and find length
 mov r0 pathBuf
 call getpwd
+
+mov r0 pathBuf
+call strlen
+mov r1 pwdLen
+store8 r1 r0
 
 ; Attempt to open pwd
 mov r0 258
@@ -47,8 +53,18 @@ cmp r0 r0 r0
 skipneqz r0
 jmp success
 
-; Print child path followed by a space
+; Strip pwd from front of child path
 mov r0 pathBuf
+mov r1 pwdLen
+load8 r1 r1
+add r0 r0 r1
+
+mov r2 1
+cmp r2 r1 r2
+skiple r2
+inc r0
+
+; Print child path followed by a space
 call puts
 mov r0 ' '
 call putc
