@@ -12,6 +12,7 @@ ALL:
 	./assembler ../binutilities/true.s ../binmockup/true
 	./assembler ../binutilities/init.s ../binmockup/init
 	./assembler ../binutilities/sh.s ../binmockup/sh
+	./assembler ../binutilities/pwd.s ../binmockup/pwd
 
 	./builder
 
