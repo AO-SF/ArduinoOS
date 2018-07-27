@@ -15,7 +15,12 @@ typedef enum {
 } ProcManProcessState;
 
 typedef struct {
+	KernelFsFd stdioFd; // set to KernelFsInvalid when init.o is called
+} ProcManProcessEnvVars;
+
+typedef struct {
 	ByteCodeWord regs[BytecodeRegisterNB];
+	ProcManProcessEnvVars envVars;
 	ProcManProcessState state;
 	bool skipFlag; // skip next instruction?
 	uint8_t ram[ProcManProcessRamSize];
@@ -111,6 +116,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procTmpData.regs[ByteCodeRegisterIP]=0;
 	procTmpData.skipFlag=false;
 	procTmpData.state=ProcManProcessStateActive;
+	procTmpData.envVars.stdioFd=KernelFsFdInvalid;
 
 	KernelFsFileOffset written=kernelFsFileWrite(procManData.processes[pid].tmpFd, (const uint8_t *)&procTmpData, sizeof(procTmpData));
 	if (written<sizeof(procTmpData))
@@ -413,6 +419,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						} break;
 						case ByteCodeSyscallIdClose:
 							kernelFsFileClose(tmpData->regs[0]);
+						break;
+						case ByteCodeSyscallIdEnvGetStdioFd:
+							tmpData->regs[0]=tmpData->envVars.stdioFd;
+						break;
+						case ByteCodeSyscallIdEnvSetStdioFd:
+							tmpData->envVars.stdioFd=tmpData->regs[1];
 						break;
 						default:
 							return false;
