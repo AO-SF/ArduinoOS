@@ -12,6 +12,8 @@ ALL:
 
 	./assembler ../binutilities/fib.s ../homemockup/fib
 	cp ../binutilities/fib.s ../homemockup/fib.s
+
+	./assembler ../binutilities/cat.s ../binmockup/cat
 	./assembler ../binutilities/false.s ../binmockup/false
 	./assembler ../binutilities/init.s ../binmockup/init
 	./assembler ../binutilities/ls.s ../binmockup/ls
