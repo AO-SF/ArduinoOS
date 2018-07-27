@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 // TODO: this needs to be done specially for arduino
-extern const uint8_t binProgmemData[2048];
+#define BINPROGMEMDATASIZE (4*1024u)
+extern const uint8_t binProgmemData[BINPROGMEMDATASIZE];
 
 #endif
