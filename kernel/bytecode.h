@@ -118,6 +118,8 @@ typedef enum {
 	ByteCodeSyscallIdWrite=(256|1),
 	ByteCodeSyscallIdOpen=(256|2),
 	ByteCodeSyscallIdClose=(256|3),
+	ByteCodeSyscallIdEnvGetStdioFd=(512|0),
+	ByteCodeSyscallIdEnvSetStdioFd=(512|1),
 } ByteCodeSyscallId;
 
 typedef enum {
