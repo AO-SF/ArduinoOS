@@ -1,8 +1,9 @@
 jmp start
 
-require libio.s
-require libproc.s
-require libstr.s
+require stdlib/libiofput.s
+require stdlib/libprocexit.s
+require stdlib/libprocgetpwd.s
+require stdlib/libstrstrlen.s
 
 ab pathBuf 64
 ab pwdFd 1
