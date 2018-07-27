@@ -66,9 +66,9 @@ skiple r2
 inc r0
 
 ; Print child path followed by a space
-call puts
+call puts0
 mov r0 ' '
-call putc
+call putc0
 
 ; Loop again to look for another child
 jmp loopStart
@@ -76,7 +76,7 @@ jmp loopStart
 ; Success - terminate list with newline
 label success
 mov r0 '\n'
-call putc
+call putc0
 
 ; Close pwd
 mov r0 259

@@ -1,66 +1,88 @@
 ab libiofputScratchByte 1
 
-; puts(strAddr=r0)=fputs(stdio, strAddr)
+; puts0(strAddr=r0)=puts(0, strAddr)
+label puts0
+mov r1 r0
+mov r0 0
+jmp puts
+
+; puts(offset=r0, strAddr=r1)=fputs(stdio, strAddr)
 label puts
-mov r1 r0 ; Move string address into r1 ready for fputs call
+mov r2 r1
+mov r1 r0
 mov r0 512 ; Grab stdio fd and put it in r0
 syscall
 jmp fputs ; TODO: Is this safe allowing a different function to return? (or should it be rather)
 
-; fputs(fd=r0, strAddr=r1)
+; fputs(fd=r0, offset=r1, strAddr=r2)
 label fputs
 
-mov r3 0 ; loop index
-mov r4 r1 ; copy str base addr into r4
+mov r4 0 ; loop index
+mov r5 r2 ; copy str base addr into r5
 
 label fputsLoopStart
 
 ; load character
-mov r1 r4
-add r1 r1 r3
-load8 r1 r1
+mov r2 r5
+add r2 r2 r4
+load8 r2 r2
 
 ; reached null terminator?
-cmp r2 r1 r1
-skipneqz r2
+cmp r3 r2 r2
+skipneqz r3
 jmp fputsDone
 
 ; print character
 push r0
-push r3
+push r1
 push r4
-
+push r5
 call fputc
-
+pop r5
 pop r4
-pop r3
+pop r1
 pop r0
 
-inc r3
+inc r1
+inc r4
 jmp fputsLoopStart
 
 label fputsDone
 ret
 
-; putc(c=r0)=fpuc(stdio, c)
+; putc0(c=r0)=putc(0, c)
+label putc0
+mov r1 r0
+mov r0 0
+jmp putc
+
+; putc(offset=r0, c=r1)=fputc(stdio, offset, c)
 label putc
+mov r2 r1
 mov r1 r0
 mov r0 512
 syscall
 jmp fputc
 
-; fputc(fd=r0, c=r1)
+; fputc0(fd=r0, c=r1)=fputc(fd, 0, c)
+label fputc0
+mov r2 r1
+mov r1 0
+jmp fputc
+
+; fputc(fd=r0, offset=r1, c=r2)
 label fputc
 
 ; store given character into scratch byte for write call to access
-mov r2 libiofputScratchByte
-store8 r2 r1
+mov r3 libiofputScratchByte
+store8 r3 r2
 
 ; syscall write
-mov r1 r0 ; move fd before we overwrite it
+mov r2 r1
+mov r1 r0
 mov r0 257
-mov r2 libiofputScratchByte
-mov r3 1
+mov r3 libiofputScratchByte
+mov r4 1
 syscall
 
 ret

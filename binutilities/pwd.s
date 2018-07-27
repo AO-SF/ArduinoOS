@@ -14,10 +14,10 @@ call getpwd
 
 ; Print pwd and newline
 mov r0 pwdBuf
-call puts
+call puts0
 
 mov r0 '\n'
-call putc
+call putc0
 
 ; Exit
 mov r0 0
