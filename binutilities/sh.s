@@ -10,8 +10,8 @@ ab inputBuf 64 ;
 
 jmp start
 
-include libio.s
-include libstr.s
+require libio.s
+require libstr.s
 
 label start
 
