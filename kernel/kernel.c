@@ -14,7 +14,7 @@ uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize BINPROGMEMDATASIZE
 
-#define KernelEepromSize 1024
+#define KernelEepromSize 2048
 #ifndef ARDUINO
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
@@ -112,8 +112,14 @@ void kernelBoot(void) {
 	MiniFs homeMiniFs;
 	if (miniFsMountSafe(&homeMiniFs, &kernelHomeMiniFsReadFunctor, &kernelHomeMiniFsWriteFunctor, NULL))
 		miniFsUnmount(&homeMiniFs); // Unmount so we can mount again when we initialise the file system
-	else
+	else {
 		miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromSize); // TODO: check return
+
+		// Add a few example files
+		// TODO: this is only temporary
+		debugMiniFsAddFile(&homeMiniFs, "fib", "../homemockup/fib");
+		debugMiniFsAddFile(&homeMiniFs, "fib.s", "../homemockup/fib.s");
+	}
 
 	// Format RAM used for /tmp
 	miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize); // TODO: check return

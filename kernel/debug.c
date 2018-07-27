@@ -103,3 +103,37 @@ void debugFsHelper(const char *path, int indent) {
 	// close file
 	kernelFsFileClose(fd);
 }
+
+bool debugMiniFsAddFile(MiniFs *fs, const char *destPath, const char *srcPath) {
+	// Open src file for reading
+	FILE *file=fopen(srcPath, "r");
+	if (file==NULL) {
+		printf("warning unable to open file '%s' for reading\n", srcPath); // .....
+		return false;
+	}
+
+	// Create file in minifs volume to represent this onernel.c:
+	fseek(file, 0L, SEEK_END);
+	uint16_t fileSize=ftell(file);
+	if (!miniFsFileCreate(fs, destPath, fileSize)) {
+		printf("warning unable to create file '%s' representing '%s'\n", destPath, srcPath); // .....
+		fclose(file);
+		return false;
+	}
+
+	// Copy data from file to file
+	fseek(file, 0L, SEEK_SET);
+	for(uint16_t offset=0; 1; ++offset) {
+		int value=fgetc(file);
+		if (value==-1)
+			break;
+		if (!miniFsFileWrite(fs, destPath, offset, value)) {
+			printf("warning unable to write complete data for '%s' representing '%s' (managed %i bytes)\n", destPath, srcPath, offset);
+			break;
+		}
+	}
+
+	fclose(file);
+
+	return true;
+}
