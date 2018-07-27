@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "bytecode.h"
 #include "kernelfs.h"
@@ -139,8 +140,13 @@ void procManProcessKill(ProcManPid pid) {
 	}
 
 	if (procManData.processes[pid].tmpFd!=KernelFsFdInvalid) {
+		char tmpPath[KernelFsPathMax];
+		strcpy(tmpPath, kernelFsGetFilePath(procManData.processes[pid].tmpFd));
+
 		kernelFsFileClose(procManData.processes[pid].tmpFd);
 		procManData.processes[pid].tmpFd=KernelFsFdInvalid;
+
+		kernelFsFileDelete(tmpPath);
 	}
 }
 
