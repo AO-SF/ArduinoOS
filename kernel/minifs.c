@@ -234,6 +234,11 @@ bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 	if (miniFsFileExists(fs, filename))
 		return false;
 
+	// File too long?
+	uint16_t fileLength=strlen(filename)+1+contentSize;
+	if (fileLength>=MiniFsFileLengthMax)
+		return false;
+
 	// Look for first empty slot in header we could store the new file in
 	uint8_t nextFreeIndex;
 	for(nextFreeIndex=0; nextFreeIndex<MINIFSMAXFILES; ++nextFreeIndex) {
@@ -247,7 +252,6 @@ bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 		return false; // No slots in header to store new file
 
 	// Look for large enough region of free space to store the file
-	uint16_t fileLength=strlen(filename)+1+contentSize;
 	uint8_t fileSizeFactor=(utilNextPow2(fileLength)+MINIFSFACTOR-1)/MINIFSFACTOR;
 
 	uint8_t newIndex;
