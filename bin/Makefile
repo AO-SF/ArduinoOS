@@ -15,6 +15,7 @@ ALL:
 	./assembler ../binutilities/fib.s ../binmockup/fib.o
 	./assembler ../binutilities/echo.s ../binmockup/echo.o
 	./assembler ../binutilities/init.s ../binmockup/init.o
+	./assembler ../binutilities/sh.s ../binmockup/sh.o
 
 	./builder
 
