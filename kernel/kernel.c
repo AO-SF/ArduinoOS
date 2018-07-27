@@ -119,6 +119,7 @@ void kernelBoot(void) {
 		// TODO: this is only temporary
 		debugMiniFsAddFile(&homeMiniFs, "fib", "../homemockup/fib");
 		debugMiniFsAddFile(&homeMiniFs, "fib.s", "../homemockup/fib.s");
+		miniFsDebug(&homeMiniFs);
 	}
 
 	// Format RAM used for /tmp
