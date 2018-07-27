@@ -19,7 +19,7 @@ void writeFunctor(uint16_t addr, uint8_t value, void *userData);
 
 int main(int agrc, char **argv) {
 	// format
-	if (!miniFsFormat(&writeFunctor, NULL, 2048)) {
+	if (!miniFsFormat(&writeFunctor, NULL, totalSize)) {
 		printf("could not format\n");
 		return 1;
 	}
