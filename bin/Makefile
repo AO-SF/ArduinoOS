@@ -10,8 +10,6 @@ ALL:
 
 	./assembler ../binutilities/false.s ../binmockup/false.o
 	./assembler ../binutilities/true.s ../binmockup/true.o
-	./assembler ../binutilities/helloworld.s ../binmockup/helloworld.o
-	./assembler ../binutilities/helloworld2.s ../binmockup/helloworld2.o
 	./assembler ../binutilities/init.s ../binmockup/init.o
 	./assembler ../binutilities/sh.s ../binmockup/sh.o
 
