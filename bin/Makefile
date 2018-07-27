@@ -1,20 +1,23 @@
 ALL:
 	mkdir -p ../binmockup
+	mkdir -p ../homemockup
 
 	cd ../assembler && make
 	cd ../builder && make
 	cd ../disassembler && make
 	cd ../emulator && make
 
-	rm -r ../binmockup/*
+	rm -rf ../binmockup/*
+	rm -rf ../homemockup/*
 
+	./assembler ../binutilities/fib.s ../homemockup/fib
+	cp ../binutilities/fib.s ../homemockup/fib.s
 	./assembler ../binutilities/false.s ../binmockup/false
-	./assembler ../binutilities/true.s ../binmockup/true
 	./assembler ../binutilities/init.s ../binmockup/init
-	./assembler ../binutilities/sh.s ../binmockup/sh
-	./assembler ../binutilities/pwd.s ../binmockup/pwd
 	./assembler ../binutilities/ls.s ../binmockup/ls
-	./assembler ../binutilities/fib.s ../binmockup/fib
+	./assembler ../binutilities/pwd.s ../binmockup/pwd
+	./assembler ../binutilities/sh.s ../binmockup/sh
+	./assembler ../binutilities/true.s ../binmockup/true
 
 	./builder
 
