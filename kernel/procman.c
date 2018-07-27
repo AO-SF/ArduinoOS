@@ -435,6 +435,21 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdClose:
 							kernelFsFileClose(tmpData->regs[0]);
 						break;
+						case ByteCodeSyscallIdDirGetChildN: {
+							KernelFsFd fd=tmpData->regs[1];
+							ByteCodeWord childNum=tmpData->regs[2];
+							uint16_t bufAddr=tmpData->regs[3];
+
+							char childPath[KernelFsPathMax];
+							bool result=kernelFsDirectoryGetChild(fd, childNum, childPath);
+
+							if (result) {
+								procManProcessMemoryWriteStr(process, tmpData, bufAddr, childPath);
+								tmpData->regs[0]=1;
+							} else {
+								tmpData->regs[0]=0;
+							}
+						} break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							tmpData->regs[0]=tmpData->envVars.stdioFd;
 						break;

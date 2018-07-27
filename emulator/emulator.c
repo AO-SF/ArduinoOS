@@ -353,6 +353,10 @@ bool processRunNextInstruction(Process *process) {
 							if (verbose)
 								printf("Info: syscall(id=%i [close] (unimplemented)\n", syscallId);
 						break;
+						case ByteCodeSyscallIdDirGetChildN:
+							if (verbose)
+								printf("Info: syscall(id=%i [dirgetchildn] (unimplemented)\n", syscallId);
+						break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							if (verbose)
 								printf("Info: syscall(id=%i [envgetstiofd] (unimplemented)\n", syscallId);
