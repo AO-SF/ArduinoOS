@@ -433,7 +433,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							tmpData->regs[0]=kernelFsFileOpen(path);
 						} break;
 						case ByteCodeSyscallIdClose:
-							kernelFsFileClose(tmpData->regs[0]);
+							kernelFsFileClose(tmpData->regs[1]);
 						break;
 						case ByteCodeSyscallIdDirGetChildN: {
 							KernelFsFd fd=tmpData->regs[1];
