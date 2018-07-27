@@ -306,6 +306,9 @@ bool kernelDevTtyS0WriteFunctor(uint8_t value) {
 #ifdef ARDUINO
 	return (Serial.write(value)==1);
 #else
-	return (putchar(value)==value);
+	if (putchar(value)!=value)
+		return false;
+	fflush(stdout);
+	return true;
 #endif
 }
