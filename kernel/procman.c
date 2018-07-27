@@ -446,6 +446,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						break;
 						case ByteCodeSyscallIdEnvSetPwd:
 							procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], tmpData->envVars.pwd, KernelFsPathMax);
+							kernelFsPathNormalise(tmpData->envVars.pwd);
 						break;
 						default:
 							return false;
