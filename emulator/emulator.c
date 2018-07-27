@@ -306,6 +306,10 @@ bool processRunNextInstruction(Process *process) {
 							// This is not implemented - simply return false
 							process->regs[0]=0;
 						break;
+						case ByteCodeSyscallIdWaitPid:
+							if (verbose)
+								printf("Info: syscall(id=%i [waitpid] (unimplemented)\n", syscallId);
+						break;
 						case ByteCodeSyscallIdRead:
 							if (process->regs[1]==ByteCodeFdStdin) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
