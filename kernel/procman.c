@@ -15,7 +15,8 @@ typedef enum {
 } ProcManProcessState;
 
 typedef struct {
-	KernelFsFd stdioFd; // set to KernelFsInvalid when init.o is called
+	KernelFsFd stdioFd; // set to KernelFsInvalid when init is called
+	char pwd[KernelFsPathMax]; // set to '/' when init is called
 } ProcManProcessEnvVars;
 
 typedef struct {
@@ -48,6 +49,7 @@ bool procManProcessGetTmpData(ProcManProcess *process, ProcManProcessTmpData *tm
 uint8_t procManProcessMemoryRead(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr);
 void procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, char *str, uint16_t len);
 void procManProcessMemoryWrite(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, uint8_t value);
+void procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, const char *str);
 
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction);
 
@@ -117,6 +119,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procTmpData.skipFlag=false;
 	procTmpData.state=ProcManProcessStateActive;
 	procTmpData.envVars.stdioFd=KernelFsFdInvalid;
+	strcpy(procTmpData.envVars.pwd, "/");
 
 	KernelFsFileOffset written=kernelFsFileWrite(procManData.processes[pid].tmpFd, (const uint8_t *)&procTmpData, sizeof(procTmpData));
 	if (written<sizeof(procTmpData))
@@ -258,6 +261,14 @@ void procManProcessMemoryWrite(ProcManProcess *process, ProcManProcessTmpData *t
 		assert(false); // read-only
 	else
 		tmpData->ram[addr-ByteCodeMemoryRamAddr]=value;
+}
+
+void procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, const char *str) {
+	for(const char *c=str; ; ++c) {
+		procManProcessMemoryWrite(process, tmpData, addr++, *c);
+		if (*c=='\0')
+			break;
+	}
 }
 
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction) {
@@ -425,6 +436,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						break;
 						case ByteCodeSyscallIdEnvSetStdioFd:
 							tmpData->envVars.stdioFd=tmpData->regs[1];
+						break;
+						case ByteCodeSyscallIdEnvGetPwd:
+							procManProcessMemoryWriteStr(process, tmpData, tmpData->regs[1], tmpData->envVars.pwd);
+						break;
+						case ByteCodeSyscallIdEnvSetPwd:
+							procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], tmpData->envVars.pwd, KernelFsPathMax);
 						break;
 						default:
 							return false;
