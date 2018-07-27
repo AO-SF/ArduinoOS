@@ -1,13 +1,7 @@
-require libstr.s
+require libstrstrcat.s
+require libprocgetpwd.s
 
 db libprocSlashStr '/', 0
-
-; getpwd(r0=dest addr)
-label getpwd
-mov r1 r0
-mov r0 514
-syscall
-ret
 
 ; getabspath(r0=dest addr, r1=src path addr) - checks if path is absolute, and if not makes it so, stores result in dest addr either way
 label getabspath
@@ -43,9 +37,3 @@ label getabspathnext
 call strcat
 
 ret
-
-; exit (r0=status) - does not return
-label exit
-mov r1 r0
-mov r0 0
-syscall

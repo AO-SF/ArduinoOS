@@ -1,6 +1,8 @@
 jmp start
 
-require libio.s
+require stdlib/libiofput.s
+require stdlib/libiofputdec.s
+require stdlib/libprocexit.s
 
 label start
 ; Init sequence
@@ -46,5 +48,4 @@ call putc
 
 ; Exit
 mov r0 0
-mov r1 0
-syscall
+call exit
