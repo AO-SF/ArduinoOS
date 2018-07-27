@@ -82,6 +82,9 @@ int main(int agrc, char **argv) {
 		}
 	}
 
+	// Debug fs
+	miniFsDebug(&miniFs);
+
 	// unmount to save any changes
 	miniFsUnmount(&miniFs);
 
