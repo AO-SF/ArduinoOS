@@ -1,6 +1,6 @@
 ; Simply execs shell
 
-db execPath '/bin/sh.o', 0
+db execPath '/bin/sh', 0
 
 ; call exec
 mov r0 5

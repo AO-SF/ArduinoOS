@@ -8,10 +8,10 @@ ALL:
 
 	rm -r ../binmockup/*
 
-	./assembler ../binutilities/false.s ../binmockup/false.o
-	./assembler ../binutilities/true.s ../binmockup/true.o
-	./assembler ../binutilities/init.s ../binmockup/init.o
-	./assembler ../binutilities/sh.s ../binmockup/sh.o
+	./assembler ../binutilities/false.s ../binmockup/false
+	./assembler ../binutilities/true.s ../binmockup/true
+	./assembler ../binutilities/init.s ../binmockup/init
+	./assembler ../binutilities/sh.s ../binmockup/sh
 
 	./builder
 

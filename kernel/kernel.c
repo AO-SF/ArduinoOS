@@ -138,7 +138,7 @@ void kernelBoot(void) {
 	// Initialise process manager and start init process
 	procManInit();
 
-	procManProcessNew("/bin/init.o"); // TODO: Check return
+	procManProcessNew("/bin/init"); // TODO: Check return
 }
 
 void kernelShutdown(void) {
