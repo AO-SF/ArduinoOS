@@ -448,6 +448,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdOpen: {
 							char path[KernelFsPathMax];
 							procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], path, KernelFsPathMax);
+							kernelFsPathNormalise(path);
 							tmpData->regs[0]=kernelFsFileOpen(path);
 						} break;
 						case ByteCodeSyscallIdClose:
