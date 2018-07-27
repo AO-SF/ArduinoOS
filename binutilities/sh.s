@@ -2,6 +2,7 @@ db stdioPath '/dev/ttyS0', 0
 db initialPwd '/home', 0
 db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
+db execErrorStr 'could not exec: ', 0
 
 aw stdioFd 1
 
@@ -120,6 +121,18 @@ mov r1 inputBuf
 syscall
 
 ; exec only returns in error
+mov r0 stdioFd
+load16 r0 r0
+mov r1 execErrorStr
+call fputs
+mov r0 stdioFd
+load16 r0 r0
+mov r1 inputBuf
+call fputs
+mov r0 stdioFd
+load16 r0 r0
+mov r1 '\n'
+call fputc
 mov r0 0
 mov r1 1
 syscall
@@ -132,7 +145,7 @@ syscall
 ret
 
 label shellForkExecError
-; Print error with path
+; Print error
 mov r0 stdioFd
 load16 r0 r0
 mov r1 forkErrorStr
