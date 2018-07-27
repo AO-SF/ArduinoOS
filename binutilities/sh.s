@@ -142,9 +142,10 @@ jmp shellForkExecForkParent
 
 label shellForkExecForkChild
 ; Call exec
-; TODO: Send arg1 along if exists
 mov r0 5
 mov r1 absBuf
+mov r2 arg1Ptr ; // TODO: Only send if not empty
+load16 r2 r2
 syscall
 
 ; exec only returns in error
