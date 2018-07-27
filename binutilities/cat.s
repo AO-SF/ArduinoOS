@@ -15,7 +15,7 @@ label start
 
 ; Get first arg
 mov r0 3
-mov r1 0
+mov r1 1 ; 0 is program name
 mov r2 argBuf
 mov r3 64
 syscall

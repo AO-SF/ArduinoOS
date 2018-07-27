@@ -14,9 +14,11 @@ typedef enum {
 	ProcManProcessStateWaiting, // waiting on return of a syscall such as read
 } ProcManProcessState;
 
+#define ARGVMAX 2 // TODO: better
 typedef struct {
 	KernelFsFd stdioFd; // set to KernelFsInvalid when init is called
 	char pwd[KernelFsPathMax]; // set to '/' when init is called
+	char argv[ARGVMAX][64]; // TODO: Avoid hardcoded limits
 } ProcManProcessEnvVars;
 
 typedef struct {
@@ -124,6 +126,9 @@ ProcManPid procManProcessNew(const char *programPath) {
 	char *dirname, *basename;
 	kernelFsPathSplit(procTmpData.envVars.pwd, &dirname, &basename);
 	assert(dirname==procTmpData.envVars.pwd);
+
+	for(unsigned i=0; i<ARGVMAX; ++i)
+		strcpy(procTmpData.envVars.argv[i], "");
 
 	KernelFsFileOffset written=kernelFsFileWrite(procManData.processes[pid].tmpFd, (const uint8_t *)&procTmpData, sizeof(procTmpData));
 	if (written<sizeof(procTmpData))
@@ -377,12 +382,23 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdGetPid:
 							tmpData->regs[0]=procManGetPidFromProcess(process);
 						break;
-						case ByteCodeSyscallIdGetArgC:
-							tmpData->regs[0]=0; // TODO: this
-						break;
-						case ByteCodeSyscallIdGetArgVN:
-							tmpData->regs[0]=0; // TODO: this
-						break;
+						case ByteCodeSyscallIdGetArgC: {
+							tmpData->regs[0]=0;
+							for(unsigned i=0; i<ARGVMAX; ++i)
+								tmpData->regs[0]+=(strlen(tmpData->envVars.argv[i])>0);
+						} break;
+						case ByteCodeSyscallIdGetArgVN: {
+							int n=tmpData->regs[1];
+							ByteCodeWord bufAddr=tmpData->regs[2];
+							ByteCodeWord bufLen=tmpData->regs[3];
+
+							if (n>ARGVMAX)
+								tmpData->regs[0]=0;
+							else {
+								procManProcessMemoryWriteStr(process, tmpData, bufAddr, tmpData->envVars.argv[n]);
+								tmpData->regs[0]=strlen(tmpData->envVars.argv[n]);
+							}
+						} break;
 						case ByteCodeSyscallIdFork:
 							procManProcessFork(process, tmpData);
 						break;
@@ -534,9 +550,13 @@ void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 }
 
 void procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData) {
-	// Grab path
+	// Grab path and arg (if any)
 	char execPath[KernelFsPathMax];
 	procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], execPath, KernelFsPathMax);
+
+	char arg1[KernelFsPathMax]={0};
+	if (tmpData->regs[2]!=0)
+		procManProcessMemoryReadStr(process, tmpData, tmpData->regs[2], arg1, KernelFsPathMax);
 
 	// Normalise path and then check if valid
 	kernelFsPathNormalise(execPath);
@@ -563,6 +583,10 @@ void procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 
 	// Reset instruction pointer
 	tmpData->regs[ByteCodeRegisterIP]=0;
+
+	// Update argv array
+	strcpy(tmpData->envVars.argv[0], execPath);
+	strcpy(tmpData->envVars.argv[1], arg1);
 
 	return;
 }
