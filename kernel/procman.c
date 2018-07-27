@@ -204,7 +204,8 @@ ProcManPid procManGetPidFromProcess(ProcManProcess *process) {
 }
 
 ProcManPid procManFindUnusedPid(void) {
-	for(int i=0; i<ProcManPidMax; ++i)
+	// We cannot use 0 as fork uses this to indicate success
+	for(int i=1; i<ProcManPidMax; ++i)
 		if (procManData.processes[i].progmemFd==KernelFsFdInvalid)
 			return i;
 	return ProcManPidMax;
