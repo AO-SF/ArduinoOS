@@ -164,6 +164,9 @@ typedef struct {
 
 	uint16_t setSpLineIndex;
 	uint16_t stackRamOffset;
+
+	char includedPaths[256][1024]; // TODO: Avoid hardcoded limits (or at least check them...)
+	size_t includePathsNext;
 } AssemblerProgram;
 
 AssemblerProgram *assemblerProgramNew(void);
@@ -317,6 +320,7 @@ AssemblerProgram *assemblerProgramNew(void) {
 
 	program->linesNext=0;
 	program->instructionsNext=0;
+	program->includePathsNext=0;
 
 	return program;
 }
@@ -394,6 +398,9 @@ bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *path, i
 	free(line);
 
 	fclose(file);
+
+	// Add to include paths array
+	strcpy(program->includedPaths[program->includePathsNext++], path);
 
 	return true;
 }
@@ -489,36 +496,55 @@ bool assemblerProgramHandleIncludes(AssemblerProgram *program, bool *change) {
 	if (change!=NULL)
 		*change=false;
 
-	// Loop over lines looking for those which start with 'include '.
-	for(unsigned i=0; i<program->linesNext; ++i) {
-		AssemblerLine *assemblerLine=program->lines[i];
+	// Loop over lines looking for those which start with 'include ' or 'require .
+	for(unsigned line=0; line<program->linesNext; ++line) {
+		AssemblerLine *assemblerLine=program->lines[line];
 
-		// Skip non-matching lines
-		if (strncmp(assemblerLine->modified, "include ", strlen("include "))!=0)
+		// Check for include or require statement
+		bool isInclude=(strncmp(assemblerLine->modified, "include ", strlen("include "))==0);
+		bool isRequire=(strncmp(assemblerLine->modified, "require ", strlen("require "))==0);
+		if (!isInclude && !isRequire)
 			continue;
 
-		if (change!=NULL)
-			*change=true;
-
 		// Extract path
-		char includePath[1024]; // TODO: Avoid hardcoded size
-		strcpy(includePath, assemblerLine->file);
+		char newPath[1024]; // TODO: Avoid hardcoded size
+		strcpy(newPath, assemblerLine->file);
 
-		char *lastSlash=strrchr(includePath, '/');
+		char *lastSlash=strrchr(newPath, '/');
 		if (lastSlash!=NULL)
 			lastSlash[1]='\0';
 		else
-			includePath[0]='\0';
+			newPath[0]='\0';
 
-		const char *relPath=assemblerLine->modified+strlen("include ");
-		strcat(includePath, relPath);
-
-		// Read line-by-line
-		if (!assemblerInsertLinesFromFile(program, includePath, i+1))
-			return false;
+		const char *relPath=strchr(assemblerLine->modified, ' ')+1; // No need to check return as we proved there was a space above
+		strcat(newPath, relPath);
 
 		// Remove this line
-		assemblerRemoveLine(program, i);
+		assemblerRemoveLine(program, line);
+
+		// Indicate a change has occured
+		if (change!=NULL)
+			*change=true;
+
+		// If using require rather than include, and this file has already been included/required, then skip
+		if (isRequire) {
+			bool alreadyIncluded=false;
+			for(size_t i=0; i<program->includePathsNext; ++i)
+				if (strcmp(program->includedPaths[i], newPath)==0) {
+					alreadyIncluded=true;
+					break;
+				}
+			if (alreadyIncluded) {
+				--line;
+				continue;
+			}
+		}
+
+		// Read line-by-line
+		if (!assemblerInsertLinesFromFile(program, newPath, line))
+			return false;
+
+		--line;
 	}
 
 	return true;
