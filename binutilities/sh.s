@@ -2,9 +2,13 @@ db stdioPath '/dev/ttyS0', 0
 db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
+db cdStr 'cd', 0
+db nullChar 0
+db homeDir '/home', 0
 
-ab inputBuf 64 ;
-ab absExecPath 64 ;
+ab inputBuf 64
+ab absBuf 64
+aw arg1Ptr 1
 
 jmp start
 
@@ -47,6 +51,11 @@ mov r1 inputBuf
 mov r2 64
 call fgets
 
+; Parse input - clear arg1Ptr
+mov r0 arg1Ptr
+mov r1 nullChar
+store16 r0 r1
+
 ; Parse input - trim trailing newline
 mov r0 inputBuf
 call strtrimlast
@@ -64,10 +73,25 @@ jmp execInput ; if no space found then no arguments
 ; terminate executable name
 mov r1 0
 store8 r0 r1
-; TODO: handle args
+
+; arg found - store ptr to it
+inc r0
+mov r1 arg1Ptr
+store16 r1 r0
 
 ; Exec input (inputBuf contains executable path)
 label execInput
+
+; Check for builtin
+mov r0 inputBuf
+mov r1 cdStr
+call strequal
+
+cmp r0 r0 r0
+skipeqz r0
+jmp shellCd ; this jumps back to inputLoopStart
+
+; Otherwise try to run as program
 call shellForkExec
 
 ; Loop back to read next line
@@ -94,7 +118,7 @@ call exit
 
 label shellForkExec
 ; Make sure path is absolute
-mov r0 absExecPath
+mov r0 absBuf
 mov r1 inputBuf
 call getabspath
 
@@ -112,14 +136,15 @@ jmp shellForkExecForkParent
 
 label shellForkExecForkChild
 ; Call exec
+; TODO: Send arg1 along if exists
 mov r0 5
-mov r1 absExecPath
+mov r1 absBuf
 syscall
 
 ; exec only returns in error
 mov r0 execErrorStr
 call puts
-mov r0 absExecPath
+mov r0 absBuf
 call puts
 mov r0 '\n'
 call putc
@@ -140,3 +165,35 @@ mov r0 forkErrorStr
 call puts
 
 ret
+
+label shellCd
+
+; If path is empty, use '/home'
+mov r0 arg1Ptr
+load16 r0 r0
+call strlen
+
+cmp r0 r0 r0
+skipneqz r0
+jmp shellCdHome
+
+; Make sure path is absolute
+mov r0 absBuf
+mov r1 arg1Ptr
+load16 r1 r1
+call getabspath
+
+; Update environment variables
+mov r0 515
+mov r1 absBuf
+syscall
+
+jmp inputLoopStart
+
+label shellCdHome
+
+mov r0 515
+mov r1 homeDir
+syscall
+
+jmp inputLoopStart
