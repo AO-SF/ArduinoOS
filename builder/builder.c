@@ -9,7 +9,7 @@
 
 #include "../kernel/minifs.h"
 
-#define totalSize 4096u
+#define totalSize (6*1024u)
 
 uint8_t dataArray[totalSize];
 MiniFs miniFs;
