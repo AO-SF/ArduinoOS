@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -38,6 +39,9 @@ int main(int agrc, char **argv) {
 
 	struct dirent *dp;
 	while((dp=readdir(dir))!=NULL) {
+		if (strcmp(dp->d_name, ".gitignore")==0)
+			continue;
+
 		char fullName[100];
 		sprintf(fullName , "%s/%s", "../binmockup",dp->d_name);
 
