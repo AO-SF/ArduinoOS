@@ -5,6 +5,7 @@ db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
 
 ab inputBuf 64 ;
+ab absExecPath 64 ;
 
 jmp start
 
@@ -98,6 +99,11 @@ mov r0 1
 call exit
 
 label shellForkExec
+; Make sure path is absolute
+mov r0 absExecPath
+mov r1 inputBuf
+call getabspath
+
 ; Fork
 mov r0 4
 syscall
@@ -113,13 +119,13 @@ jmp shellForkExecForkParent
 label shellForkExecForkChild
 ; Call exec
 mov r0 5
-mov r1 inputBuf
+mov r1 absExecPath
 syscall
 
 ; exec only returns in error
 mov r0 execErrorStr
 call puts
-mov r0 inputBuf
+mov r0 absExecPath
 call puts
 mov r0 '\n'
 call putc
