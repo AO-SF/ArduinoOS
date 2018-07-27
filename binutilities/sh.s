@@ -125,7 +125,10 @@ mov r1 1
 syscall
 
 label shellForkExecForkParent
-; TODO: waitpid on child
+; Wait for child to terminate
+mov r1 r0 ; childs PID
+mov r0 6 ; waitpid syscall
+syscall
 ret
 
 label shellForkExecError

@@ -9,8 +9,14 @@
 
 #define ProcManProcessRamSize 512 // TODO: Allow this to be dynamic
 
+typedef enum {
+	ProcManProcessStateActive,
+	ProcManProcessStateWaiting, // waiting on return of a syscall such as read
+} ProcManProcessState;
+
 typedef struct {
 	ByteCodeWord regs[BytecodeRegisterNB];
+	ProcManProcessState state;
 	bool skipFlag; // skip next instruction?
 	uint8_t ram[ProcManProcessRamSize];
 } ProcManProcessTmpData;
@@ -104,6 +110,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	ProcManProcessTmpData procTmpData;
 	procTmpData.regs[ByteCodeRegisterIP]=0;
 	procTmpData.skipFlag=false;
+	procTmpData.state=ProcManProcessStateActive;
 
 	KernelFsFileOffset written=kernelFsFileWrite(procManData.processes[pid].tmpFd, (const uint8_t *)&procTmpData, sizeof(procTmpData));
 	if (written<sizeof(procTmpData))
@@ -162,6 +169,8 @@ void procManProcessTick(ProcManPid pid) {
 	assert(res);
 
 	// Grab instruction
+	ByteCodeWord originalIP=tmpData.regs[ByteCodeRegisterIP];
+
 	BytecodeInstructionLong instruction;
 	instruction[0]=procManProcessMemoryRead(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++);
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
@@ -181,6 +190,10 @@ void procManProcessTick(ProcManPid pid) {
 		procManProcessKill(pid);
 		return; // return to avoid saving data
 	}
+
+	// If process is in state waiting, revert to last instruction again
+	if (tmpData.state==ProcManProcessStateWaiting)
+		tmpData.regs[ByteCodeRegisterIP]=originalIP;
 
 	// Save tmp data
 	done:
@@ -369,7 +382,17 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							}
 							tmpData->regs[0]=i;
 						} break;
-						break;
+						case ByteCodeSyscallIdWaitPid: {
+							ByteCodeWord waitPid=tmpData->regs[1];
+
+							// Check if given pid does not represent a process (indicating it has been killed)
+							if (procManGetProcessByPid(waitPid)==NULL)
+								// We can resume process (if it was even paused - we may simply succeed immediately)
+								tmpData->state=ProcManProcessStateActive;
+							else
+								// Set process as Waiting so we retry next tick
+								tmpData->state=ProcManProcessStateWaiting;
+						} break;
 						case ByteCodeSyscallIdWrite: {
 							KernelFsFd fd=tmpData->regs[1];
 							uint16_t bufAddr=tmpData->regs[2];
