@@ -12,7 +12,7 @@
 #define KernelTmpDataPoolSize 4096
 uint8_t *kernelTmpDataPool=NULL;
 
-#define KernelBinSize 2048
+#define KernelBinSize BINPROGMEMDATASIZE
 
 #define KernelEepromSize 1024
 #ifndef ARDUINO
