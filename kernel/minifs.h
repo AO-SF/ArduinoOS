@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MINIFSMAXFILES 63
+#define MINIFSMAXFILES 62
 
 #define MiniFsPathMax 63
 

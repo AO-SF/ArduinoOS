@@ -10,7 +10,7 @@
 #define MINIFSHEADERMAGICBYTEVALUE 53
 #define MINIFSHEADERTOTALSIZEADDR (MINIFSHEADERMAGICBYTEADDR+1)
 #define MINIFSHEADERFILEBASEADDR (MINIFSHEADERTOTALSIZEADDR+1)
-#define MINIFSHEADERSIZE (1+1+2*MINIFSMAXFILES) // 128 bytes
+#define MINIFSHEADERSIZE (1+1+MINIFSMAXFILES) // 64 bytes
 
 #define MINIFSFACTOR 32
 
@@ -20,19 +20,6 @@
 
 #define MiniFsFileLengthBits 10
 #define MiniFsFileLengthMax (((uint16_t)(1u))<<MiniFsFileLengthBits)
-
-typedef struct {
-	union {
-		struct {
-			uint16_t upper:8;
-			uint16_t lower:8;
-		};
-		struct {
-			uint16_t offsetFactor:6;
-			uint16_t totalLength:MiniFsFileLengthBits;
-		};
-	};
-} MiniFsFileHeader;
 
 typedef struct {
 	uint16_t offset;
@@ -51,13 +38,14 @@ void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value);
 
 bool miniFsGetFilenameFromIndex(const MiniFs *fs, uint8_t index, char filename[MiniFsPathMax]);
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename); // Returns MINIFSMAXFILES if no such file exists
-MiniFsFileHeader miniFsReadFileHeaderFromIndex(const MiniFs *fs, uint8_t index);
+uint8_t miniFsReadFileOffsetFromIndex(const MiniFs *fs, uint8_t index);
+uint16_t miniFsReadFileTotalLengthFromOffsetFactor(const MiniFs *fs, uint8_t fileOffsetFactor);
 bool miniFsReadFileInfoFromIndex(const MiniFs *fs, MiniFsFileInfo *info, uint8_t index);
 bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index);
 
 uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t *outIndex); // Returns 0 on failure to find
 
-uint16_t miniFsFileHeaderGetContentOffset(const MiniFs *fs, const MiniFsFileHeader *fileHeader);
+uint16_t miniFsFileHeaderGetContentOffset(const MiniFs *fs, uint8_t fileOffsetFactor);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -80,11 +68,8 @@ bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, void *functorUserData, uint1
 	writeFunctor(MINIFSHEADERTOTALSIZEADDR, totalSizeFactor, functorUserData);
 
 	// Clear file list
-	MiniFsFileHeader nullFileHeader={.offsetFactor=0, .totalLength=0};
-	for(uint8_t i=0; i<MINIFSMAXFILES; ++i) {
-		writeFunctor(MINIFSHEADERFILEBASEADDR+2*i+0, nullFileHeader.upper, functorUserData);
-		writeFunctor(MINIFSHEADERFILEBASEADDR+2*i+1, nullFileHeader.lower, functorUserData);
-	}
+	for(uint8_t i=0; i<MINIFSMAXFILES; ++i)
+		writeFunctor(MINIFSHEADERFILEBASEADDR+i, 0, functorUserData);
 
 	return true;
 }
@@ -114,21 +99,21 @@ bool miniFsMountSafe(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunc
 
 	uint8_t prevOffsetFactor=0;
 	for(uint8_t i=0; i<MINIFSMAXFILES; ++i) {
-		// Parse header
-		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, i);
+		// Grab offset factor from header
+		uint8_t fileOffsetFactor=miniFsReadFileOffsetFromIndex(fs, i);
 
 		// Does this slot even contain a file?
-		if (fileHeader.offsetFactor==0)
+		if (fileOffsetFactor==0)
 			break; // No other slots should have files in
 
 		// Check the file offset does not overlap the header
-		if (fileHeader.offsetFactor<MINIFSFILEMINOFFSETFACTOR)
+		if (fileOffsetFactor<MINIFSFILEMINOFFSETFACTOR)
 			return false;
 
 		// Check the file is located after the one in the previous slot.
-		if (fileHeader.offsetFactor<prevOffsetFactor)
+		if (fileOffsetFactor<prevOffsetFactor)
 			return false;
-		prevOffsetFactor=fileHeader.offsetFactor;
+		prevOffsetFactor=fileOffsetFactor;
 	}
 
 	return true;
@@ -168,18 +153,14 @@ void miniFsDebug(const MiniFs *fs) {
 	printf("		ID OFFSET SIZE LENGTH SPARE FILENAME\n");
 
 	for(uint8_t i=0; i<MINIFSMAXFILES; ++i) {
-		// Parse header
-		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, i);
-		if (fileHeader.offsetFactor==0)
-			break;
-
+		// Parse file info
 		MiniFsFileInfo fileInfo;
 		if (!miniFsReadFileInfoFromIndex(fs, &fileInfo, i))
 			break;
 
 		// Output info
 		printf("		%2i %6i %4i %6i %5i ", i, fileInfo.offset, fileInfo.size, fileInfo.contentLen, fileInfo.spare);
-		for(uint16_t filenameOffset=fileInfo.offset; ; ++filenameOffset) {
+		for(uint16_t filenameOffset=fileInfo.offset+2; ; ++filenameOffset) {
 			uint8_t c=miniFsRead(fs, filenameOffset);
 			if (c=='\0')
 				break;
@@ -235,16 +216,16 @@ bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 		return false;
 
 	// File too long?
-	uint16_t fileLength=strlen(filename)+1+contentSize;
-	if (fileLength>=MiniFsFileLengthMax)
+	uint16_t fileTotalLength=2+strlen(filename)+1+contentSize;
+	if (fileTotalLength>=MiniFsFileLengthMax)
 		return false;
 
 	// Look for first empty slot in header we could store the new file in
 	uint8_t nextFreeIndex;
 	for(nextFreeIndex=0; nextFreeIndex<MINIFSMAXFILES; ++nextFreeIndex) {
 		// Is this slot empty?
-		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, nextFreeIndex);
-		if (fileHeader.offsetFactor==0)
+		uint8_t fileOffsetFactor=miniFsReadFileOffsetFromIndex(fs, nextFreeIndex);
+		if (fileOffsetFactor==0)
 			break;
 	}
 
@@ -252,7 +233,7 @@ bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 		return false; // No slots in header to store new file
 
 	// Look for large enough region of free space to store the file
-	uint8_t fileSizeFactor=(utilNextPow2(fileLength)+MINIFSFACTOR-1)/MINIFSFACTOR;
+	uint8_t fileSizeFactor=(utilNextPow2(fileTotalLength)+MINIFSFACTOR-1)/MINIFSFACTOR;
 
 	uint8_t newIndex;
 	uint8_t fileOffsetFactor=miniFsFindFreeRegionFactor(fs, fileSizeFactor, &newIndex);
@@ -260,20 +241,18 @@ bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 		return false;
 
 	// Insert file offset and length factors into header in order, after shifting others up.
-	for(i=MINIFSMAXFILES-1; i>newIndex; --i) {
-		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+0, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+0));
-		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*i+1, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*(i-1)+1));
-	}
+	for(i=MINIFSMAXFILES-1; i>newIndex; --i)
+		miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+i, miniFsRead(fs, MINIFSHEADERFILEBASEADDR+i-1));
 
-	MiniFsFileHeader newFileHeader={.offsetFactor=fileOffsetFactor, .totalLength=fileLength};
-	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+0, newFileHeader.upper);
-	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*newIndex+1, newFileHeader.lower);
+	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+newIndex, fileOffsetFactor);
 
-	// Write filename to start of file data
+	// Write file length and filename to start of file data
 	uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
+	miniFsWrite(fs, fileOffset++, (fileTotalLength>>8));
+	miniFsWrite(fs, fileOffset++, (fileTotalLength&0xFF));
 	i=0;
 	do {
-		miniFsWrite(fs, fileOffset+i, filename[i]);
+		miniFsWrite(fs, fileOffset++, filename[i]);
 	} while(filename[i++]!='\0');
 
 	return true;
@@ -289,10 +268,8 @@ bool miniFsFileDelete(MiniFs *fs, const char *filename) {
 	if (index==MINIFSMAXFILES)
 		return false;
 
-	// Write null entry into header at found index
-	MiniFsFileHeader nullFileHeader={.offsetFactor=0, .totalLength=0};
-	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*index+0, nullFileHeader.upper);
-	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+2*index+1, nullFileHeader.lower);
+	// Write 0 offset into header at found index
+	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+index, 0);
 
 	return true;
 }
@@ -308,8 +285,8 @@ int miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset) {
 		return -1;
 
 	// Read byte
-	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
-	uint16_t contentOffset=miniFsFileHeaderGetContentOffset(fs, &fileHeader);
+	uint8_t fileOffsetFactor=miniFsReadFileOffsetFromIndex(fs, index);
+	uint16_t contentOffset=miniFsFileHeaderGetContentOffset(fs, fileOffsetFactor);
 	return miniFsRead(fs, contentOffset+offset);
 }
 
@@ -328,8 +305,8 @@ bool miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, uint8_t 
 		return false;
 
 	// Write byte
-	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
-	uint16_t contentOffset=miniFsFileHeaderGetContentOffset(fs, &fileHeader);
+	uint8_t fileOffsetFactor=miniFsReadFileOffsetFromIndex(fs, index);
+	uint16_t contentOffset=miniFsFileHeaderGetContentOffset(fs, fileOffsetFactor);
 	miniFsWrite(fs, contentOffset+offset, value);
 
 	return true;
@@ -355,14 +332,15 @@ void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value) {
 
 bool miniFsGetFilenameFromIndex(const MiniFs *fs, uint8_t index, char filename[MiniFsPathMax]) {
 	// Parse header
-	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
+	uint8_t fileOffsetFactor=miniFsReadFileOffsetFromIndex(fs, index);
 
 	// Is there not even a file using this slot?
-	if (fileHeader.offsetFactor==0)
+	if (fileOffsetFactor==0)
 		return false;
 
 	// Copy filename
-	uint16_t fileOffset=((uint16_t)fileHeader.offsetFactor)*MINIFSFACTOR;
+	uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
+	fileOffset+=2;
 	char *dest;
 	for(dest=filename; dest+1<filename+MiniFsPathMax; dest++, fileOffset++) {
 		uint8_t src=miniFsRead(fs, fileOffset);
@@ -380,14 +358,15 @@ uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
 	// Loop over all slots looking for the given filename
 	for(uint8_t index=0; index<MINIFSMAXFILES; ++index) {
 		// Parse header
-		MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
+		uint8_t fileOffsetFactor=miniFsReadFileOffsetFromIndex(fs, index);
 
 		// Is there even a file using this slot?
-		if (fileHeader.offsetFactor==0)
+		if (fileOffsetFactor==0)
 			continue;
 
 		// Check filename matches
-		uint16_t fileOffset=((uint16_t)fileHeader.offsetFactor)*MINIFSFACTOR;
+		uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
+		fileOffset+=2;
 		bool match=true;
 		for(const char *trueChar=filename; 1; ++trueChar) {
 			char testChar=miniFsRead(fs, fileOffset++);
@@ -406,49 +385,57 @@ uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
 	return MINIFSMAXFILES;
 }
 
-MiniFsFileHeader miniFsReadFileHeaderFromIndex(const MiniFs *fs, uint8_t index) {
-	MiniFsFileHeader fileHeader;
-	fileHeader.upper=miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*index+0);
-	fileHeader.lower=miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*index+1);
-	return fileHeader;
+uint8_t miniFsReadFileOffsetFromIndex(const MiniFs *fs, uint8_t index) {
+	return miniFsRead(fs, MINIFSHEADERFILEBASEADDR+index);
+}
+
+uint16_t miniFsReadFileTotalLengthFromOffsetFactor(const MiniFs *fs, uint8_t fileOffsetFactor) {
+	uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
+	uint16_t fileTotalLength=miniFsRead(fs, fileOffset+0);
+	fileTotalLength<<=8;
+	fileTotalLength|=miniFsRead(fs, fileOffset+1);
+	return fileTotalLength;
 }
 
 bool miniFsReadFileInfoFromIndex(const MiniFs *fs, MiniFsFileInfo *info, uint8_t index) {
 	// Is there even a file in this slot?
-	MiniFsFileHeader fileHeader=miniFsReadFileHeaderFromIndex(fs, index);
-	if (fileHeader.offsetFactor==0)
+	uint8_t fileOffsetFactor=miniFsReadFileOffsetFromIndex(fs, index);
+	if (fileOffsetFactor==0)
 		return false;
+	info->offset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
 
-	// Compute offset and total size allocated
-	info->offset=((uint16_t)fileHeader.offsetFactor)*MINIFSFACTOR;
-	uint8_t fileSizeFactor=(utilNextPow2(fileHeader.totalLength)+MINIFSFACTOR-1)/MINIFSFACTOR;
+	// Grab length
+	uint16_t fileTotalLength=miniFsReadFileTotalLengthFromOffsetFactor(fs, fileOffsetFactor);
+
+	// Compute total size allocated
+	uint8_t fileSizeFactor=(utilNextPow2(fileTotalLength)+MINIFSFACTOR-1)/MINIFSFACTOR;
 	info->size=((uint16_t)fileSizeFactor)*MINIFSFACTOR;
 
 	// Compute filename length
-	for(info->filenameLen=info->offset; 1; ++info->filenameLen) {
+	for(info->filenameLen=info->offset+2; 1; ++info->filenameLen) {
 		uint8_t c=miniFsRead(fs, info->filenameLen);
 		if (c=='\0')
 			break;
 	}
-	info->filenameLen-=info->offset;
+	info->filenameLen-=info->offset+2;
 
 	// Compute content length
-	info->contentLen=fileHeader.totalLength-(info->filenameLen+1);
+	info->contentLen=fileTotalLength-(info->filenameLen+1)-2;
 
 	// Compute spare space
-	info->spare=info->size-fileHeader.totalLength;
+	info->spare=info->size-fileTotalLength;
 
 	return true;
 }
 
 bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index) {
-	return (miniFsRead(fs, MINIFSHEADERFILEBASEADDR+2*index+0)==0);
+	return (miniFsRead(fs, MINIFSHEADERFILEBASEADDR+index)==0);
 }
 
 uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t *outIndex) {
 	// No files yet?
-	MiniFsFileHeader firstFileHeader=miniFsReadFileHeaderFromIndex(fs, 0);
-	if (firstFileHeader.offsetFactor==0) {
+	uint8_t firstFileOffsetFactor=miniFsReadFileOffsetFromIndex(fs, 0);
+	if (firstFileOffsetFactor==0) {
 		if (1) { // TODO: Check we have enough space in the volume to allow this
 			*outIndex=0;
 			return MINIFSFILEMINOFFSETFACTOR;
@@ -457,29 +444,34 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t
 	}
 
 	// Check for space before first file.
-	if (sizeFactor<=firstFileHeader.offsetFactor-MINIFSFILEMINOFFSETFACTOR) {
+	if (sizeFactor<=firstFileOffsetFactor-MINIFSFILEMINOFFSETFACTOR) {
 		*outIndex=0;
 		return MINIFSFILEMINOFFSETFACTOR;
 	}
+
+	// Grab first files total length
+	uint16_t firstFileTotalLength=miniFsReadFileTotalLengthFromOffsetFactor(fs, firstFileOffsetFactor);
 
 	// Check for space between files.
 	uint8_t i;
 	for(i=1; i<MINIFSMAXFILES; ++i) {
 		// Grab current file's offset and length
-		MiniFsFileHeader secondFileHeader=miniFsReadFileHeaderFromIndex(fs, i);
-		if (secondFileHeader.offsetFactor==0)
+		uint8_t secondFileOffsetFactor=miniFsReadFileOffsetFromIndex(fs, i);
+		if (secondFileOffsetFactor==0)
 			break; // No more files
 
 		// Calculate space between.
-		uint16_t firstFileSize=utilNextPow2(firstFileHeader.totalLength);
+		uint16_t firstFileSize=utilNextPow2(firstFileTotalLength);
 		uint8_t firstFileSizeFactor=(firstFileSize+MINIFSFACTOR-1)/MINIFSFACTOR;
-		if (sizeFactor<=secondFileHeader.offsetFactor-(firstFileHeader.offsetFactor+firstFileSizeFactor)) {
+		if (sizeFactor<=secondFileOffsetFactor-(firstFileOffsetFactor+firstFileSizeFactor)) {
 			*outIndex=i;
-			return (firstFileHeader.offsetFactor+firstFileSizeFactor);
+			return (firstFileOffsetFactor+firstFileSizeFactor);
 		}
 
 		// Prepare for next iteration
-		firstFileHeader=secondFileHeader;
+		firstFileOffsetFactor=secondFileOffsetFactor;
+		uint16_t secondFileTotalLength=miniFsReadFileTotalLengthFromOffsetFactor(fs, secondFileOffsetFactor);
+		firstFileTotalLength=secondFileTotalLength;
 	}
 
 	// No spare slots anyway?
@@ -487,20 +479,21 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t
 		return 0;
 
 	// Check for space after last file.
-	uint16_t firstFileSizeMin=utilNextPow2(firstFileHeader.totalLength);
+	uint16_t firstFileSizeMin=utilNextPow2(firstFileTotalLength);
 	uint8_t firstFileSizeFactor=(firstFileSizeMin+MINIFSFACTOR-1)/MINIFSFACTOR;
-	if (sizeFactor<=miniFsGetTotalSizeFactor(fs)-(firstFileHeader.offsetFactor+firstFileSizeFactor)) {
+	if (sizeFactor<=miniFsGetTotalSizeFactor(fs)-(firstFileOffsetFactor+firstFileSizeFactor)) {
 		*outIndex=i;
-		return (firstFileHeader.offsetFactor+firstFileSizeFactor);
+		return (firstFileOffsetFactor+firstFileSizeFactor);
 	}
 
 	// No free region large enough
 	return 0;
 }
 
-uint16_t miniFsFileHeaderGetContentOffset(const MiniFs *fs, const MiniFsFileHeader *fileHeader) {
-	// Skip past name
-	uint16_t fileOffset=((uint16_t)fileHeader->offsetFactor)*MINIFSFACTOR;
+uint16_t miniFsFileHeaderGetContentOffset(const MiniFs *fs, uint8_t fileOffsetFactor) {
+	// Skip past length and name
+	uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
+	fileOffset+=2;
 	while(1) {
 		uint8_t c=miniFsRead(fs, fileOffset++);
 		if (c=='\0')
