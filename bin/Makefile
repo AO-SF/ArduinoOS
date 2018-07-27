@@ -14,6 +14,7 @@ ALL:
 	./assembler ../binutilities/sh.s ../binmockup/sh
 	./assembler ../binutilities/pwd.s ../binmockup/pwd
 	./assembler ../binutilities/ls.s ../binmockup/ls
+	./assembler ../binutilities/fib.s ../binmockup/fib
 
 	./builder
 
