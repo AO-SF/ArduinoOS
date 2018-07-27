@@ -977,6 +977,7 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
 		AssemblerInstruction *instruction=&program->instructions[i];
+		AssemblerLine *line=program->lines[instruction->lineIndex];
 
 		switch(instruction->type) {
 			case AssemblerInstructionTypeAllocation:
@@ -987,9 +988,51 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
 					instruction->machineCode[instruction->machineCodeLen++]=instruction->d.define.data[j];
 			break;
-			case AssemblerInstructionTypeMov:
-					instruction->machineCodeLen=3; // worst case we need 3 bytes to do a 16 bit set
-			break;
+			case AssemblerInstructionTypeMov: {
+				// Check src and determine type
+				BytecodeRegister srcReg;
+				int defineAddr, allocationAddr;
+				if (isdigit(instruction->d.mov.src[0])) {
+					// Integer - use set8 or set16 instruction as needed
+					unsigned value=atoi(instruction->d.mov.src);
+					if (value<256)
+						instruction->machineCodeLen=2; // will use set8 instruction
+					else
+						instruction->machineCodeLen=3; // will use set16 instruction
+				} else if ((srcReg=assemblerRegisterFromStr(instruction->d.mov.src))!=BytecodeRegisterNB) {
+					instruction->machineCodeLen=2; // will use alu OR instruction
+				} else if (instruction->d.mov.src[0]=='\'') {
+					char c=instruction->d.mov.src[1];
+					if (!(isprint(c) || c=='\t') || c=='\'' || instruction->d.mov.src[strlen(instruction->d.mov.src)-1]!='\'') {
+						printf("error - bad character constant '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
+						return false;
+					}
+
+					if (c=='\\') {
+						c=instruction->d.mov.src[2];
+						switch(c) {
+							case 'n': c='\n'; break;
+							case 'r': c='\r'; break;
+							case 't': c='\t'; break;
+							default:
+								printf("error - bad escaped character constant '%s' (expecting n, r or t) (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
+								return false;
+							break;
+						}
+					}
+
+					instruction->machineCodeLen=2; // will use set8 instruction
+				} else if ((defineAddr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src))!=-1) {
+					// Define symbol may need set16
+					instruction->machineCodeLen=3;
+				} else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1) {
+					// Allocation symbol may need set16
+					instruction->machineCodeLen=3;
+				} else {
+					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
+					return false;
+				}
+			} break;
 			case AssemblerInstructionTypeLabel:
 				instruction->machineCodeLen=0;
 			break;
@@ -1067,43 +1110,37 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					return false;
 				}
 
-				// Determine type of src
+				// Determine type of src (we have already verified it in previous pass)
 				BytecodeRegister srcReg;
 				int defineAddr, allocationAddr;
 				if (isdigit(instruction->d.mov.src[0])) {
-					// Integer - use set16 instruction
+					// Integer - use set8 or set16 instruction as needed
 					unsigned value=atoi(instruction->d.mov.src);
-					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
+					if (value<256) {
+						BytecodeInstructionStandard set8Op=bytecodeInstructionCreateMiscSet8(destReg, value);
+						instruction->machineCode[0]=(set8Op>>8);
+						instruction->machineCode[1]=(set8Op&0xFF);
+					} else
+						bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
 				} else if ((srcReg=assemblerRegisterFromStr(instruction->d.mov.src))!=BytecodeRegisterNB) {
 					// Register - use dest=src|src as a copy, and add a nop to pad to 3 bytes
 					BytecodeInstructionStandard copyOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, destReg, srcReg, srcReg);
 					instruction->machineCode[0]=(copyOp>>8);
 					instruction->machineCode[1]=(copyOp&0xFF);
-					instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
 				} else if (instruction->d.mov.src[0]=='\'') {
 					char c=instruction->d.mov.src[1];
-					if (!(isprint(c) || c=='\t') || c=='\'' || instruction->d.mov.src[strlen(instruction->d.mov.src)-1]!='\'') {
-						printf("error - bad character constant '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
-						return false;
-					}
-
 					if (c=='\\') {
 						c=instruction->d.mov.src[2];
 						switch(c) {
 							case 'n': c='\n'; break;
 							case 'r': c='\r'; break;
 							case 't': c='\t'; break;
-							default:
-								printf("error - bad escaped character constant '%s' (expecting n, r or t) (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
-								return false;
-							break;
 						}
 					}
 
 					BytecodeInstructionStandard set8Op=bytecodeInstructionCreateMiscSet8(destReg, c);
 					instruction->machineCode[0]=(set8Op>>8);
 					instruction->machineCode[1]=(set8Op&0xFF);
-					instruction->machineCode[2]=bytecodeInstructionCreateMiscNop();
 				} else if ((defineAddr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src))!=-1) {
 					// Define symbol
 					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, defineAddr);
