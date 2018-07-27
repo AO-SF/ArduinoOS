@@ -317,10 +317,11 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 				case BytecodeInstructionAluTypeSkip:
 					tmpData->skipFlag=(tmpData->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg));
 				break;
-				case BytecodeInstructionAluTypeStore16:
-					procManProcessMemoryWrite(process, tmpData, tmpData->regs[info.d.alu.destReg], (tmpData->regs[info.d.alu.opAReg]>>8));
-					procManProcessMemoryWrite(process, tmpData, tmpData->regs[info.d.alu.destReg]+1, (tmpData->regs[info.d.alu.opAReg]&0xFF));
-				break;
+				case BytecodeInstructionAluTypeStore16: {
+					ByteCodeWord destAddr=tmpData->regs[info.d.alu.destReg];
+					procManProcessMemoryWrite(process, tmpData, destAddr, (opA>>8));
+					procManProcessMemoryWrite(process, tmpData, destAddr+1, (opA&0xFF));
+				} break;
 				case BytecodeInstructionAluTypeLoad16: {
 					ByteCodeWord srcAddr=tmpData->regs[info.d.alu.opAReg];
 					tmpData->regs[info.d.alu.destReg]=procManProcessMemoryRead(process, tmpData, srcAddr);
