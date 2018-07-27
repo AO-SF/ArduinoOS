@@ -117,8 +117,9 @@ void kernelBoot(void) {
 
 		// Add a few example files
 		// TODO: this is only temporary
-		debugMiniFsAddFile(&homeMiniFs, "fib", "../homemockup/fib");
+		debugMiniFsAddFile(&homeMiniFs, "chess.txt", "../homemockup/chess.txt");
 		debugMiniFsAddFile(&homeMiniFs, "fib.s", "../homemockup/fib.s");
+		debugMiniFsAddFile(&homeMiniFs, "fib", "../homemockup/fib");
 		miniFsDebug(&homeMiniFs);
 	}
 
