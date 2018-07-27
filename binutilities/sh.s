@@ -43,17 +43,18 @@ label inputLoopStart
 mov r0 inputBuf
 call getpwd
 mov r0 inputBuf
-call puts
+call puts0
 
 ; Print prompt
 mov r0 prompt
-call puts
+call puts0
 
 ; Wait for input
 mov r0 512
 syscall
-mov r1 inputBuf
-mov r2 64
+mov r1 0
+mov r2 inputBuf
+mov r3 64
 call fgets
 
 ; Parse input - clear arg1Ptr
@@ -148,11 +149,11 @@ syscall
 
 ; exec only returns in error
 mov r0 execErrorStr
-call puts
+call puts0
 mov r0 absBuf
-call puts
+call puts0
 mov r0 '\n'
-call putc
+call putc0
 mov r0 0
 mov r1 1
 syscall
@@ -167,7 +168,7 @@ ret
 label shellForkExecError
 ; Print error
 mov r0 forkErrorStr
-call puts
+call puts0
 
 ret
 

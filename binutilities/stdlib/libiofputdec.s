@@ -46,7 +46,7 @@ push r3
 push r4
 mov r1 '0'
 add r1 r1 r3
-call fputc
+call fputc0 ; TODO: Add offset argument to fputdec
 pop r4
 pop r3
 pop r2

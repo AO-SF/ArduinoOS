@@ -389,20 +389,6 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdExec:
 							procManProcessExec(process, tmpData);
 						break;
-						case ByteCodeSyscallIdRead: {
-							KernelFsFd fd=tmpData->regs[1];
-							uint16_t bufAddr=tmpData->regs[2];
-							KernelFsFileOffset len=tmpData->regs[3];
-
-							KernelFsFileOffset i;
-							for(i=0; i<len; ++i) {
-								uint8_t value;
-								if (kernelFsFileReadOffset(fd, i, &value, 1)!=1)
-									break;
-								procManProcessMemoryWrite(process, tmpData, bufAddr+i, value);
-							}
-							tmpData->regs[0]=i;
-						} break;
 						case ByteCodeSyscallIdWaitPid: {
 							ByteCodeWord waitPid=tmpData->regs[1];
 
@@ -414,15 +400,31 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 								// Set process as Waiting so we retry next tick
 								tmpData->state=ProcManProcessStateWaiting;
 						} break;
+						case ByteCodeSyscallIdRead: {
+							KernelFsFd fd=tmpData->regs[1];
+							uint16_t offset=tmpData->regs[2];
+							uint16_t bufAddr=tmpData->regs[3];
+							KernelFsFileOffset len=tmpData->regs[4];
+
+							KernelFsFileOffset i;
+							for(i=0; i<len; ++i) {
+								uint8_t value;
+								if (kernelFsFileReadOffset(fd, offset+i, &value, 1)!=1)
+									break;
+								procManProcessMemoryWrite(process, tmpData, bufAddr+i, value);
+							}
+							tmpData->regs[0]=i;
+						} break;
 						case ByteCodeSyscallIdWrite: {
 							KernelFsFd fd=tmpData->regs[1];
-							uint16_t bufAddr=tmpData->regs[2];
-							KernelFsFileOffset len=tmpData->regs[3];
+							uint16_t offset=tmpData->regs[2];
+							uint16_t bufAddr=tmpData->regs[3];
+							KernelFsFileOffset len=tmpData->regs[4];
 
 							KernelFsFileOffset i;
 							for(i=0; i<len; ++i) {
 								uint8_t value=procManProcessMemoryRead(process, tmpData, bufAddr+i);
-								if (kernelFsFileWriteOffset(fd, i, &value, 1)!=1)
+								if (kernelFsFileWriteOffset(fd, offset+i, &value, 1)!=1)
 									break;
 							}
 							tmpData->regs[0]=i;

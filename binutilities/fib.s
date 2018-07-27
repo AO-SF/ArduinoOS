@@ -28,9 +28,9 @@ jmp loopend ; but if false then we end up here and break out of the loop
 push r4
 push r5
 mov r0 ','
-call putc
+call putc0
 mov r0 ' '
-call putc
+call putc0
 pop r5
 pop r4
 
@@ -44,7 +44,7 @@ jmp loopstart
 ; Print newline to terminate list
 label loopend
 mov r0 '\n'
-call putc
+call putc0
 
 ; Exit
 mov r0 0
