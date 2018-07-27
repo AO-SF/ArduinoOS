@@ -516,6 +516,12 @@ void procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 	char execPath[KernelFsPathMax];
 	procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], execPath, KernelFsPathMax);
 
+	// Normalise path and then check if valid
+	kernelFsPathNormalise(execPath);
+
+	if (!kernelFsPathIsValid(execPath))
+		return;
+
 	// Attempt to open new program file
 	KernelFsFd newProgmemFd=kernelFsFileOpen(execPath);
 	if (newProgmemFd==KernelFsFdInvalid)
