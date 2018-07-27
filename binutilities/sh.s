@@ -4,8 +4,6 @@ db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
 
-aw pwd 64 ; (KernelFsPathMax+1)
-
 ab inputBuf 64 ;
 
 jmp start
@@ -30,14 +28,17 @@ mov r1 r0
 mov r0 513
 syscall
 
-; Copy initial working directory into pwd variable
-mov r0 pwd
+; Copy initial working directory into environment variable
+mov r0 515
 mov r1 initialPwd
-call strcpy
+syscall
 
 label inputLoopStart
-; Print pwd
-mov r0 pwd
+; Print pwd (reuse inputBuf to save space)
+mov r0 514
+mov r1 inputBuf
+syscall
+mov r0 inputBuf
 call puts
 
 ; Print prompt
