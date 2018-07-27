@@ -37,16 +37,12 @@ call strcpy
 
 label inputLoopStart
 ; Print pwd
-mov r0 512
-syscall
-mov r1 pwd
-call fputs
+mov r0 pwd
+call puts
 
 ; Print prompt
-mov r0 512
-syscall
-mov r1 prompt
-call fputs
+mov r0 prompt
+call puts
 
 ; Wait for input
 mov r0 512
@@ -122,18 +118,12 @@ mov r1 inputBuf
 syscall
 
 ; exec only returns in error
-mov r0 512
-syscall
-mov r1 execErrorStr
-call fputs
-mov r0 512
-syscall
-mov r1 inputBuf
-call fputs
-mov r0 512
-syscall
-mov r1 '\n'
-call fputc
+mov r0 execErrorStr
+call puts
+mov r0 inputBuf
+call puts
+mov r0 '\n'
+call putc
 mov r0 0
 mov r1 1
 syscall
@@ -147,9 +137,7 @@ ret
 
 label shellForkExecError
 ; Print error
-mov r0 512
-syscall
-mov r1 forkErrorStr
-call fputs
+mov r0 forkErrorStr
+call puts
 
 ret
