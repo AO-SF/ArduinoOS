@@ -73,6 +73,13 @@ mov r0 libIoScratchByte
 load8 r0 r0
 ret
 
+; puts(strAddr=r0)=fputs(stdio, strAddr)
+label puts
+mov r1 r0 ; Move string address into r1 ready for fputs call
+mov r0 512 ; Grab stdio fd and put it in r0
+syscall
+jmp fputs ; TODO: Is this safe allowing a different function to return? (or should it be rather)
+
 ; fputs(fd=r0, strAddr=r1)
 label fputs
 
@@ -107,6 +114,13 @@ jmp fputsLoopStart
 
 label fputsDone
 ret
+
+; putc(c=r0)=fpuc(stdio, c)
+label putc
+mov r1 r0
+mov r0 512
+syscall
+jmp fputc
 
 ; fputc(fd=r0, c=r1)
 label fputc
