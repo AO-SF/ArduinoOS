@@ -131,7 +131,7 @@ bool debugMiniFsAddFile(MiniFs *fs, const char *destPath, const char *srcPath) {
 		if (value==-1)
 			break;
 		if (!miniFsFileWrite(fs, destPath, offset, value)) {
-			printf("warning unable to write complete data for '%s' representing '%s' (managed %i bytes)\n", destPath, srcPath, offset);
+			printf("warning unable to write complete data for '%s' representing '%s' (managed %i/%i bytes)\n", destPath, srcPath, offset, fileSize);
 			break;
 		}
 	}
