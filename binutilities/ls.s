@@ -1,9 +1,9 @@
 jmp start
 
-require stdlib/libiofput.s
-require stdlib/libprocexit.s
-require stdlib/libprocgetpwd.s
-require stdlib/libstrstrlen.s
+require lib/std/io/fput.s
+require lib/std/proc/exit.s
+require lib/std/proc/getpwd.s
+require lib/std/str/strlen.s
 
 ab pathBuf 64
 ab pwdFd 1

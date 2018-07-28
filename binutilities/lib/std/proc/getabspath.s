@@ -1,5 +1,5 @@
-require libstrstrcat.s
-require libprocgetpwd.s
+require ../str/strcat.s
+require getpwd.s
 
 db libprocSlashStr '/', 0
 

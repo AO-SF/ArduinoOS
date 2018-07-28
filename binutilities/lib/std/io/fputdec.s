@@ -1,4 +1,4 @@
-require libiofput.s
+require fput.s
 
 ; putdec(x=r0)
 label putdec

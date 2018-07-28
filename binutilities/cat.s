@@ -1,9 +1,9 @@
 jmp start
 
-require stdlib/libiofget.s
-require stdlib/libiofput.s
-require stdlib/libprocexit.s
-require stdlib/libprocgetabspath.s
+require lib/std/io/fget.s
+require lib/std/io/fput.s
+require lib/std/proc/exit.s
+require lib/std/proc/getabspath.s
 
 ab argBuf 64
 ab pathBuf 64

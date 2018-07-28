@@ -1,8 +1,8 @@
 jmp start
 
-require stdlib/libiofput.s
-require stdlib/libiofputdec.s
-require stdlib/libprocexit.s
+require lib/std/io/fput.s
+require lib/std/io/fputdec.s
+require lib/std/proc/exit.s
 
 label start
 ; Init sequence

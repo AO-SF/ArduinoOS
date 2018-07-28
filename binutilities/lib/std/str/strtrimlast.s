@@ -1,4 +1,4 @@
-require libstrstrlen.s
+require strlen.s
 
 ; strtrimlast(r0=str addr) - trims last character
 label strtrimlast
