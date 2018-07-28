@@ -27,6 +27,10 @@ int main(int agrc, char **argv) {
 bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 	MiniFs miniFs;
 
+	// clear data arary (not strictly necessary but might avoid confusion in the future when e.g. stdio functions are in unused part of the stdmath volume)
+	// setting to 0xFF also matches value stored in uninitialised Arduino EEPROM
+	memset(dataArray, 0xFF, sizeof(dataArray));
+
 	// format
 	if (!miniFsFormat(&writeFunctor, NULL, size)) {
 		printf("could not format\n");
