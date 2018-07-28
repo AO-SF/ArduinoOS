@@ -1,3 +1,2 @@
 *.o
-progmembin.c
-progmembin.h
+progmem*
