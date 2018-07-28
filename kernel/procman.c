@@ -365,12 +365,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 			int opA=tmpData->regs[info.d.alu.opAReg];
 			int opB=tmpData->regs[info.d.alu.opBReg];
 			switch(info.d.alu.type) {
-				case BytecodeInstructionAluTypeInc: {
+				case BytecodeInstructionAluTypeInc:
 					tmpData->regs[info.d.alu.destReg]+=info.d.alu.incDecValue;
-				} break;
-				case BytecodeInstructionAluTypeDec: {
+				break;
+				case BytecodeInstructionAluTypeDec:
 					tmpData->regs[info.d.alu.destReg]-=info.d.alu.incDecValue;
-				} break;
+				break;
 				case BytecodeInstructionAluTypeAdd:
 					tmpData->regs[info.d.alu.destReg]=opA+opB;
 				break;
