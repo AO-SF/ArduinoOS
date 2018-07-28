@@ -183,7 +183,5 @@ void debugLogV(const char *format, va_list ap) {
 	// TODO: Think about Arduino case
 #ifndef ARDUINO
 	vprintf(format, ap);
-	int *a=NULL;
-	int b=*a;
 #endif
 }
