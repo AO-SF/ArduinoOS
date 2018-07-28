@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "../kernel/bytecode.h"
+#include "../kernel/kernelfs.h"
 
 #define AssemblerLinesMax 65536
 
@@ -359,9 +360,14 @@ void assemblerInsertLine(AssemblerProgram *program, AssemblerLine *line, int off
 	program->linesNext++;
 }
 
-bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *path, int offset) {
+bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *gPath, int offset) {
 	assert(program!=NULL);
-	assert(path!=NULL);
+	assert(gPath!=NULL);
+
+	// Normalise path
+	char path[1024]; // TODO: better
+	strcpy(path, gPath);
+	kernelFsPathNormalise(path);
 
 	// Open input file
 	FILE *file=fopen(path, "r");
