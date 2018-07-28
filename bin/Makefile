@@ -22,6 +22,7 @@ ALL:
 	./assembler ../binutilities/pwd.s ../binmockup/pwd
 	./assembler ../binutilities/sh.s ../binmockup/sh
 	./assembler ../binutilities/true.s ../binmockup/true
+	./assembler ../binutilities/time.s ../binmockup/time
 
 	./builder
 
