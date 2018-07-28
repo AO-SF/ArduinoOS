@@ -141,6 +141,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 	strcpy(procTmpData.envVars.path, "/bin");
 
+	// TODO: Put programPath (or part of?) into argv[0]
 	for(unsigned i=0; i<ARGVMAX; ++i)
 		strcpy(procTmpData.envVars.argv[i], "");
 
@@ -475,7 +476,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdGetArgVN: {
 							int n=tmpData->regs[1];
 							ByteCodeWord bufAddr=tmpData->regs[2];
-							ByteCodeWord bufLen=tmpData->regs[3];
+							// TODO: Use this: ByteCodeWord bufLen=tmpData->regs[3];
 
 							if (n>ARGVMAX)
 								tmpData->regs[0]=0;
