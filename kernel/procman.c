@@ -571,7 +571,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							kernelFsPathNormalise(tmpData->envVars.path);
 						break;
 						case ByteCodeSyscallIdTimeMonotonic:
-							tmpData->regs[0]=millis();
+							tmpData->regs[0]=(millis()/1000);
 						break;
 						default:
 							debugLog("warning: invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
