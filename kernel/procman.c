@@ -20,6 +20,7 @@ typedef struct {
 	KernelFsFd stdioFd; // set to KernelFsInvalid when init is called
 	char pwd[KernelFsPathMax]; // set to '/' when init is called
 	char argv[ARGVMAX][64]; // TODO: Avoid hardcoded limits
+	char path[KernelFsPathMax]; // set to '/bin' when init is called
 } ProcManProcessEnvVars;
 
 typedef struct {
@@ -131,6 +132,8 @@ ProcManPid procManProcessNew(const char *programPath) {
 	char *dirname, *basename;
 	kernelFsPathSplit(procTmpData.envVars.pwd, &dirname, &basename);
 	assert(dirname==procTmpData.envVars.pwd);
+
+	strcpy(procTmpData.envVars.path, "/bin");
 
 	for(unsigned i=0; i<ARGVMAX; ++i)
 		strcpy(procTmpData.envVars.argv[i], "");
@@ -556,6 +559,15 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], tmpData->envVars.pwd, KernelFsPathMax))
 								return false;
 							kernelFsPathNormalise(tmpData->envVars.pwd);
+						break;
+						case ByteCodeSyscallIdEnvGetPath:
+							if (!procManProcessMemoryWriteStr(process, tmpData, tmpData->regs[1], tmpData->envVars.path))
+								return false;
+						break;
+						case ByteCodeSyscallIdEnvSetPath:
+							if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], tmpData->envVars.path, KernelFsPathMax))
+								return false;
+							kernelFsPathNormalise(tmpData->envVars.path);
 						break;
 						default:
 							debugLog("warning: invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));

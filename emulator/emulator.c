@@ -373,6 +373,14 @@ bool processRunNextInstruction(Process *process) {
 							if (verbose)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
+						case ByteCodeSyscallIdEnvGetPath:
+							if (verbose)
+								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
+						break;
+						case ByteCodeSyscallIdEnvSetPath:
+							if (verbose)
+								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
+						break;
 						default:
 							if (verbose)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);
