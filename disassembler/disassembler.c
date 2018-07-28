@@ -64,10 +64,10 @@ int main(int argc, char **argv) {
 			switch(info.type) {
 				case BytecodeInstructionTypeMemory:
 					switch(info.d.memory.type) {
-						case BytecodeInstructionMemoryTypeStore:
+						case BytecodeInstructionMemoryTypeStore8:
 							disassemblerPrint(addr, instruction, "*r%u=r%u", info.d.memory.destReg, info.d.memory.srcReg);
 						break;
-						case BytecodeInstructionMemoryTypeLoad:
+						case BytecodeInstructionMemoryTypeLoad8:
 							disassemblerPrint(addr, instruction, "r%u=*r%u", info.d.memory.destReg, info.d.memory.srcReg);
 						break;
 						case BytecodeInstructionMemoryTypeReserved:

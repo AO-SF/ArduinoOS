@@ -290,12 +290,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 	switch(info.type) {
 		case BytecodeInstructionTypeMemory:
 			switch(info.d.memory.type) {
-				case BytecodeInstructionMemoryTypeStore:
+				case BytecodeInstructionMemoryTypeStore8:
 					procManProcessMemoryWrite(process, tmpData, tmpData->regs[info.d.memory.destReg], tmpData->regs[info.d.memory.srcReg]);
-				break;
-				case BytecodeInstructionMemoryTypeLoad:
 					tmpData->regs[info.d.memory.destReg]=procManProcessMemoryRead(process, tmpData, tmpData->regs[info.d.memory.srcReg]);
 				break;
+				case BytecodeInstructionMemoryTypeLoad8: {
+				} break;
 				case BytecodeInstructionMemoryTypeReserved:
 					return false;
 				break;

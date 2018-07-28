@@ -45,8 +45,8 @@ typedef ByteCodeWord BytecodeInstructionStandard;
 typedef uint8_t BytecodeInstructionLong[3];
 
 typedef enum {
-	BytecodeInstructionMemoryTypeStore,
-	BytecodeInstructionMemoryTypeLoad,
+	BytecodeInstructionMemoryTypeStore8,
+	BytecodeInstructionMemoryTypeLoad8,
 	BytecodeInstructionMemoryTypeReserved,
 } BytecodeInstructionMemoryType;
 
