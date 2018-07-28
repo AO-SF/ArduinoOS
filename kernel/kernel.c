@@ -12,7 +12,7 @@
 #define KernelTmpDataPoolSize 4096
 uint8_t *kernelTmpDataPool=NULL;
 
-#define KernelBinSize BINPROGMEMDATASIZE
+#define KernelBinSize PROGMEMbinDATASIZE
 
 #define KernelEepromSize 2048
 #ifndef ARDUINO
@@ -206,7 +206,7 @@ bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMa
 int kernelBinReadFunctor(KernelFsFileOffset addr) {
 	assert(addr<KernelBinSize);
 
-	return binProgmemData[addr];
+	return progmembinData[addr];
 }
 
 int kernelHomeReadFunctor(KernelFsFileOffset addr) {
