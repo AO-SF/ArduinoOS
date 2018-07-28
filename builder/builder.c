@@ -79,7 +79,7 @@ bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 				int c=dataArray[i+1-perLine+j];
 				fprintf(cFile, "%c", isgraph(c) ? c : '.');
 			}
-			fprintf(cFile, "\n");
+			fprintf(cFile, " END\n");
 			if (i+1!=size)
 				fprintf(cFile, "\t");
 		}
