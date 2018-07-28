@@ -2,7 +2,7 @@ CPP = clang
 CFLAGS = -std=gnu11 -Wall -O0 -ggdb3 -I../lib
 LFLAGS = -lm
 
-OBJS = bytecode.o debug.o kernel.o kernelfs.o minifs.o procman.o progmembin.o progmemlibstdio.o progmemlibstdmath.o progmemlibstdproc.o progmemlibstdstr.o util.o
+OBJS = bytecode.o debug.o kernel.o kernelfs.o minifs.o procman.o progmembin.o progmemlibstdio.o progmemlibstdmath.o progmemlibstdproc.o progmemlibstdstr.o
 
 ALL: $(OBJS)
 	$(CPP) $(CFLAGS) $(OBJS) -o ../bin/kernel $(LFLAGS)
