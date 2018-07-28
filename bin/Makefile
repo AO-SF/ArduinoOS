@@ -23,6 +23,7 @@ ALL:
 	./assembler ../binutilities/sh.s ../binmockup/sh
 	./assembler ../binutilities/true.s ../binmockup/true
 	./assembler ../binutilities/time.s ../binmockup/time
+	./assembler ../binutilities/echo.s ../binmockup/echo
 
 	./builder
 
