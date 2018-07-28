@@ -565,6 +565,9 @@ void procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 	if (!kernelFsPathIsValid(execPath))
 		return;
 
+	if (kernelFsFileIsDir(execPath))
+		return;
+
 	// Attempt to open new program file
 	KernelFsFd newProgmemFd=kernelFsFileOpen(execPath);
 	if (newProgmemFd==KernelFsFdInvalid)
