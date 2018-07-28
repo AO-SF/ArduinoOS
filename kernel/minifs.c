@@ -14,7 +14,7 @@
 
 #define MINIFSFACTOR 32
 
-#define MINIFSMAXSIZE (MINIFSFACTOR*255) // we use 8 bits to represent the total size (with factor=32 this allows up to 8kb)
+#define MINIFSMAXSIZE (MINIFSFACTOR*256) // we use offseted 8 bits to represent the total size (with factor=32 this allows up to 8kb)
 
 #define MINIFSFILEMINOFFSETFACTOR (MINIFSHEADERSIZE/MINIFSFACTOR) // no file can be stored where the header is
 
@@ -28,7 +28,7 @@ typedef struct {
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-uint8_t miniFsGetTotalSizeFactor(const MiniFs *fs);
+uint8_t miniFsGetTotalSizeFactorMinusOne(const MiniFs *fs);
 
 uint8_t miniFsRead(const MiniFs *fs, uint16_t addr);
 void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value);
@@ -62,7 +62,7 @@ bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, void *functorUserData, uint1
 	writeFunctor(MINIFSHEADERMAGICBYTEADDR, MINIFSHEADERMAGICBYTEVALUE, functorUserData);
 
 	// Write total size
-	writeFunctor(MINIFSHEADERTOTALSIZEADDR, totalSizeFactor, functorUserData);
+	writeFunctor(MINIFSHEADERTOTALSIZEADDR, totalSizeFactor-1, functorUserData);
 
 	// Clear file list
 	for(uint8_t i=0; i<MINIFSMAXFILES; ++i)
@@ -125,7 +125,7 @@ bool miniFsGetReadOnly(const MiniFs *fs) {
 }
 
 uint16_t miniFsGetTotalSize(const MiniFs *fs) {
-	return ((uint16_t)miniFsGetTotalSizeFactor(fs))*MINIFSFACTOR;
+	return (((uint16_t)miniFsGetTotalSizeFactorMinusOne(fs))+1)*MINIFSFACTOR;
 }
 
 bool miniFsGetChildN(const MiniFs *fs, unsigned childNum, char childPath[MiniFsPathMax]) {
@@ -309,7 +309,7 @@ bool miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, uint8_t 
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-uint8_t miniFsGetTotalSizeFactor(const MiniFs *fs) {
+uint8_t miniFsGetTotalSizeFactorMinusOne(const MiniFs *fs) {
 	return miniFsRead(fs, MINIFSHEADERTOTALSIZEADDR);
 }
 
@@ -474,7 +474,7 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t
 	// Check for space after last file.
 	uint16_t firstFileSizeMin=utilNextPow2(firstFileTotalLength);
 	uint8_t firstFileSizeFactor=(firstFileSizeMin+MINIFSFACTOR-1)/MINIFSFACTOR;
-	if (sizeFactor<=miniFsGetTotalSizeFactor(fs)-(firstFileOffsetFactor+firstFileSizeFactor)) {
+	if (sizeFactor<=((uint16_t)miniFsGetTotalSizeFactorMinusOne(fs))+1-(firstFileOffsetFactor+firstFileSizeFactor)) {
 		*outIndex=i;
 		return (firstFileOffsetFactor+firstFileSizeFactor);
 	}
