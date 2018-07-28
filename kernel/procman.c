@@ -266,7 +266,7 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessTmpData
 		if (kernelFsFileReadOffset(process->progmemFd, addr, value, 1)==1)
 			return true;
 		else {
-			debugLog("warning: process %u tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n", procManGetPidFromProcess(process), addr, addr);
+			debugLog("warning: process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr);
 			return false;
 		}
 	} else {
@@ -276,7 +276,7 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessTmpData
 			*value=tmpData->ram[ramIndex];
 			return true;
 		} else {
-			debugLog("warning: process %u tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), addr, ramIndex, ProcManProcessRamSize);
+			debugLog("warning: process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, ProcManProcessRamSize);
 			return false;
 		}
 	}
@@ -308,7 +308,7 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessTmpData 
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, uint8_t value) {
 	// Is this addr in read-only progmem section?
 	if (addr<ByteCodeMemoryRamAddr) {
-		debugLog("warning: process %u tried to write to read only address (0x%04X), killing\n", procManGetPidFromProcess(process), addr);
+		debugLog("warning: process %u (%s) tried to write to read only address (0x%04X), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
 		return false;
 	}
 
@@ -318,7 +318,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessTmpDat
 		tmpData->ram[ramIndex]=value;
 		return true;
 	} else {
-			debugLog("warning: process %u tried to write invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), addr, ramIndex, ProcManProcessRamSize);
+			debugLog("warning: process %u (%s) tried to write invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, ProcManProcessRamSize);
 		return false;
 	}
 }
