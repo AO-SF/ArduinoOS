@@ -171,3 +171,19 @@ bool debugMiniFsAddDir(MiniFs *fs, const char *dirPath) {
 
 	return true;
 }
+
+void debugLog(const char *format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	debugLogV(format, ap);
+	va_end(ap);
+}
+
+void debugLogV(const char *format, va_list ap) {
+	// TODO: Think about Arduino case
+#ifndef ARDUINO
+	vprintf(format, ap);
+	int *a=NULL;
+	int b=*a;
+#endif
+}
