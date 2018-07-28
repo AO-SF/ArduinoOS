@@ -12,8 +12,9 @@
 #define ProcManProcessRamSize 512 // TODO: Allow this to be dynamic
 
 typedef enum {
+	ProcManProcessStateUnused,
 	ProcManProcessStateActive,
-	ProcManProcessStateWaiting, // waiting on return of a syscall such as read
+	ProcManProcessStateWaitingWaitpid,
 } ProcManProcessState;
 
 #define ARGVMAX 2 // TODO: better
@@ -27,13 +28,14 @@ typedef struct {
 typedef struct {
 	ByteCodeWord regs[BytecodeRegisterNB];
 	ProcManProcessEnvVars envVars;
-	ProcManProcessState state;
 	bool skipFlag; // skip next instruction?
 	uint8_t ram[ProcManProcessRamSize];
 } ProcManProcessTmpData;
 
 typedef struct {
 	KernelFsFd progmemFd, tmpFd;
+	uint8_t state;
+	uint8_t waitingData;
 } ProcManProcess;
 
 typedef struct {
@@ -70,8 +72,9 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 ////////////////////////////////////////////////////////////////////////////////
 
 void procManInit(void) {
-	// Clear fds
+	// Clear processes table
 	for(int i=0; i<ProcManPidMax; ++i) {
+		procManData.processes[i].state=ProcManProcessStateUnused;
 		procManData.processes[i].progmemFd=KernelFsFdInvalid;
 		procManData.processes[i].tmpFd=KernelFsFdInvalid;
 	}
@@ -122,11 +125,13 @@ ProcManPid procManProcessNew(const char *programPath) {
 	if (procManData.processes[pid].tmpFd==KernelFsFdInvalid)
 		goto error;
 
+	// Initialise state
+	procManData.processes[pid].state=ProcManProcessStateActive;
+
 	// Initialise tmp file:
 	ProcManProcessTmpData procTmpData;
 	procTmpData.regs[ByteCodeRegisterIP]=0;
 	procTmpData.skipFlag=false;
-	procTmpData.state=ProcManProcessStateActive;
 	procTmpData.envVars.stdioFd=KernelFsFdInvalid;
 
 	strcpy(procTmpData.envVars.pwd, programPath);
@@ -152,6 +157,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 		kernelFsFileClose(procManData.processes[pid].tmpFd);
 		procManData.processes[pid].tmpFd=KernelFsFdInvalid;
 		kernelFsFileDelete(tmpPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+		procManData.processes[pid].state=ProcManProcessStateUnused;
 	}
 
 	return ProcManPidMax;
@@ -182,6 +188,17 @@ void procManProcessKill(ProcManPid pid) {
 
 		kernelFsFileDelete(tmpPath);
 	}
+
+	// Reset state
+	procManData.processes[pid].state=ProcManProcessStateUnused;
+
+	// Check if any processes are waiting due to waitpid syscall
+	for(unsigned i=0; i<ProcManPidMax; ++i) {
+		if (procManData.processes[i].state==ProcManProcessStateWaitingWaitpid && procManData.processes[i].waitingData==pid) {
+			// Bring this process back to life
+			procManData.processes[i].state=ProcManProcessStateActive;
+		}
+	}
 }
 
 void procManProcessTick(ProcManPid pid) {
@@ -195,9 +212,11 @@ void procManProcessTick(ProcManPid pid) {
 	bool res=procManProcessGetTmpData(process, &tmpData);
 	assert(res);
 
-	// Grab instruction
-	ByteCodeWord originalIP=tmpData.regs[ByteCodeRegisterIP];
+	// Is this process not active?
+	if (procManData.processes[pid].state!=ProcManProcessStateActive)
+		return;
 
+	// Grab instruction
 	BytecodeInstructionLong instruction;
 	if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[0]))
 		goto kill;
@@ -218,10 +237,6 @@ void procManProcessTick(ProcManPid pid) {
 	// Execute instruction
 	if (!procManProcessExecInstruction(process, &tmpData, instruction))
 		goto kill;
-
-	// If process is in state waiting, revert to last instruction again
-	if (tmpData.state==ProcManProcessStateWaiting)
-		tmpData.regs[ByteCodeRegisterIP]=originalIP;
 
 	// Save tmp data
 	done:
@@ -255,7 +270,7 @@ const char *procManGetExecPathFromProcess(const ProcManProcess *process) {
 ProcManPid procManFindUnusedPid(void) {
 	// We cannot use 0 as fork uses this to indicate success
 	for(int i=1; i<ProcManPidMax; ++i)
-		if (procManData.processes[i].progmemFd==KernelFsFdInvalid)
+		if (procManData.processes[i].state==ProcManProcessStateUnused)
 			return i;
 	return ProcManPidMax;
 }
@@ -480,13 +495,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdWaitPid: {
 							ByteCodeWord waitPid=tmpData->regs[1];
 
-							// Check if given pid does not represent a process (indicating it has been killed)
-							if (procManGetProcessByPid(waitPid)==NULL)
-								// We can resume process (if it was even paused - we may simply succeed immediately)
-								tmpData->state=ProcManProcessStateActive;
-							else
-								// Set process as Waiting so we retry next tick
-								tmpData->state=ProcManProcessStateWaiting;
+							// If given pid does not represent a process, return immediately
+							if (procManGetProcessByPid(waitPid)!=NULL) {
+								// Otherwise indicate process is waiting for this pid to die
+								process->state=ProcManProcessStateWaitingWaitpid;
+								process->waitingData=waitPid;
+							}
 						} break;
 						case ByteCodeSyscallIdRead: {
 							KernelFsFd fd=tmpData->regs[1];
@@ -623,6 +637,7 @@ void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 		goto error;
 
 	// Simply use same FD as parent for the program data
+	procManData.processes[childPid].state=ProcManProcessStateActive;
 	procManData.processes[childPid].progmemFd=procManData.processes[parentPid].progmemFd;
 
 	// Update parent return value with child's PID
@@ -636,6 +651,7 @@ void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 		kernelFsFileClose(procManData.processes[childPid].tmpFd);
 		procManData.processes[childPid].tmpFd=KernelFsFdInvalid;
 		kernelFsFileDelete(childTmpPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+		procManData.processes[childPid].state=ProcManProcessStateUnused;
 	}
 
 	// Indicate error
