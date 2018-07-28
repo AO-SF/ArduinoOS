@@ -344,8 +344,10 @@ bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessTmpData
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction) {
 	// Parse instruction
 	BytecodeInstructionInfo info;
-	if (!bytecodeInstructionParse(&info, instruction))
+	if (!bytecodeInstructionParse(&info, instruction)) {
+		debugLog("warning: could not parse instruction 0x%02X%02X%02X, process %u (%s), killing\n", instruction[0], instruction[1], instruction[2], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 		return false;
+	}
 
 	// Execute instruction
 	switch(info.type) {
@@ -556,6 +558,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							kernelFsPathNormalise(tmpData->envVars.pwd);
 						break;
 						default:
+							debugLog("warning: invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							return false;
 						break;
 					}
