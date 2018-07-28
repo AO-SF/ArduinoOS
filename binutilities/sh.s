@@ -5,9 +5,11 @@ db execErrorStr 'could not exec: ', 0
 db cdStr 'cd', 0
 db nullChar 0
 db homeDir '/home', 0
+db slashStr '/', 0
 
 ab inputBuf 64
 ab absBuf 64
+ab envPathBuf 64
 aw arg1Ptr 1
 
 jmp start
@@ -123,11 +125,6 @@ mov r0 1
 call exit
 
 label shellForkExec
-; Make sure path is absolute
-mov r0 absBuf
-mov r1 inputBuf
-call getabspath
-
 ; Fork
 mov r0 4
 syscall
@@ -141,6 +138,40 @@ jmp shellForkExecForkChild
 jmp shellForkExecForkParent
 
 label shellForkExecForkChild
+; Check if the inputBuf contains no slashes,
+; If this is true, we try first looking in PATH for the executable.
+mov r0 inputBuf
+mov r1 '/'
+call strchr
+
+cmp r0 r0 r0
+skipeqz r0
+jmp shellForkExec2ndTry
+
+; No slashes found, create combined path to try
+mov r0 516 ; getpath
+mov r1 envPathBuf
+syscall
+mov r0 envPathBuf
+mov r1 slashStr
+call strcat
+mov r0 envPathBuf
+mov r1 inputBuf
+call strcat
+
+; Call exec
+mov r0 5
+mov r1 envPathBuf
+mov r2 arg1Ptr ; // TODO: Only send if not empty
+load16 r2 r2
+syscall
+
+; Make sure path is absolute
+label shellForkExec2ndTry
+mov r0 absBuf
+mov r1 inputBuf
+call getabspath
+
 ; Call exec
 mov r0 5
 mov r1 absBuf
