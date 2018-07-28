@@ -68,6 +68,24 @@ int main(int agrc, char **argv) {
 
 	fclose(file);
 
+	// creat binprogmem.h file
+	file=fopen("../kernel/binprogmem.h", "w+");
+	if (file==NULL) {
+		printf("could not open ../kernel/binprogmem.h for writing\n");
+		return 1;
+	}
+
+	fprintf(file, "// NOTE: File auto-generated (see builder)\n\n");
+	fprintf(file, "#ifndef BINPROGMEM_H\n");
+	fprintf(file, "#define BINPROGMEM_H\n\n");
+	fprintf(file, "#include <stdint.h>\n\n");
+	fprintf(file, "// TODO: this needs to be done specially for arduino\n");
+	fprintf(file, "#define BINPROGMEMDATASIZE %iu\n", totalSize);
+	fprintf(file, "extern const uint8_t binProgmemData[BINPROGMEMDATASIZE];\n\n");
+	fprintf(file, "#endif\n");
+
+	fclose(file);
+
 	return 0;
 }
 
