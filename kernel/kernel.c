@@ -23,7 +23,7 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelLibStdProcSize PROGMEMlibstdprocDATASIZE
 #define KernelLibStdStrSize PROGMEMlibstdstrDATASIZE
 
-#define KernelEepromSize 2048
+#define KernelEepromSize (3*1024)
 #ifndef ARDUINO
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
