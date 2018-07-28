@@ -11,6 +11,8 @@ ab inputBuf 64
 ab absBuf 64
 ab envPathBuf 64
 aw arg1Ptr 1
+aw arg2Ptr 1
+aw arg3Ptr 1
 
 jmp start
 
@@ -59,32 +61,65 @@ mov r2 inputBuf
 mov r3 64
 call fgets
 
-; Parse input - clear arg1Ptr
-mov r0 arg1Ptr
+; Parse input - clear arg pointers
 mov r1 nullChar
+mov r0 arg1Ptr
+store16 r0 r1
+mov r0 arg2Ptr
+store16 r0 r1
+mov r0 arg3Ptr
 store16 r0 r1
 
 ; Parse input - trim trailing newline
 mov r0 inputBuf
 call strtrimlast
 
-; Parse input - check for first space implying there may be arguments
+; Parse input - check for first space implying at least one argument
 mov r0 inputBuf
 mov r1 ' '
 call strchr
 
 cmp r1 r0 r0
 skipneqz r1
-jmp execInput ; if no space found then no arguments
+jmp execInput
 
-; Parse input - space found
-; terminate executable name
 mov r1 0
 store8 r0 r1
 
-; arg found - store ptr to it
 inc r0
 mov r1 arg1Ptr
+store16 r1 r0
+
+; check another another arg (2nd after cmd)
+; r0 already contains ptr to previous arg
+mov r1 ' '
+call strchr
+
+cmp r1 r0 r0
+skipneqz r1
+jmp execInput
+
+mov r1 0
+store8 r0 r1
+
+inc r0
+mov r1 arg2Ptr
+store16 r1 r0
+
+; check another another arg (3rd after cmd)
+; r0 already contains ptr to previous arg
+mov r1 ' '
+call strchr
+
+cmp r1 r0 r0
+skipneqz r1
+jmp execInput
+
+mov r1 0
+store8 r0 r1
+
+inc r0
+mov r1 arg3Ptr
 store16 r1 r0
 
 ; Exec input (inputBuf contains executable path)
@@ -162,8 +197,12 @@ call strcat
 ; Call exec
 mov r0 5
 mov r1 envPathBuf
-mov r2 arg1Ptr ; // TODO: Only send if not empty
+mov r2 arg1Ptr
 load16 r2 r2
+mov r3 arg2Ptr
+load16 r3 r3
+mov r4 arg3Ptr
+load16 r4 r4
 syscall
 
 ; Make sure path is absolute
@@ -175,8 +214,12 @@ call getabspath
 ; Call exec
 mov r0 5
 mov r1 absBuf
-mov r2 arg1Ptr ; // TODO: Only send if not empty
+mov r2 arg1Ptr
 load16 r2 r2
+mov r3 arg2Ptr
+load16 r3 r3
+mov r4 arg3Ptr
+load16 r4 r4
 syscall
 
 ; exec only returns in error

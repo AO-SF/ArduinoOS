@@ -10,21 +10,35 @@ db postMsg 's\n', 0
 db forkErrorStr 'could not fork\n', 0
 
 aw startTime 1
-ab argBuf 64
+ab arg1Buf 64
+ab arg2Buf 64
+ab arg3Buf 64
 ab cmdBuf 64
 
 label start
 
-; Grab 1st argument
+; Grab arguments
 mov r0 3
 mov r1 1
-mov r2 argBuf
+mov r2 arg1Buf
+mov r3 64
+syscall
+
+mov r0 3
+mov r1 2
+mov r2 arg2Buf
+mov r3 64
+syscall
+
+mov r0 3
+mov r1 3
+mov r2 arg3Buf
 mov r3 64
 syscall
 
 ; Ensure path is absolute
 mov r0 cmdBuf
-mov r1 argBuf
+mov r1 arg1Buf
 call getabspath
 
 ; Get start time and store into variable
@@ -50,7 +64,9 @@ label forkChild
 ; Exec given argument
 mov r0 5
 mov r1 cmdBuf
-mov r2 0
+mov r2 arg2Buf
+mov r3 arg3Buf
+mov r4 0 ; we cannot pass on 3 arguments if we only have 3 ourselves
 syscall
 
 ; Exec only returns on error

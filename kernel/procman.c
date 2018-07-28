@@ -17,7 +17,7 @@ typedef enum {
 	ProcManProcessStateWaitingWaitpid,
 } ProcManProcessState;
 
-#define ARGVMAX 2
+#define ARGVMAX 4
 typedef struct {
 	KernelFsFd stdioFd; // set to KernelFsInvalid when init is called
 	char pwd[KernelFsPathMax]; // set to '/' when init is called
