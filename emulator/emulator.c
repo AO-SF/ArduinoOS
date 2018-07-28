@@ -126,12 +126,12 @@ bool processRunNextInstruction(Process *process) {
 	switch(info.type) {
 		case BytecodeInstructionTypeMemory:
 			switch(info.d.memory.type) {
-				case BytecodeInstructionMemoryTypeStore:
+				case BytecodeInstructionMemoryTypeStore8:
 					process->memory[process->regs[info.d.memory.destReg]]=process->regs[info.d.memory.srcReg];
 					if (verbose)
 						printf("Info: *r%i=r%i (*%u=%u)\n", info.d.memory.destReg, info.d.memory.srcReg, process->regs[info.d.memory.destReg], process->regs[info.d.memory.srcReg]);
 				break;
-				case BytecodeInstructionMemoryTypeLoad:
+				case BytecodeInstructionMemoryTypeLoad8:
 					process->regs[info.d.memory.destReg]=process->memory[info.d.memory.srcReg];
 					if (verbose)
 						printf("Info: r%i=*r%i (=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, process->memory[info.d.memory.srcReg]);

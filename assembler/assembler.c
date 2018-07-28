@@ -1289,7 +1289,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create instruction
-				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeStore, destReg, srcReg);
+				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeStore8, destReg, srcReg);
 			} break;
 			case AssemblerInstructionTypeLoad8: {
 				// Verify dest and src are valid registers
@@ -1306,7 +1306,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create instruction
-				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeLoad, destReg, srcReg);
+				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeLoad8, destReg, srcReg);
 			} break;
 		}
 	}
