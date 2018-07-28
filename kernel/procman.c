@@ -17,11 +17,11 @@ typedef enum {
 	ProcManProcessStateWaitingWaitpid,
 } ProcManProcessState;
 
-#define ARGVMAX 2 // TODO: better
+#define ARGVMAX 2
 typedef struct {
 	KernelFsFd stdioFd; // set to KernelFsInvalid when init is called
 	char pwd[KernelFsPathMax]; // set to '/' when init is called
-	char argv[ARGVMAX][64]; // TODO: Avoid hardcoded limits
+	char argv[ARGVMAX][64]; // TODO: Avoid hardcoded 64 limit
 	char path[KernelFsPathMax]; // set to '/bin' when init is called
 } ProcManProcessEnvVars;
 
@@ -659,27 +659,30 @@ void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 }
 
 bool procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData) {
-	// Grab path and arg (if any)
-	char execPath[KernelFsPathMax];
-	if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], execPath, KernelFsPathMax))
+	// Grab path and args (if any)
+	char args[ARGVMAX][64]; // TODO: Avoid hardcoded 64
+	for(unsigned i=0; i<ARGVMAX; ++i)
+		args[i][0]='\0';
+
+	if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], args[0], KernelFsPathMax))
 		return false;
 
-	char arg1[KernelFsPathMax]={0};
-	if (tmpData->regs[2]!=0)
-		if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[2], arg1, KernelFsPathMax))
-			return false;
+	for(unsigned i=1; i<ARGVMAX; ++i)
+		if (tmpData->regs[i+1]!=0)
+			if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[i+1], args[i], KernelFsPathMax))
+				return false;
 
 	// Normalise path and then check if valid
-	kernelFsPathNormalise(execPath);
+	kernelFsPathNormalise(args[0]);
 
-	if (!kernelFsPathIsValid(execPath))
+	if (!kernelFsPathIsValid(args[0]))
 		return true;
 
-	if (kernelFsFileIsDir(execPath))
+	if (kernelFsFileIsDir(args[0]))
 		return true;
 
 	// Attempt to open new program file
-	KernelFsFd newProgmemFd=kernelFsFileOpen(execPath);
+	KernelFsFd newProgmemFd=kernelFsFileOpen(args[0]);
 	if (newProgmemFd==KernelFsFdInvalid)
 		return true;
 
@@ -699,8 +702,8 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 	tmpData->regs[ByteCodeRegisterIP]=0;
 
 	// Update argv array
-	strcpy(tmpData->envVars.argv[0], execPath);
-	strcpy(tmpData->envVars.argv[1], arg1);
+	for(unsigned i=0; i<ARGVMAX; ++i)
+		strcpy(tmpData->envVars.argv[i], args[i]);
 
 	return true;
 }
