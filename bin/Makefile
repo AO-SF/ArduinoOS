@@ -13,6 +13,7 @@ ALL:
 	./assembler ../binutilities/fib.s ../homemockup/fib
 	cp ../binutilities/fib.s ../homemockup/fib.s
 	cp ../homefiles/* ../homemockup
+	./assembler ../binutilities/tree.s ../homemockup/tree
 
 	./assembler ../binutilities/cat.s ../binmockup/cat
 	./assembler ../binutilities/false.s ../binmockup/false
