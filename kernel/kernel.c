@@ -14,6 +14,7 @@
 #include "progmemlibstdmath.h"
 #include "progmemlibstdproc.h"
 #include "progmemlibstdstr.h"
+#include "progmemlibstdtime.h"
 
 #define KernelTmpDataPoolSize 4096
 uint8_t *kernelTmpDataPool=NULL;
@@ -24,6 +25,7 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelLibStdMathSize PROGMEMlibstdmathDATASIZE
 #define KernelLibStdProcSize PROGMEMlibstdprocDATASIZE
 #define KernelLibStdStrSize PROGMEMlibstdstrDATASIZE
+#define KernelLibStdTimeSize PROGMEMlibstdtimeDATASIZE
 
 #define KernelEepromSize (3*1024)
 #ifndef ARDUINO
@@ -50,6 +52,7 @@ int kernelLibStdIoReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdMathReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdProcReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdStrReadFunctor(KernelFsFileOffset addr);
+int kernelLibStdTimeReadFunctor(KernelFsFileOffset addr);
 int kernelHomeReadFunctor(KernelFsFileOffset addr);
 bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value);
 uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr, void *userData);
@@ -174,6 +177,7 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/math", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMathSize, &kernelLibStdMathReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/proc", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdProcSize, &kernelLibStdProcReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/str", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/std/time", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/media", &kernelMediaGetChildFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, kernelHomeWriteFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, kernelTmpWriteFunctor);
@@ -287,6 +291,11 @@ int kernelLibStdProcReadFunctor(KernelFsFileOffset addr) {
 int kernelLibStdStrReadFunctor(KernelFsFileOffset addr) {
 	assert(addr<KernelLibStdStrSize);
 	return progmemlibstdstrData[addr];
+}
+
+int kernelLibStdTimeReadFunctor(KernelFsFileOffset addr) {
+	assert(addr<KernelLibStdTimeSize);
+	return progmemlibstdtimeData[addr];
 }
 
 int kernelHomeReadFunctor(KernelFsFileOffset addr) {

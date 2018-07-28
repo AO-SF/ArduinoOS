@@ -20,6 +20,7 @@ int main(int agrc, char **argv) {
 	buildVolume("libstdmath", 8*1024, "../binutilities/lib/std/math");
 	buildVolume("libstdproc", 8*1024, "../binutilities/lib/std/proc");
 	buildVolume("libstdstr", 8*1024, "../binutilities/lib/std/str");
+	buildVolume("libstdtime", 8*1024, "../binutilities/lib/std/time");
 
 	return 0;
 }
