@@ -259,6 +259,7 @@ bool kernelLibStdGetChildFunctor(unsigned childNum, char childPath[KernelFsPathM
 		case 1: strcpy(childPath, "/lib/std/math"); return true; break;
 		case 2: strcpy(childPath, "/lib/std/proc"); return true; break;
 		case 3: strcpy(childPath, "/lib/std/str"); return true; break;
+		case 4: strcpy(childPath, "/lib/std/time"); return true; break;
 	}
 	return false;
 }
