@@ -1,7 +1,10 @@
+#include <dirent.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "debug.h"
 #include "kernelfs.h"
@@ -134,6 +137,37 @@ bool debugMiniFsAddFile(MiniFs *fs, const char *destPath, const char *srcPath) {
 	}
 
 	fclose(file);
+
+	return true;
+}
+
+bool debugMiniFsAddDir(MiniFs *fs, const char *dirPath) {
+	// Loop over files in given dir and write each one to minifs
+	DIR *dir=opendir(dirPath);
+	if (dir==NULL) {
+		printf("could not open directory '%s'\n", dirPath);
+		return false;
+	}
+
+	struct dirent *dp;
+	while((dp=readdir(dir))!=NULL) {
+		if (strcmp(dp->d_name, ".gitignore")==0)
+			continue;
+
+		char fullName[100];
+		sprintf(fullName , "%s/%s", dirPath, dp->d_name);
+
+		struct stat stbuf;
+		if (stat(fullName, &stbuf)==-1) {
+			printf("warning unable to stat file '%s'\n", fullName);
+			continue;
+		}
+
+		if ((stbuf.st_mode & S_IFMT)==S_IFDIR)
+			continue; // Skip directories
+		else
+			debugMiniFsAddFile(fs, dp->d_name, fullName); // TODO: Check return
+	}
 
 	return true;
 }
