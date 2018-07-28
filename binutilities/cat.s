@@ -11,11 +11,28 @@ ab fd 1
 
 label start
 
-; TODO: Support more than one argument
+; Loop over args in turn
+mov r0 1 ; 0 is program name
+label loopstart
+push r0
+call catArgN ; this will exit for us if no such argument
+pop r0
+inc r0
+jmp loopstart
 
-; Get first arg
+; Exit
+mov r0 0
+call exit
+
+label error
+mov r0 1
+call exit
+
+label catArgN
+
+; Get arg
+mov r1 r0
 mov r0 3
-mov r1 1 ; 0 is program name
 mov r2 argBuf
 mov r3 64
 syscall
@@ -45,7 +62,7 @@ jmp error
 
 ; Read data from file, printing to stdout
 mov r1 0 ; loop index
-label loopstart
+label catArgNLoopStart
 
 ; Read character
 mov r0 fd
@@ -58,7 +75,7 @@ pop r1
 mov r2 256
 cmp r2 r0 r2
 skipneq r2
-jmp loopend
+jmp catArgNLoopEnd
 
 ; Print character
 push r1
@@ -67,8 +84,8 @@ pop r1
 
 ; Advance to next character
 inc r1
-jmp loopstart
-label loopend
+jmp catArgNLoopStart
+label catArgNLoopEnd
 
 ; Close file
 mov r0 259
@@ -76,11 +93,4 @@ mov r1 fd
 load8 r1 r1
 syscall
 
-; Exit
-label done
-mov r0 0
-call exit
-
-label error
-mov r0 1
-call exit
+ret
