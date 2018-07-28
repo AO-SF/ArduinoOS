@@ -5,6 +5,7 @@
 
 #include "bytecode.h"
 #include "debug.h"
+#include "kernel.h"
 #include "kernelfs.h"
 #include "procman.h"
 
@@ -568,6 +569,9 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], tmpData->envVars.path, KernelFsPathMax))
 								return false;
 							kernelFsPathNormalise(tmpData->envVars.path);
+						break;
+						case ByteCodeSyscallIdTimeMonotonic:
+							tmpData->regs[0]=millis();
 						break;
 						default:
 							debugLog("warning: invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));

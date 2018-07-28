@@ -125,6 +125,7 @@ typedef enum {
 	ByteCodeSyscallIdEnvSetPwd=(512|3),
 	ByteCodeSyscallIdEnvGetPath=(512|4),
 	ByteCodeSyscallIdEnvSetPath=(512|5),
+	ByteCodeSyscallIdTimeMonotonic=(768|0),
 } ByteCodeSyscallId;
 
 typedef enum {

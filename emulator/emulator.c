@@ -381,6 +381,12 @@ bool processRunNextInstruction(Process *process) {
 							if (verbose)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
+						case ByteCodeSyscallIdTimeMonotonic:
+							// TODO: this
+							if (verbose)
+								printf("Info: syscall(id=%i [timemonotonic] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						break;
 						default:
 							if (verbose)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);
