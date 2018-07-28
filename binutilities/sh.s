@@ -12,14 +12,14 @@ aw arg1Ptr 1
 
 jmp start
 
-require stdlib/libiofput.s
-require stdlib/libiofget.s
-require stdlib/libprocgetabspath.s
-require stdlib/libprocgetpwd.s
-require stdlib/libprocexit.s
-require stdlib/libstrstrtrimlast.s
-require stdlib/libstrstrchr.s
-require stdlib/libstrstrequal.s
+require lib/std/io/fput.s
+require lib/std/io/fget.s
+require lib/std/proc/getabspath.s
+require lib/std/proc/getpwd.s
+require lib/std/proc/exit.s
+require lib/std/str/strtrimlast.s
+require lib/std/str/strchr.s
+require lib/std/str/strequal.s
 
 label start
 

@@ -1,5 +1,5 @@
-require libstrstrcpy.s
-require libstrstrlen.s
+require strcpy.s
+require strlen.s
 
 ; strcat(r0=dest, r1=src)
 label strcat
