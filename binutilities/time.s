@@ -4,6 +4,7 @@ require lib/std/io/fput.s
 require lib/std/io/fputdec.s
 require lib/std/proc/exit.s
 require lib/std/proc/getabspath.s
+require lib/std/time/timemonotonic.s
 
 db preMsg 'took: ', 0
 db postMsg 's\n', 0
@@ -42,8 +43,7 @@ mov r1 arg1Buf
 call getabspath
 
 ; Get start time and store into variable
-mov r0 768
-syscall
+call gettimemonotonic
 
 mov r1 startTime
 store16 r1 r0
@@ -88,8 +88,7 @@ jmp done
 
 label childFinished
 ; Record endTime
-mov r0 768
-syscall
+call gettimemonotonic
 
 ; Print time delta
 mov r1 startTime
