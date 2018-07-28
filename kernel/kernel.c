@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "debug.h"
+#include "kernel.h"
 #include "kernelfs.h"
 #include "minifs.h"
 #include "procman.h"
@@ -28,6 +30,8 @@ uint8_t *kernelTmpDataPool=NULL;
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
 #endif
+
+uint32_t kernelBootTime=0;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -93,11 +97,29 @@ int main(int argc, char **argv) {
 }
 #endif
 
+#ifndef ARDUINO
+
+uint32_t millisRaw(void) {
+	struct timeval tv;
+	gettimeofday(&tv, NULL); // TODO: Check return value.
+	return tv.tv_sec*1000llu+tv.tv_usec/1000llu;
+}
+
+uint32_t millis(void) {
+	return millisRaw()-kernelBootTime;
+}
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
 void kernelBoot(void) {
+#ifndef ARDUINO
+	// ON the Arduino we can leave this at 0 but otherwise we have to save offset
+	kernelBootTime=millisRaw();
+#endif
+
 	// Arduino-only: connect to serial (ready to mount as /dev/ttyS0).
 #ifdef ARDUINO
 	Serial.begin(9600);
