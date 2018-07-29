@@ -40,7 +40,7 @@ syscall
 ; No arg found?
 cmp r0 r0 r0
 skipneqz r0
-jmp exit
+jmp error
 
 ; Convert to absolute path
 mov r0 pathBuf
