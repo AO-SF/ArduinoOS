@@ -16,7 +16,7 @@
 #include "progmemlibstdstr.h"
 #include "progmemlibstdtime.h"
 
-#define KernelTmpDataPoolSize 4096
+#define KernelTmpDataPoolSize (8*1024)
 uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize PROGMEMbinDATASIZE
