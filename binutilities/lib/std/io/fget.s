@@ -1,6 +1,6 @@
 ab libiofgetScratchByte 1
 
-; fgets(fd=r0, offset=r1, buf=r2, len=r3) reads up to and including first newline, always null-terminates buf (potentially to be 0 length if could not read)
+; r=fgets(fd=r0, offset=r1, buf=r2, len=r3) reads up to and including first newline, always null-terminates buf (potentially to be 0 length if could not read), returns number of bytes read from file
 ; TODO: Support length limit from r3 (using r3 as scratch currently)
 label fgets
 
@@ -49,6 +49,8 @@ mov r3 r2
 add r3 r3 r4
 mov r5 0
 store8 r3 r5
+
+mov r0 r4 ; return length
 
 ret
 
