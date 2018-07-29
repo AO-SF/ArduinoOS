@@ -4,7 +4,7 @@ db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
 db cdStr 'cd', 0
 db exitStr 'exit', 0
-db nullChar 0
+db emptyStr 0
 db homeDir '/home', 0
 
 ab handlingStdio 1
@@ -162,7 +162,7 @@ mov r0 prompt
 call puts0
 label shellRunFdInputPromptEnd
 
-; Wait for input
+; Read input
 mov r0 inputFd
 load8 r0 r0
 mov r1 readOffset
@@ -185,7 +185,7 @@ ret
 label shellRunFdInputNoEof
 
 ; Parse input - clear arg pointers
-mov r1 nullChar
+mov r1 emptyStr
 mov r0 arg1Ptr
 store16 r0 r1
 mov r0 arg2Ptr
