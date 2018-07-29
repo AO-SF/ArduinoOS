@@ -1,13 +1,12 @@
 jmp start
 
 require lib/std/io/fput.s
-require lib/std/io/fputdec.s
+require lib/std/io/fputtime.s
 require lib/std/proc/exit.s
 require lib/std/proc/getabspath.s
 require lib/std/time/timemonotonic.s
 
 db preMsg 'took: ', 0
-db postMsg 's\n', 0
 db forkErrorStr 'could not fork\n', 0
 
 aw startTime 1
@@ -99,9 +98,9 @@ push r0
 mov r0 preMsg
 call puts0
 pop r0
-call putdec
-mov r0 postMsg
-call puts0
+call puttime
+mov r0 '\n'
+call putc0
 
 ; Exit
 label done
