@@ -7,6 +7,7 @@ db nullChar 0
 db homeDir '/home', 0
 db slashStr '/', 0
 
+ab handlingStdio 1
 ab inputBuf 64
 ab absBuf 64
 ab envPathBuf 64
@@ -27,7 +28,18 @@ require lib/std/str/strequal.s
 
 label start
 
-; Open stdin/stdout
+; Is stdiofd already sensible?
+mov r0 handlingStdio
+mov r1 0
+store8 r0 r1
+
+mov r0 512
+syscall
+cmp r0 r0 r0
+skipeqz r0
+jmp inputLoopStart
+
+; No - open it
 mov r0 258
 mov r1 stdioPath
 syscall
@@ -143,7 +155,13 @@ jmp inputLoopStart
 ; End of input loop
 label inputLoopEnd
 
-; Close stdin/stdout
+; Close stdin/stdout (if we are handling)
+mov r0 handlingStdio
+load8 r0 r0
+cmp r0 r0 r0
+skipneqz r0
+jmp success
+
 mov r0 512
 syscall
 mov r1 r0
@@ -151,6 +169,7 @@ mov r0 259
 syscall
 
 ; Exit (success)
+label success
 mov r0 0
 call exit
 
