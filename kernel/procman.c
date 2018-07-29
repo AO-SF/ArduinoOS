@@ -561,6 +561,19 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 								tmpData->regs[0]=0;
 							}
 						} break;
+						case ByteCodeSyscallIdGetPath: {
+							KernelFsFd fd=tmpData->regs[1];
+							uint16_t bufAddr=tmpData->regs[2];
+
+							const char *srcPath=kernelFsGetFilePath(fd);
+							if (srcPath==NULL)
+								tmpData->regs[0]=0;
+							else {
+								if (!procManProcessMemoryWriteStr(process, tmpData, bufAddr, srcPath))
+									return false;
+								tmpData->regs[0]=1;
+							}
+						} break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							tmpData->regs[0]=tmpData->envVars.stdioFd;
 						break;
