@@ -64,6 +64,7 @@ label startDone
 ; Check for scripts passed as arguments
 mov r1 1 ; child loop index
 label argLoopStart
+push r1
 mov r0 3
 mov r2 inputBuf
 syscall
@@ -99,8 +100,11 @@ load8 r1 r1
 syscall
 
 ; Advance to next arg
+pop r1
+inc r1
 jmp argLoopStart
 label argLoopEnd
+pop r1
 
 ; Call shellRunFd on stdio fd
 mov r0 512
