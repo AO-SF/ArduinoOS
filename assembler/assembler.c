@@ -525,6 +525,8 @@ bool assemblerProgramHandleIncludes(AssemblerProgram *program, bool *change) {
 		const char *relPath=strchr(assemblerLine->modified, ' ')+1; // No need to check return as we proved there was a space above
 		strcat(newPath, relPath);
 
+		kernelFsPathNormalise(newPath);
+
 		// Remove this line
 		assemblerRemoveLine(program, line);
 
