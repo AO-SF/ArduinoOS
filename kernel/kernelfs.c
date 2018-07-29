@@ -146,7 +146,7 @@ bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceForma
 	// Attempt to mount
 	switch(format) {
 		case KernelFsBlockDeviceFormatCustomMiniFs:
-			if (!miniFsMountSafe(&device->d.block.d.customMiniFs.miniFs, &kernelFsMiniFsReadWrapper, &kernelFsMiniFsWriteWrapper, device))
+			if (!miniFsMountSafe(&device->d.block.d.customMiniFs.miniFs, &kernelFsMiniFsReadWrapper, (writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), device))
 				goto error;
 		break;
 		case KernelFsBlockDeviceFormatNB:
