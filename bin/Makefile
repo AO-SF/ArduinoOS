@@ -26,6 +26,7 @@ ALL:
 	./assembler ../binutilities/echo.s ../binmockup/echo
 	./assembler ../binutilities/uptime.s ../binmockup/uptime
 	./assembler ../binutilities/yes.s ../binmockup/yes
+	./assembler ../binutilities/factor.s ../binmockup/factor
 
 	./builder
 
