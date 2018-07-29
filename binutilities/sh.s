@@ -26,6 +26,7 @@ require lib/std/io/fputdec.s
 require lib/std/proc/exit.s
 require lib/std/proc/getabspath.s
 require lib/std/proc/getpwd.s
+require lib/std/proc/openpath.s
 require lib/std/proc/runpath.s
 require lib/std/str/strchr.s
 require lib/std/str/strequal.s
@@ -74,15 +75,9 @@ cmp r0 r0 r0
 skipneqz r0
 jmp argLoopEnd
 
-; Ensure path is absolute
-mov r0 absBuf
-mov r1 inputBuf
-call getabspath
-
 ; Open file
-mov r0 258
-mov r1 absBuf
-syscall
+mov r0 inputBuf
+call openpath
 
 mov r1 inputFd
 store8 r1 r0
