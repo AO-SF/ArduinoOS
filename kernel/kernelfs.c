@@ -419,6 +419,10 @@ bool kernelFsFileDelete(const char *path) {
 }
 
 KernelFsFd kernelFsFileOpen(const char *path) {
+	// Not valid path?
+	if (!kernelFsPathIsValid(path))
+		return KernelFsFdInvalid;
+
 	// Check file exists.
 	if (!kernelFsFileExists(path))
 		return KernelFsFdInvalid;
