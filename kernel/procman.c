@@ -11,6 +11,8 @@
 
 #define ProcManProcessRamSize 1024 // TODO: Allow this to be dynamic
 
+const unsigned procManProcessTickInstructionsPerTick=8; // Generally a higher value causes faster execution, but decreased responsiveness if many processes running
+
 typedef enum {
 	ProcManProcessStateUnused,
 	ProcManProcessStateActive,
@@ -208,39 +210,45 @@ void procManProcessTick(ProcManPid pid) {
 	if (process==NULL)
 		return;
 
+	// Is this process not even active?
+	if (procManData.processes[pid].state!=ProcManProcessStateActive)
+		return;
+
 	// Load tmp data
 	ProcManProcessTmpData tmpData;
 	bool res=procManProcessGetTmpData(process, &tmpData);
 	assert(res);
 
-	// Is this process not active?
-	if (procManData.processes[pid].state!=ProcManProcessStateActive)
-		return;
-
-	// Grab instruction
-	BytecodeInstructionLong instruction;
-	if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[0]))
-		goto kill;
-	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
-	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
-		if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[1]))
+	// Run a few instructions
+	for(unsigned instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
+		// Grab instruction
+		BytecodeInstructionLong instruction;
+		if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[0]))
 			goto kill;
-	if (length==BytecodeInstructionLengthLong)
-		if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[2]))
+		BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
+		if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
+			if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[1]))
+				goto kill;
+		if (length==BytecodeInstructionLengthLong)
+			if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[2]))
+				goto kill;
+
+		// Are we meant to skip this instruction? (due to a previous skipN instruction)
+		if (tmpData.skipFlag) {
+			tmpData.skipFlag=false;
+			continue;
+		}
+
+		// Execute instruction
+		if (!procManProcessExecInstruction(process, &tmpData, instruction))
 			goto kill;
 
-	// Are we meant to skip this instruction? (due to a previous skipN instruction)
-	if (tmpData.skipFlag) {
-		tmpData.skipFlag=false;
-		goto done;
+		// Has this process gone inactive?
+		if (procManData.processes[pid].state!=ProcManProcessStateActive)
+			break;
 	}
 
-	// Execute instruction
-	if (!procManProcessExecInstruction(process, &tmpData, instruction))
-		goto kill;
-
 	// Save tmp data
-	done:
 	if (kernelFsFileWriteOffset(process->tmpFd, 0, (const uint8_t *)&tmpData, sizeof(ProcManProcessTmpData))!=sizeof(ProcManProcessTmpData)) {
 		assert(false);
 	}
