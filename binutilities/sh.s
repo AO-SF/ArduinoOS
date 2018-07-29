@@ -6,12 +6,10 @@ db cdStr 'cd', 0
 db exitStr 'exit', 0
 db nullChar 0
 db homeDir '/home', 0
-db slashStr '/', 0
 
 ab handlingStdio 1
 ab inputBuf 64
 ab absBuf 64
-ab envPathBuf 64
 aw arg1Ptr 1
 aw arg2Ptr 1
 aw arg3Ptr 1
@@ -28,6 +26,7 @@ require lib/std/io/fputdec.s
 require lib/std/proc/exit.s
 require lib/std/proc/getabspath.s
 require lib/std/proc/getpwd.s
+require lib/std/proc/runpath.s
 require lib/std/str/strchr.s
 require lib/std/str/strequal.s
 require lib/std/str/strtrimlast.s
@@ -289,59 +288,20 @@ jmp shellForkExecForkChild
 jmp shellForkExecForkParent
 
 label shellForkExecForkChild
-; Check if the inputBuf contains no slashes,
-; If this is true, we try first looking in PATH for the executable.
+; Call exec
 mov r0 inputBuf
-mov r1 '/'
-call strchr
-
-cmp r0 r0 r0
-skipeqz r0
-jmp shellForkExec2ndTry
-
-; No slashes found, create combined path to try
-mov r0 516 ; getpath
-mov r1 envPathBuf
-syscall
-mov r0 envPathBuf
-mov r1 slashStr
-call strcat
-mov r0 envPathBuf
-mov r1 inputBuf
-call strcat
-
-; Call exec
-mov r0 5
-mov r1 envPathBuf
-mov r2 arg1Ptr
+mov r1 arg1Ptr
+load16 r1 r1
+mov r2 arg2Ptr
 load16 r2 r2
-mov r3 arg2Ptr
+mov r3 arg3Ptr
 load16 r3 r3
-mov r4 arg3Ptr
-load16 r4 r4
-syscall
-
-; Make sure path is absolute
-label shellForkExec2ndTry
-mov r0 absBuf
-mov r1 inputBuf
-call getabspath
-
-; Call exec
-mov r0 5
-mov r1 absBuf
-mov r2 arg1Ptr
-load16 r2 r2
-mov r3 arg2Ptr
-load16 r3 r3
-mov r4 arg3Ptr
-load16 r4 r4
-syscall
+call runpath
 
 ; exec only returns in error
 mov r0 execErrorStr
 call puts0
-mov r0 absBuf
+mov r0 inputBuf
 call puts0
 mov r0 '\n'
 call putc0
