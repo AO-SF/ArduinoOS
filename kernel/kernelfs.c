@@ -61,6 +61,7 @@ KernelFsData kernelFsData;
 ////////////////////////////////////////////////////////////////////////////////
 
 bool kernelFsPathIsDevice(const char *path);
+bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 
 KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType type);
@@ -418,8 +419,13 @@ bool kernelFsFileDelete(const char *path) {
 }
 
 KernelFsFd kernelFsFileOpen(const char *path) {
+	// Check file exists.
+	if (!kernelFsFileExists(path))
+		return KernelFsFdInvalid;
+
 	// Check if this file is already open and also look for an empty slot to use if not.
 	KernelFsFd newFd=KernelFsFdInvalid;
+	bool alreadyOpen=false;
 	for(int i=0; i<KernelFsFdMax; ++i) {
 		if (i==KernelFsFdInvalid)
 			continue;
@@ -427,11 +433,11 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 		if (kernelFsData.fdt[i]==NULL)
 			newFd=i; // If we suceed we can use this slot
 		else if (strcmp(path, kernelFsData.fdt[i])==0)
-			return KernelFsFdInvalid; // File is already open
+			alreadyOpen=true;
 	}
 
-	// Check file exists.
-	if (!kernelFsFileExists(path))
+	// If file is already open, decide if it can be openned more than once
+	if (alreadyOpen && !kernelFsFileCanOpenMany(path))
 		return KernelFsFdInvalid;
 
 	// Update file descriptor table.
@@ -737,6 +743,69 @@ void kernelFsPathSplit(char *path, char **dirnamePtr, char **basenamePtr) {
 
 bool kernelFsPathIsDevice(const char *path) {
 	return (kernelFsGetDeviceFromPath(path)!=NULL);
+}
+
+bool kernelFsFileCanOpenMany(const char *path) {
+	// Is this a virtual device file?
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device!=NULL) {
+		switch(device->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(device->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						if (miniFsGetReadOnly(&device->d.block.d.customMiniFs.miniFs))
+							return true;
+					break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// TODO: Most should allow this (except e.g. /dev/ttyS0)
+				return false;
+			break;
+			case KernelFsDeviceTypeDirectory:
+				return true;
+			break;
+			case KernelFsDeviceTypeNB:
+			break;
+		}
+	}
+
+	// Check for being a child of a virtual block device
+	char modPath[KernelFsPathMax];
+	strcpy(modPath, path);
+	char *dirname, *basename;
+	kernelFsPathSplit(modPath, &dirname, &basename);
+
+	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
+	if (parentDevice!=NULL) {
+		switch(parentDevice->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(parentDevice->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						if (miniFsGetReadOnly(&parentDevice->d.block.d.customMiniFs.miniFs))
+							return true;
+					break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// These are files and thus cannot contain other files
+			break;
+			case KernelFsDeviceTypeDirectory:
+				// Device directories can only contain other virtual devices (which are handled above)
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
+			break;
+		}
+	}
+
+	return false;
 }
 
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path) {
