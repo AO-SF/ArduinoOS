@@ -93,11 +93,19 @@ mov r1 interactiveMode
 store8 r1 r0
 call shellRunFd
 
+push r0 ; save return value
+
 ; Close file
 mov r0 259
 mov r1 inputFd
 load8 r1 r1
 syscall
+
+; shellRunFd return indicates we should exit?
+pop r0
+cmp r0 r0 r0
+skipneqz r0
+jmp finish
 
 ; Advance to next arg
 pop r1
@@ -185,6 +193,7 @@ store16 r2 r1
 cmp r0 r0 r0
 skipeqz r0
 jmp shellRunFdInputNoEof
+mov r0 1 ; continue
 ret
 label shellRunFdInputNoEof
 
@@ -269,6 +278,7 @@ call strequal
 cmp r0 r0 r0
 skipneqz r0
 jmp shellRunFdBuiltinNoExit
+mov r0 0 ; exit
 ret
 label shellRunFdBuiltinNoExit
 
