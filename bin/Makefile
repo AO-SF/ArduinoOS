@@ -28,6 +28,7 @@ ALL:
 	./assembler ../binutilities/yes.s ../binmockup/yes
 	./assembler ../binutilities/factor.s ../binmockup/factor
 	./assembler ../binutilities/tty.s ../binmockup/tty
+	./assembler ../binutilities/ps.s ../binmockup/ps
 
 	./builder
 
