@@ -4,10 +4,12 @@ require lib/std/io/fput.s
 require lib/std/io/fputtime.s
 require lib/std/proc/exit.s
 require lib/std/proc/getabspath.s
+require lib/std/proc/runpath.s
 require lib/std/time/timemonotonic.s
 
 db preMsg 'took: ', 0
 db forkErrorStr 'could not fork\n', 0
+db emptyStr 0
 
 aw startTime 1
 ab arg1Buf 64
@@ -36,10 +38,10 @@ mov r2 arg3Buf
 mov r3 64
 syscall
 
-; Ensure path is absolute
+; Copy command path
 mov r0 cmdBuf
 mov r1 arg1Buf
-call getabspath
+call strcpy
 
 ; Get start time and store into variable
 call gettimemonotonic
@@ -61,12 +63,11 @@ jmp forkParent
 
 label forkChild
 ; Exec given argument
-mov r0 5
-mov r1 cmdBuf
-mov r2 arg2Buf
-mov r3 arg3Buf
-mov r4 0 ; we cannot pass on 3 arguments if we only have 3 ourselves
-syscall
+mov r0 cmdBuf
+mov r1 arg2Buf
+mov r2 arg3Buf
+mov r3 emptyStr
+call runpath
 
 ; Exec only returns on error
 jmp done
