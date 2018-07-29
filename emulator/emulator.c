@@ -310,6 +310,10 @@ bool processRunNextInstruction(Process *process) {
 							if (verbose)
 								printf("Info: syscall(id=%i [waitpid] (unimplemented)\n", syscallId);
 						break;
+						case ByteCodeSyscallIdGetPidPath:
+							if (verbose)
+								printf("Info: syscall(id=%i [getpidpath] (unimplemented)\n", syscallId);
+						break;
 						case ByteCodeSyscallIdRead:
 							if (process->regs[1]==ByteCodeFdStdin) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
