@@ -16,16 +16,21 @@ aw arg1Ptr 1
 aw arg2Ptr 1
 aw arg3Ptr 1
 
+ab interactiveMode 1
+ab inputFd 1
+aw readOffset 1
+
 jmp start
 
-require lib/std/io/fput.s
 require lib/std/io/fget.s
+require lib/std/io/fput.s
+require lib/std/io/fputdec.s
+require lib/std/proc/exit.s
 require lib/std/proc/getabspath.s
 require lib/std/proc/getpwd.s
-require lib/std/proc/exit.s
-require lib/std/str/strtrimlast.s
 require lib/std/str/strchr.s
 require lib/std/str/strequal.s
+require lib/std/str/strtrimlast.s
 
 label start
 
@@ -57,9 +62,57 @@ syscall
 
 label startDone
 
+; Check for scripts passed as arguments
+mov r1 1 ; child loop index
+label argLoopStart
+mov r0 3
+mov r2 inputBuf
+syscall
+
+; No argument?
+cmp r0 r0 r0
+skipneqz r0
+jmp argLoopEnd
+
+; Ensure path is absolute
+mov r0 absBuf
+mov r1 inputBuf
+call getabspath
+
+; Open file
+mov r0 258
+mov r1 absBuf
+syscall
+
+mov r1 inputFd
+store8 r1 r0
+
+; Run script
+mov r0 0
+mov r1 interactiveMode
+store8 r1 r0
+call shellRunFd
+
+; Close file
+mov r0 259
+mov r1 inputFd
+load8 r1 r1
+syscall
+
+; Advance to next arg
+jmp argLoopStart
+label argLoopEnd
+
 ; Call shellRunFd on stdio fd
 mov r0 512
 syscall
+mov r1 inputFd
+store8 r1 r0
+
+mov r0 1
+mov r1 interactiveMode
+store8 r1 r0
+
 call shellRunFd
 
 label finish
@@ -87,7 +140,18 @@ mov r0 1
 call exit
 
 label shellRunFd
+mov r0 readOffset
+mov r1 0
+store16 r0 r1
 label shellRunFdInputLoopStart
+
+; Only print prompt in interactive mode
+mov r0 interactiveMode
+load8 r0 r0
+cmp r0 r0 r0
+skipneqz r0
+jmp shellRunFdInputPromptEnd
+
 ; Print pwd (reuse inputBuf to save space)
 mov r0 inputBuf
 call getpwd
@@ -97,14 +161,29 @@ call puts0
 ; Print prompt
 mov r0 prompt
 call puts0
+label shellRunFdInputPromptEnd
 
 ; Wait for input
-mov r0 512
-syscall
-mov r1 0
+mov r0 inputFd
+load8 r0 r0
+mov r1 readOffset
+load16 r1 r1
 mov r2 inputBuf
 mov r3 64
 call fgets
+
+; Update read offset for next time
+mov r2 readOffset
+load16 r1 r2
+add r1 r1 r0
+store16 r2 r1
+
+; If in file mode and empty read then EOF
+cmp r0 r0 r0
+skipeqz r0
+jmp shellRunFdInputNoEof
+ret
+label shellRunFdInputNoEof
 
 ; Parse input - clear arg pointers
 mov r1 nullChar
