@@ -524,6 +524,30 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							} else
 								tmpData->regs[0]=0;
 						} break;
+						case ByteCodeSyscallIdGetPidState: {
+							ProcManPid pid=tmpData->regs[1];
+							ByteCodeWord bufAddr=tmpData->regs[2];
+
+							ProcManProcess *process=procManGetProcessByPid(pid);
+							if (process!=NULL) {
+								const char *str="???";
+								switch(process->state) {
+									case ProcManProcessStateUnused:
+										str="unused";
+									break;
+									case ProcManProcessStateActive:
+										str="active";
+									break;
+									case ProcManProcessStateWaitingWaitpid:
+										str="waiting";
+									break;
+								}
+								if (!procManProcessMemoryWriteStr(process, tmpData, bufAddr, str))
+									return false;
+								tmpData->regs[0]=1;
+							} else
+								tmpData->regs[0]=0;
+						} break;
 						case ByteCodeSyscallIdRead: {
 							KernelFsFd fd=tmpData->regs[1];
 							uint16_t offset=tmpData->regs[2];
