@@ -3,6 +3,7 @@ db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
 db cdStr 'cd', 0
+db exitStr 'exit', 0
 db nullChar 0
 db homeDir '/home', 0
 db slashStr '/', 0
@@ -141,10 +142,16 @@ label execInput
 mov r0 inputBuf
 mov r1 cdStr
 call strequal
-
 cmp r0 r0 r0
 skipeqz r0
 jmp shellCd ; this jumps back to inputLoopStart
+
+mov r0 inputBuf
+mov r1 exitStr
+call strequal
+cmp r0 r0 r0
+skipeqz r0
+jmp shellExit
 
 ; Otherwise try to run as program
 call shellForkExec
@@ -297,3 +304,6 @@ mov r1 homeDir
 syscall
 
 jmp inputLoopStart
+
+label shellExit
+jmp success
