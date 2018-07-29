@@ -38,7 +38,7 @@ mov r0 512
 syscall
 cmp r0 r0 r0
 skipeqz r0
-jmp inputLoopStart
+jmp startDone
 
 ; No - open it
 mov r0 258
@@ -48,14 +48,46 @@ syscall
 ; Check for bad file-descriptor
 cmp r1 r0 r0
 skipneqz r1
-jmp error
+jmp exiterror
 
 ; Save stdio fd to environment variables
 mov r1 r0
 mov r0 513
 syscall
 
-label inputLoopStart
+label startDone
+
+; Call shellRunFd on stdio fd
+mov r0 512
+syscall
+call shellRunFd
+
+label finish
+; Close stdin/stdout (if we are handling)
+mov r0 handlingStdio
+load8 r0 r0
+cmp r0 r0 r0
+skipneqz r0
+jmp exitsuccess
+
+mov r0 512
+syscall
+mov r1 r0
+mov r0 259
+syscall
+
+; Exit (success)
+label exitsuccess
+mov r0 0
+call exit
+
+; Exit (failure)
+label exiterror
+mov r0 1
+call exit
+
+label shellRunFd
+label shellRunFdInputLoopStart
 ; Print pwd (reuse inputBuf to save space)
 mov r0 inputBuf
 call getpwd
@@ -94,7 +126,7 @@ call strchr
 
 cmp r1 r0 r0
 skipneqz r1
-jmp execInput
+jmp shellRunFdExecInput
 
 mov r1 0
 store8 r0 r1
@@ -110,7 +142,7 @@ call strchr
 
 cmp r1 r0 r0
 skipneqz r1
-jmp execInput
+jmp shellRunFdExecInput
 
 mov r1 0
 store8 r0 r1
@@ -126,7 +158,7 @@ call strchr
 
 cmp r1 r0 r0
 skipneqz r1
-jmp execInput
+jmp shellRunFdExecInput
 
 mov r1 0
 store8 r0 r1
@@ -136,54 +168,33 @@ mov r1 arg3Ptr
 store16 r1 r0
 
 ; Exec input (inputBuf contains executable path)
-label execInput
+label shellRunFdExecInput
 
 ; Check for builtin
 mov r0 inputBuf
 mov r1 cdStr
 call strequal
 cmp r0 r0 r0
-skipeqz r0
-jmp shellCd ; this jumps back to inputLoopStart
+skipneqz r0
+jmp shellRunFdBuiltinNoCd
+call shellCd
+jmp shellRunFdInputLoopStart
+label shellRunFdBuiltinNoCd
 
 mov r0 inputBuf
 mov r1 exitStr
 call strequal
 cmp r0 r0 r0
-skipeqz r0
-jmp shellExit
+skipneqz r0
+jmp shellRunFdBuiltinNoExit
+ret
+label shellRunFdBuiltinNoExit
 
 ; Otherwise try to run as program
 call shellForkExec
 
 ; Loop back to read next line
-jmp inputLoopStart
-
-; End of input loop
-label inputLoopEnd
-
-; Close stdin/stdout (if we are handling)
-mov r0 handlingStdio
-load8 r0 r0
-cmp r0 r0 r0
-skipneqz r0
-jmp success
-
-mov r0 512
-syscall
-mov r1 r0
-mov r0 259
-syscall
-
-; Exit (success)
-label success
-mov r0 0
-call exit
-
-; Exit (failure)
-label error
-mov r0 1
-call exit
+jmp shellRunFdInputLoopStart
 
 label shellForkExec
 ; Fork
@@ -295,7 +306,7 @@ mov r0 515
 mov r1 absBuf
 syscall
 
-jmp inputLoopStart
+ret
 
 label shellCdHome
 
@@ -303,7 +314,4 @@ mov r0 515
 mov r1 homeDir
 syscall
 
-jmp inputLoopStart
-
-label shellExit
-jmp success
+ret
