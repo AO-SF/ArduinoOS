@@ -9,7 +9,7 @@
 #include "kernelfs.h"
 #include "procman.h"
 
-#define ProcManProcessRamSize 512 // TODO: Allow this to be dynamic
+#define ProcManProcessRamSize 1024 // TODO: Allow this to be dynamic
 
 typedef enum {
 	ProcManProcessStateUnused,
