@@ -1,5 +1,17 @@
 require fput.s
 
+ab fputdecPadFlag 1
+
+; putdecpad(x=r0)
+label putdecpad
+mov r2 fputdecPadFlag
+mov r3 1
+store8 r2 r3
+mov r1 r0
+mov r0 512
+syscall
+jmp fputdeccommon
+
 ; putdec(x=r0)
 label putdec
 mov r1 r0
@@ -9,6 +21,13 @@ jmp fputdec
 
 ; fputdec(fd=r0, x=r1)
 label fputdec
+mov r2 fputdecPadFlag
+mov r3 0
+store8 r2 r3
+jmp fputdeccommon
+
+; fputdeccommon(fd=r0, x=r1) - fputdecPadFlag must be set to 0 or 1 before entering
+label fputdeccommon
 
 ; Init ready for loop
 mov r2 10000
@@ -17,6 +36,13 @@ mov r4 0 ; foundDigit flag
 ; Divide to find current digit
 label fputdecLoopStart
 div r3 r1 r2 ; current digit in r3
+
+; If padding we need to print all digits
+mov r5 fputdecPadFlag
+load8 r5 r5
+cmp r5 r5 r5
+skipeqz r5
+jmp fputdecLoopPrint
 
 ; If this digit is non-zero we need to print it
 cmp r5 r3 r3
