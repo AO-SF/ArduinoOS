@@ -24,6 +24,8 @@ ALL:
 	./assembler ../binutilities/true.s ../binmockup/true
 	./assembler ../binutilities/time.s ../binmockup/time
 	./assembler ../binutilities/echo.s ../binmockup/echo
+	./assembler ../binutilities/uptime.s ../binmockup/uptime
+	./assembler ../binutilities/yes.s ../binmockup/yes
 
 	./builder
 
