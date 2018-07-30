@@ -82,6 +82,42 @@ call int32add16
 
 ret
 
+; int32sub16(dest=r0, opA=r1)
+label int32sub16
+
+; Max we can subtract naively is dest lower
+; so see if this is enough
+inc2 r0
+load16 r2 r0 ; r2 contains dest lower, the max we can subtract initially
+dec2 r0
+
+cmp r3 r1 r2
+skipgt r3
+jmp int32sub16finalsub
+
+; We can not subtract everything in one go
+; reduce opA by amount we can handle currently
+sub r1 r1 r2
+
+; set dest lower to 2^16-1
+mov r2 65535
+inc2 r0
+store16 r0 r2
+dec2 r0
+
+; decrement dest upper
+load16 r2 r0
+dec r2
+store16 r0 r2
+
+label int32sub16finalsub
+inc2 r0
+load16 r2 r0
+sub r2 r2 r1
+store16 r0 r2
+
+ret
+
 ; int32mul1616(dest=r0, opA=r1, opB=r2) - stores product of two 16-bit values opA and opB into 32-bit dest ptr
 label int32mul1616
 
