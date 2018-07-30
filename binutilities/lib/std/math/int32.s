@@ -2,6 +2,12 @@ aw int32ScratchInt32 2
 
 ; 32 bit operands require pointers to 4 bytes (or 2 words)
 
+; int32get16(src=r0) - places lower half of src into r0
+label int32get16
+inc2 r0
+load16 r0 r0
+ret
+
 ; int32set16(dest=r0, src=r1) - 32 bit dest ptr = 16 bit src value
 label int32set16
 mov r2 0
