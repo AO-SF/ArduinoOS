@@ -418,6 +418,11 @@ bool kernelFsFileDelete(const char *path) {
 	return false;
 }
 
+bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
+	// TODO: this
+	return false;
+}
+
 KernelFsFd kernelFsFileOpen(const char *path) {
 	// Not valid path?
 	if (!kernelFsPathIsValid(path))

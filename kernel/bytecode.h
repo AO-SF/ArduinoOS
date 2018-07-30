@@ -125,6 +125,7 @@ typedef enum {
 	ByteCodeSyscallIdClose=(256|3),
 	ByteCodeSyscallIdDirGetChildN=(256|4),
 	ByteCodeSyscallIdGetPath=(256|5),
+	ByteCodeSyscallIdResizeFile=(256|6),
 	ByteCodeSyscallIdEnvGetStdioFd=(512|0),
 	ByteCodeSyscallIdEnvSetStdioFd=(512|1),
 	ByteCodeSyscallIdEnvGetPwd=(512|2),
