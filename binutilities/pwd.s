@@ -1,12 +1,8 @@
-jmp start
-
-require lib/std/io/fput.s
-require lib/std/proc/getpwd.s
-require lib/std/proc/exit.s
+requireend lib/std/io/fput.s
+requireend lib/std/proc/getpwd.s
+requireend lib/std/proc/exit.s
 
 ab pwdBuf 64
-
-label start
 
 ; Grab pwd
 mov r0 pwdBuf

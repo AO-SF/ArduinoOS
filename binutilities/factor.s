@@ -1,15 +1,10 @@
-jmp start
-
-require lib/std/io/fput.s
-require lib/std/io/fputdec.s
-require lib/std/proc/exit.s
-require lib/std/str/strtoint.s
+requireend lib/std/io/fput.s
+requireend lib/std/io/fputdec.s
+requireend lib/std/proc/exit.s
+requireend lib/std/str/strtoint.s
 
 db separator ': ', 0
-
 ab argBuf 64
-
-label start
 
 ; Loop over args in turn
 mov r0 1 ; 0 is program name

@@ -1,15 +1,11 @@
-jmp start
-
-require lib/std/io/fput.s
-require lib/std/proc/exit.s
-require lib/std/proc/getpwd.s
-require lib/std/str/strlen.s
+requireend lib/std/io/fput.s
+requireend lib/std/proc/exit.s
+requireend lib/std/proc/getpwd.s
+requireend lib/std/str/strlen.s
 
 ab pathBuf 64
 ab pwdFd 1
 ab pwdLen 1
-
-label start
 
 ; Grab pwd and find length
 mov r0 pathBuf

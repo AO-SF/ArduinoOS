@@ -1,14 +1,10 @@
-jmp start
-
-require lib/std/io/fput.s
-require lib/std/proc/exit.s
-require lib/std/str/strcpy.s
-require lib/std/str/strlen.s
+requireend lib/std/io/fput.s
+requireend lib/std/proc/exit.s
+requireend lib/std/str/strcpy.s
+requireend lib/std/str/strlen.s
 
 db rootPath '/', 0
 ab pathBuf 64
-
-label start
 
 ; Copy root path into path buffer
 mov r0 pathBuf

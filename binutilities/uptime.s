@@ -1,15 +1,11 @@
-jmp start
+requireend lib/std/io/fput.s
+requireend lib/std/io/fputtime.s
+requireend lib/std/proc/exit.s
+requireend lib/std/time/timemonotonic.s
 
-require lib/std/io/fput.s
-require lib/std/io/fputtime.s
-require lib/std/proc/exit.s
-require lib/std/time/timemonotonic.s
-
-label start
-
+; Get time since booting and print it, followed by a newline
 call gettimemonotonic
 call puttime
-
 mov r0 '\n'
 call putc0
 

@@ -1,10 +1,8 @@
-jmp start
-
-require lib/std/io/fput.s
-require lib/std/io/fputdec.s
-require lib/std/math/int32.s
-require lib/std/proc/exit.s
-require lib/std/str/strpad.s
+requireend lib/std/io/fput.s
+requireend lib/std/io/fputdec.s
+requireend lib/std/math/int32.s
+requireend lib/std/proc/exit.s
+requireend lib/std/str/strpad.s
 
 db header '  PID  %CPU    STATE COMMAND\n', 0
 aw cpuCounts 64
@@ -16,8 +14,6 @@ ab psPidCommandBuf 64
 ab psPidScratchBuf 64
 
 ab psPidInt32 4
-
-label start
 
 ; Print header
 mov r0 header
