@@ -556,9 +556,9 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							ProcManPid pid=tmpData->regs[1];
 							ByteCodeWord bufAddr=tmpData->regs[2];
 
-							ProcManProcess *process=procManGetProcessByPid(pid);
-							if (process!=NULL) {
-								const char *execPath=procManGetExecPathFromProcess(process);
+							ProcManProcess *qProcess=procManGetProcessByPid(pid);
+							if (qProcess!=NULL) {
+								const char *execPath=procManGetExecPathFromProcess(qProcess);
 								if (!procManProcessMemoryWriteStr(process, tmpData, bufAddr, execPath))
 									return false;
 								tmpData->regs[0]=1;
@@ -569,10 +569,10 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							ProcManPid pid=tmpData->regs[1];
 							ByteCodeWord bufAddr=tmpData->regs[2];
 
-							ProcManProcess *process=procManGetProcessByPid(pid);
-							if (process!=NULL) {
+							ProcManProcess *qProcess=procManGetProcessByPid(pid);
+							if (qProcess!=NULL) {
 								const char *str="???";
-								switch(process->state) {
+								switch(qProcess->state) {
 									case ProcManProcessStateUnused:
 										str="unused";
 									break;
@@ -592,10 +592,10 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 						case ByteCodeSyscallIdGetAllCpuCounts: {
 							ByteCodeWord bufAddr=tmpData->regs[1];
 							for(unsigned i=0; i<ProcManPidMax; ++i) {
-								ProcManProcess *process=procManGetProcessByPid(i);
+								ProcManProcess *qProcess=procManGetProcessByPid(i);
 								uint16_t value;
-								if (process!=NULL)
-									value=process->instructionCounter;
+								if (qProcess!=NULL)
+									value=qProcess->instructionCounter;
 								else
 									value=0;
 								if (!procManProcessMemoryWriteWord(process, tmpData, bufAddr, value))
