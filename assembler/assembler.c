@@ -163,11 +163,12 @@ typedef struct {
 	AssemblerInstruction instructions[AssemblerLinesMax];
 	size_t instructionsNext;
 
-	uint16_t setSpLineIndex;
 	uint16_t stackRamOffset;
 
 	char includedPaths[256][1024]; // TODO: Avoid hardcoded limits (or at least check them...)
 	size_t includePathsNext;
+
+	bool noStack, noScratch;
 } AssemblerProgram;
 
 AssemblerProgram *assemblerProgramNew(void);
@@ -179,6 +180,7 @@ void assemblerRemoveLine(AssemblerProgram *program, int offset);
 
 bool assemblerProgramPreprocess(AssemblerProgram *program); // strips comments, whitespace etc. returns true if any changes made
 bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change); // returns false on failure
+bool assemblerProgramHandleNextOption(AssemblerProgram *program, bool *change); // returns false on failure
 
 bool assemblerProgramParseLines(AssemblerProgram *program); // converts lines to initial instructions, returns false on error
 
@@ -219,26 +221,8 @@ int main(int argc, char **argv) {
 	if (program==NULL)
 		goto done;
 
-	// Add line to set the stack pointer (this is just reserving it for now)
-	const char *spFile="<auto>";
-	char spLine[64];
-	sprintf(spLine, "mov r%u 65535", ByteCodeRegisterSP);
-
-	AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
-	assemblerLine->lineNum=1;
-	assemblerLine->file=malloc(strlen(spFile)+1); // TODO: Check return
-	strcpy(assemblerLine->file, spFile);
-	assemblerLine->original=malloc(strlen(spLine)+1); // TODO: Check return
-	strcpy(assemblerLine->original, spLine);
-	assemblerLine->modified=malloc(strlen(spLine)+1); // TODO: Check return
-	strcpy(assemblerLine->modified, spLine);
-
-	assemblerInsertLine(program, assemblerLine, 0);
-
-	program->setSpLineIndex=0;
-
 	// Read input file line-by-line
-	if (!assemblerInsertLinesFromFile(program, inputPath, 1))
+	if (!assemblerInsertLinesFromFile(program, inputPath, 0))
 		goto done;
 
 	// Preprocess (handle whitespace, includes etc)
@@ -255,7 +239,31 @@ int main(int argc, char **argv) {
 		if (!assemblerProgramHandleNextInclude(program, &includeChange))
 			goto done;
 		change|=includeChange;
+
+		// Handle an option if any (such as nostack or noscratch)
+		bool optionChange=false;
+		if (!assemblerProgramHandleNextOption(program, &optionChange))
+			goto done;
+		change|=optionChange;
 	} while(change);
+
+	// Unless nostack set, add line to set the stack pointer (this is just reserving it for now)
+	if (!program->noStack) {
+		const char *spFile="<auto>";
+		char spLine[64];
+		sprintf(spLine, "mov r%u 65535", ByteCodeRegisterSP);
+
+		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+		assemblerLine->lineNum=1;
+		assemblerLine->file=malloc(strlen(spFile)+1); // TODO: Check return
+		strcpy(assemblerLine->file, spFile);
+		assemblerLine->original=malloc(strlen(spLine)+1); // TODO: Check return
+		strcpy(assemblerLine->original, spLine);
+		assemblerLine->modified=malloc(strlen(spLine)+1); // TODO: Check return
+		strcpy(assemblerLine->modified, spLine);
+
+		assemblerInsertLine(program, assemblerLine, 0);
+	}
 
 	// Verbose output
 	if (verbose) {
@@ -281,14 +289,16 @@ int main(int argc, char **argv) {
 
 	assemblerProgramComputeMachineCodeOffsets(program);
 
-	// Update instruction we created earlier to set the stack pointer register (now that we have computed offsets)
-	// TODO: Check for not finding
-	for(unsigned i=0; i<program->instructionsNext; ++i) {
-		AssemblerInstruction *instruction=&program->instructions[i];
-		if (instruction->lineIndex==program->setSpLineIndex) {
-			// Update line to put correct ram offset in. No need to update dest or src pointers as the start of the string has not changed, and we know this is safe because the new offset cannot be longer than the one we used when allocating the line in the first place.
-			sprintf(instruction->d.mov.src, "%u", program->stackRamOffset);
-			break;
+	// Update instruction we created earlier (if we did) to set the stack pointer register (now that we have computed offsets)
+	if (!program->noStack) {
+		// TODO: Check for not finding
+		for(unsigned i=0; i<program->instructionsNext; ++i) {
+			AssemblerInstruction *instruction=&program->instructions[i];
+			if (instruction->lineIndex==0) {
+				// Update line to put correct ram offset in. No need to update dest or src pointers as the start of the string has not changed, and we know this is safe because the new offset cannot be longer than the one we used when allocating the line in the first place.
+				sprintf(instruction->d.mov.src, "%u", program->stackRamOffset);
+				break;
+			}
 		}
 	}
 
@@ -322,6 +332,8 @@ AssemblerProgram *assemblerProgramNew(void) {
 	program->linesNext=0;
 	program->instructionsNext=0;
 	program->includePathsNext=0;
+	program->noStack=false;
+	program->noScratch=false;
 
 	return program;
 }
@@ -553,6 +565,40 @@ bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) 
 		int offset=(isRequireEnd ? program->linesNext : line);
 		if (!assemblerInsertLinesFromFile(program, newPath, offset))
 			return false;
+
+		// We have handled something - return
+		break;
+	}
+
+	return true;
+}
+
+bool assemblerProgramHandleNextOption(AssemblerProgram *program, bool *change) {
+	assert(program!=NULL);
+
+	if (change!=NULL)
+		*change=false;
+
+	// Loop over lines looking for those which start with 'nostack ' or 'noscratch .
+	for(unsigned line=0; line<program->linesNext; ++line) {
+		AssemblerLine *assemblerLine=program->lines[line];
+
+		// Check for nostack or noscratch statement
+		bool isNoStack=(strncmp(assemblerLine->modified, "nostack", strlen("nostack"))==0);
+		bool isNoScratch=(strncmp(assemblerLine->modified, "noscratch", strlen("noscratch"))==0);
+		if (!isNoStack && !isNoScratch)
+			continue;
+
+		// Remove this line
+		assemblerRemoveLine(program, line);
+
+		// Indicate a change has occured
+		if (change!=NULL)
+			*change=true;
+
+		// Set relavent flag
+		program->noStack|=isNoStack;
+		program->noScratch|=isNoScratch;
 
 		// We have handled something - return
 		break;
@@ -1209,6 +1255,12 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				bytecodeInstructionCreateMiscSet16(instruction->machineCode, ByteCodeRegisterIP, addr);
 			} break;
 			case AssemblerInstructionTypePush: {
+				// This requires the stack register - can if we cannot use it
+				if (program->noStack) {
+					printf("error - push requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					return false;
+				}
+
 				// Verify src is a valid register
 				BytecodeRegister srcReg=assemblerRegisterFromStr(instruction->d.push.src);
 				if (srcReg==BytecodeRegisterNB) {
@@ -1226,6 +1278,12 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[3]=(inc2Op&0xFF);
 			} break;
 			case AssemblerInstructionTypePop: {
+				// This requires the stack register - can if we cannot use it
+				if (program->noStack) {
+					printf("error - pop requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					return false;
+				}
+
 				// Verify dest is a valid register
 				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.pop.dest);
 				if (destReg==BytecodeRegisterNB) {
@@ -1243,6 +1301,12 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[3]=(loadOp&0xFF);
 			} break;
 			case AssemblerInstructionTypeCall: {
+				// This requires the stack register - can if we cannot use it
+				if (program->noStack) {
+					printf("error - call requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					return false;
+				}
+
 				// Search through instructions looking for the label being defined
 				int addr=assemblerGetLabelSymbolAddr(program, instruction->d.call.label);
 				if (addr==-1) {
@@ -1262,6 +1326,18 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				bytecodeInstructionCreateMiscSet16(instruction->machineCode+4, ByteCodeRegisterIP, addr);
 			} break;
 			case AssemblerInstructionTypeRet: {
+				// This requires the scratch register - can if we cannot use it
+				if (program->noScratch) {
+					printf("error - ret requires scratch register but noscratch set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				// This requires the stack register - can if we cannot use it
+				if (program->noStack) {
+					printf("error - ret requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					return false;
+				}
+
 				// Create instructions (pop ret addr off stack, adjust it to skip call pseudo instructions, and then jump)
 				BytecodeInstructionStandard decOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 2);
 				instruction->machineCode[0]=(decOp>>8);
