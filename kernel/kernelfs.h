@@ -53,6 +53,8 @@ bool kernelFsFileCreate(const char *path);
 bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size);
 bool kernelFsFileDelete(const char *path); // fails if file is open, or path is a non-empty directory (can remove devices files also, unmounting as required)
 
+bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize); // path must not be open
+
 KernelFsFd kernelFsFileOpen(const char *path); // File/directory must exist. Returns KernelFsFdInvalid on failure to open.
 void kernelFsFileClose(KernelFsFd fd); // Accepts KernelFsFdInvalid (doing nothing).
 

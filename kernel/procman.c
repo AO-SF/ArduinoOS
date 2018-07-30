@@ -686,6 +686,16 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 								tmpData->regs[0]=1;
 							}
 						} break;
+						case ByteCodeSyscallIdResizeFile: {
+							uint16_t pathAddr=tmpData->regs[1];
+							KernelFsFileOffset newSize=tmpData->regs[2];
+
+							char path[KernelFsPathMax];
+							if (!procManProcessMemoryReadStr(process, tmpData, pathAddr, path, KernelFsPathMax))
+								return false;
+							kernelFsPathNormalise(path);
+							tmpData->regs[0]=kernelFsFileResize(path, newSize);
+						} break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							tmpData->regs[0]=tmpData->envVars.stdioFd;
 						break;
