@@ -1,11 +1,7 @@
-jmp start
-
-require lib/std/io/fput.s
-require lib/std/proc/exit.s
+requireend lib/std/io/fput.s
+requireend lib/std/proc/exit.s
 
 ab pathBuf 64
-
-label start
 
 ; Grab stdio fd
 mov r0 512

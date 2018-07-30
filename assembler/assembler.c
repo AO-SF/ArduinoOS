@@ -509,7 +509,8 @@ bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) 
 		// Check for include or require statement
 		bool isInclude=(strncmp(assemblerLine->modified, "include ", strlen("include "))==0);
 		bool isRequire=(strncmp(assemblerLine->modified, "require ", strlen("require "))==0);
-		if (!isInclude && !isRequire)
+		bool isRequireEnd=(strncmp(assemblerLine->modified, "requireend ", strlen("requireend "))==0);
+		if (!isInclude && !isRequire && !isRequireEnd)
 			continue;
 
 		// Extract path
@@ -549,7 +550,8 @@ bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) 
 		}
 
 		// Read line-by-line
-		if (!assemblerInsertLinesFromFile(program, newPath, line))
+		int offset=(isRequireEnd ? program->linesNext : line);
+		if (!assemblerInsertLinesFromFile(program, newPath, offset))
 			return false;
 
 		// We have handled something - return

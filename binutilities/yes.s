@@ -1,13 +1,8 @@
-jmp start
-
-require lib/std/io/fput.s
-require lib/std/str/strcpy.s
+requireend lib/std/io/fput.s
+requireend lib/std/str/strcpy.s
 
 db standardMsg 'y', 0
-
 ab argBuf 64
-
-label start
 
 ; Grab argument
 mov r0 3

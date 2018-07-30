@@ -20,21 +20,17 @@ aw readOffset 1
 
 ab runInBackground 1
 
-jmp start
-
-require lib/std/io/fget.s
-require lib/std/io/fput.s
-require lib/std/io/fputdec.s
-require lib/std/proc/exit.s
-require lib/std/proc/getabspath.s
-require lib/std/proc/getpwd.s
-require lib/std/proc/openpath.s
-require lib/std/proc/runpath.s
-require lib/std/str/strchr.s
-require lib/std/str/strequal.s
-require lib/std/str/strtrimlast.s
-
-label start
+requireend lib/std/io/fget.s
+requireend lib/std/io/fput.s
+requireend lib/std/io/fputdec.s
+requireend lib/std/proc/exit.s
+requireend lib/std/proc/getabspath.s
+requireend lib/std/proc/getpwd.s
+requireend lib/std/proc/openpath.s
+requireend lib/std/proc/runpath.s
+requireend lib/std/str/strchr.s
+requireend lib/std/str/strequal.s
+requireend lib/std/str/strtrimlast.s
 
 ; Is stdiofd already sensible?
 mov r0 handlingStdio

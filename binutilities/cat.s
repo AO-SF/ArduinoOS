@@ -1,15 +1,11 @@
-jmp start
-
-require lib/std/io/fget.s
-require lib/std/io/fput.s
-require lib/std/proc/exit.s
-require lib/std/proc/getabspath.s
+requireend lib/std/io/fget.s
+requireend lib/std/io/fput.s
+requireend lib/std/proc/exit.s
+requireend lib/std/proc/getabspath.s
 
 ab argBuf 64
 ab pathBuf 64
 ab fd 1
-
-label start
 
 ; Loop over args in turn
 mov r0 1 ; 0 is program name

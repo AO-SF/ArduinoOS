@@ -1,12 +1,8 @@
 ; Simply execs shell
 
-jmp start
-
-require lib/std/proc/exit.s
+requireend lib/std/proc/exit.s
 
 db execPath '/bin/sh', 0
-
-label start
 
 ; call exec (no arguments)
 mov r0 5

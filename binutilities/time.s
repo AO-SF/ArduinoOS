@@ -1,11 +1,9 @@
-jmp start
-
-require lib/std/io/fput.s
-require lib/std/io/fputtime.s
-require lib/std/proc/exit.s
-require lib/std/proc/getabspath.s
-require lib/std/proc/runpath.s
-require lib/std/time/timemonotonic.s
+requireend lib/std/io/fput.s
+requireend lib/std/io/fputtime.s
+requireend lib/std/proc/exit.s
+requireend lib/std/proc/getabspath.s
+requireend lib/std/proc/runpath.s
+requireend lib/std/time/timemonotonic.s
 
 db preMsg 'took: ', 0
 db forkErrorStr 'could not fork\n', 0
@@ -16,8 +14,6 @@ ab arg1Buf 64
 ab arg2Buf 64
 ab arg3Buf 64
 ab cmdBuf 64
-
-label start
 
 ; Grab arguments
 mov r0 3

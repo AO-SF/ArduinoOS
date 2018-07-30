@@ -1,11 +1,8 @@
-jmp start
+requireend lib/std/io/fput.s
+requireend lib/std/proc/exit.s
 
 ab buf 64
 
-require lib/std/io/fput.s
-require lib/std/proc/exit.s
-
-label start
 ; Get argc
 mov r0 2 ; getargc
 syscall

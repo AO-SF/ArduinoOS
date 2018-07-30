@@ -1,10 +1,7 @@
-jmp start
+requireend lib/std/io/fput.s
+requireend lib/std/io/fputdec.s
+requireend lib/std/proc/exit.s
 
-require lib/std/io/fput.s
-require lib/std/io/fputdec.s
-require lib/std/proc/exit.s
-
-label start
 ; Init sequence
 mov r4 0 ; r4 is the lower of the two current values
 mov r5 1 ; r5 is the higher

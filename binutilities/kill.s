@@ -1,11 +1,7 @@
-jmp start
-
-require lib/std/proc/exit.s
-require lib/std/str/strtoint.s
+requireend lib/std/proc/exit.s
+requireend lib/std/str/strtoint.s
 
 ab argBuf 64
-
-label start
 
 ; Grab pid from first argument
 mov r0 3
