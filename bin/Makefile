@@ -30,6 +30,7 @@ ALL:
 	./assembler ../binutilities/tty.s ../binmockup/tty
 	./assembler ../binutilities/ps.s ../binmockup/ps
 	./assembler ../binutilities/burn.s ../binmockup/burn
+	./assembler ../binutilities/kill.s ../binmockup/kill
 
 	./builder
 
