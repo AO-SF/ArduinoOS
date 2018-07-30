@@ -64,6 +64,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessTmpDat
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, ByteCodeWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, const char *str);
 
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong *instruction);
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction);
 
 void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData);
@@ -221,22 +222,18 @@ void procManProcessTick(ProcManPid pid) {
 
 	// Run a few instructions
 	for(unsigned instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
-		// Grab instruction
+		// Run a single instruction
 		BytecodeInstructionLong instruction;
-		if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[0]))
+		if (!procManProcessGetInstruction(process, &tmpData, &instruction))
 			goto kill;
-		BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
-		if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
-			if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[1]))
-				goto kill;
-		if (length==BytecodeInstructionLengthLong)
-			if (!procManProcessMemoryReadByte(process, &tmpData, tmpData.regs[ByteCodeRegisterIP]++, &instruction[2]))
-				goto kill;
 
 		// Are we meant to skip this instruction? (due to a previous skipN instruction)
 		if (tmpData.skipFlag) {
 			tmpData.skipFlag=false;
-			continue;
+
+			// Read the next instruction instead
+			if (!procManProcessGetInstruction(process, &tmpData, &instruction))
+				goto kill;
 		}
 
 		// Execute instruction
@@ -366,6 +363,19 @@ bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessTmpData
 		if (*c=='\0')
 			break;
 	}
+	return true;
+}
+
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong *instruction) {
+	if (!procManProcessMemoryReadByte(process, tmpData, tmpData->regs[ByteCodeRegisterIP]++, ((uint8_t *)instruction)+0))
+		return false;
+	BytecodeInstructionLength length=bytecodeInstructionParseLength(*instruction);
+	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
+		if (!procManProcessMemoryReadByte(process, tmpData, tmpData->regs[ByteCodeRegisterIP]++, ((uint8_t *)instruction)+1))
+			return false;
+	if (length==BytecodeInstructionLengthLong)
+		if (!procManProcessMemoryReadByte(process, tmpData, tmpData->regs[ByteCodeRegisterIP]++, ((uint8_t *)instruction)+2))
+			return false;
 	return true;
 }
 
