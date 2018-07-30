@@ -178,7 +178,7 @@ bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *path, i
 void assemblerRemoveLine(AssemblerProgram *program, int offset);
 
 bool assemblerProgramPreprocess(AssemblerProgram *program); // strips comments, whitespace etc. returns true if any changes made
-bool assemblerProgramHandleIncludes(AssemblerProgram *program, bool *change); // returns false on failure
+bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change); // returns false on failure
 
 bool assemblerProgramParseLines(AssemblerProgram *program); // converts lines to initial instructions, returns false on error
 
@@ -250,9 +250,9 @@ int main(int argc, char **argv) {
 		while(assemblerProgramPreprocess(program))
 			change=true;
 
-		// Handle includes
+		// Handle an include if any
 		bool includeChange=false;
-		if (!assemblerProgramHandleIncludes(program, &includeChange))
+		if (!assemblerProgramHandleNextInclude(program, &includeChange))
 			goto done;
 		change|=includeChange;
 	} while(change);
@@ -496,7 +496,7 @@ bool assemblerProgramPreprocess(AssemblerProgram *program) {
 	return change;
 }
 
-bool assemblerProgramHandleIncludes(AssemblerProgram *program, bool *change) {
+bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) {
 	assert(program!=NULL);
 
 	if (change!=NULL)
@@ -552,7 +552,8 @@ bool assemblerProgramHandleIncludes(AssemblerProgram *program, bool *change) {
 		if (!assemblerInsertLinesFromFile(program, newPath, line))
 			return false;
 
-		--line;
+		// We have handled something - return
+		break;
 	}
 
 	return true;
