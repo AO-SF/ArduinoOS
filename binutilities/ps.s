@@ -4,7 +4,7 @@ requireend lib/std/math/int32.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strpad.s
 
-db header '  PID  %CPU    STATE COMMAND\n', 0
+db header '  PID  %CPU   RAM    STATE COMMAND\n', 0
 aw cpuCounts 64
 aw cpuTotal 1
 
@@ -132,6 +132,15 @@ call int32div16
 
 mov r0 psPidInt32
 call int32get16
+call putdecpad
+mov r0 ' '
+call putc0
+
+; Print ram
+mov r0 11
+mov r1 psPidPid
+load8 r1 r1
+syscall
 call putdecpad
 mov r0 ' '
 call putc0
