@@ -24,10 +24,10 @@ typedef enum {
 
 #define ARGVMAX 4
 typedef struct {
-	KernelFsFd stdioFd; // set to KernelFsInvalid when init is called
-	char pwd[KernelFsPathMax]; // set to '/' when init is called
 	char argv[ARGVMAX][64]; // TODO: Avoid hardcoded 64 limit
+	char pwd[KernelFsPathMax]; // set to '/' when init is called
 	char path[KernelFsPathMax]; // set to '/bin' when init is called
+	KernelFsFd stdioFd; // set to KernelFsInvalid when init is called
 } ProcManProcessEnvVars;
 
 typedef struct {
