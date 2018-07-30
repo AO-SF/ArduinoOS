@@ -2,17 +2,20 @@ jmp start
 
 require lib/std/io/fput.s
 require lib/std/io/fputdec.s
+require lib/std/math/int32.s
 require lib/std/proc/exit.s
 require lib/std/str/strpad.s
 
 db header '  PID  %CPU    STATE COMMAND\n', 0
 aw cpuCounts 64
-aw cpuTotalDiv10 1
+aw cpuTotal 1
 
 ab psPidPid 1
 ab psPidStateBuf 64
 ab psPidCommandBuf 64
 ab psPidScratchBuf 64
+
+ab psPidInt32 4
 
 label start
 
@@ -27,7 +30,7 @@ mov r0 9
 mov r1 cpuCounts
 syscall
 
-mov r0 cpuTotalDiv10
+mov r0 cpuTotal
 mov r1 0
 store16 r0 r1
 
@@ -46,9 +49,7 @@ inc r3
 jmp cpusumstart
 label cpusumend
 
-mov r0 10 ; hack to help avoid overfow
-div r1 r1 r0
-mov r0 cpuTotalDiv10
+mov r0 cpuTotal
 store16 r0 r1
 
 ; Loop over pids
@@ -123,12 +124,18 @@ mov r1 cpuCounts
 add r0 r0 r1
 load16 r0 r0
 
-mov r1 10 ; hack due to overflow
-mul r0 r0 r1
-mov r1 cpuTotalDiv10
-load16 r1 r1
-div r0 r0 r1
+mov r1 r0
+mov r0 psPidInt32
+mov r2 100
+call int32mul1616
 
+mov r0 psPidInt32
+mov r1 cpuTotal
+load16 r1 r1
+call int32div16
+
+mov r0 psPidInt32
+call int32get16
 call putdecpad
 mov r0 ' '
 call putc0
