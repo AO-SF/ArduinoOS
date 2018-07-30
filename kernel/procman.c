@@ -607,6 +607,14 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							ByteCodeWord pid=tmpData->regs[1];
 							procManProcessKill(pid);
 						} break;
+						case ByteCodeSyscallIdGetPidRam: {
+							ByteCodeWord pid=tmpData->regs[1];
+							ProcManProcess *qProcess=procManGetProcessByPid(pid);
+							if (qProcess!=NULL) {
+								tmpData->regs[0]=sizeof(ProcManProcessTmpData); // TODO: In due course this will vary
+							} else
+								tmpData->regs[0]=0;
+						} break;
 						case ByteCodeSyscallIdRead: {
 							KernelFsFd fd=tmpData->regs[1];
 							uint16_t offset=tmpData->regs[2];
