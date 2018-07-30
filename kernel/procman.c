@@ -35,6 +35,7 @@ typedef struct {
 } ProcManProcessTmpData;
 
 typedef struct {
+	uint16_t instructionCounter; // reset regularly
 	KernelFsFd progmemFd, tmpFd;
 	uint8_t state;
 	uint8_t waitingData;
@@ -70,6 +71,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData);
 bool procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData); // Returns false only on critical error (e.g. segfault), i.e. may return true even though exec operation itself failed
 
+void procManResetInstructionCounters(void);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -80,6 +83,7 @@ void procManInit(void) {
 		procManData.processes[i].state=ProcManProcessStateUnused;
 		procManData.processes[i].progmemFd=KernelFsFdInvalid;
 		procManData.processes[i].tmpFd=KernelFsFdInvalid;
+		procManData.processes[i].instructionCounter=0;
 	}
 }
 
@@ -130,6 +134,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 	// Initialise state
 	procManData.processes[pid].state=ProcManProcessStateActive;
+	procManData.processes[pid].instructionCounter=0;
 
 	// Initialise tmp file:
 	ProcManProcessTmpData procTmpData;
@@ -162,6 +167,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 		procManData.processes[pid].tmpFd=KernelFsFdInvalid;
 		kernelFsFileDelete(tmpPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
 		procManData.processes[pid].state=ProcManProcessStateUnused;
+		procManData.processes[pid].instructionCounter=0;
 	}
 
 	return ProcManPidMax;
@@ -195,6 +201,7 @@ void procManProcessKill(ProcManPid pid) {
 
 	// Reset state
 	procManData.processes[pid].state=ProcManProcessStateUnused;
+	procManData.processes[pid].instructionCounter=0;
 
 	// Check if any processes are waiting due to waitpid syscall
 	for(unsigned i=0; i<ProcManPidMax; ++i) {
@@ -239,6 +246,11 @@ void procManProcessTick(ProcManPid pid) {
 		// Execute instruction
 		if (!procManProcessExecInstruction(process, &tmpData, instruction))
 			goto kill;
+
+		// Increment instruction tally (if would overflow reset all first)
+		if (process->instructionCounter==0xFFFFu)
+			procManResetInstructionCounters();
+		++process->instructionCounter;
 
 		// Has this process gone inactive?
 		if (procManData.processes[pid].state!=ProcManProcessStateActive)
@@ -558,6 +570,20 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							} else
 								tmpData->regs[0]=0;
 						} break;
+						case ByteCodeSyscallIdGetAllCpuCounts: {
+							ByteCodeWord bufAddr=tmpData->regs[1];
+							for(unsigned i=0; i<ProcManPidMax; ++i) {
+								ProcManProcess *process=procManGetProcessByPid(i);
+								uint16_t value;
+								if (process!=NULL)
+									value=process->instructionCounter;
+								else
+									value=0;
+								if (!procManProcessMemoryWriteWord(process, tmpData, bufAddr, value))
+									return false;
+								bufAddr+=2;
+							}
+						} break;
 						case ByteCodeSyscallIdRead: {
 							KernelFsFd fd=tmpData->regs[1];
 							uint16_t offset=tmpData->regs[2];
@@ -708,6 +734,7 @@ void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 	// Simply use same FD as parent for the program data
 	procManData.processes[childPid].state=ProcManProcessStateActive;
 	procManData.processes[childPid].progmemFd=procManData.processes[parentPid].progmemFd;
+	procManData.processes[childPid].instructionCounter=0;
 
 	// Update parent return value with child's PID
 	tmpData->regs[0]=childPid;
@@ -721,6 +748,7 @@ void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 		procManData.processes[childPid].tmpFd=KernelFsFdInvalid;
 		kernelFsFileDelete(childTmpPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
 		procManData.processes[childPid].state=ProcManProcessStateUnused;
+		procManData.processes[childPid].instructionCounter=0;
 	}
 
 	// Indicate error
@@ -775,4 +803,9 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 		strcpy(tmpData->envVars.argv[i], args[i]);
 
 	return true;
+}
+
+void procManResetInstructionCounters(void) {
+	for(unsigned i=0; i<ProcManPidMax; ++i)
+		procManData.processes[i].instructionCounter=0;
 }

@@ -313,10 +313,17 @@ bool processRunNextInstruction(Process *process) {
 						case ByteCodeSyscallIdGetPidPath:
 							if (verbose)
 								printf("Info: syscall(id=%i [getpidpath] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdGetPidState:
 							if (verbose)
 								printf("Info: syscall(id=%i [getpidstate] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						break;
+						case ByteCodeSyscallIdGetAllCpuCounts:
+							if (verbose)
+								printf("Info: syscall(id=%i [getallcpucounts] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdRead:
 							if (process->regs[1]==ByteCodeFdStdin) {
