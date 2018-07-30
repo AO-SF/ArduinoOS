@@ -2,7 +2,7 @@ aw int32ScratchInt32 2
 
 ; 32 bit operands require pointers to 4 bytes (or 2 words)
 
-; int32set16(dest=r0, src=r1) ; 32 bit dest ptr = 16 bit src value
+; int32set16(dest=r0, src=r1) - 32 bit dest ptr = 16 bit src value
 label int32set16
 mov r2 0
 store16 r0 r2
@@ -10,7 +10,7 @@ inc2 r0
 store16 r0 r1
 ret
 
-; int32setUpper16(dest=r0, src=r1) ; 32 bit dest ptr = (16 bit src value)<<16
+; int32setUpper16(dest=r0, src=r1) - 32 bit dest ptr = (16 bit src value)<<16
 label int32setUpper16
 store16 r0 r1
 inc2 r0
@@ -18,7 +18,7 @@ mov r2 0
 store16 r0 r2
 ret
 
-; int32set16shift(dest=r0, src=r1, shift=r2) ; like int32set16 but also shifts src first
+; int32set16shift(dest=r0, src=r1, shift=r2) - like int32set16 but also shifts src first
 label int32set16shift
 mov r3 16
 sub r3 r3 r2
