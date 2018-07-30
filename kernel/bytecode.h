@@ -116,6 +116,7 @@ typedef enum {
 	ByteCodeSyscallIdWaitPid=(0|6),
 	ByteCodeSyscallIdGetPidPath=(0|7),
 	ByteCodeSyscallIdGetPidState=(0|8),
+	ByteCodeSyscallIdGetAllCpuCounts=(0|9),
 	ByteCodeSyscallIdRead=(256|0),
 	ByteCodeSyscallIdWrite=(256|1),
 	ByteCodeSyscallIdOpen=(256|2),
