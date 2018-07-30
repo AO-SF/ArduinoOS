@@ -603,6 +603,10 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 								bufAddr+=2;
 							}
 						} break;
+						case ByteCodeSyscallIdKill: {
+							ByteCodeWord pid=tmpData->regs[1];
+							procManProcessKill(pid);
+						} break;
 						case ByteCodeSyscallIdRead: {
 							KernelFsFd fd=tmpData->regs[1];
 							uint16_t offset=tmpData->regs[2];
@@ -727,6 +731,8 @@ void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 	ProcManPid childPid=procManFindUnusedPid();
 	if (childPid==ProcManPidMax)
 		goto error;
+
+	// ..... printf("@@@@@ fork in %i, child %i\n", parentPid, childPid);
 
 	// Construct tmp file path
 	// TODO: Try others if exists
