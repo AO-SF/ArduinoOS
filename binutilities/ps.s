@@ -3,11 +3,14 @@ jmp start
 require lib/std/io/fput.s
 require lib/std/io/fputdec.s
 require lib/std/proc/exit.s
+require lib/std/str/strpad.s
 
-db header '  PID COMMAND\n', 0
+db header '  PID    STATE COMMAND\n', 0
 
 ab psPidPid 1
+ab psPidStateBuf 64
 ab psPidCommandBuf 64
+ab psPidScratchBuf 64
 
 label start
 
@@ -46,21 +49,46 @@ mov r1 psPidPid
 store8 r1 r0
 
 ; Grab command
-mov r1 r0
 mov r0 7
+mov r1 psPidPid
+load8 r1 r1
 mov r2 psPidCommandBuf
 syscall
 
 cmp r0 r0 r0
 skipeqz r0
-jmp psPidExists
+jmp psPidGotCommand
 ret
-label psPidExists
+label psPidGotCommand
+
+; Grab state
+mov r0 8
+mov r1 psPidPid
+load8 r1 r1
+mov r2 psPidStateBuf
+syscall
+
+cmp r0 r0 r0
+skipeqz r0
+jmp psPidGotState
+ret
+label psPidGotState
 
 ; Print pid
 mov r0 psPidPid
 load8 r0 r0
 call putdecpad
+mov r0 ' '
+call putc0
+
+; Print state (padding first)
+mov r0 psPidScratchBuf
+mov r1 psPidStateBuf
+mov r2 8
+call strpadfront
+
+mov r0 psPidScratchBuf
+call puts0
 mov r0 ' '
 call putc0
 
