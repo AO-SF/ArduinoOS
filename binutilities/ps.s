@@ -5,7 +5,9 @@ require lib/std/io/fputdec.s
 require lib/std/proc/exit.s
 require lib/std/str/strpad.s
 
-db header '  PID    STATE COMMAND\n', 0
+db header '  PID  %CPU    STATE COMMAND\n', 0
+aw cpuCounts 64
+aw cpuTotalDiv10 1
 
 ab psPidPid 1
 ab psPidStateBuf 64
@@ -17,6 +19,37 @@ label start
 ; Print header
 mov r0 header
 call puts0
+
+; Grab all cpu counts now in one go and compute sum
+; This at least makes sure the percentages add up properly
+; Although there is still an (unavoidable) race condition between this and actually outputting the data
+mov r0 9
+mov r1 cpuCounts
+syscall
+
+mov r0 cpuTotalDiv10
+mov r1 0
+store16 r0 r1
+
+mov r1 0
+mov r2 cpuCounts
+mov r3 0
+label cpusumstart
+mov r4 64
+cmp r4 r3 r4
+skipneq r4
+jmp cpusumend
+load16 r4 r2
+add r1 r1 r4
+inc2 r2
+inc r3
+jmp cpusumstart
+label cpusumend
+
+mov r0 10 ; hack to help avoid overfow
+div r1 r1 r0
+mov r0 cpuTotalDiv10
+store16 r0 r1
 
 ; Loop over pids
 mov r0 0
@@ -77,6 +110,25 @@ label psPidGotState
 ; Print pid
 mov r0 psPidPid
 load8 r0 r0
+call putdecpad
+mov r0 ' '
+call putc0
+
+; Print cpu load
+mov r0 psPidPid
+load8 r0 r0
+mov r1 2
+mul r0 r0 r1
+mov r1 cpuCounts
+add r0 r0 r1
+load16 r0 r0
+
+mov r1 10 ; hack due to overflow
+mul r0 r0 r1
+mov r1 cpuTotalDiv10
+load16 r1 r1
+div r0 r0 r1
+
 call putdecpad
 mov r0 ' '
 call putc0
