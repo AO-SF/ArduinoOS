@@ -189,11 +189,16 @@ ProcManPid procManProcessNew(const char *programPath) {
 }
 
 void procManProcessKill(ProcManPid pid) {
+	// Not even open?
+	ProcManProcess *process=procManGetProcessByPid(pid);
+	if (process==NULL)
+		return;
+
 	// Close FDs
-	KernelFsFd progmemFd=procManData.processes[pid].progmemFd;
+	KernelFsFd progmemFd=process->progmemFd;
 	if (progmemFd!=KernelFsFdInvalid) {
 		// progmemFd may be shared so check if anyone else is still using this one before closing it
-		procManData.processes[pid].progmemFd=KernelFsFdInvalid;
+		process->progmemFd=KernelFsFdInvalid;
 
 		unsigned i;
 		for(i=0; i<ProcManPidMax; ++i)
@@ -204,19 +209,19 @@ void procManProcessKill(ProcManPid pid) {
 			kernelFsFileClose(progmemFd);
 	}
 
-	if (procManData.processes[pid].tmpFd!=KernelFsFdInvalid) {
+	if (process->tmpFd!=KernelFsFdInvalid) {
 		char tmpPath[KernelFsPathMax];
-		strcpy(tmpPath, kernelFsGetFilePath(procManData.processes[pid].tmpFd));
+		strcpy(tmpPath, kernelFsGetFilePath(process->tmpFd));
 
-		kernelFsFileClose(procManData.processes[pid].tmpFd);
-		procManData.processes[pid].tmpFd=KernelFsFdInvalid;
+		kernelFsFileClose(process->tmpFd);
+		process->tmpFd=KernelFsFdInvalid;
 
 		kernelFsFileDelete(tmpPath);
 	}
 
 	// Reset state
-	procManData.processes[pid].state=ProcManProcessStateUnused;
-	procManData.processes[pid].instructionCounter=0;
+	process->state=ProcManProcessStateUnused;
+	process->instructionCounter=0;
 
 	// Check if any processes are waiting due to waitpid syscall
 	for(unsigned i=0; i<ProcManPidMax; ++i) {
