@@ -11,7 +11,10 @@
 
 #define ProcManProcessRamSize 1024 // TODO: Allow this to be dynamic
 
-const unsigned procManProcessTickInstructionsPerTick=8; // Generally a higher value causes faster execution, but decreased responsiveness if many processes running
+#define procManProcessInstructionCounterMax ((1u)<<16) // TODO: On arduino this needs 32 bit
+#define procManProcessInstructionCounterMaxMinusOne (((1u)<<16)-1) // TODO: On arduino this only needs 16 bit but needs calculating differently
+#define procManProcessTickInstructionsPerTick 8 // Generally a higher value causes faster execution, but decreased responsiveness if many processes running
+#define procManTicksPerInstructionCounterReset (3*1024) // must not exceed procManProcessInstructionCounterMax/procManProcessTickInstructionsPerTick, which is currently 8k, target is to reset roughly every 10s
 
 typedef enum {
 	ProcManProcessStateUnused,
@@ -43,6 +46,7 @@ typedef struct {
 
 typedef struct {
 	ProcManProcess processes[ProcManPidMax];
+	uint16_t ticksSinceLastInstructionCounterReset;
 } ProcMan;
 ProcMan procManData;
 
@@ -85,6 +89,9 @@ void procManInit(void) {
 		procManData.processes[i].tmpFd=KernelFsFdInvalid;
 		procManData.processes[i].instructionCounter=0;
 	}
+
+	// Clear other fields
+	procManData.ticksSinceLastInstructionCounterReset=0;
 }
 
 void procManQuit(void) {
@@ -94,9 +101,17 @@ void procManQuit(void) {
 }
 
 void procManTickAll(void) {
+	// Run single tick for each process
 	ProcManPid pid;
 	for(pid=0; pid<ProcManPidMax; ++pid)
 		procManProcessTick(pid);
+
+	// Have we ran enough ticks to reset the instruction counters? (they are about to overflow)
+	++procManData.ticksSinceLastInstructionCounterReset;
+	if (procManData.ticksSinceLastInstructionCounterReset>=procManTicksPerInstructionCounterReset) {
+		procManData.ticksSinceLastInstructionCounterReset=0;
+		procManResetInstructionCounters();
+	}
 }
 
 int procManGetProcessCount(void) {
@@ -247,9 +262,8 @@ void procManProcessTick(ProcManPid pid) {
 		if (!procManProcessExecInstruction(process, &tmpData, instruction))
 			goto kill;
 
-		// Increment instruction tally (if would overflow reset all first)
-		if (process->instructionCounter==0xFFFFu)
-			procManResetInstructionCounters();
+		// Increment instruction counter
+		assert(process->instructionCounter<procManProcessInstructionCounterMaxMinusOne); // we reset often enough to prevent this
 		++process->instructionCounter;
 
 		// Has this process gone inactive?
