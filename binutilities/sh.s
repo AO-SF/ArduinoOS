@@ -18,6 +18,8 @@ ab interactiveMode 1
 ab inputFd 1
 aw readOffset 1
 
+ab runInBackground 1
+
 jmp start
 
 require lib/std/io/fget.s
@@ -205,6 +207,33 @@ store16 r0 r1
 mov r0 inputBuf
 call strtrimlast
 
+; Parse input - check for trailing '&' to indicate background
+mov r0 runInBackground
+mov r1 0
+store8 r0 r1
+
+mov r0 inputBuf
+call strlen
+cmp r1 r0 r0
+skipneqz r1
+jmp shellRunFdInputBackgroundCheckEnd
+mov r1 inputBuf
+add r0 r0 r1
+dec r0
+load8 r3 r0
+
+mov r1 '&'
+cmp r2 r3 r1
+skipeq r2
+jmp shellRunFdInputBackgroundCheckEnd
+mov r1 0 ; remove & from inputBuf
+store8 r0 r1
+mov r0 runInBackground
+mov r1 1
+store8 r0 r1
+
+label shellRunFdInputBackgroundCheckEnd
+
 ; Parse input - check for first space implying at least one argument
 mov r0 inputBuf
 mov r1 ' '
@@ -319,10 +348,18 @@ mov r1 1
 syscall
 
 label shellForkExecForkParent
-; Wait for child to terminate
+; Wait for child to terminate (unless background set to true)
+mov r1 runInBackground
+load8 r1 r1
+cmp r1 r1 r1
+skipeqz r1
+jmp shellRunFdRet
+
 mov r1 r0 ; childs PID
 mov r0 6 ; waitpid syscall
 syscall
+
+label shellRunFdRet
 ret
 
 label shellForkExecError
