@@ -1,6 +1,6 @@
 ; 32 bit operands require pointers to 4 bytes (or 2 words)
 
-; int32set16(dest=r0, src=r1)
+; int32set16(dest=r0, src=r1) ; 32 bit dest ptr = 16 bit src value
 label int32set16
 mov r2 0
 store16 r0 r2
