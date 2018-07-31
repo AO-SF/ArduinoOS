@@ -48,6 +48,7 @@ uint8_t miniFsFileGetSizeFactorFromIndex(const MiniFs *fs, uint8_t index);
 uint16_t miniFsFileGetSizeFromIndex(const MiniFs *fs, uint8_t index);
 uint16_t miniFsFileGetFilenameOffsetFromIndex(const MiniFs *fs, uint8_t index);
 uint16_t miniFsFileGetContentOffsetFromIndex(const MiniFs *fs, uint8_t index);
+uint16_t miniFsFileGetContentLenFromIndex(const MiniFs *fs, uint8_t index);
 uint16_t miniFsGetFileTotalLengthFromIndex(const MiniFs *fs, uint8_t index);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -525,6 +526,13 @@ uint16_t miniFsFileGetContentOffsetFromIndex(const MiniFs *fs, uint8_t index) {
 			return fileOffset;
 	}
 	return 0;
+}
+
+uint16_t miniFsFileGetContentLenFromIndex(const MiniFs *fs, uint8_t index) {
+	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	uint16_t total=miniFsGetFileTotalLengthFromIndex(fs, index);
+	uint16_t offset=miniFsFileGetContentOffsetFromIndex(fs, index);
+	return baseOffset+total-offset;
 }
 
 uint16_t miniFsGetFileTotalLengthFromIndex(const MiniFs *fs, uint8_t index) {
