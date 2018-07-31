@@ -746,6 +746,15 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							kernelFsPathNormalise(path);
 							procData->regs[0]=kernelFsFileResize(path, newSize);
 						} break;
+						case ByteCodeSyscallIdFileGetLen: {
+							uint16_t pathAddr=procData->regs[1];
+
+							char path[KernelFsPathMax];
+							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax))
+								return false;
+							kernelFsPathNormalise(path);
+							procData->regs[0]=kernelFsFileGetLen(path);
+						} break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							procData->regs[0]=procData->envVars.stdioFd;
 						break;
