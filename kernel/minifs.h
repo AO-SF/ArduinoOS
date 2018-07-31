@@ -48,6 +48,8 @@ uint16_t miniFsFileGetSize(const MiniFs *fs, const char *filename);
 bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t size);
 bool miniFsFileDelete(MiniFs *fs, const char *filename);
 
+bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newSize);
+
 int miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset); // Returns -1 on failure
 bool miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, uint8_t value);
 
