@@ -1,4 +1,5 @@
 requireend lib/std/io/fput.s
+requireend lib/std/io/fputdec.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strcpy.s
 requireend lib/std/str/strlen.s
@@ -38,7 +39,7 @@ jmp printDirIndentLoopStart
 label printDirIndentLoopEnd
 pop r0
 
-; Print name and a newline
+; Print name
 mov r1 1
 cmp r1 r0 r1
 skiple r1
@@ -47,6 +48,23 @@ inc r0
 mov r1 pathBuf
 add r0 r0 r1
 call puts0
+
+; Print file size
+mov r0 ' '
+call putc0
+
+mov r0 263
+mov r1 pathBuf
+syscall
+cmp r1 r0 r0
+skipneqz r1
+jmp printDirNoSize
+call putdec
+mov r0 'b'
+call putc0
+label printDirNoSize
+
+; Print newline
 mov r0 '\n'
 call putc0
 
