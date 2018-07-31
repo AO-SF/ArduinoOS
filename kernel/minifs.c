@@ -39,7 +39,6 @@ bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index);
 
 uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor, uint8_t *outIndex); // Returns 0 on failure to find
 
-
 // The follow all return 0 if slot is unused
 uint8_t miniFsFileGetBaseOffsetFactorFromIndex(const MiniFs *fs, uint8_t index);
 uint16_t miniFsFileGetBaseOffsetFromIndex(const MiniFs *fs, uint8_t index);
