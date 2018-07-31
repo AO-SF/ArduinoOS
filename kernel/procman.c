@@ -1,31 +1,3 @@
-/*
-
-.....
-
-* idea: make exec shrink ram back to initial size 32
-	otherwise shell is huge and everything derived from it also uses same max
-* ideally want to save space in TmpData
-	* currently envvars is huge (6*64+1~=512 bytes)
-		making argv length 32 instead of 64 would save most
-		however given paths are passed as args, might as well also do the same to pathmax
-		but this might just be pushing it a bit
-		/lib/std/proc/asd123.s is 22 for example
-		so maybe just about ok with limit of 32
-		this would also reduce buffer sizes in running programs by quite a lot
-
-		also then might as well reduce pidmax to 32 given how big tmpData is anyway
-		this will also reduce array/buffer sizes in places
-
-		PROBLEM - concatenating paths might need up to 64
-		although envars paths should all be normalised, so as a hack store with less?
-		then anyone reading only can just use 32 byte buffer, anyone manipulating should use 64
-	* skip flag will end up being padded to at least a byte, needs putting in correct place
-* in the future may want someway for program to indicate roughly how much ram they want
-	so say the asssembler indicates size of all symbols created and also adds some for stack
-	then we initially request this, and if we end up needing more, then fine
-
-*/
-
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
