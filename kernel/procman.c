@@ -9,8 +9,6 @@
 #include "kernelfs.h"
 #include "procman.h"
 
-#define ProcManProcessInitialRamSize 32
-
 #define procManProcessInstructionCounterMax ((1u)<<16) // TODO: On arduino this needs 32 bit
 #define procManProcessInstructionCounterMaxMinusOne (((1u)<<16)-1) // TODO: On arduino this only needs 16 bit but needs calculating differently
 #define procManProcessTickInstructionsPerTick 8 // Generally a higher value causes faster execution, but decreased responsiveness if many processes running
@@ -146,7 +144,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(procPath, sizeof(ProcManProcessProcData)))
 		goto error;
-	if (!kernelFsFileCreateWithSize(ramPath, ProcManProcessInitialRamSize))
+	if (!kernelFsFileCreateWithSize(ramPath, 0))
 		goto error;
 
 	// Attempt to open proc and ram files
@@ -167,7 +165,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procData.regs[ByteCodeRegisterIP]=0;
 	procData.skipFlag=false;
 	procData.envVars.stdioFd=KernelFsFdInvalid;
-	procData.ramSize=ProcManProcessInitialRamSize;
+	procData.ramSize=0;
 	procData.ramFd=ramFd;
 	strcpy(procData.envVars.pwd, programPath);
 	char *dirname, *basename;
