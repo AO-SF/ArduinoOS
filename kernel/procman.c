@@ -1,3 +1,31 @@
+/*
+
+.....
+
+* idea: make exec shrink ram back to initial size 32
+	otherwise shell is huge and everything derived from it also uses same max
+* ideally want to save space in TmpData
+	* currently envvars is huge (6*64+1~=512 bytes)
+		making argv length 32 instead of 64 would save most
+		however given paths are passed as args, might as well also do the same to pathmax
+		but this might just be pushing it a bit
+		/lib/std/proc/asd123.s is 22 for example
+		so maybe just about ok with limit of 32
+		this would also reduce buffer sizes in running programs by quite a lot
+
+		also then might as well reduce pidmax to 32 given how big tmpData is anyway
+		this will also reduce array/buffer sizes in places
+
+		PROBLEM - concatenating paths might need up to 64
+		although envars paths should all be normalised, so as a hack store with less?
+		then anyone reading only can just use 32 byte buffer, anyone manipulating should use 64
+	* skip flag will end up being padded to at least a byte, needs putting in correct place
+* in the future may want someway for program to indicate roughly how much ram they want
+	so say the asssembler indicates size of all symbols created and also adds some for stack
+	then we initially request this, and if we end up needing more, then fine
+
+*/
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,7 +37,7 @@
 #include "kernelfs.h"
 #include "procman.h"
 
-#define ProcManProcessRamSize 1024 // TODO: Allow this to be dynamic
+#define ProcManProcessInitialRamSize 32
 
 #define procManProcessInstructionCounterMax ((1u)<<16) // TODO: On arduino this needs 32 bit
 #define procManProcessInstructionCounterMaxMinusOne (((1u)<<16)-1) // TODO: On arduino this only needs 16 bit but needs calculating differently
@@ -33,13 +61,14 @@ typedef struct {
 typedef struct {
 	ByteCodeWord regs[BytecodeRegisterNB];
 	ProcManProcessEnvVars envVars;
+	uint16_t ramSize;
+	uint8_t ramFd;
 	bool skipFlag; // skip next instruction?
-	uint8_t ram[ProcManProcessRamSize];
-} ProcManProcessTmpData;
+} ProcManProcessProcData;
 
 typedef struct {
 	uint16_t instructionCounter; // reset regularly
-	KernelFsFd progmemFd, tmpFd;
+	KernelFsFd progmemFd, procFd;
 	uint8_t state;
 	uint8_t waitingData;
 } ProcManProcess;
@@ -60,20 +89,21 @@ const char *procManGetExecPathFromProcess(const ProcManProcess *process);
 
 ProcManPid procManFindUnusedPid(void);
 
-bool procManProcessGetTmpData(ProcManProcess *process, ProcManProcessTmpData *tmpData);
+bool procManProcessLoadProcData(const ProcManProcess *process, ProcManProcessProcData *procData);
+bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData *procData);
 
-bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, uint8_t *value);
-bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, ByteCodeWord *value);
-bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, char *str, uint16_t len);
-bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, uint8_t value);
-bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, ByteCodeWord value);
-bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, const char *str);
+bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t *value);
+bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, ByteCodeWord *value);
+bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, char *str, uint16_t len);
+bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t value);
+bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, ByteCodeWord value);
+bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, const char *str);
 
-bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong *instruction);
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction);
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong *instruction);
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction);
 
-void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData);
-bool procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData); // Returns false only on critical error (e.g. segfault), i.e. may return true even though exec operation itself failed
+void procManProcessFork(ProcManProcess *process, ProcManProcessProcData *procData);
+bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData); // Returns false only on critical error (e.g. segfault), i.e. may return true even though exec operation itself failed
 
 void procManResetInstructionCounters(void);
 
@@ -86,7 +116,7 @@ void procManInit(void) {
 	for(int i=0; i<ProcManPidMax; ++i) {
 		procManData.processes[i].state=ProcManProcessStateUnused;
 		procManData.processes[i].progmemFd=KernelFsFdInvalid;
-		procManData.processes[i].tmpFd=KernelFsFdInvalid;
+		procManData.processes[i].procFd=KernelFsFdInvalid;
 		procManData.processes[i].instructionCounter=0;
 	}
 
@@ -123,53 +153,62 @@ int procManGetProcessCount(void) {
 }
 
 ProcManPid procManProcessNew(const char *programPath) {
+	KernelFsFd ramFd=KernelFsFdInvalid;
+
 	// Find a PID for the new process
 	ProcManPid pid=procManFindUnusedPid();
 	if (pid==ProcManPidMax)
-		goto error;
+		return ProcManPidMax;
 
-	// Construct tmp file path
-	// TODO: Try others if exists
-	char tmpPath[KernelFsPathMax];
-	sprintf(tmpPath, "/tmp/proc%u", pid);
+	// Construct tmp paths
+	// TODO: Try others if exist
+	char procPath[KernelFsPathMax], ramPath[KernelFsPathMax];
+	sprintf(procPath, "/tmp/proc%u", pid);
+	sprintf(ramPath, "/tmp/ram%u", pid);
 
 	// Attempt to open program file
 	procManData.processes[pid].progmemFd=kernelFsFileOpen(programPath);
 	if (procManData.processes[pid].progmemFd==KernelFsFdInvalid)
 		goto error;
 
-	// Attempt to create tmp file
-	if (!kernelFsFileCreateWithSize(tmpPath, sizeof(ProcManProcessTmpData)))
+	// Attempt to create proc and ram files
+	if (!kernelFsFileCreateWithSize(procPath, sizeof(ProcManProcessProcData)))
+		goto error;
+	if (!kernelFsFileCreateWithSize(ramPath, ProcManProcessInitialRamSize))
 		goto error;
 
-	// Attempt to open tmp file
-	procManData.processes[pid].tmpFd=kernelFsFileOpen(tmpPath);
-	if (procManData.processes[pid].tmpFd==KernelFsFdInvalid)
+	// Attempt to open proc and ram files
+	procManData.processes[pid].procFd=kernelFsFileOpen(procPath);
+	if (procManData.processes[pid].procFd==KernelFsFdInvalid)
+		goto error;
+
+	ramFd=kernelFsFileOpen(ramPath);
+	if (ramFd==KernelFsFdInvalid)
 		goto error;
 
 	// Initialise state
 	procManData.processes[pid].state=ProcManProcessStateActive;
 	procManData.processes[pid].instructionCounter=0;
 
-	// Initialise tmp file:
-	ProcManProcessTmpData procTmpData;
-	procTmpData.regs[ByteCodeRegisterIP]=0;
-	procTmpData.skipFlag=false;
-	procTmpData.envVars.stdioFd=KernelFsFdInvalid;
-
-	strcpy(procTmpData.envVars.pwd, programPath);
+	// Initialise proc file:
+	ProcManProcessProcData procData;
+	procData.regs[ByteCodeRegisterIP]=0;
+	procData.skipFlag=false;
+	procData.envVars.stdioFd=KernelFsFdInvalid;
+	procData.ramSize=ProcManProcessInitialRamSize;
+	procData.ramFd=ramFd;
+	strcpy(procData.envVars.pwd, programPath);
 	char *dirname, *basename;
-	kernelFsPathSplit(procTmpData.envVars.pwd, &dirname, &basename);
-	assert(dirname==procTmpData.envVars.pwd);
+	kernelFsPathSplit(procData.envVars.pwd, &dirname, &basename);
+	assert(dirname==procData.envVars.pwd);
 
-	strcpy(procTmpData.envVars.path, "/bin");
+	strcpy(procData.envVars.path, "/bin");
 
 	// TODO: Put programPath (or part of?) into argv[0]
 	for(unsigned i=0; i<ARGVMAX; ++i)
-		strcpy(procTmpData.envVars.argv[i], "");
+		strcpy(procData.envVars.argv[i], "");
 
-	KernelFsFileOffset written=kernelFsFileWrite(procManData.processes[pid].tmpFd, (const uint8_t *)&procTmpData, sizeof(procTmpData));
-	if (written<sizeof(procTmpData))
+	if (!procManProcessStoreProcData(&procManData.processes[pid], &procData))
 		goto error;
 
 	return pid;
@@ -178,9 +217,11 @@ ProcManPid procManProcessNew(const char *programPath) {
 	if (pid!=ProcManPidMax) {
 		kernelFsFileClose(procManData.processes[pid].progmemFd);
 		procManData.processes[pid].progmemFd=KernelFsFdInvalid;
-		kernelFsFileClose(procManData.processes[pid].tmpFd);
-		procManData.processes[pid].tmpFd=KernelFsFdInvalid;
-		kernelFsFileDelete(tmpPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+		kernelFsFileClose(procManData.processes[pid].procFd);
+		procManData.processes[pid].procFd=KernelFsFdInvalid;
+		kernelFsFileDelete(procPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+		kernelFsFileClose(ramFd);
+		kernelFsFileDelete(ramPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
 		procManData.processes[pid].state=ProcManProcessStateUnused;
 		procManData.processes[pid].instructionCounter=0;
 	}
@@ -194,7 +235,7 @@ void procManProcessKill(ProcManPid pid) {
 	if (process==NULL)
 		return;
 
-	// Close FDs
+	// Close files, deleting tmp ones
 	KernelFsFd progmemFd=process->progmemFd;
 	if (progmemFd!=KernelFsFdInvalid) {
 		// progmemFd may be shared so check if anyone else is still using this one before closing it
@@ -209,14 +250,24 @@ void procManProcessKill(ProcManPid pid) {
 			kernelFsFileClose(progmemFd);
 	}
 
-	if (process->tmpFd!=KernelFsFdInvalid) {
-		char tmpPath[KernelFsPathMax];
-		strcpy(tmpPath, kernelFsGetFilePath(process->tmpFd));
+	if (process->procFd!=KernelFsFdInvalid) {
+		// Close and delete ram file
+		ProcManProcessProcData procData;
+		if (procManProcessLoadProcData(process, &procData)) {
+			char ramPath[KernelFsPathMax];
+			strcpy(ramPath, kernelFsGetFilePath(procData.ramFd));
+			kernelFsFileClose(procData.ramFd);
+			kernelFsFileDelete(ramPath);
+		}
 
-		kernelFsFileClose(process->tmpFd);
-		process->tmpFd=KernelFsFdInvalid;
+		// Close and delete proc file
+		char procPath[KernelFsPathMax];
+		strcpy(procPath, kernelFsGetFilePath(process->procFd));
 
-		kernelFsFileDelete(tmpPath);
+		kernelFsFileClose(process->procFd);
+		process->procFd=KernelFsFdInvalid;
+
+		kernelFsFileDelete(procPath);
 	}
 
 	// Reset state
@@ -242,29 +293,29 @@ void procManProcessTick(ProcManPid pid) {
 	if (procManData.processes[pid].state!=ProcManProcessStateActive)
 		return;
 
-	// Load tmp data
-	ProcManProcessTmpData tmpData;
-	bool res=procManProcessGetTmpData(process, &tmpData);
+	// Load proc data
+	ProcManProcessProcData procData;
+	bool res=procManProcessLoadProcData(process, &procData);
 	assert(res);
 
 	// Run a few instructions
 	for(unsigned instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
 		// Run a single instruction
 		BytecodeInstructionLong instruction;
-		if (!procManProcessGetInstruction(process, &tmpData, &instruction))
+		if (!procManProcessGetInstruction(process, &procData, &instruction))
 			goto kill;
 
 		// Are we meant to skip this instruction? (due to a previous skipN instruction)
-		if (tmpData.skipFlag) {
-			tmpData.skipFlag=false;
+		if (procData.skipFlag) {
+			procData.skipFlag=false;
 
 			// Read the next instruction instead
-			if (!procManProcessGetInstruction(process, &tmpData, &instruction))
+			if (!procManProcessGetInstruction(process, &procData, &instruction))
 				goto kill;
 		}
 
 		// Execute instruction
-		if (!procManProcessExecInstruction(process, &tmpData, instruction))
+		if (!procManProcessExecInstruction(process, &procData, instruction))
 			goto kill;
 
 		// Increment instruction counter
@@ -277,9 +328,8 @@ void procManProcessTick(ProcManPid pid) {
 	}
 
 	// Save tmp data
-	if (kernelFsFileWriteOffset(process->tmpFd, 0, (const uint8_t *)&tmpData, sizeof(ProcManProcessTmpData))!=sizeof(ProcManProcessTmpData)) {
+	if (!procManProcessStoreProcData(process, &procData))
 		assert(false);
-	}
 	return;
 
 	kill:
@@ -312,11 +362,15 @@ ProcManPid procManFindUnusedPid(void) {
 	return ProcManPidMax;
 }
 
-bool procManProcessGetTmpData(ProcManProcess *process, ProcManProcessTmpData *tmpData) {
-	return(kernelFsFileReadOffset(process->tmpFd, 0, (uint8_t *)tmpData, sizeof(ProcManProcessTmpData))==sizeof(ProcManProcessTmpData));
+bool procManProcessLoadProcData(const ProcManProcess *process, ProcManProcessProcData *procData) {
+	return (kernelFsFileReadOffset(process->procFd, 0, (uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
 }
 
-bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, uint8_t *value) {
+bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData *procData) {
+	return (kernelFsFileWriteOffset(process->procFd, 0, (const uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
+}
+
+bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t *value) {
 	if (addr<ByteCodeMemoryRamAddr) {
 		// Addresss is in progmem data
 		if (kernelFsFileReadOffset(process->progmemFd, addr, value, 1)==1)
@@ -328,30 +382,31 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessTmpData
 	} else {
 		// Address is in RAM
 		ByteCodeWord ramIndex=(addr-ByteCodeMemoryRamAddr);
-		if (ramIndex<ProcManProcessRamSize) {
-			*value=tmpData->ram[ramIndex];
+		if (ramIndex<procData->ramSize) {
+			bool res=kernelFsFileReadOffset(procData->ramFd, ramIndex, value, 1);
+			assert(res);
 			return true;
 		} else {
-			debugLog("warning: process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, ProcManProcessRamSize);
+			debugLog("warning: process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, procData->ramSize);
 			return false;
 		}
 	}
 }
 
-bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, ByteCodeWord *value) {
+bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, ByteCodeWord *value) {
 	uint8_t upper, lower;
-	if (!procManProcessMemoryReadByte(process, tmpData, addr, &upper))
+	if (!procManProcessMemoryReadByte(process, procData, addr, &upper))
 		return false;
-	if (!procManProcessMemoryReadByte(process, tmpData, addr+1, &lower))
+	if (!procManProcessMemoryReadByte(process, procData, addr+1, &lower))
 		return false;
 	*value=(((ByteCodeWord)upper)<<8)|((ByteCodeWord)lower);
 	return true;
 }
 
-bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, char *str, uint16_t len) {
+bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, char *str, uint16_t len) {
 	while(len-->0) {
 		uint8_t c;
-		if (!procManProcessMemoryReadByte(process, tmpData, addr++, &c))
+		if (!procManProcessMemoryReadByte(process, procData, addr++, &c))
 			return false;
 		*str++=c;
 		if (c=='\0')
@@ -361,35 +416,57 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessTmpData 
 	return true;
 }
 
-bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, uint8_t value) {
+bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t value) {
 	// Is this addr in read-only progmem section?
 	if (addr<ByteCodeMemoryRamAddr) {
-		debugLog("warning: process %u (%s) tried to write to read only address (0x%04X), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
+		debugLog("warning: process %u (%s) tried to write to read-only address (0x%04X), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
 		return false;
 	}
 
 	// addr is in RAM
 	ByteCodeWord ramIndex=(addr-ByteCodeMemoryRamAddr);
-	if (ramIndex<ProcManProcessRamSize) {
-		tmpData->ram[ramIndex]=value;
+	if (ramIndex<procData->ramSize) {
+		bool res=kernelFsFileWriteOffset(procData->ramFd, ramIndex, &value, 1);
+		assert(res);
 		return true;
 	} else {
-			debugLog("warning: process %u (%s) tried to write invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, ProcManProcessRamSize);
-		return false;
+		// Close ram file
+		char ramFdPath[KernelFsPathMax];
+		strcpy(ramFdPath, kernelFsGetFilePath(procData->ramFd));
+		kernelFsFileClose(procData->ramFd);
+
+		// Resize ram file
+		uint16_t newRamSize=ramIndex+1;
+		if (!kernelFsFileResize(ramFdPath, newRamSize)) {
+			return false;
+		}
+
+		// Re-open ram file
+		procData->ramFd=kernelFsFileOpen(ramFdPath);
+		if (procData->ramFd==KernelFsFdInvalid)
+			return false; // TODO: tidy up better?
+
+		// Update stored ram size and write byte
+		procData->ramSize=newRamSize;
+
+		bool res=kernelFsFileWriteOffset(procData->ramFd, ramIndex, &value, 1);
+		assert(res);
+
+		return true;
 	}
 }
 
-bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, ByteCodeWord value) {
-	if (!procManProcessMemoryWriteByte(process, tmpData, addr, (value>>8)))
+bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, ByteCodeWord value) {
+	if (!procManProcessMemoryWriteByte(process, procData, addr, (value>>8)))
 		return false;
-	if (!procManProcessMemoryWriteByte(process, tmpData, addr+1, (value&0xFF)))
+	if (!procManProcessMemoryWriteByte(process, procData, addr+1, (value&0xFF)))
 		return false;
 	return true;
 }
 
-bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessTmpData *tmpData, ByteCodeWord addr, const char *str) {
+bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, const char *str) {
 	for(const char *c=str; ; ++c) {
-		if (!procManProcessMemoryWriteByte(process, tmpData, addr++, *c))
+		if (!procManProcessMemoryWriteByte(process, procData, addr++, *c))
 			return false;
 		if (*c=='\0')
 			break;
@@ -397,20 +474,20 @@ bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessTmpData
 	return true;
 }
 
-bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong *instruction) {
-	if (!procManProcessMemoryReadByte(process, tmpData, tmpData->regs[ByteCodeRegisterIP]++, ((uint8_t *)instruction)+0))
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong *instruction) {
+	if (!procManProcessMemoryReadByte(process, procData, procData->regs[ByteCodeRegisterIP]++, ((uint8_t *)instruction)+0))
 		return false;
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(*instruction);
 	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
-		if (!procManProcessMemoryReadByte(process, tmpData, tmpData->regs[ByteCodeRegisterIP]++, ((uint8_t *)instruction)+1))
+		if (!procManProcessMemoryReadByte(process, procData, procData->regs[ByteCodeRegisterIP]++, ((uint8_t *)instruction)+1))
 			return false;
 	if (length==BytecodeInstructionLengthLong)
-		if (!procManProcessMemoryReadByte(process, tmpData, tmpData->regs[ByteCodeRegisterIP]++, ((uint8_t *)instruction)+2))
+		if (!procManProcessMemoryReadByte(process, procData, procData->regs[ByteCodeRegisterIP]++, ((uint8_t *)instruction)+2))
 			return false;
 	return true;
 }
 
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpData *tmpData, BytecodeInstructionLong instruction) {
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction) {
 	// Parse instruction
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
@@ -423,14 +500,14 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 		case BytecodeInstructionTypeMemory:
 			switch(info.d.memory.type) {
 				case BytecodeInstructionMemoryTypeStore8:
-					if (!procManProcessMemoryWriteByte(process, tmpData, tmpData->regs[info.d.memory.destReg], tmpData->regs[info.d.memory.srcReg]))
+					if (!procManProcessMemoryWriteByte(process, procData, procData->regs[info.d.memory.destReg], procData->regs[info.d.memory.srcReg]))
 						return false;
 				break;
 				case BytecodeInstructionMemoryTypeLoad8: {
 					uint8_t value;
-					if (!procManProcessMemoryReadByte(process, tmpData, tmpData->regs[info.d.memory.srcReg], &value))
+					if (!procManProcessMemoryReadByte(process, procData, procData->regs[info.d.memory.srcReg], &value))
 						return false;
-					tmpData->regs[info.d.memory.destReg]=value;
+					procData->regs[info.d.memory.destReg]=value;
 				} break;
 				case BytecodeInstructionMemoryTypeReserved:
 					return false;
@@ -438,41 +515,41 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 			}
 		break;
 		case BytecodeInstructionTypeAlu: {
-			int opA=tmpData->regs[info.d.alu.opAReg];
-			int opB=tmpData->regs[info.d.alu.opBReg];
+			int opA=procData->regs[info.d.alu.opAReg];
+			int opB=procData->regs[info.d.alu.opBReg];
 			switch(info.d.alu.type) {
 				case BytecodeInstructionAluTypeInc:
-					tmpData->regs[info.d.alu.destReg]+=info.d.alu.incDecValue;
+					procData->regs[info.d.alu.destReg]+=info.d.alu.incDecValue;
 				break;
 				case BytecodeInstructionAluTypeDec:
-					tmpData->regs[info.d.alu.destReg]-=info.d.alu.incDecValue;
+					procData->regs[info.d.alu.destReg]-=info.d.alu.incDecValue;
 				break;
 				case BytecodeInstructionAluTypeAdd:
-					tmpData->regs[info.d.alu.destReg]=opA+opB;
+					procData->regs[info.d.alu.destReg]=opA+opB;
 				break;
 				case BytecodeInstructionAluTypeSub:
-					tmpData->regs[info.d.alu.destReg]=opA-opB;
+					procData->regs[info.d.alu.destReg]=opA-opB;
 				break;
 				case BytecodeInstructionAluTypeMul:
-					tmpData->regs[info.d.alu.destReg]=opA*opB;
+					procData->regs[info.d.alu.destReg]=opA*opB;
 				break;
 				case BytecodeInstructionAluTypeDiv:
-					tmpData->regs[info.d.alu.destReg]=opA/opB;
+					procData->regs[info.d.alu.destReg]=opA/opB;
 				break;
 				case BytecodeInstructionAluTypeXor:
-					tmpData->regs[info.d.alu.destReg]=opA^opB;
+					procData->regs[info.d.alu.destReg]=opA^opB;
 				break;
 				case BytecodeInstructionAluTypeOr:
-					tmpData->regs[info.d.alu.destReg]=opA|opB;
+					procData->regs[info.d.alu.destReg]=opA|opB;
 				break;
 				case BytecodeInstructionAluTypeAnd:
-					tmpData->regs[info.d.alu.destReg]=opA&opB;
+					procData->regs[info.d.alu.destReg]=opA&opB;
 				break;
 				case BytecodeInstructionAluTypeNot:
-					tmpData->regs[info.d.alu.destReg]=~opA;
+					procData->regs[info.d.alu.destReg]=~opA;
 				break;
 				case BytecodeInstructionAluTypeCmp: {
-					ByteCodeWord *d=&tmpData->regs[info.d.alu.destReg];
+					ByteCodeWord *d=&procData->regs[info.d.alu.destReg];
 					*d=0;
 					*d|=(opA==opB)<<BytecodeInstructionAluCmpBitEqual;
 					*d|=(opA==0)<<BytecodeInstructionAluCmpBitEqualZero;
@@ -484,22 +561,22 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 					*d|=(opA>=opB)<<BytecodeInstructionAluCmpBitGreaterEqual;
 				} break;
 				case BytecodeInstructionAluTypeShiftLeft:
-					tmpData->regs[info.d.alu.destReg]=opA<<opB;
+					procData->regs[info.d.alu.destReg]=opA<<opB;
 				break;
 				case BytecodeInstructionAluTypeShiftRight:
-					tmpData->regs[info.d.alu.destReg]=opA>>opB;
+					procData->regs[info.d.alu.destReg]=opA>>opB;
 				break;
 				case BytecodeInstructionAluTypeSkip:
-					tmpData->skipFlag=(tmpData->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg));
+					procData->skipFlag=(procData->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg));
 				break;
 				case BytecodeInstructionAluTypeStore16: {
-					ByteCodeWord destAddr=tmpData->regs[info.d.alu.destReg];
-					if (!procManProcessMemoryWriteWord(process, tmpData, destAddr, opA))
+					ByteCodeWord destAddr=procData->regs[info.d.alu.destReg];
+					if (!procManProcessMemoryWriteWord(process, procData, destAddr, opA))
 						return false;
 				} break;
 				case BytecodeInstructionAluTypeLoad16: {
-					ByteCodeWord srcAddr=tmpData->regs[info.d.alu.opAReg];
-					if (!procManProcessMemoryReadWord(process, tmpData, srcAddr, &tmpData->regs[info.d.alu.destReg]))
+					ByteCodeWord srcAddr=procData->regs[info.d.alu.opAReg];
+					if (!procManProcessMemoryReadWord(process, procData, srcAddr, &procData->regs[info.d.alu.destReg]))
 						return false;
 				} break;
 			}
@@ -509,41 +586,41 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 				case BytecodeInstructionMiscTypeNop:
 				break;
 				case BytecodeInstructionMiscTypeSyscall: {
-					uint16_t syscallId=tmpData->regs[0];
+					uint16_t syscallId=procData->regs[0];
 					switch(syscallId) {
 						case ByteCodeSyscallIdExit:
 							return false; // TODO: pass on exit status
 						break;
 						case ByteCodeSyscallIdGetPid:
-							tmpData->regs[0]=procManGetPidFromProcess(process);
+							procData->regs[0]=procManGetPidFromProcess(process);
 						break;
 						case ByteCodeSyscallIdGetArgC: {
-							tmpData->regs[0]=0;
+							procData->regs[0]=0;
 							for(unsigned i=0; i<ARGVMAX; ++i)
-								tmpData->regs[0]+=(strlen(tmpData->envVars.argv[i])>0);
+								procData->regs[0]+=(strlen(procData->envVars.argv[i])>0);
 						} break;
 						case ByteCodeSyscallIdGetArgVN: {
-							int n=tmpData->regs[1];
-							ByteCodeWord bufAddr=tmpData->regs[2];
-							// TODO: Use this: ByteCodeWord bufLen=tmpData->regs[3];
+							int n=procData->regs[1];
+							ByteCodeWord bufAddr=procData->regs[2];
+							// TODO: Use this: ByteCodeWord bufLen=procData->regs[3];
 
 							if (n>ARGVMAX)
-								tmpData->regs[0]=0;
+								procData->regs[0]=0;
 							else {
-								if (!procManProcessMemoryWriteStr(process, tmpData, bufAddr, tmpData->envVars.argv[n]))
+								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, procData->envVars.argv[n]))
 									return false;
-								tmpData->regs[0]=strlen(tmpData->envVars.argv[n]);
+								procData->regs[0]=strlen(procData->envVars.argv[n]);
 							}
 						} break;
 						case ByteCodeSyscallIdFork:
-							procManProcessFork(process, tmpData);
+							procManProcessFork(process, procData);
 						break;
 						case ByteCodeSyscallIdExec:
-							if (!procManProcessExec(process, tmpData))
+							if (!procManProcessExec(process, procData))
 								return false;
 						break;
 						case ByteCodeSyscallIdWaitPid: {
-							ByteCodeWord waitPid=tmpData->regs[1];
+							ByteCodeWord waitPid=procData->regs[1];
 
 							// If given pid does not represent a process, return immediately
 							if (procManGetProcessByPid(waitPid)!=NULL) {
@@ -553,21 +630,21 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 							}
 						} break;
 						case ByteCodeSyscallIdGetPidPath: {
-							ProcManPid pid=tmpData->regs[1];
-							ByteCodeWord bufAddr=tmpData->regs[2];
+							ProcManPid pid=procData->regs[1];
+							ByteCodeWord bufAddr=procData->regs[2];
 
 							ProcManProcess *qProcess=procManGetProcessByPid(pid);
 							if (qProcess!=NULL) {
 								const char *execPath=procManGetExecPathFromProcess(qProcess);
-								if (!procManProcessMemoryWriteStr(process, tmpData, bufAddr, execPath))
+								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, execPath))
 									return false;
-								tmpData->regs[0]=1;
+								procData->regs[0]=1;
 							} else
-								tmpData->regs[0]=0;
+								procData->regs[0]=0;
 						} break;
 						case ByteCodeSyscallIdGetPidState: {
-							ProcManPid pid=tmpData->regs[1];
-							ByteCodeWord bufAddr=tmpData->regs[2];
+							ProcManPid pid=procData->regs[1];
+							ByteCodeWord bufAddr=procData->regs[2];
 
 							ProcManProcess *qProcess=procManGetProcessByPid(pid);
 							if (qProcess!=NULL) {
@@ -583,14 +660,14 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 										str="waiting";
 									break;
 								}
-								if (!procManProcessMemoryWriteStr(process, tmpData, bufAddr, str))
+								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, str))
 									return false;
-								tmpData->regs[0]=1;
+								procData->regs[0]=1;
 							} else
-								tmpData->regs[0]=0;
+								procData->regs[0]=0;
 						} break;
 						case ByteCodeSyscallIdGetAllCpuCounts: {
-							ByteCodeWord bufAddr=tmpData->regs[1];
+							ByteCodeWord bufAddr=procData->regs[1];
 							for(unsigned i=0; i<ProcManPidMax; ++i) {
 								ProcManProcess *qProcess=procManGetProcessByPid(i);
 								uint16_t value;
@@ -598,130 +675,133 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 									value=qProcess->instructionCounter;
 								else
 									value=0;
-								if (!procManProcessMemoryWriteWord(process, tmpData, bufAddr, value))
+								if (!procManProcessMemoryWriteWord(process, procData, bufAddr, value))
 									return false;
 								bufAddr+=2;
 							}
 						} break;
 						case ByteCodeSyscallIdKill: {
-							ByteCodeWord pid=tmpData->regs[1];
+							ByteCodeWord pid=procData->regs[1];
 							procManProcessKill(pid);
 						} break;
 						case ByteCodeSyscallIdGetPidRam: {
-							ByteCodeWord pid=tmpData->regs[1];
+							ByteCodeWord pid=procData->regs[1];
 							ProcManProcess *qProcess=procManGetProcessByPid(pid);
 							if (qProcess!=NULL) {
-								tmpData->regs[0]=sizeof(ProcManProcessTmpData); // TODO: In due course this will vary
+								ProcManProcessProcData qProcData;
+								bool res=procManProcessLoadProcData(qProcess, &qProcData);
+								assert(res);
+								procData->regs[0]=qProcData.ramSize;
 							} else
-								tmpData->regs[0]=0;
+								procData->regs[0]=0;
 						} break;
 						case ByteCodeSyscallIdRead: {
-							KernelFsFd fd=tmpData->regs[1];
-							uint16_t offset=tmpData->regs[2];
-							uint16_t bufAddr=tmpData->regs[3];
-							KernelFsFileOffset len=tmpData->regs[4];
+							KernelFsFd fd=procData->regs[1];
+							uint16_t offset=procData->regs[2];
+							uint16_t bufAddr=procData->regs[3];
+							KernelFsFileOffset len=procData->regs[4];
 
 							KernelFsFileOffset i;
 							for(i=0; i<len; ++i) {
 								uint8_t value;
 								if (kernelFsFileReadOffset(fd, offset+i, &value, 1)!=1)
 									break;
-								if (!procManProcessMemoryWriteByte(process, tmpData, bufAddr+i, value))
+								if (!procManProcessMemoryWriteByte(process, procData, bufAddr+i, value))
 									return false;
 							}
-							tmpData->regs[0]=i;
+							procData->regs[0]=i;
 						} break;
 						case ByteCodeSyscallIdWrite: {
-							KernelFsFd fd=tmpData->regs[1];
-							uint16_t offset=tmpData->regs[2];
-							uint16_t bufAddr=tmpData->regs[3];
-							KernelFsFileOffset len=tmpData->regs[4];
+							KernelFsFd fd=procData->regs[1];
+							uint16_t offset=procData->regs[2];
+							uint16_t bufAddr=procData->regs[3];
+							KernelFsFileOffset len=procData->regs[4];
 
 							KernelFsFileOffset i;
 							for(i=0; i<len; ++i) {
 								uint8_t value;
-								if (!procManProcessMemoryReadByte(process, tmpData, bufAddr+i, &value))
+								if (!procManProcessMemoryReadByte(process, procData, bufAddr+i, &value))
 									return false;
 								if (kernelFsFileWriteOffset(fd, offset+i, &value, 1)!=1)
 									break;
 							}
-							tmpData->regs[0]=i;
+							procData->regs[0]=i;
 						} break;
 						case ByteCodeSyscallIdOpen: {
 							char path[KernelFsPathMax];
-							if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], path, KernelFsPathMax))
+							if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], path, KernelFsPathMax))
 								return false;
 							kernelFsPathNormalise(path);
-							tmpData->regs[0]=kernelFsFileOpen(path);
+							procData->regs[0]=kernelFsFileOpen(path);
 						} break;
 						case ByteCodeSyscallIdClose:
-							kernelFsFileClose(tmpData->regs[1]);
+							kernelFsFileClose(procData->regs[1]);
 						break;
 						case ByteCodeSyscallIdDirGetChildN: {
-							KernelFsFd fd=tmpData->regs[1];
-							ByteCodeWord childNum=tmpData->regs[2];
-							uint16_t bufAddr=tmpData->regs[3];
+							KernelFsFd fd=procData->regs[1];
+							ByteCodeWord childNum=procData->regs[2];
+							uint16_t bufAddr=procData->regs[3];
 
 							char childPath[KernelFsPathMax];
 							bool result=kernelFsDirectoryGetChild(fd, childNum, childPath);
 
 							if (result) {
-								if (!procManProcessMemoryWriteStr(process, tmpData, bufAddr, childPath))
+								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, childPath))
 									return false;
-								tmpData->regs[0]=1;
+								procData->regs[0]=1;
 							} else {
-								tmpData->regs[0]=0;
+								procData->regs[0]=0;
 							}
 						} break;
 						case ByteCodeSyscallIdGetPath: {
-							KernelFsFd fd=tmpData->regs[1];
-							uint16_t bufAddr=tmpData->regs[2];
+							KernelFsFd fd=procData->regs[1];
+							uint16_t bufAddr=procData->regs[2];
 
 							const char *srcPath=kernelFsGetFilePath(fd);
 							if (srcPath==NULL)
-								tmpData->regs[0]=0;
+								procData->regs[0]=0;
 							else {
-								if (!procManProcessMemoryWriteStr(process, tmpData, bufAddr, srcPath))
+								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, srcPath))
 									return false;
-								tmpData->regs[0]=1;
+								procData->regs[0]=1;
 							}
 						} break;
 						case ByteCodeSyscallIdResizeFile: {
-							uint16_t pathAddr=tmpData->regs[1];
-							KernelFsFileOffset newSize=tmpData->regs[2];
+							uint16_t pathAddr=procData->regs[1];
+							KernelFsFileOffset newSize=procData->regs[2];
 
 							char path[KernelFsPathMax];
-							if (!procManProcessMemoryReadStr(process, tmpData, pathAddr, path, KernelFsPathMax))
+							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax))
 								return false;
 							kernelFsPathNormalise(path);
-							tmpData->regs[0]=kernelFsFileResize(path, newSize);
+							procData->regs[0]=kernelFsFileResize(path, newSize);
 						} break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
-							tmpData->regs[0]=tmpData->envVars.stdioFd;
+							procData->regs[0]=procData->envVars.stdioFd;
 						break;
 						case ByteCodeSyscallIdEnvSetStdioFd:
-							tmpData->envVars.stdioFd=tmpData->regs[1];
+							procData->envVars.stdioFd=procData->regs[1];
 						break;
 						case ByteCodeSyscallIdEnvGetPwd:
-							if (!procManProcessMemoryWriteStr(process, tmpData, tmpData->regs[1], tmpData->envVars.pwd))
+							if (!procManProcessMemoryWriteStr(process, procData, procData->regs[1], procData->envVars.pwd))
 								return false;
 						break;
 						case ByteCodeSyscallIdEnvSetPwd:
-							if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], tmpData->envVars.pwd, KernelFsPathMax))
+							if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], procData->envVars.pwd, KernelFsPathMax))
 								return false;
-							kernelFsPathNormalise(tmpData->envVars.pwd);
+							kernelFsPathNormalise(procData->envVars.pwd);
 						break;
 						case ByteCodeSyscallIdEnvGetPath:
-							if (!procManProcessMemoryWriteStr(process, tmpData, tmpData->regs[1], tmpData->envVars.path))
+							if (!procManProcessMemoryWriteStr(process, procData, procData->regs[1], procData->envVars.path))
 								return false;
 						break;
 						case ByteCodeSyscallIdEnvSetPath:
-							if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], tmpData->envVars.path, KernelFsPathMax))
+							if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], procData->envVars.path, KernelFsPathMax))
 								return false;
-							kernelFsPathNormalise(tmpData->envVars.path);
+							kernelFsPathNormalise(procData->envVars.path);
 						break;
 						case ByteCodeSyscallIdTimeMonotonic:
-							tmpData->regs[0]=(millis()/1000);
+							procData->regs[0]=(millis()/1000);
 						break;
 						default:
 							debugLog("warning: invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
@@ -730,10 +810,10 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 					}
 				} break;
 				case BytecodeInstructionMiscTypeSet8:
-					tmpData->regs[info.d.misc.d.set8.destReg]=info.d.misc.d.set8.value;
+					procData->regs[info.d.misc.d.set8.destReg]=info.d.misc.d.set8.value;
 				break;
 				case BytecodeInstructionMiscTypeSet16:
-					tmpData->regs[info.d.misc.d.set16.destReg]=info.d.misc.d.set16.value;
+					procData->regs[info.d.misc.d.set16.destReg]=info.d.misc.d.set16.value;
 				break;
 			}
 		break;
@@ -742,74 +822,92 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessTmpDat
 	return true;
 }
 
-void procManProcessFork(ProcManProcess *process, ProcManProcessTmpData *tmpData) {
-	ProcManPid parentPid=procManGetPidFromProcess(process);
+void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData) {
+	KernelFsFd ramFd=KernelFsFdInvalid;
+	ProcManPid parentPid=procManGetPidFromProcess(parent);
 
 	// Find a PID for the new process
 	ProcManPid childPid=procManFindUnusedPid();
 	if (childPid==ProcManPidMax)
 		goto error;
+	ProcManProcess *child=&(procManData.processes[childPid]);
 
-	// ..... printf("@@@@@ fork in %i, child %i\n", parentPid, childPid);
-
-	// Construct tmp file path
+	// Construct proc file path
 	// TODO: Try others if exists
-	char childTmpPath[KernelFsPathMax];
-	sprintf(childTmpPath, "/tmp/proc%u", childPid);
+	char childProcPath[KernelFsPathMax], childRamPath[KernelFsPathMax];
+	sprintf(childProcPath, "/tmp/proc%u", childPid);
+	sprintf(childRamPath, "/tmp/ram%u", childPid);
 
-	// Attempt to create tmp file
-	if (!kernelFsFileCreateWithSize(childTmpPath, sizeof(ProcManProcessTmpData)))
+	// Attempt to create proc and ram files
+	if (!kernelFsFileCreateWithSize(childProcPath, sizeof(ProcManProcessProcData)))
+		goto error;
+	if (!kernelFsFileCreateWithSize(childRamPath, procData->ramSize))
 		goto error;
 
-	// Attempt to open tmp file
-	procManData.processes[childPid].tmpFd=kernelFsFileOpen(childTmpPath);
-	if (procManData.processes[childPid].tmpFd==KernelFsFdInvalid)
+	// Attempt to open proc and ram files
+	child->procFd=kernelFsFileOpen(childProcPath);
+	if (child->procFd==KernelFsFdInvalid)
 		goto error;
 
-	// Initialise tmp file:
-	ProcManProcessTmpData childTmpData=*tmpData;
-	childTmpData.regs[0]=0; // indicate success in the child
-
-	KernelFsFileOffset written=kernelFsFileWrite(procManData.processes[childPid].tmpFd, (const uint8_t *)&childTmpData, sizeof(childTmpData));
-	if (written<sizeof(childTmpData))
+	ramFd=kernelFsFileOpen(childRamPath);
+	if (ramFd==KernelFsFdInvalid)
 		goto error;
 
 	// Simply use same FD as parent for the program data
-	procManData.processes[childPid].state=ProcManProcessStateActive;
-	procManData.processes[childPid].progmemFd=procManData.processes[parentPid].progmemFd;
-	procManData.processes[childPid].instructionCounter=0;
+	child->state=ProcManProcessStateActive;
+	child->progmemFd=procManData.processes[parentPid].progmemFd;
+	child->instructionCounter=0;
+
+	// Initialise proc file
+	ProcManProcessProcData childProcData=*procData;
+	childProcData.ramFd=ramFd;
+	childProcData.regs[0]=0; // indicate success in the child
+
+	if (!procManProcessStoreProcData(child, &childProcData))
+		goto error;
+
+	// Copy parent's ram into child's
+	for(KernelFsFileOffset i=0; i<procData->ramSize; ++i) {
+		bool res=true;
+		uint8_t value;
+		res&=(kernelFsFileReadOffset(procData->ramFd, i, &value, 1)==1);
+		res&=(kernelFsFileWriteOffset(childProcData.ramFd, i, &value, 1)==1);
+		assert(res);
+	}
 
 	// Update parent return value with child's PID
-	tmpData->regs[0]=childPid;
+	procData->regs[0]=childPid;
 
 	return;
 
 	error:
 	if (childPid!=ProcManPidMax) {
 		procManData.processes[childPid].progmemFd=KernelFsFdInvalid;
-		kernelFsFileClose(procManData.processes[childPid].tmpFd);
-		procManData.processes[childPid].tmpFd=KernelFsFdInvalid;
-		kernelFsFileDelete(childTmpPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+		kernelFsFileClose(procManData.processes[childPid].procFd);
+		procManData.processes[childPid].procFd=KernelFsFdInvalid;
+		kernelFsFileDelete(childProcPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+		kernelFsFileClose(ramFd);
+		kernelFsFileDelete(childRamPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
 		procManData.processes[childPid].state=ProcManProcessStateUnused;
 		procManData.processes[childPid].instructionCounter=0;
 	}
 
 	// Indicate error
-	tmpData->regs[0]=ProcManPidMax;
+	procData->regs[0]=ProcManPidMax;
 }
 
-bool procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData) {
+bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData) {
 	// Grab path and args (if any)
 	char args[ARGVMAX][64]; // TODO: Avoid hardcoded 64
 	for(unsigned i=0; i<ARGVMAX; ++i)
 		args[i][0]='\0';
 
-	if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[1], args[0], KernelFsPathMax))
+	if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], args[0], KernelFsPathMax))
 		return false;
 
 	for(unsigned i=1; i<ARGVMAX; ++i)
-		if (tmpData->regs[i+1]!=0)
-			if (!procManProcessMemoryReadStr(process, tmpData, tmpData->regs[i+1], args[i], KernelFsPathMax))
+		if (procData->regs[i+1]!=0)
+			if (!procManProcessMemoryReadStr(process, procData, procData->regs[i+1], args[i], KernelFsPathMax))
 				return false;
 
 	// Normalise path and then check if valid
@@ -839,11 +937,11 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessTmpData *tmpData)
 		kernelFsFileClose(oldProgmemFd);
 
 	// Reset instruction pointer
-	tmpData->regs[ByteCodeRegisterIP]=0;
+	procData->regs[ByteCodeRegisterIP]=0;
 
 	// Update argv array
 	for(unsigned i=0; i<ARGVMAX; ++i)
-		strcpy(tmpData->envVars.argv[i], args[i]);
+		strcpy(procData->envVars.argv[i], args[i]);
 
 	return true;
 }
