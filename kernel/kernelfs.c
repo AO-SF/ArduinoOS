@@ -293,6 +293,64 @@ bool kernelFsFileIsDirEmpty(const char *path) {
 	return false;
 }
 
+KernelFsFileOffset kernelFsFileGetLen(const char *path) {
+	// Is this a virtual device file?
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device!=NULL) {
+		switch(device->type) {
+			case KernelFsDeviceTypeBlock:
+				// These act as directories at the top level (we check below for child)
+				return 0;
+			break;
+			case KernelFsDeviceTypeCharacter:
+				return 0;
+			break;
+			case KernelFsDeviceTypeDirectory:
+				// This operation cannot be performed on a directory
+				return 0;
+			break;
+			case KernelFsDeviceTypeNB:
+			break;
+		}
+	}
+
+	// Check for being a child of a virtual block device
+	char modPath[KernelFsPathMax];
+	strcpy(modPath, path);
+	char *dirname, *basename;
+	kernelFsPathSplit(modPath, &dirname, &basename);
+
+	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
+	if (parentDevice!=NULL) {
+		switch(parentDevice->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(parentDevice->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						return miniFsFileGetLen(&parentDevice->d.block.d.customMiniFs.miniFs, basename);
+					break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+						return 0;
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// These are files and thus cannot contain other files
+				return 0;
+			break;
+			case KernelFsDeviceTypeDirectory:
+				// Device directories can only contain other virtual devices (which are handled above)
+				return 0;
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
+			break;
+		}
+	}
+
+	return 0;
+}
+
 bool kernelFsFileCreate(const char *path) {
 	return kernelFsFileCreateWithSize(path, 0);
 }
