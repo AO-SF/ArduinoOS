@@ -55,7 +55,7 @@ ProcMan procManData;
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManProcess *procManGetProcessByPid(ProcManPid pid);
-ProcManPid procManGetPidFromProcess(ProcManProcess *process);
+ProcManPid procManGetPidFromProcess(const ProcManProcess *process);
 const char *procManGetExecPathFromProcess(const ProcManProcess *process);
 
 ProcManPid procManFindUnusedPid(void);
@@ -296,7 +296,7 @@ ProcManProcess *procManGetProcessByPid(ProcManPid pid) {
 	return NULL;
 }
 
-ProcManPid procManGetPidFromProcess(ProcManProcess *process) {
+ProcManPid procManGetPidFromProcess(const ProcManProcess *process) {
 	return process-procManData.processes;
 }
 
