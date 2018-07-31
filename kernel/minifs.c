@@ -304,7 +304,6 @@ bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newContentLen) 
 	// Attempt to simply move to a larger free region
 	uint8_t newSizeFactor=(newTotalLen+MINIFSFACTOR-1)/MINIFSFACTOR;
 	uint8_t newFileOffsetFactor=miniFsFindFreeRegionFactor(fs, newSizeFactor);
-	printf("	@@ requesting new region: newSizeFactor=%u (%u), newFileOffsetFactor=%u (old fileOffsetFactor %u)\n", newSizeFactor, ((uint16_t)newSizeFactor)*MINIFSFACTOR, newFileOffsetFactor, miniFsFileGetBaseOffsetFactorFromIndex(fs, index));
 	if (newFileOffsetFactor==0)
 		return false;
 
@@ -321,7 +320,6 @@ bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newContentLen) 
 	// Copy file content to new region
 	uint16_t oldContentOffset=miniFsFileGetContentOffsetFromIndex(fs, index);
 	uint16_t oldContentLen=miniFsFileGetContentLenFromIndex(fs, index);
-	printf("oldContentLen=%u\n", oldContentLen);
 	for(uint16_t i=0; i<oldContentLen; ++i)
 		miniFsWrite(fs, fileOffset++, miniFsRead(fs, oldContentOffset+i));
 
