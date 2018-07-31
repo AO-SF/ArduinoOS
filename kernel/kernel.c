@@ -16,7 +16,7 @@
 #include "progmemlibstdstr.h"
 #include "progmemlibstdtime.h"
 
-#define KernelTmpDataPoolSize (8*1024)
+#define KernelTmpDataPoolSize (8*1024) // 8kb - used as ram (will have to be smaller on Uno presumably)
 uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize PROGMEMbinDATASIZE
@@ -27,7 +27,7 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelLibStdStrSize PROGMEMlibstdstrDATASIZE
 #define KernelLibStdTimeSize PROGMEMlibstdtimeDATASIZE
 
-#define KernelEepromSize (3*1024)
+#define KernelEepromSize 4096 // Mega has 4kb for example
 #ifndef ARDUINO
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
