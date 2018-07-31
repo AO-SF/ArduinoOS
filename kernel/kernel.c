@@ -157,8 +157,10 @@ void kernelBoot(void) {
 
 		// Add a few example files
 		// TODO: this is only temporary
+		miniFsMountSafe(&homeMiniFs, &kernelHomeMiniFsReadFunctor, &kernelHomeMiniFsWriteFunctor, NULL);
 		debugMiniFsAddDir(&homeMiniFs, "../homemockup");
 		miniFsDebug(&homeMiniFs);
+		miniFsUnmount(&homeMiniFs);
 	}
 
 	// Format RAM used for /tmp
