@@ -943,6 +943,16 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	for(unsigned i=0; i<ARGVMAX; ++i)
 		strcpy(procData->envVars.argv[i], args[i]);
 
+	// Reset ram size to 0 (this process might need less than its parent, which is often the case in the shell)
+	char ramPath[KernelFsPathMax];
+	sprintf(ramPath, "/tmp/ram%u", pid);
+
+	kernelFsFileClose(procData->ramFd);
+	if (kernelFsFileResize(ramPath, 0))
+		procData->ramSize=0;
+	procData->ramFd=kernelFsFileOpen(ramPath);
+	assert(procData->ramFd!=KernelFsFdInvalid);
+
 	return true;
 }
 
