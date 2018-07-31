@@ -419,7 +419,51 @@ bool kernelFsFileDelete(const char *path) {
 }
 
 bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
-	// TODO: this
+	// Ensure this file is not open
+	if (kernelFsFileIsOpen(path))
+		return false;
+
+	// If this is a directory, cannot resize
+	if (kernelFsFileIsDir(path))
+		return false;
+
+	// Is this a virtual device file?
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device!=NULL) {
+		// Cannot resize virtual devices
+		return false;
+	}
+
+	// Check for being a child of a virtual block device
+	char modPath[KernelFsPathMax];
+	strcpy(modPath, path);
+	char *dirname, *basename;
+	kernelFsPathSplit(modPath, &dirname, &basename);
+
+	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
+	if (parentDevice!=NULL) {
+		switch(parentDevice->type) {
+			case KernelFsDeviceTypeBlock:
+				switch(parentDevice->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						return miniFsFileResize(&parentDevice->d.block.d.customMiniFs.miniFs, basename, newSize);
+					break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+						return false;
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+			case KernelFsDeviceTypeDirectory:
+				return false;
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
+			break;
+		}
+	}
+
 	return false;
 }
 
