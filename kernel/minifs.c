@@ -160,7 +160,7 @@ void miniFsDebug(const MiniFs *fs) {
 		// Parse file info
 		MiniFsFileInfo fileInfo;
 		if (!miniFsReadFileInfoFromIndex(fs, &fileInfo, i))
-			break;
+			continue;
 
 		// Output info
 		printf("		%2i %6i %4i %6i %5i ", i, fileInfo.offset, fileInfo.size, fileInfo.contentLen, fileInfo.spare);
