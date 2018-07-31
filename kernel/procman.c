@@ -661,7 +661,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								ProcManProcessProcData qProcData;
 								bool res=procManProcessLoadProcData(qProcess, &qProcData);
 								assert(res);
-								procData->regs[0]=qProcData.ramSize;
+								procData->regs[0]=sizeof(ProcManProcessProcData)+qProcData.ramSize;
 							} else
 								procData->regs[0]=0;
 						} break;
