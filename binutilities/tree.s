@@ -1,5 +1,5 @@
 requireend lib/std/io/fput.s
-requireend lib/std/io/fputdec.s
+requireend lib/std/mem/memprint.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strcpy.s
 requireend lib/std/str/strlen.s
@@ -59,9 +59,7 @@ syscall
 cmp r1 r0 r0
 skipneqz r1
 jmp printDirNoSize
-call putdec
-mov r0 'b'
-call putc0
+call memprint
 label printDirNoSize
 
 ; Print newline
