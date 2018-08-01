@@ -325,8 +325,8 @@ const char *procManGetExecPathFromProcess(const ProcManProcess *process) {
 }
 
 ProcManPid procManFindUnusedPid(void) {
-	// We cannot use 0 as fork uses this to indicate success
-	for(int i=1; i<ProcManPidMax; ++i)
+	// Given that fork uses return pid 0 to indicate child process, we have to make sure the first process created uses pid 0, and exists for as long as the system is running (so that fork can never return)
+	for(int i=0; i<ProcManPidMax; ++i)
 		if (procManData.processes[i].state==ProcManProcessStateUnused)
 			return i;
 	return ProcManPidMax;
