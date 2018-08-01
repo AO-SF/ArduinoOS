@@ -16,6 +16,7 @@ void writeFunctor(uint16_t addr, uint8_t value, void *userData);
 
 int main(int agrc, char **argv) {
 	buildVolume("bin", 8*1024, "../binmockup");
+	buildVolume("usrbin", 8*1024, "../usrbinmockup");
 	buildVolume("libstdio", 8*1024, "../binutilities/lib/std/io");
 	buildVolume("libstdmath", 8*1024, "../binutilities/lib/std/math");
 	buildVolume("libstdmem", 8*1024, "../binutilities/lib/std/mem");

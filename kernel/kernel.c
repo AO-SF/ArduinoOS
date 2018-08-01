@@ -16,18 +16,19 @@
 #include "progmemlibstdmem.h"
 #include "progmemlibstdstr.h"
 #include "progmemlibstdtime.h"
+#include "progmemusrbin.h"
 
 #define KernelTmpDataPoolSize (8*1024) // 8kb - used as ram (will have to be smaller on Uno presumably)
 uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize PROGMEMbinDATASIZE
-
 #define KernelLibStdIoSize PROGMEMlibstdioDATASIZE
 #define KernelLibStdMathSize PROGMEMlibstdmathDATASIZE
 #define KernelLibStdProcSize PROGMEMlibstdprocDATASIZE
 #define KernelLibStdMemSize PROGMEMlibstdmemDATASIZE
 #define KernelLibStdStrSize PROGMEMlibstdstrDATASIZE
 #define KernelLibStdTimeSize PROGMEMlibstdtimeDATASIZE
+#define KernelUsrBinSize PROGMEMusrbinDATASIZE
 
 #define KernelEepromSize 4096 // Mega has 4kb for example
 #ifndef ARDUINO
@@ -49,6 +50,7 @@ bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]
 bool kernelLibGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 bool kernelLibStdGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
+bool kernelUsrGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 int kernelBinReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdIoReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdMathReadFunctor(KernelFsFileOffset addr);
@@ -74,6 +76,7 @@ int kernelDevURandomReadFunctor(void);
 bool kernelDevURandomWriteFunctor(uint8_t value);
 int kernelDevTtyS0ReadFunctor(void);
 bool kernelDevTtyS0WriteFunctor(uint8_t value);
+int kernelUsrBinReadFunctor(KernelFsFileOffset addr);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -176,6 +179,12 @@ void kernelBoot(void) {
 	error|=!kernelFsAddDirectoryDeviceFile("/", &kernelRootGetChildFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelBinSize, &kernelBinReadFunctor, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/dev", &kernelDevGetChildFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroWriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullWriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullWriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomWriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0WriteFunctor);
+	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, kernelHomeWriteFunctor);
 	error|=!kernelFsAddDirectoryDeviceFile("/lib", &kernelLibGetChildFunctor);
 	error|=!kernelFsAddDirectoryDeviceFile("/lib/std", &kernelLibStdGetChildFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/io", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdIoSize, &kernelLibStdIoReadFunctor, NULL);
@@ -185,13 +194,9 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/str", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/time", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/media", &kernelMediaGetChildFunctor);
-	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, kernelHomeWriteFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, kernelTmpWriteFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroWriteFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullWriteFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullWriteFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomWriteFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0WriteFunctor);
+	error|=!kernelFsAddDirectoryDeviceFile("/usr", &kernelUsrGetChildFunctor);
+	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL);
 	// TODO: handle error
 
 	// Initialise process manager and start init process
@@ -237,6 +242,7 @@ bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax
 		case 3: strcpy(childPath, "/home"); return true; break;
 		case 4: strcpy(childPath, "/media"); return true; break;
 		case 5: strcpy(childPath, "/tmp"); return true; break;
+		case 6: strcpy(childPath, "/usr"); return true; break;
 	}
 	return false;
 }
@@ -273,6 +279,13 @@ bool kernelLibStdGetChildFunctor(unsigned childNum, char childPath[KernelFsPathM
 
 bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
 	// TODO: this (along with implementing mounting of external drives)
+	return false;
+}
+
+bool kernelUsrGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
+	switch(childNum) {
+		case 0: strcpy(childPath, "/usr/bin"); return true; break;
+	}
 	return false;
 }
 
@@ -419,4 +432,9 @@ bool kernelDevTtyS0WriteFunctor(uint8_t value) {
 	fflush(stdout);
 	return true;
 #endif
+}
+
+int kernelUsrBinReadFunctor(KernelFsFileOffset addr) {
+	assert(addr<KernelUsrBinSize);
+	return progmemusrbinData[addr];
 }
