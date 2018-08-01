@@ -22,7 +22,7 @@ typedef enum {
 
 #define ARGVMAX 4
 typedef struct {
-	char argv[ARGVMAX][64]; // TODO: Avoid hardcoded 64 limit
+	KernelFsFileOffset argv[ARGVMAX]; // Pointers into start of ramFd
 	char pwd[KernelFsPathMax]; // set to '/' when init is called
 	char path[KernelFsPathMax]; // set to '/bin' when init is called
 	KernelFsFd stdioFd; // set to KernelFsFdInvalid when init is called
@@ -31,7 +31,7 @@ typedef struct {
 typedef struct {
 	ByteCodeWord regs[BytecodeRegisterNB];
 	ProcManProcessEnvVars envVars;
-	uint16_t ramSize;
+	uint16_t argvDataLen, ramLen;
 	uint8_t ramFd;
 	bool skipFlag; // skip next instruction?
 } ProcManProcessProcData;
@@ -68,6 +68,8 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t value);
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, ByteCodeWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, const char *str);
+
+bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[64]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.  TODO: Avoid hardcoded limit
 
 bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong *instruction);
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction);
@@ -144,7 +146,8 @@ ProcManPid procManProcessNew(const char *programPath) {
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(procPath, sizeof(ProcManProcessProcData)))
 		goto error;
-	if (!kernelFsFileCreateWithSize(ramPath, 0))
+	KernelFsFileOffset argvDataLen=1; // single byte for NULL terminator acting as all (empty) arguments
+	if (!kernelFsFileCreateWithSize(ramPath, argvDataLen))
 		goto error;
 
 	// Attempt to open proc and ram files
@@ -160,12 +163,13 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procManData.processes[pid].state=ProcManProcessStateActive;
 	procManData.processes[pid].instructionCounter=0;
 
-	// Initialise proc file:
+	// Initialise proc file (and argv data in ram file)
 	ProcManProcessProcData procData;
 	procData.regs[ByteCodeRegisterIP]=0;
 	procData.skipFlag=false;
 	procData.envVars.stdioFd=KernelFsFdInvalid;
-	procData.ramSize=0;
+	procData.argvDataLen=argvDataLen;
+	procData.ramLen=0;
 	procData.ramFd=ramFd;
 	strcpy(procData.envVars.pwd, programPath);
 	char *dirname, *basename;
@@ -174,9 +178,11 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 	strcpy(procData.envVars.path, "/bin");
 
-	// TODO: Put programPath (or part of?) into argv[0]
+	uint8_t nullByte;
+	if (kernelFsFileWriteOffset(ramFd, 0, &nullByte, 1)!=1)
+		goto error;
 	for(unsigned i=0; i<ARGVMAX; ++i)
-		strcpy(procData.envVars.argv[i], "");
+		procData.envVars.argv[i]=0;
 
 	if (!procManProcessStoreProcData(&procManData.processes[pid], &procData))
 		goto error;
@@ -352,12 +358,12 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcDat
 	} else {
 		// Address is in RAM
 		ByteCodeWord ramIndex=(addr-ByteCodeMemoryRamAddr);
-		if (ramIndex<procData->ramSize) {
-			bool res=kernelFsFileReadOffset(procData->ramFd, ramIndex, value, 1);
+		if (ramIndex<procData->ramLen) {
+			bool res=kernelFsFileReadOffset(procData->ramFd, procData->argvDataLen+ramIndex, value, 1);
 			assert(res);
 			return true;
 		} else {
-			debugLog("warning: process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, procData->ramSize);
+			debugLog("warning: process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, procData->ramLen);
 			return false;
 		}
 	}
@@ -395,8 +401,8 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 
 	// addr is in RAM
 	ByteCodeWord ramIndex=(addr-ByteCodeMemoryRamAddr);
-	if (ramIndex<procData->ramSize) {
-		bool res=kernelFsFileWriteOffset(procData->ramFd, ramIndex, &value, 1);
+	if (ramIndex<procData->ramLen) {
+		bool res=kernelFsFileWriteOffset(procData->ramFd, procData->argvDataLen+ramIndex, &value, 1);
 		assert(res);
 		return true;
 	} else {
@@ -406,8 +412,9 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		kernelFsFileClose(procData->ramFd);
 
 		// Resize ram file
-		uint16_t newRamSize=ramIndex+1;
-		if (!kernelFsFileResize(ramFdPath, newRamSize)) {
+		uint16_t newRamLen=ramIndex+1;
+		uint16_t newRamTotalSize=procData->argvDataLen+newRamLen;
+		if (!kernelFsFileResize(ramFdPath, newRamTotalSize)) {
 			return false;
 		}
 
@@ -416,10 +423,10 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		if (procData->ramFd==KernelFsFdInvalid)
 			return false; // TODO: tidy up better?
 
-		// Update stored ram size and write byte
-		procData->ramSize=newRamSize;
+		// Update stored ram len and write byte
+		procData->ramLen=newRamLen;
 
-		bool res=kernelFsFileWriteOffset(procData->ramFd, ramIndex, &value, 1);
+		bool res=kernelFsFileWriteOffset(procData->ramFd, procData->argvDataLen+ramIndex, &value, 1);
 		assert(res);
 
 		return true;
@@ -441,6 +448,32 @@ bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcDat
 		if (*c=='\0')
 			break;
 	}
+	return true;
+}
+
+bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[64]) {
+	char *dest=str;
+
+	// Check n is sensible
+	if (n>=ARGVMAX) {
+		*dest='\0';
+		return true;
+	}
+
+	// Grab argument
+	uint16_t index=procData->envVars.argv[n];
+	while(1) {
+		uint8_t c;
+		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1)!=1) {
+			debugLog("warning: corrupt argvdata or ram file more generally? Process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			return false;
+		}
+		*dest++=c;
+		if (c=='\0')
+			break;
+		++index;
+	}
+
 	return true;
 }
 
@@ -566,8 +599,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						break;
 						case ByteCodeSyscallIdGetArgC: {
 							procData->regs[0]=0;
-							for(unsigned i=0; i<ARGVMAX; ++i)
-								procData->regs[0]+=(strlen(procData->envVars.argv[i])>0);
+							for(unsigned i=0; i<ARGVMAX; ++i) {
+								char arg[64]; // TODO: Avoid hardcoded limit
+								if (!procManProcessGetArgvN(process, procData, i, arg))
+									return false;
+								procData->regs[0]+=(strlen(arg)>0);
+							}
 						} break;
 						case ByteCodeSyscallIdGetArgVN: {
 							int n=procData->regs[1];
@@ -577,9 +614,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							if (n>ARGVMAX)
 								procData->regs[0]=0;
 							else {
-								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, procData->envVars.argv[n]))
+								char arg[64]; // TODO: Avoid hardcoded limit
+								if (!procManProcessGetArgvN(process, procData, n, arg))
 									return false;
-								procData->regs[0]=strlen(procData->envVars.argv[n]);
+								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, arg))
+									return false;
+								procData->regs[0]=strlen(arg);
 							}
 						} break;
 						case ByteCodeSyscallIdFork:
@@ -662,7 +702,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								ProcManProcessProcData qProcData;
 								bool res=procManProcessLoadProcData(qProcess, &qProcData);
 								assert(res);
-								procData->regs[0]=sizeof(ProcManProcessProcData)+qProcData.ramSize;
+								procData->regs[0]=sizeof(ProcManProcessProcData)+qProcData.argvDataLen+qProcData.ramLen;
 							} else
 								procData->regs[0]=0;
 						} break;
@@ -821,7 +861,8 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(childProcPath, sizeof(ProcManProcessProcData)))
 		goto error;
-	if (!kernelFsFileCreateWithSize(childRamPath, procData->ramSize))
+	uint16_t ramTotalSize=procData->argvDataLen+procData->ramLen;
+	if (!kernelFsFileCreateWithSize(childRamPath, ramTotalSize))
 		goto error;
 
 	// Attempt to open proc and ram files
@@ -847,7 +888,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 		goto error;
 
 	// Copy parent's ram into child's
-	for(KernelFsFileOffset i=0; i<procData->ramSize; ++i) {
+	for(KernelFsFileOffset i=0; i<ramTotalSize; ++i) {
 		bool res=true;
 		uint8_t value;
 		res&=(kernelFsFileReadOffset(procData->ramFd, i, &value, 1)==1);
@@ -919,19 +960,33 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	// Reset instruction pointer
 	procData->regs[ByteCodeRegisterIP]=0;
 
-	// Update argv array
-	for(unsigned i=0; i<ARGVMAX; ++i)
-		strcpy(procData->envVars.argv[i], args[i]);
+	// Update argv array and calculate argVDataLen
+	procData->argvDataLen=0;
+	for(unsigned i=0; i<ARGVMAX; ++i) {
+		uint16_t argLen=strlen(args[i]);
+		procData->envVars.argv[i]=procData->argvDataLen;
+		procData->argvDataLen+=argLen+1; // +1 for null terminator
+	}
 
-	// Reset ram size to 0 (this process might need less than its parent, which is often the case in the shell)
+	// Resize ram file (clear data and add new arguments)
+	procData->ramLen=0; // no ram needed initially
+	uint16_t newRamTotalSize=procData->argvDataLen+procData->ramLen;
+
 	char ramPath[KernelFsPathMax];
 	sprintf(ramPath, "/tmp/ram%u", pid);
 
 	kernelFsFileClose(procData->ramFd);
-	if (kernelFsFileResize(ramPath, 0))
-		procData->ramSize=0;
+	if (!kernelFsFileResize(ramPath, newRamTotalSize))
+		return false;
 	procData->ramFd=kernelFsFileOpen(ramPath);
 	assert(procData->ramFd!=KernelFsFdInvalid);
+
+	// Write args into ram file
+	for(unsigned i=0; i<ARGVMAX; ++i) {
+		uint16_t argSize=strlen(args[i])+1;
+		if (kernelFsFileWriteOffset(procData->ramFd, procData->envVars.argv[i], (const uint8_t *)(args[i]), argSize)!=argSize)
+			return false;
+	}
 
 	return true;
 }
