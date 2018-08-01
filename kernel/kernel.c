@@ -13,6 +13,7 @@
 #include "progmemlibstdio.h"
 #include "progmemlibstdmath.h"
 #include "progmemlibstdproc.h"
+#include "progmemlibstdmem.h"
 #include "progmemlibstdstr.h"
 #include "progmemlibstdtime.h"
 
@@ -24,6 +25,7 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelLibStdIoSize PROGMEMlibstdioDATASIZE
 #define KernelLibStdMathSize PROGMEMlibstdmathDATASIZE
 #define KernelLibStdProcSize PROGMEMlibstdprocDATASIZE
+#define KernelLibStdMemSize PROGMEMlibstdmemDATASIZE
 #define KernelLibStdStrSize PROGMEMlibstdstrDATASIZE
 #define KernelLibStdTimeSize PROGMEMlibstdtimeDATASIZE
 
@@ -51,6 +53,7 @@ int kernelBinReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdIoReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdMathReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdProcReadFunctor(KernelFsFileOffset addr);
+int kernelLibStdMemReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdStrReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdTimeReadFunctor(KernelFsFileOffset addr);
 int kernelHomeReadFunctor(KernelFsFileOffset addr);
@@ -178,6 +181,7 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/io", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdIoSize, &kernelLibStdIoReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/math", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMathSize, &kernelLibStdMathReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/proc", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdProcSize, &kernelLibStdProcReadFunctor, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/std/mem", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMemSize, &kernelLibStdMemReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/str", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/time", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/media", &kernelMediaGetChildFunctor);
@@ -260,8 +264,9 @@ bool kernelLibStdGetChildFunctor(unsigned childNum, char childPath[KernelFsPathM
 		case 0: strcpy(childPath, "/lib/std/io"); return true; break;
 		case 1: strcpy(childPath, "/lib/std/math"); return true; break;
 		case 2: strcpy(childPath, "/lib/std/proc"); return true; break;
-		case 3: strcpy(childPath, "/lib/std/str"); return true; break;
-		case 4: strcpy(childPath, "/lib/std/time"); return true; break;
+		case 3: strcpy(childPath, "/lib/std/mem"); return true; break;
+		case 4: strcpy(childPath, "/lib/std/str"); return true; break;
+		case 5: strcpy(childPath, "/lib/std/time"); return true; break;
 	}
 	return false;
 }
@@ -289,6 +294,11 @@ int kernelLibStdMathReadFunctor(KernelFsFileOffset addr) {
 int kernelLibStdProcReadFunctor(KernelFsFileOffset addr) {
 	assert(addr<KernelLibStdProcSize);
 	return progmemlibstdprocData[addr];
+}
+
+int kernelLibStdMemReadFunctor(KernelFsFileOffset addr) {
+	assert(addr<KernelLibStdProcSize);
+	return progmemlibstdmemData[addr];
 }
 
 int kernelLibStdStrReadFunctor(KernelFsFileOffset addr) {
