@@ -353,6 +353,7 @@ jmp shellRunFdRet
 
 mov r1 r0 ; childs PID
 mov r0 6 ; waitpid syscall
+mov r2 0 ; infinite timeout
 syscall
 
 label shellRunFdRet
