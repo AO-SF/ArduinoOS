@@ -18,6 +18,7 @@ int main(int agrc, char **argv) {
 	buildVolume("bin", 8*1024, "../binmockup");
 	buildVolume("libstdio", 8*1024, "../binutilities/lib/std/io");
 	buildVolume("libstdmath", 8*1024, "../binutilities/lib/std/math");
+	buildVolume("libstdmem", 8*1024, "../binutilities/lib/std/mem");
 	buildVolume("libstdproc", 8*1024, "../binutilities/lib/std/proc");
 	buildVolume("libstdstr", 8*1024, "../binutilities/lib/std/str");
 	buildVolume("libstdtime", 8*1024, "../binutilities/lib/std/time");
