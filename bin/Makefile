@@ -31,6 +31,7 @@ ALL:
 	./assembler ../binutilities/ps.s ../binmockup/ps
 	./assembler ../binutilities/burn.s ../binmockup/burn
 	./assembler ../binutilities/kill.s ../binmockup/kill
+	./assembler ../binutilities/sleep.s ../binmockup/sleep
 
 	./builder
 
