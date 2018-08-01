@@ -72,6 +72,7 @@ label forkParent
 ; Wait for child to die
 mov r1 r0
 mov r0 6
+mov r2 0 ; infinite timeout
 syscall
 
 jmp childFinished

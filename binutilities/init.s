@@ -29,6 +29,7 @@ jmp parent
 label parent
 mov r0 6
 mov r1 0
+mov r2 0 ; infinite timeout
 syscall
 jmp parent ; in case waitpid fails for any reason
 

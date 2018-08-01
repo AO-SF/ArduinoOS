@@ -40,7 +40,8 @@ typedef struct {
 	uint16_t instructionCounter; // reset regularly
 	KernelFsFd progmemFd, procFd;
 	uint8_t state;
-	uint8_t waitingData;
+	uint8_t waitingData8;
+	uint16_t waitingData16;
 } ProcManProcess;
 
 typedef struct {
@@ -252,7 +253,7 @@ void procManProcessKill(ProcManPid pid) {
 
 	// Check if any processes are waiting due to waitpid syscall
 	for(unsigned i=0; i<ProcManPidMax; ++i) {
-		if (procManData.processes[i].state==ProcManProcessStateWaitingWaitpid && procManData.processes[i].waitingData==pid) {
+		if (procManData.processes[i].state==ProcManProcessStateWaitingWaitpid && procManData.processes[i].waitingData8==pid) {
 			// Bring this process back to life
 			procManData.processes[i].state=ProcManProcessStateActive;
 		}
@@ -264,6 +265,10 @@ void procManProcessTick(ProcManPid pid) {
 	ProcManProcess *process=procManGetProcessByPid(pid);
 	if (process==NULL)
 		return;
+
+	// Is this process waiting for a timeout, and that time has been reached?
+	if (process->state==ProcManProcessStateWaitingWaitpid && process->waitingData16>0 && millis()/1000>=process->waitingData16)
+		process->state=ProcManProcessStateActive;
 
 	// Is this process not even active?
 	if (procManData.processes[pid].state!=ProcManProcessStateActive)
@@ -631,12 +636,14 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						break;
 						case ByteCodeSyscallIdWaitPid: {
 							ByteCodeWord waitPid=procData->regs[1];
+							ByteCodeWord timeout=procData->regs[2];
 
 							// If given pid does not represent a process, return immediately
 							if (procManGetProcessByPid(waitPid)!=NULL) {
 								// Otherwise indicate process is waiting for this pid to die
 								process->state=ProcManProcessStateWaitingWaitpid;
-								process->waitingData=waitPid;
+								process->waitingData8=waitPid;
+								process->waitingData16=(timeout>0 ? (millis()+999)/1000+timeout : 0); // +999 is to make sure we do not sleep for less than the given number of seconds (as we would if we round the result of millis down)
 							}
 						} break;
 						case ByteCodeSyscallIdGetPidPath: {
