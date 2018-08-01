@@ -652,7 +652,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						} break;
 						case ByteCodeSyscallIdKill: {
 							ByteCodeWord pid=procData->regs[1];
-							procManProcessKill(pid);
+							if (pid!=0) // do not allow killing init
+								procManProcessKill(pid);
 						} break;
 						case ByteCodeSyscallIdGetPidRam: {
 							ByteCodeWord pid=procData->regs[1];
