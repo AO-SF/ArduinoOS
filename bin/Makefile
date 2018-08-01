@@ -1,5 +1,6 @@
 ALL:
 	mkdir -p ../binmockup
+	mkdir -p ../usrbinmockup
 	mkdir -p ../homemockup
 
 	cd ../assembler && make
@@ -8,6 +9,7 @@ ALL:
 	cd ../emulator && make
 
 	rm -rf ../binmockup/*
+	rm -rf ../usrbinmockup/*
 	rm -rf ../homemockup/*
 
 	./assembler ../binutilities/fib.s ../homemockup/fib
@@ -22,16 +24,17 @@ ALL:
 	./assembler ../binutilities/pwd.s ../binmockup/pwd
 	./assembler ../binutilities/sh.s ../binmockup/sh
 	./assembler ../binutilities/true.s ../binmockup/true
-	./assembler ../binutilities/time.s ../binmockup/time
 	./assembler ../binutilities/echo.s ../binmockup/echo
-	./assembler ../binutilities/uptime.s ../binmockup/uptime
 	./assembler ../binutilities/yes.s ../binmockup/yes
-	./assembler ../binutilities/factor.s ../binmockup/factor
 	./assembler ../binutilities/tty.s ../binmockup/tty
-	./assembler ../binutilities/ps.s ../binmockup/ps
-	./assembler ../binutilities/burn.s ../binmockup/burn
 	./assembler ../binutilities/kill.s ../binmockup/kill
 	./assembler ../binutilities/sleep.s ../binmockup/sleep
+
+	./assembler ../binutilities/time.s ../usrbinmockup/time
+	./assembler ../binutilities/uptime.s ../usrbinmockup/uptime
+	./assembler ../binutilities/factor.s ../usrbinmockup/factor
+	./assembler ../binutilities/ps.s ../usrbinmockup/ps
+	./assembler ../binutilities/burn.s ../usrbinmockup/burn
 
 	./builder
 
