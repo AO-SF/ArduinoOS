@@ -35,6 +35,7 @@ ALL:
 	./assembler ../binutilities/factor.s ../usrbinmockup/factor
 	./assembler ../binutilities/ps.s ../usrbinmockup/ps
 	./assembler ../binutilities/burn.s ../usrbinmockup/burn
+	./assembler ../binutilities/bomb.s ../usrbinmockup/bomb
 
 	./builder
 
