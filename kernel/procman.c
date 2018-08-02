@@ -785,6 +785,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							}
 						} break;
 						case ByteCodeSyscallIdResizeFile: {
+							// Grab path and new size
 							uint16_t pathAddr=procData->regs[1];
 							KernelFsFileOffset newSize=procData->regs[2];
 
@@ -792,7 +793,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax))
 								return false;
 							kernelFsPathNormalise(path);
-							procData->regs[0]=kernelFsFileResize(path, newSize);
+
+							// Resize (or create if does not exist)
+							if (kernelFsFileExists(path))
+								procData->regs[0]=kernelFsFileResize(path, newSize);
+							else
+								procData->regs[0]=kernelFsFileCreateWithSize(path, newSize);
 						} break;
 						case ByteCodeSyscallIdFileGetLen: {
 							uint16_t pathAddr=procData->regs[1];
