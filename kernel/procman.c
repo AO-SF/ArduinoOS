@@ -38,10 +38,10 @@ typedef struct {
 
 typedef struct {
 	uint16_t instructionCounter; // reset regularly
+	uint16_t waitingData16;
 	KernelFsFd progmemFd, procFd;
 	uint8_t state;
 	uint8_t waitingData8;
-	uint16_t waitingData16;
 } ProcManProcess;
 
 typedef struct {
