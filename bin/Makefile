@@ -16,6 +16,7 @@ ALL:
 	cp ../binutilities/fib.s ../homemockup/fib.s
 	cp ../homefiles/* ../homemockup
 	./assembler ../binutilities/tree.s ../homemockup/tree
+	./assembler ../binutilities/bomb.s ../homemockup/bomb
 
 	./assembler ../binutilities/cat.s ../binmockup/cat
 	./assembler ../binutilities/false.s ../binmockup/false
@@ -35,7 +36,6 @@ ALL:
 	./assembler ../binutilities/factor.s ../usrbinmockup/factor
 	./assembler ../binutilities/ps.s ../usrbinmockup/ps
 	./assembler ../binutilities/burn.s ../usrbinmockup/burn
-	./assembler ../binutilities/bomb.s ../usrbinmockup/bomb
 
 	./builder
 
