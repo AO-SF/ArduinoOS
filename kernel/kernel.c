@@ -10,6 +10,7 @@
 #include "minifs.h"
 #include "procman.h"
 #include "progmembin.h"
+#include "progmemlibcurses.h"
 #include "progmemlibstdio.h"
 #include "progmemlibstdmath.h"
 #include "progmemlibstdproc.h"
@@ -22,6 +23,7 @@
 uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize PROGMEMbinDATASIZE
+#define KernelLibCursesSize PROGMEMlibcursesDATASIZE
 #define KernelLibStdIoSize PROGMEMlibstdioDATASIZE
 #define KernelLibStdMathSize PROGMEMlibstdmathDATASIZE
 #define KernelLibStdProcSize PROGMEMlibstdprocDATASIZE
@@ -52,6 +54,7 @@ bool kernelLibStdGetChildFunctor(unsigned childNum, char childPath[KernelFsPathM
 bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 bool kernelUsrGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 int kernelBinReadFunctor(KernelFsFileOffset addr);
+int kernelLibCursesReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdIoReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdMathReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdProcReadFunctor(KernelFsFileOffset addr);
@@ -186,6 +189,7 @@ void kernelBoot(void) {
 	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0WriteFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, kernelHomeWriteFunctor);
 	error|=!kernelFsAddDirectoryDeviceFile("/lib", &kernelLibGetChildFunctor);
+	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/lib/std", &kernelLibStdGetChildFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/io", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdIoSize, &kernelLibStdIoReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/math", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMathSize, &kernelLibStdMathReadFunctor, NULL);
@@ -261,6 +265,7 @@ bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]
 bool kernelLibGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
 	switch(childNum) {
 		case 0: strcpy(childPath, "/lib/std"); return true; break;
+		case 1: strcpy(childPath, "/lib/curses"); return true; break;
 	}
 	return false;
 }
@@ -292,6 +297,11 @@ bool kernelUsrGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]
 int kernelBinReadFunctor(KernelFsFileOffset addr) {
 	assert(addr<KernelBinSize);
 	return progmembinData[addr];
+}
+
+int kernelLibCursesReadFunctor(KernelFsFileOffset addr) {
+	assert(addr<KernelLibCursesSize);
+	return progmemlibcursesData[addr];
 }
 
 int kernelLibStdIoReadFunctor(KernelFsFileOffset addr) {

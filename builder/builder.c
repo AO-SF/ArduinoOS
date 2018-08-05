@@ -23,6 +23,7 @@ int main(int agrc, char **argv) {
 	buildVolume("libstdproc", 8*1024, "../binutilities/lib/std/proc");
 	buildVolume("libstdstr", 8*1024, "../binutilities/lib/std/str");
 	buildVolume("libstdtime", 8*1024, "../binutilities/lib/std/time");
+	buildVolume("libcurses", 8*1024, "../binutilities/lib/curses");
 
 	return 0;
 }
@@ -50,7 +51,7 @@ bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 	debugMiniFsAddDir(&miniFs, srcDir);
 
 	// Debug fs
-	miniFsDebug(&miniFs);
+	//miniFsDebug(&miniFs);
 
 	// unmount to save any changes
 	miniFsUnmount(&miniFs);
