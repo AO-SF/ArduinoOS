@@ -7,7 +7,7 @@ ab openpathPathBuf 64
 ab openpathScratchBuf 64
 db openpathSlashStr '/', 0
 
-; openpath(r0=path) - opens path as the shell would - checking in PATH first if path has no slashes, otherwise making absolute if needed by preprending pwd. on sucess does not return
+; openpath(r0=path) - opens path as the shell would - checking in PATH first if path has no slashes, otherwise making absolute if needed by preprending pwd. returns fd on success (0/invalid on failure)
 label openpath
 
 ; Copy path so we can modify
