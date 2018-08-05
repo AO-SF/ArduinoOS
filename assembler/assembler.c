@@ -548,7 +548,7 @@ bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) 
 			*change=true;
 
 		// If using require rather than include, and this file has already been included/required, then skip
-		if (isRequire) {
+		if (isRequire || isRequireEnd) {
 			bool alreadyIncluded=false;
 			for(size_t i=0; i<program->includePathsNext; ++i)
 				if (strcmp(program->includedPaths[i], newPath)==0) {
