@@ -1,0 +1,11 @@
+# Compiling and Building
+Run make from the bin directory.
+This will:
+
+* compile all 'tools' (assembler, builder, disassembler and emulator)
+* create all mockup directories by copying files and assembling all userspace programs
+* call the builder, which creates the read-only minifs volumes which are stored in the kernel 'code' itself)
+* compiles the kernel (which requies the output from the builder)
+
+# Running
+All compiled tools and the kernel are placed in the ``bin`` directory after compiling. The assembler and disassembler work as one would expect. The emulator takes compiled machine code and runs it on a standard PC - although it is far from a full virtual environment (most syscalls are not implemented, for example). Finally the kernel takes no arguments, and boots into a shell (sh.s) via init (init.s). From there standard commands such as ``cd`` and ``ls`` can be used, and programs on the file system can be executed.
