@@ -35,7 +35,7 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelLibStdTimeSize PROGMEMlibstdtimeDATASIZE
 #define KernelUsrBinSize PROGMEMusrbinDATASIZE
 
-#define KernelEepromSize 4096 // Mega has 4kb for example
+#define KernelEepromSize (8*1024) // Mega has 4kb for example
 #ifndef ARDUINO
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
