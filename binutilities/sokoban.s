@@ -136,13 +136,13 @@ mov r3 0 ; x
 label levelDrawXStart
 
 ; load at data at (x,y)
-mov r0 levelArray
-mov r1 maxSize
-load8 r1 r1
-mul r1 r1 r4
-add r0 r0 r1
-add r0 r0 r3
-load8 r0 r0
+push r3
+push r4
+mov r0 r3
+mov r1 r4
+call levelLoadCell
+pop r4
+pop r3
 
 ; print this character
 push r0
@@ -176,4 +176,15 @@ inc r4
 jmp levelDrawYStart
 label levelDrawYEnd
 
+ret
+
+; levelLoadCell(x=r0, y=r1) - returns cell value in r0
+label levelLoadCell
+mov r2 levelArray ; base offset
+add r0 r0 r2 ; add x
+mov r2 maxSize ; add y*maxSize
+load8 r2 r2
+mul r2 r2 r1
+add r0 r0 r2
+load8 r0 r0 ; load cell
 ret
