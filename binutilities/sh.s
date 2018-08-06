@@ -2,6 +2,7 @@ db stdioPath '/dev/ttyS0', 0
 db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
+db dirNotFoundErrorStr 'no such directory: ', 0
 db cdStr 'cd', 0
 db exitStr 'exit', 0
 db emptyStr 0
@@ -383,7 +384,25 @@ mov r1 arg1Ptr
 load16 r1 r1
 call getabspath
 
+; Ensure path is a directory
+mov r0 265
+mov r1 absBuf
+syscall
+
+cmp r0 r0 r0
+skipeqz r0
+jmp shellCdUpdateEnvVars
+
+mov r0 dirNotFoundErrorStr
+call puts0
+mov r0 absBuf
+call puts0
+mov r0 '\n'
+call putc0
+ret
+
 ; Update environment variables
+label shellCdUpdateEnvVars
 mov r0 515
 mov r1 absBuf
 syscall
