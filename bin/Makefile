@@ -17,6 +17,7 @@ ALL:
 	cp ../homefiles/* ../homemockup
 	./assembler ../binutilities/tree.s ../homemockup/tree
 	./assembler ../binutilities/bomb.s ../homemockup/bomb
+	./assembler ../binutilities/sokoban.s ../homemockup/sokoban
 
 	./assembler ../binutilities/cat.s ../binmockup/cat
 	./assembler ../binutilities/false.s ../binmockup/false
