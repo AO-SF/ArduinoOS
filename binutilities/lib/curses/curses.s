@@ -36,7 +36,6 @@ pop r0 ; x
 call putdec
 mov r0 'H'
 call putc0
-
 ret
 
 ; cursesSetColour(r=r0, g=r1, b=r2) - where r,g,b are in the range [0, 255]
@@ -44,10 +43,8 @@ label cursesSetColour
 push r2
 push r1
 push r0
-
 mov r0 cursesEscSeqStrSetRgb
 call puts0
-
 pop r0 ; r
 call putdec
 mov r0 ';'
@@ -58,10 +55,8 @@ mov r0 ';'
 call putc0
 pop r0 ; b
 call putdec
-
 mov r0 'm'
 call putc0
-
 ret
 
 ; cursesGetChar() - puts single byte into r0, or 256 if no data to read
