@@ -1,8 +1,11 @@
 #include <assert.h>
+#include <poll.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include "debug.h"
 #include "kernel.h"
@@ -69,15 +72,15 @@ int kernelTmpReadFunctor(KernelFsFileOffset addr);
 bool kernelTmpWriteFunctor(KernelFsFileOffset addr, uint8_t value);
 uint8_t kernelTmpMiniFsReadFunctor(uint16_t addr, void *userData);
 void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
-int kernelDevZeroReadFunctor(void);
+int kernelDevZeroReadFunctor(bool block);
 bool kernelDevZeroWriteFunctor(uint8_t value);
-int kernelDevFullReadFunctor(void);
+int kernelDevFullReadFunctor(bool block);
 bool kernelDevFullWriteFunctor(uint8_t value);
-int kernelDevNullReadFunctor(void);
+int kernelDevNullReadFunctor(bool block);
 bool kernelDevNullWriteFunctor(uint8_t value);
-int kernelDevURandomReadFunctor(void);
+int kernelDevURandomReadFunctor(bool block);
 bool kernelDevURandomWriteFunctor(uint8_t value);
-int kernelDevTtyS0ReadFunctor(void);
+int kernelDevTtyS0ReadFunctor(bool block);
 bool kernelDevTtyS0WriteFunctor(uint8_t value);
 int kernelUsrBinReadFunctor(KernelFsFileOffset addr);
 
@@ -392,7 +395,7 @@ void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
 	assert(result);
 }
 
-int kernelDevZeroReadFunctor(void) {
+int kernelDevZeroReadFunctor(bool block) {
 	return 0;
 }
 
@@ -400,7 +403,7 @@ bool kernelDevZeroWriteFunctor(uint8_t value) {
 	return true;
 }
 
-int kernelDevFullReadFunctor(void) {
+int kernelDevFullReadFunctor(bool block) {
 	return 0;
 }
 
@@ -408,7 +411,7 @@ bool kernelDevFullWriteFunctor(uint8_t value) {
 	return false;
 }
 
-int kernelDevNullReadFunctor(void) {
+int kernelDevNullReadFunctor(bool block) {
 	return 0;
 }
 
@@ -416,7 +419,7 @@ bool kernelDevNullWriteFunctor(uint8_t value) {
 	return true;
 }
 
-int kernelDevURandomReadFunctor(void) {
+int kernelDevURandomReadFunctor(bool block) {
 	return rand()&0xFF;
 }
 
@@ -424,10 +427,23 @@ bool kernelDevURandomWriteFunctor(uint8_t value) {
 	return false;
 }
 
-int kernelDevTtyS0ReadFunctor(void) {
+int kernelDevTtyS0ReadFunctor(bool block) {
 #ifdef ARDUINO
+	if (!block && Serial.available()<1)
+		return -1;
 	return Serial.read();
 #else
+	if (!block) {
+		struct pollfd pollFds;
+		pollFds.fd=STDIN_FILENO;
+		pollFds.events=POLLIN;
+		if (poll(&pollFds, 1, 0)<=0)
+			return -1;
+
+		if (!(pollFds.revents & POLLIN))
+			return -1;
+	}
+
 	int c=getchar();
 	return (c!=EOF ? c : -1);
 #endif

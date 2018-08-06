@@ -396,6 +396,11 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [filegetlen] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
+						case ByteCodeSyscallIdTryReadByte:
+							if (verbose)
+								printf("Info: syscall(id=%i [tryreadbyte] (unimplemented)\n", syscallId);
+							process->regs[0]=256;
+						break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							if (verbose)
 								printf("Info: syscall(id=%i [envgetstiofd] (unimplemented)\n", syscallId);
