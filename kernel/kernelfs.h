@@ -12,7 +12,7 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 #define KernelFsPathMax 63
 
-typedef int (KernelFsCharacterDeviceReadFunctor)(void); // returns -1 on failure
+typedef int (KernelFsCharacterDeviceReadFunctor)(bool block); // returns -1 on failure
 typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value);
 
 typedef bool (KernelFsDirectoryDeviceGetChildFunctor)(unsigned childNum, char childPath[KernelFsPathMax]);
@@ -63,7 +63,7 @@ const char *kernelFsGetFilePath(KernelFsFd fd);
 
 // The following functions are for non-directory files only.
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes read
-KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes read
+KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen, bool block); // offset is ignored for character device files. Returns number of bytes read. blocking only affects some character device files
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes written
 KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset offset, const uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes written
 

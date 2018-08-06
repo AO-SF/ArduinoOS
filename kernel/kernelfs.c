@@ -572,10 +572,10 @@ const char *kernelFsGetFilePath(KernelFsFd fd) {
 }
 
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen) {
-	return kernelFsFileReadOffset(fd, 0, data, dataLen);
+	return kernelFsFileReadOffset(fd, 0, data, dataLen, true);
 }
 
-KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen) {
+KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen, bool block) {
 	// Invalid fd?
 	if (kernelFsData.fdt[fd]==NULL)
 		return 0;
@@ -592,7 +592,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 				// offset is ignored as these are not seekable
 				KernelFsFileOffset read;
 				for(read=0; read<dataLen; ++read) {
-					int c=device->d.character.readFunctor();
+					int c=device->d.character.readFunctor(block);
 					if (c==-1)
 						break;
 					data[read]=c;

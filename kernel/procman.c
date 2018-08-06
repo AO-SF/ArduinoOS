@@ -344,7 +344,7 @@ ProcManPid procManFindUnusedPid(void) {
 }
 
 bool procManProcessLoadProcData(const ProcManProcess *process, ProcManProcessProcData *procData) {
-	return (kernelFsFileReadOffset(process->procFd, 0, (uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
+	return (kernelFsFileReadOffset(process->procFd, 0, (uint8_t *)procData, sizeof(ProcManProcessProcData), false)==sizeof(ProcManProcessProcData));
 }
 
 bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData *procData) {
@@ -354,7 +354,7 @@ bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t *value) {
 	if (addr<ByteCodeMemoryRamAddr) {
 		// Addresss is in progmem data
-		if (kernelFsFileReadOffset(process->progmemFd, addr, value, 1)==1)
+		if (kernelFsFileReadOffset(process->progmemFd, addr, value, 1, false)==1)
 			return true;
 		else {
 			debugLog("warning: process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr);
@@ -364,7 +364,7 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcDat
 		// Address is in RAM
 		ByteCodeWord ramIndex=(addr-ByteCodeMemoryRamAddr);
 		if (ramIndex<procData->ramLen) {
-			bool res=kernelFsFileReadOffset(procData->ramFd, procData->argvDataLen+ramIndex, value, 1);
+			bool res=kernelFsFileReadOffset(procData->ramFd, procData->argvDataLen+ramIndex, value, 1, false);
 			assert(res);
 			return true;
 		} else {
@@ -469,7 +469,7 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 	uint16_t index=procData->envVars.argv[n];
 	while(1) {
 		uint8_t c;
-		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1)!=1) {
+		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1, false)!=1) {
 			debugLog("warning: corrupt argvdata or ram file more generally? Process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			return false;
 		}
@@ -722,7 +722,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							KernelFsFileOffset i;
 							for(i=0; i<len; ++i) {
 								uint8_t value;
-								if (kernelFsFileReadOffset(fd, offset+i, &value, 1)!=1)
+								if (kernelFsFileReadOffset(fd, offset+i, &value, 1, true)!=1)
 									break;
 								if (!procManProcessMemoryWriteByte(process, procData, bufAddr+i, value))
 									return false;
@@ -808,6 +808,15 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								return false;
 							kernelFsPathNormalise(path);
 							procData->regs[0]=kernelFsFileGetLen(path);
+						} break;
+						case ByteCodeSyscallIdTryReadByte: {
+							KernelFsFd fd=procData->regs[1];
+
+							uint8_t value;
+							if (kernelFsFileReadOffset(fd, 0, &value, 1, false)==1)
+								procData->regs[0]=value;
+							else
+								procData->regs[0]=256;
 						} break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							procData->regs[0]=procData->envVars.stdioFd;
@@ -904,7 +913,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	for(KernelFsFileOffset i=0; i<ramTotalSize; ++i) {
 		bool res=true;
 		uint8_t value;
-		res&=(kernelFsFileReadOffset(procData->ramFd, i, &value, 1)==1);
+		res&=(kernelFsFileReadOffset(procData->ramFd, i, &value, 1, false)==1);
 		res&=(kernelFsFileWriteOffset(childProcData.ramFd, i, &value, 1)==1);
 		assert(res);
 	}
