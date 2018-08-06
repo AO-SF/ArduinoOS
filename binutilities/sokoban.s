@@ -1,3 +1,4 @@
+requireend lib/curses/curses.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/openpath.s
@@ -124,6 +125,9 @@ ret
 
 ; Draw a level
 label levelDraw
+
+; clear screen
+call cursesReset
 
 ; loop over all cells
 mov r4 0 ; y
