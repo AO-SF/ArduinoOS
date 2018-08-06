@@ -20,9 +20,10 @@ ret
 
 ; cursesSetPosXY(x=r0, y=r1)
 label cursesSetPosXY
+inc r0
+inc r1
 push r0
 push r1
-
 mov r0 27
 call putc0
 mov r0 '['
