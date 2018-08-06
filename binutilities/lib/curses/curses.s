@@ -62,3 +62,14 @@ mov r0 'm'
 call putc0
 
 ret
+
+; cursesGetChar() - puts single byte into r0, or 256 if no data to read
+label cursesGetChar
+; grab stdio fd
+mov r0 512
+syscall
+; call tryreadbyte syscall
+mov r1 r0
+mov r0 264
+syscall
+ret
