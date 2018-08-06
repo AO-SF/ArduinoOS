@@ -9,6 +9,9 @@ db errorStrBadLevel 'error: could not load given level\n', 0
 db maxSize 16
 ab levelArray 256 ; maxSize*maxSize
 
+ab playerX 1
+ab playerY 1
+
 ab pathBuf 64
 ab scratchByte 1
 
@@ -84,6 +87,26 @@ pop r0
 cmp r1 r1 r1
 skipneqz r1
 jmp levelReadLoopEnd
+
+; If player or player-on-goal, set playerX and Y
+mov r1 scratchByte
+load8 r1 r1
+mov r3 '@'
+cmp r3 r1 r3
+skipneq r3
+jmp levelReadLoopPlayer
+mov r3 '+'
+cmp r3 r1 r3
+skipneq r3
+jmp levelReadLoopPlayer
+jmp levelReadLoopNotPlayer
+
+label levelReadLoopPlayer
+mov r3 playerX
+store8 r3 r5
+mov r3 playerY
+store8 r3 r4
+label levelReadLoopNotPlayer
 
 ; store character in current row
 mov r1 levelArray
