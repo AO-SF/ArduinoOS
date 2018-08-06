@@ -37,7 +37,42 @@ jmp errorBadLevel
 ; Draw level
 call levelDraw
 
-; TODO: Handle WASD and physics logic, using curses to update screen as needed
+; Input loop
+label inputLoop
+; set cursor to common position
+mov r0 0
+mov r1 20 ; ; TODO: Think about this
+call cursesSetPosXY
+
+; wait for key press
+call cursesGetChar
+mov r1 256
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+; Parse key
+mov r1 'q'
+cmp r1 r0 r1
+skipneq r1
+jmp done
+mov r1 'a'
+cmp r1 r0 r1
+skipneq r1
+jmp moveLeft
+mov r1 'd'
+cmp r1 r0 r1
+skipneq r1
+jmp moveRight
+mov r1 'w'
+cmp r1 r0 r1
+skipneq r1
+jmp moveUp
+mov r1 's'
+cmp r1 r0 r1
+skipneq r1
+jmp moveDown
+
+jmp inputLoop
 
 ; Exit
 label done
@@ -91,21 +126,36 @@ jmp levelReadLoopEnd
 ; If player or player-on-goal, set playerX and Y
 mov r1 scratchByte
 load8 r1 r1
-mov r3 '@'
+mov r3 '+'
 cmp r3 r1 r3
 skipneq r3
-jmp levelReadLoopPlayer
-mov r3 '+'
+jmp levelReadLoopPlayerGoal
+mov r3 '@'
 cmp r3 r1 r3
 skipneq r3
 jmp levelReadLoopPlayer
 jmp levelReadLoopNotPlayer
 
-label levelReadLoopPlayer
+label levelReadLoopPlayerGoal
+mov r1 scratchByte
+mov r3 '.'
+store8 r1 r3
 mov r3 playerX
 store8 r3 r5
 mov r3 playerY
 store8 r3 r4
+jmp levelReadLoopNotPlayer
+
+label levelReadLoopPlayer
+mov r1 scratchByte
+mov r3 ' '
+store8 r1 r3
+mov r3 playerX
+store8 r3 r5
+mov r3 playerY
+store8 r3 r4
+jmp levelReadLoopNotPlayer
+
 label levelReadLoopNotPlayer
 
 ; store character in current row
@@ -163,7 +213,7 @@ push r3
 push r4
 mov r0 r3
 mov r1 r4
-call levelLoadCell
+call levelLoadCellAdjusted
 pop r4
 pop r3
 
@@ -211,3 +261,474 @@ mul r2 r2 r1
 add r0 r0 r2
 load8 r0 r0 ; load cell
 ret
+
+; levelLoadCellAdjusted(x=r0, y=r1) - returns cell value in r0, adjusted to put the player on if needed
+label levelLoadCellAdjusted
+; load raw cell value
+push r0
+push r1
+call levelLoadCell
+mov r2 r0
+pop r1
+pop r0
+; check if this is the players cell also
+mov r3 playerX
+load8 r3 r3
+cmp r3 r0 r3
+skipeq r3
+jmp levelLoadCellAdjustedRet
+mov r3 playerY
+load8 r3 r3
+cmp r3 r1 r3
+skipeq r3
+jmp levelLoadCellAdjustedRet
+; this is the players cell - update r2
+mov r0 ' '
+cmp r0 r0 r2
+skipeq r0
+jmp levelLoadCellAdjustedPlayerOnGoal
+mov r2 '@'
+jmp levelLoadCellAdjustedRet
+label levelLoadCellAdjustedPlayerOnGoal
+mov r2 '+'
+label levelLoadCellAdjustedRet
+mov r0 r2
+ret
+
+; levelSetCell(x=r0, y=r1, c=r2)
+label levelSetCell
+mov r3 levelArray ; base offset
+add r0 r0 r3 ; add x
+mov r3 maxSize ; add y*maxSize
+load8 r3 r3
+mul r3 r3 r1
+add r0 r0 r3
+store8 r0 r2 ; update cell
+ret
+
+; levelDrawUpdateCell(x=r0, y=r1) - takes coordinates and updates that cell on screen to match value in array
+label levelDrawUpdateCell
+; move cursor to correct position
+push r0
+push r1
+call cursesSetPosXY
+pop r1
+pop r0
+; load character
+call levelLoadCellAdjusted
+mov r2 r0
+; write character onto screen
+call putc0
+ret
+
+label moveLeft
+; load cell at (px-1,py)
+mov r0 playerX
+load8 r0 r0
+dec r0
+mov r1 playerY
+load8 r1 r1
+call levelLoadCell
+; if wall cannot move
+mov r1 '#'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+; if floor or goal (without box) then we can move here
+mov r1 ' '
+cmp r1 r0 r1
+skipneq r1
+jmp moveLeftMovePlayer
+mov r1 '.'
+cmp r1 r0 r1
+skipneq r1
+jmp moveLeftMovePlayer
+; otherwise we have a box or box on a goal
+; need to check the next cell again
+mov r0 playerX
+load8 r0 r0
+dec2 r0
+mov r1 playerY
+load8 r1 r1
+call levelLoadCell
+; if next cell is a wall, a box or a box on a goal, we cannot push the first box, and thus cannot move
+mov r1 '#'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+mov r1 '$'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+mov r1 '*'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+; we can move to next cell
+; if it is a goal cell, change to box on goal
+mov r1 '.'
+cmp r1 r0 r1
+skipeq r1
+jmp moveLeft2ndEmpty
+mov r0 playerX
+load8 r0 r0
+dec2 r0
+mov r1 playerY
+load8 r1 r1
+mov r2 '*'
+call levelSetCell
+jmp moveLeft2ndFinal
+; otherwise it is empty, change to a box
+label moveLeft2ndEmpty
+mov r0 playerX
+load8 r0 r0
+dec2 r0
+mov r1 playerY
+load8 r1 r1
+mov r2 '$'
+call levelSetCell
+label moveLeft2ndFinal
+; update on screen the extra cell we have changed
+mov r0 playerX
+load8 r0 r0
+dec2 r0
+mov r1 playerY
+load8 r1 r1
+call levelDrawUpdateCell
+; change players to-square to be empty
+mov r0 playerX
+load8 r0 r0
+dec r0
+mov r1 playerY
+load8 r1 r1
+mov r2 ' '
+call levelSetCell
+; move player
+label moveLeftMovePlayer
+mov r0 playerX
+load8 r1 r0
+dec r1
+store8 r0 r1
+; redraw players from and to squares
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+push r0
+push r1
+call levelDrawUpdateCell
+pop r1
+pop r0
+inc r0
+call levelDrawUpdateCell
+; return to wait for next move
+jmp inputLoop
+
+label moveRight
+; load cell at (px+1,py)
+mov r0 playerX
+load8 r0 r0
+inc r0
+mov r1 playerY
+load8 r1 r1
+call levelLoadCell
+; if wall cannot move
+mov r1 '#'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+; if floor or goal (without box) then we can move here
+mov r1 ' '
+cmp r1 r0 r1
+skipneq r1
+jmp moveRightMovePlayer
+mov r1 '.'
+cmp r1 r0 r1
+skipneq r1
+jmp moveRightMovePlayer
+; otherwise we have a box or box on a goal
+; need to check the next cell again
+mov r0 playerX
+load8 r0 r0
+inc2 r0
+mov r1 playerY
+load8 r1 r1
+call levelLoadCell
+; if next cell is a wall, a box or a box on a goal, we cannot push the first box, and thus cannot move
+mov r1 '#'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+mov r1 '$'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+mov r1 '*'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+; we can move to next cell
+; if it is a goal cell, change to box on goal
+mov r1 '.'
+cmp r1 r0 r1
+skipeq r1
+jmp moveRight2ndEmpty
+mov r0 playerX
+load8 r0 r0
+inc2 r0
+mov r1 playerY
+load8 r1 r1
+mov r2 '*'
+call levelSetCell
+jmp moveRight2ndFinal
+; otherwise it is empty, change to a box
+label moveRight2ndEmpty
+mov r0 playerX
+load8 r0 r0
+inc2 r0
+mov r1 playerY
+load8 r1 r1
+mov r2 '$'
+call levelSetCell
+label moveRight2ndFinal
+; update on screen the extra cell we have changed
+mov r0 playerX
+load8 r0 r0
+inc2 r0
+mov r1 playerY
+load8 r1 r1
+call levelDrawUpdateCell
+; change players to-square to be empty
+mov r0 playerX
+load8 r0 r0
+inc r0
+mov r1 playerY
+load8 r1 r1
+mov r2 ' '
+call levelSetCell
+; move player
+label moveRightMovePlayer
+mov r0 playerX
+load8 r1 r0
+inc r1
+store8 r0 r1
+; redraw players from and to squares
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+push r0
+push r1
+call levelDrawUpdateCell
+pop r1
+pop r0
+dec r0
+call levelDrawUpdateCell
+; return to wait for next move
+jmp inputLoop
+
+label moveUp
+; load cell at (px,py-1)
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+dec r1
+call levelLoadCell
+; if wall cannot move
+mov r1 '#'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+; if floor or goal (without box) then we can move here
+mov r1 ' '
+cmp r1 r0 r1
+skipneq r1
+jmp moveUpMovePlayer
+mov r1 '.'
+cmp r1 r0 r1
+skipneq r1
+jmp moveUpMovePlayer
+; otherwise we have a box or box on a goal
+; need to check the next cell again
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+dec2 r1
+call levelLoadCell
+; if next cell is a wall, a box or a box on a goal, we cannot push the first box, and thus cannot move
+mov r1 '#'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+mov r1 '$'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+mov r1 '*'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+; we can move to next cell
+; if it is a goal cell, change to box on goal
+mov r1 '.'
+cmp r1 r0 r1
+skipeq r1
+jmp moveUp2ndEmpty
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+dec2 r1
+mov r2 '*'
+call levelSetCell
+jmp moveUp2ndFinal
+; otherwise it is empty, change to a box
+label moveUp2ndEmpty
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+dec2 r1
+mov r2 '$'
+call levelSetCell
+label moveUp2ndFinal
+; update on screen the extra cell we have changed
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+dec2 r1
+call levelDrawUpdateCell
+; change players to-square to be empty
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+dec r1
+mov r2 ' '
+call levelSetCell
+; move player
+label moveUpMovePlayer
+mov r0 playerY
+load8 r1 r0
+dec r1
+store8 r0 r1
+; redraw players from and to squares
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+push r0
+push r1
+call levelDrawUpdateCell
+pop r1
+pop r0
+inc r1
+call levelDrawUpdateCell
+; return to wait for next move
+jmp inputLoop
+
+label moveDown
+; load cell at (px,py+1)
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+inc r1
+call levelLoadCell
+; if wall cannot move
+mov r1 '#'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+; if floor or goal (without box) then we can move here
+mov r1 ' '
+cmp r1 r0 r1
+skipneq r1
+jmp moveDownMovePlayer
+mov r1 '.'
+cmp r1 r0 r1
+skipneq r1
+jmp moveDownMovePlayer
+; otherwise we have a box or box on a goal
+; need to check the next cell again
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+inc2 r1
+call levelLoadCell
+; if next cell is a wall, a box or a box on a goal, we cannot push the first box, and thus cannot move
+mov r1 '#'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+mov r1 '$'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+mov r1 '*'
+cmp r1 r0 r1
+skipneq r1
+jmp inputLoop
+; we can move to next cell
+; if it is a goal cell, change to box on goal
+mov r1 '.'
+cmp r1 r0 r1
+skipeq r1
+jmp moveDown2ndEmpty
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+inc2 r1
+mov r2 '*'
+call levelSetCell
+jmp moveDown2ndFinal
+; otherwise it is empty, change to a box
+label moveDown2ndEmpty
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+inc2 r1
+mov r2 '$'
+call levelSetCell
+label moveDown2ndFinal
+; update on screen the extra cell we have changed
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+inc2 r1
+call levelDrawUpdateCell
+; change players to-square to be empty
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+inc r1
+mov r2 ' '
+call levelSetCell
+; move player
+label moveDownMovePlayer
+mov r0 playerY
+load8 r1 r0
+inc r1
+store8 r0 r1
+; redraw players from and to squares
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+push r0
+push r1
+call levelDrawUpdateCell
+pop r1
+pop r0
+dec r1
+call levelDrawUpdateCell
+; return to wait for next move
+jmp inputLoop
