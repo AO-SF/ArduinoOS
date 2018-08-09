@@ -166,7 +166,10 @@ bool debugMiniFsAddDir(MiniFs *fs, const char *dirPath) {
 		if ((stbuf.st_mode & S_IFMT)==S_IFDIR)
 			continue; // Skip directories
 		else
-			debugMiniFsAddFile(fs, dp->d_name, fullName); // TODO: Check return
+			if (!debugMiniFsAddFile(fs, dp->d_name, fullName)) {
+				printf("warning unable to add file '%s'\n", fullName);
+				continue;
+			}
 	}
 
 	return true;
