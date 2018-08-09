@@ -425,13 +425,14 @@ int kernelDevTtyS0ReadFunctor(bool block) {
 	return Serial.read();
 #else
 	if (!block) {
-		struct pollfd pollFds;
-		pollFds.fd=STDIN_FILENO;
-		pollFds.events=POLLIN;
-		if (poll(&pollFds, 1, 0)<=0)
+		struct pollfd pollFds[0];
+		memset(pollFds, 0, sizeof(pollFds));
+		pollFds[0].fd=STDIN_FILENO;
+		pollFds[0].events=POLLIN;
+		if (poll(pollFds, 1, 0)<=0)
 			return -1;
 
-		if (!(pollFds.revents & POLLIN))
+		if (!(pollFds[0].revents & POLLIN))
 			return -1;
 	}
 
