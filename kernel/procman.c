@@ -8,6 +8,7 @@
 #include "kernel.h"
 #include "kernelfs.h"
 #include "procman.h"
+#include "wrapper.h"
 
 #define procManProcessInstructionCounterMax ((1u)<<16) // TODO: On arduino this needs 32 bit
 #define procManProcessInstructionCounterMaxMinusOne (((1u)<<16)-1) // TODO: On arduino this only needs 16 bit but needs calculating differently
