@@ -1,10 +1,10 @@
 #include <assert.h>
 #include <poll.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 #include <unistd.h>
 
 #include "debug.h"
@@ -21,6 +21,7 @@
 #include "progmemlibstdstr.h"
 #include "progmemlibstdtime.h"
 #include "progmemusrbin.h"
+#include "wrapper.h"
 
 #define KernelTmpDataPoolSize (8*1024) // 8kb - used as ram (will have to be smaller on Uno presumably)
 uint8_t *kernelTmpDataPool=NULL;
@@ -40,8 +41,6 @@ uint8_t *kernelTmpDataPool=NULL;
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
 #endif
-
-uint32_t kernelBootTime=0;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -114,15 +113,7 @@ int main(int argc, char **argv) {
 
 #ifndef ARDUINO
 
-uint32_t millisRaw(void) {
-	struct timeval tv;
-	gettimeofday(&tv, NULL); // TODO: Check return value.
-	return tv.tv_sec*1000llu+tv.tv_usec/1000llu;
-}
 
-uint32_t millis(void) {
-	return millisRaw()-kernelBootTime;
-}
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
