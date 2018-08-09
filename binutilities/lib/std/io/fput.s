@@ -12,7 +12,7 @@ mov r2 r1
 mov r1 r0
 mov r0 512 ; Grab stdio fd and put it in r0
 syscall
-jmp fputs ; TODO: Is this safe allowing a different function to return? (or should it be rather)
+jmp fputs
 
 ; fputs(fd=r0, offset=r1, strAddr=r2)
 label fputs
