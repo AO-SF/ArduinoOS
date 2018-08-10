@@ -3,6 +3,7 @@ requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/openpath.s
 
+db infoStr '\n\nwasd move/push, r redraw, q quit\n# wall, @ player, + player-on-goal, $ box, * box on goal, . goal\n\n', 0
 db errorStrNoArg 'usage: sokoban LEVELPATH\n', 0
 db errorStrBadLevel 'error: could not load given level\n', 0
 
@@ -45,7 +46,7 @@ call levelDraw
 label inputLoop
 ; set cursor to common position
 mov r0 0
-mov r1 20 ; ; TODO: Think about this
+mov r1 0 ; TODO: Think about this
 call cursesSetPosXY
 
 ; wait for key press
@@ -317,6 +318,7 @@ label levelDrawUpdateCell
 ; move cursor to correct position
 push r0
 push r1
+inc5 r1 ; due to printing infoStr
 call cursesSetPosXY
 pop r1
 pop r0
