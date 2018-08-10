@@ -52,6 +52,8 @@ FILE *kernelFakeEepromFile=NULL;
 void kernelBoot(void);
 void kernelShutdown(void);
 
+void kernelHalt(void);
+
 bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 bool kernelLibGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
@@ -260,12 +262,16 @@ void kernelShutdown(void) {
 #endif
 
 	// Halt
+	kernelHalt();
+}
+
+void kernelHalt(void) {
 #ifdef ARDUINO
 	debugLog(DebugLogTypeInfo, "halting\n");
 	while(1)
 		;
 #else
-	debugLog(DebugLogTypeInfo, "exiting\n");
+	debugLog(DebugLogTypeInfo, "exiting (PC wrapper)\n");
 	exit(0);
 #endif
 }
