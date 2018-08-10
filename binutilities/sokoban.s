@@ -34,7 +34,11 @@ cmp r0 r0 r0
 skipneqz r0
 jmp errorBadLevel
 
-; Draw level
+; Clear screen, show info and draw level
+label redraw
+call cursesReset
+mov r0 infoStr
+call puts0
 call levelDraw
 
 ; Input loop
@@ -51,6 +55,10 @@ cmp r1 r0 r1
 skipneq r1
 jmp inputLoop
 ; Parse key
+mov r1 'r'
+cmp r1 r0 r1
+skipneq r1
+jmp redraw
 mov r1 'q'
 cmp r1 r0 r1
 skipneq r1
@@ -198,9 +206,6 @@ ret
 
 ; Draw a level
 label levelDraw
-
-; clear screen
-call cursesReset
 
 ; loop over all cells
 mov r4 0 ; y
