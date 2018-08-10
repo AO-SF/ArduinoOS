@@ -84,6 +84,7 @@ jmp inputLoop
 
 ; Exit
 label done
+call cursesReset
 mov r0 0
 call exit
 
