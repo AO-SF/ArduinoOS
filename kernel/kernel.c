@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef ARDUINO
+#include <termios.h>
+#endif
 #include <unistd.h>
 
 #include "debug.h"
@@ -104,15 +107,26 @@ void loop() {
 }
 
 #ifndef ARDUINO
+
 int main(int argc, char **argv) {
+	// save terminal settings
+	static struct termios termOld, termNew;
+	tcgetattr(STDIN_FILENO, &termOld);
+
+	// change terminal settings to avoid waiting for a newline before submitting any data
+	termNew=termOld;
+	termNew.c_lflag&=~ICANON;
+	tcsetattr(STDIN_FILENO, TCSANOW, &termNew);
+
+	// setup and main loop
 	setup();
 	loop();
+
+	// restore terminal settings
+	tcsetattr(STDIN_FILENO, TCSANOW, &termOld);
+
 	return 0;
 }
-#endif
-
-#ifndef ARDUINO
-
 
 #endif
 
