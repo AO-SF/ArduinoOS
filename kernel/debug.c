@@ -7,6 +7,7 @@
 #include <sys/types.h>
 
 #include "debug.h"
+#include "wrapper.h"
 #include "kernelfs.h"
 
 void debugFsHelper(const char *path, int indent);
@@ -185,6 +186,18 @@ void debugLog(const char *format, ...) {
 void debugLogV(const char *format, va_list ap) {
 	// TODO: Think about Arduino case
 #ifndef ARDUINO
-	vprintf(format, ap);
+	FILE *file=fopen("kernel.log", "a");
+	if (file!=NULL) {
+		uint32_t t=millis();
+		uint32_t h=t/(60u*60u*1000u);
+		t-=h*(60u*60u*1000u);
+		uint32_t m=t/(60u*1000u);
+		t-=m*(60u*1000u);
+		uint32_t s=t/1000u;
+		uint32_t ms=t-s*1000u;
+		fprintf(file, "%3u:%02u:%02u:%03u ", h, m, s, ms);
+		vfprintf(file, format, ap);
+		fclose(file);
+	}
 #endif
 }

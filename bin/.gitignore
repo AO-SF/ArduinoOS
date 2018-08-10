@@ -5,3 +5,4 @@ eeprom
 emulator
 kernel
 *.o
+*.log
