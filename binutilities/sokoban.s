@@ -359,7 +359,7 @@ dec2 r0
 mov r1 playerY
 load8 r1 r1
 call levelLoadCell
-; if next cell is a wall, a box or a box on a goal, we cannot push the first box, and thus cannot move
+; if next cell again is a wall, a box or a box on a goal, we cannot push the first box, and thus cannot move
 mov r1 '#'
 cmp r1 r0 r1
 skipneq r1
@@ -403,7 +403,26 @@ dec2 r0
 mov r1 playerY
 load8 r1 r1
 call levelDrawUpdateCell
-; change players to-square to be empty
+; change players to-square to be empty or goal if previous box-on-goal not just box
+mov r0 playerX
+load8 r0 r0
+dec r0
+mov r1 playerY
+load8 r1 r1
+call levelLoadCell
+mov r1 '*'
+cmp r1 r0 r1
+skipeq r1
+jmp moveLeft2ndFinalEmpty
+mov r0 playerX
+load8 r0 r0
+dec r0
+mov r1 playerY
+load8 r1 r1
+mov r2 '.'
+call levelSetCell
+jmp moveLeftMovePlayer
+label moveLeft2ndFinalEmpty
 mov r0 playerX
 load8 r0 r0
 dec r0
@@ -506,7 +525,26 @@ inc2 r0
 mov r1 playerY
 load8 r1 r1
 call levelDrawUpdateCell
-; change players to-square to be empty
+; change players to-square to be empty or goal if previous box-on-goal not just box
+mov r0 playerX
+load8 r0 r0
+inc r0
+mov r1 playerY
+load8 r1 r1
+call levelLoadCell
+mov r1 '*'
+cmp r1 r0 r1
+skipeq r1
+jmp moveRight2ndFinalEmpty
+mov r0 playerX
+load8 r0 r0
+inc r0
+mov r1 playerY
+load8 r1 r1
+mov r2 '.'
+call levelSetCell
+jmp moveRightMovePlayer
+label moveRight2ndFinalEmpty
 mov r0 playerX
 load8 r0 r0
 inc r0
@@ -609,7 +647,26 @@ mov r1 playerY
 load8 r1 r1
 dec2 r1
 call levelDrawUpdateCell
-; change players to-square to be empty
+; change players to-square to be empty or goal if previous box-on-goal not just box
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+dec r1
+call levelLoadCell
+mov r1 '*'
+cmp r1 r0 r1
+skipeq r1
+jmp moveUp2ndFinalEmpty
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+dec r1
+mov r2 '.'
+call levelSetCell
+jmp moveUpMovePlayer
+label moveUp2ndFinalEmpty
 mov r0 playerX
 load8 r0 r0
 mov r1 playerY
@@ -712,7 +769,26 @@ mov r1 playerY
 load8 r1 r1
 inc2 r1
 call levelDrawUpdateCell
-; change players to-square to be empty
+; change players to-square to be empty or goal if previous box-on-goal not just box
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+inc r1
+call levelLoadCell
+mov r1 '*'
+cmp r1 r0 r1
+skipeq r1
+jmp moveDown2ndFinalEmpty
+mov r0 playerX
+load8 r0 r0
+mov r1 playerY
+load8 r1 r1
+inc r1
+mov r2 '.'
+call levelSetCell
+jmp moveDownMovePlayer
+label moveDown2ndFinalEmpty
 mov r0 playerX
 load8 r0 r0
 mov r1 playerY
