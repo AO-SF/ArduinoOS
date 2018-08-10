@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <poll.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +54,9 @@ void kernelBoot(void);
 void kernelShutdown(void);
 
 void kernelHalt(void);
+
+void kernelFatalError(const char *format, ...);
+void kernelFatalErrorV(const char *format, va_list ap);
 
 bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
@@ -153,16 +157,21 @@ void kernelBoot(void) {
 #endif
 
 	// Allocate space for /tmp
-	kernelTmpDataPool=malloc(KernelTmpDataPoolSize); // TODO: Check return
+	kernelTmpDataPool=malloc(KernelTmpDataPoolSize);
+	if (kernelTmpDataPool==NULL)
+		kernelFatalError("could not allocate /tmp data pool (size %u)\n", KernelTmpDataPoolSize);
 	debugLog(DebugLogTypeInfo, "allocated /tmp space (size %u)\n", KernelTmpDataPoolSize);
 
 	// Non-arduino-only: create pretend EEPROM storage in a local file
 #ifndef ARDUINO
-	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "a+"); // TODO: Check return
+	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "a+");
+	if (kernelFakeEepromFile==NULL)
+		kernelFatalError("could not open/create pseudo EEPROM storage file at '%s' (PC wrapper)\n", kernelFakeEepromPath);
 	fclose(kernelFakeEepromFile);
 
-	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "r+"); // TODO: Check return
-
+	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "r+");
+	if (kernelFakeEepromFile==NULL)
+		kernelFatalError("could not open pseudo EEPROM storage file at '%s' for reading and writing (PC wrapper)\n", kernelFakeEepromPath);
 	fseek(kernelFakeEepromFile, 0L, SEEK_END);
 	int eepromInitialSize=ftell(kernelFakeEepromFile);
 
@@ -180,8 +189,9 @@ void kernelBoot(void) {
 		miniFsUnmount(&homeMiniFs); // Unmount so we can mount again when we initialise the file system
 		debugLog(DebugLogTypeInfo, "/home volume already exists\n");
 	} else {
-		miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromSize); // TODO: check return
-		debugLog(DebugLogTypeInfo, "formatted new /home volume\n");
+		if (!miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromSize))
+			kernelFatalError("could not format new /home volume\n");
+		debugLog(DebugLogTypeInfo, "formatted new /home volume (size %u)\n", KernelEepromSize);
 
 		// Add a few example files
 		// TODO: this is only temporary
@@ -193,7 +203,8 @@ void kernelBoot(void) {
 	}
 
 	// Format RAM used for /tmp
-	miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize); // TODO: check return
+	if (!miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize))
+		kernelFatalError("could not format /tmp volume\n");
 	debugLog(DebugLogTypeInfo, "formatted volume representing /tmp\n");
 
 	// Init file system and add virtual devices
@@ -222,8 +233,9 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, kernelTmpWriteFunctor);
 	error|=!kernelFsAddDirectoryDeviceFile("/usr", &kernelUsrGetChildFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL);
-	// TODO: handle error
 
+	if (error)
+		kernelFatalError("could not initialise filesystem\n");
 	debugLog(DebugLogTypeInfo, "initialised filesystem\n");
 
 	// Initialise process manager and start init process
@@ -231,7 +243,8 @@ void kernelBoot(void) {
 	debugLog(DebugLogTypeInfo, "initialised process manager\n");
 
 	debugLog(DebugLogTypeInfo, "starting init\n");
-	procManProcessNew("/bin/init"); // TODO: Check return
+	if (procManProcessNew("/bin/init")==ProcManPidMax)
+		kernelFatalError("could not start init at '%s'\n", "/bin/init");
 }
 
 void kernelShutdown(void) {
@@ -274,6 +287,18 @@ void kernelHalt(void) {
 	debugLog(DebugLogTypeInfo, "exiting (PC wrapper)\n");
 	exit(0);
 #endif
+}
+
+void kernelFatalError(const char *format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	kernelFatalErrorV(format, ap);
+	va_end(ap);
+}
+
+void kernelFatalErrorV(const char *format, va_list ap) {
+	debugLogV(DebugLogTypeError, format, ap);
+	kernelHalt();
 }
 
 bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
