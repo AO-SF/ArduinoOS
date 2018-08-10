@@ -22,6 +22,11 @@ typedef struct {
 const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeInc, .str="inc", .ops=0, .incDecValue=1},
 	{.type=BytecodeInstructionAluTypeInc, .str="inc2", .ops=0, .incDecValue=2},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc3", .ops=0, .incDecValue=3},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc4", .ops=0, .incDecValue=4},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc5", .ops=0, .incDecValue=5},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc6", .ops=0, .incDecValue=6},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc7", .ops=0, .incDecValue=7},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec", .ops=0, .incDecValue=1},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec2", .ops=0, .incDecValue=2},
 	{.type=BytecodeInstructionAluTypeAdd, .str="add", .ops=2},
