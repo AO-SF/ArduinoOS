@@ -6,8 +6,8 @@ requireend lib/std/proc/openpath.s
 db errorStrNoArg 'usage: sokoban LEVELPATH\n', 0
 db errorStrBadLevel 'error: could not load given level\n', 0
 
-db maxSize 16
-ab levelArray 256 ; maxSize*maxSize
+db maxSize 32
+ab levelArray 1024 ; maxSize*maxSize
 
 ab playerX 1
 ab playerY 1
