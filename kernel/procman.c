@@ -358,7 +358,7 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcDat
 		if (kernelFsFileReadOffset(process->progmemFd, addr, value, 1, false)==1)
 			return true;
 		else {
-			debugLog("warning: process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr);
+			debugLog(DebugLogTypeWarning, "process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr);
 			return false;
 		}
 	} else {
@@ -369,7 +369,7 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcDat
 			assert(res);
 			return true;
 		} else {
-			debugLog("warning: process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, procData->ramLen);
+			debugLog(DebugLogTypeWarning, "process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, procData->ramLen);
 			return false;
 		}
 	}
@@ -401,7 +401,7 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t value) {
 	// Is this addr in read-only progmem section?
 	if (addr<ByteCodeMemoryRamAddr) {
-		debugLog("warning: process %u (%s) tried to write to read-only address (0x%04X), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
+		debugLog(DebugLogTypeWarning, "process %u (%s) tried to write to read-only address (0x%04X), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
 		return false;
 	}
 
@@ -471,7 +471,7 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 	while(1) {
 		uint8_t c;
 		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1, false)!=1) {
-			debugLog("warning: corrupt argvdata or ram file more generally? Process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			debugLog(DebugLogTypeWarning, "corrupt argvdata or ram file more generally? Process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			return false;
 		}
 		*dest++=c;
@@ -500,7 +500,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 	// Parse instruction
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
-		debugLog("warning: could not parse instruction 0x%02X%02X%02X, process %u (%s), killing\n", instruction[0], instruction[1], instruction[2], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		debugLog(DebugLogTypeWarning, "could not parse instruction 0x%02X%02X%02X, process %u (%s), killing\n", instruction[0], instruction[1], instruction[2], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 		return false;
 	}
 
@@ -856,7 +856,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							procData->regs[0]=(millis()/1000);
 						break;
 						default:
-							debugLog("warning: invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							debugLog(DebugLogTypeWarning, "invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							return false;
 						break;
 					}

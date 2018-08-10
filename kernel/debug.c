@@ -176,18 +176,20 @@ bool debugMiniFsAddDir(MiniFs *fs, const char *dirPath) {
 	return true;
 }
 
-void debugLog(const char *format, ...) {
+void debugLog(DebugLogType type, const char *format, ...) {
 	va_list ap;
 	va_start(ap, format);
-	debugLogV(format, ap);
+	debugLogV(type, format, ap);
 	va_end(ap);
 }
 
-void debugLogV(const char *format, va_list ap) {
+void debugLogV(DebugLogType type, const char *format, va_list ap) {
 	// TODO: Think about Arduino case
 #ifndef ARDUINO
+	// Open file
 	FILE *file=fopen("kernel.log", "a");
 	if (file!=NULL) {
+		// Print time
 		uint32_t t=millis();
 		uint32_t h=t/(60u*60u*1000u);
 		t-=h*(60u*60u*1000u);
@@ -196,8 +198,24 @@ void debugLogV(const char *format, va_list ap) {
 		uint32_t s=t/1000u;
 		uint32_t ms=t-s*1000u;
 		fprintf(file, "%3u:%02u:%02u:%03u ", h, m, s, ms);
+
+		// Print log type
+		fprintf(file, "%7s ", debugLogTypeToString(type));
+
+		// Print user string
 		vfprintf(file, format, ap);
+
+		// Close file
 		fclose(file);
 	}
 #endif
+}
+
+const char *debugLogTypeToString(DebugLogType type) {
+	static const char *debugLogTypeToStringArray[]={
+		[DebugLogTypeInfo]="INFO",
+		[DebugLogTypeWarning]="WARNING",
+		[DebugLogTypeError]="ERROR",
+	};
+	return debugLogTypeToStringArray[type];
 }
