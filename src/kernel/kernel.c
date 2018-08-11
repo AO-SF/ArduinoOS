@@ -201,7 +201,7 @@ void kernelBoot(void) {
 		// Add a few example files
 		// TODO: this is only temporary
 		miniFsMountSafe(&homeMiniFs, &kernelHomeMiniFsReadFunctor, &kernelHomeMiniFsWriteFunctor, NULL);
-		debugMiniFsAddDir(&homeMiniFs, "../homemockup");
+		debugMiniFsAddDir(&homeMiniFs, "../src/tools/builder/mockups/homemockup");
 		miniFsDebug(&homeMiniFs);
 		miniFsUnmount(&homeMiniFs);
 		debugLog(DebugLogTypeInfo, "add example files to /home\n");

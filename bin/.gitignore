@@ -1,8 +1,0 @@
-assembler
-builder
-disassembler
-eeprom
-emulator
-kernel
-*.o
-*.log
