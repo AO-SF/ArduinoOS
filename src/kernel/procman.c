@@ -4,9 +4,9 @@
 #include <string.h>
 
 #include "bytecode.h"
-#include "debug.h"
 #include "kernel.h"
 #include "kernelfs.h"
+#include "log.h"
 #include "procman.h"
 #include "wrapper.h"
 
@@ -132,12 +132,12 @@ int procManGetProcessCount(void) {
 ProcManPid procManProcessNew(const char *programPath) {
 	KernelFsFd ramFd=KernelFsFdInvalid;
 
-	debugLog(DebugLogTypeInfo, "attempting to create new process at '%s'\n", programPath);
+	kernelLog(LogTypeInfo, "attempting to create new process at '%s'\n", programPath);
 
 	// Find a PID for the new process
 	ProcManPid pid=procManFindUnusedPid();
 	if (pid==ProcManPidMax) {
-		debugLog(DebugLogTypeWarning, "could not create new process - no spare PIDs\n");
+		kernelLog(LogTypeWarning, "could not create new process - no spare PIDs\n");
 		return ProcManPidMax;
 	}
 
@@ -150,31 +150,31 @@ ProcManPid procManProcessNew(const char *programPath) {
 	// Attempt to open program file
 	procManData.processes[pid].progmemFd=kernelFsFileOpen(programPath);
 	if (procManData.processes[pid].progmemFd==KernelFsFdInvalid) {
-		debugLog(DebugLogTypeWarning, "could not create new process - could not open program at '%s'\n", programPath);
+		kernelLog(LogTypeWarning, "could not create new process - could not open program at '%s'\n", programPath);
 		goto error;
 	}
 
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(procPath, sizeof(ProcManProcessProcData))) {
-		debugLog(DebugLogTypeWarning, "could not create new process - could not create process data file at '%s' of size %u\n", procPath, sizeof(ProcManProcessProcData));
+		kernelLog(LogTypeWarning, "could not create new process - could not create process data file at '%s' of size %u\n", procPath, sizeof(ProcManProcessProcData));
 		goto error;
 	}
 	KernelFsFileOffset argvDataLen=1; // single byte for NULL terminator acting as all (empty) arguments
 	if (!kernelFsFileCreateWithSize(ramPath, argvDataLen)) {
-		debugLog(DebugLogTypeWarning, "could not create new process - could not create ram data file at '%s' of size %u\n", ramPath, argvDataLen);
+		kernelLog(LogTypeWarning, "could not create new process - could not create ram data file at '%s' of size %u\n", ramPath, argvDataLen);
 		goto error;
 	}
 
 	// Attempt to open proc and ram files
 	procManData.processes[pid].procFd=kernelFsFileOpen(procPath);
 	if (procManData.processes[pid].procFd==KernelFsFdInvalid) {
-		debugLog(DebugLogTypeWarning, "could not create new process - could not open process data file at '%s'\n", procPath);
+		kernelLog(LogTypeWarning, "could not create new process - could not open process data file at '%s'\n", procPath);
 		goto error;
 	}
 
 	ramFd=kernelFsFileOpen(ramPath);
 	if (ramFd==KernelFsFdInvalid) {
-		debugLog(DebugLogTypeWarning, "could not create new process - could not open ram data file at '%s'\n", ramPath);
+		kernelLog(LogTypeWarning, "could not create new process - could not open ram data file at '%s'\n", ramPath);
 		goto error;
 	}
 
@@ -199,18 +199,18 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 	uint8_t nullByte;
 	if (kernelFsFileWriteOffset(ramFd, 0, &nullByte, 1)!=1) {
-		debugLog(DebugLogTypeWarning, "could not create new process - could not write argv data into ram data file at '%s', fd %u\n", ramPath, ramFd);
+		kernelLog(LogTypeWarning, "could not create new process - could not write argv data into ram data file at '%s', fd %u\n", ramPath, ramFd);
 		goto error;
 	}
 	for(unsigned i=0; i<ARGVMAX; ++i)
 		procData.envVars.argv[i]=0;
 
 	if (!procManProcessStoreProcData(&procManData.processes[pid], &procData)) {
-		debugLog(DebugLogTypeWarning, "could not create new process - could not save process data file\n");
+		kernelLog(LogTypeWarning, "could not create new process - could not save process data file\n");
 		goto error;
 	}
 
-	debugLog(DebugLogTypeInfo, "created new process '%s' with PID %u\n", programPath, pid);
+	kernelLog(LogTypeInfo, "created new process '%s' with PID %u\n", programPath, pid);
 
 	return pid;
 
@@ -231,12 +231,12 @@ ProcManPid procManProcessNew(const char *programPath) {
 }
 
 void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
-	debugLog(DebugLogTypeInfo, "attempting to kill process %u with exit status %u\n", pid, exitStatus);
+	kernelLog(LogTypeInfo, "attempting to kill process %u with exit status %u\n", pid, exitStatus);
 
 	// Not even open?
 	ProcManProcess *process=procManGetProcessByPid(pid);
 	if (process==NULL) {
-		debugLog(DebugLogTypeWarning, "could not kill process %u - no such process\n", pid);
+		kernelLog(LogTypeWarning, "could not kill process %u - no such process\n", pid);
 		return;
 	}
 
@@ -279,7 +279,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 	process->state=ProcManProcessStateUnused;
 	process->instructionCounter=0;
 
-	debugLog(DebugLogTypeInfo, "killed process %u\n", pid);
+	kernelLog(LogTypeInfo, "killed process %u\n", pid);
 
 	// Check if any processes are waiting due to waitpid syscall
 	for(unsigned waiterPid=0; waiterPid<ProcManPidMax; ++waiterPid) {
@@ -295,7 +295,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 			res=procManProcessStoreProcData(waiterProcess, &waiterProcData);
 			assert(res);
 
-			debugLog(DebugLogTypeInfo, "process %u died - waking process %u from waitpid syscall\n", pid, waiterPid);
+			kernelLog(LogTypeInfo, "process %u died - waking process %u from waitpid syscall\n", pid, waiterPid);
 		}
 	}
 }
@@ -428,7 +428,7 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcDat
 		if (kernelFsFileReadOffset(process->progmemFd, addr, value, 1, false)==1)
 			return true;
 		else {
-			debugLog(DebugLogTypeWarning, "process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr);
+			kernelLog(LogTypeWarning, "process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr);
 			return false;
 		}
 	} else {
@@ -439,7 +439,7 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcDat
 			assert(res);
 			return true;
 		} else {
-			debugLog(DebugLogTypeWarning, "process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, procData->ramLen);
+			kernelLog(LogTypeWarning, "process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, procData->ramLen);
 			return false;
 		}
 	}
@@ -471,7 +471,7 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t value) {
 	// Is this addr in read-only progmem section?
 	if (addr<ByteCodeMemoryRamAddr) {
-		debugLog(DebugLogTypeWarning, "process %u (%s) tried to write to read-only address (0x%04X), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
+		kernelLog(LogTypeWarning, "process %u (%s) tried to write to read-only address (0x%04X), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
 		return false;
 	}
 
@@ -541,7 +541,7 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 	while(1) {
 		uint8_t c;
 		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1, false)!=1) {
-			debugLog(DebugLogTypeWarning, "corrupt argvdata or ram file more generally? Process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			kernelLog(LogTypeWarning, "corrupt argvdata or ram file more generally? Process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			return false;
 		}
 		*dest++=c;
@@ -570,7 +570,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 	// Parse instruction
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
-		debugLog(DebugLogTypeWarning, "could not parse instruction 0x%02X%02X%02X, process %u (%s), killing\n", instruction[0], instruction[1], instruction[2], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		kernelLog(LogTypeWarning, "could not parse instruction 0x%02X%02X%02X, process %u (%s), killing\n", instruction[0], instruction[1], instruction[2], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 		return false;
 	}
 
@@ -927,7 +927,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							procData->regs[0]=(millis()/1000);
 						break;
 						default:
-							debugLog(DebugLogTypeWarning, "invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							kernelLog(LogTypeWarning, "invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							return false;
 						break;
 					}
@@ -949,12 +949,12 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	KernelFsFd ramFd=KernelFsFdInvalid;
 	ProcManPid parentPid=procManGetPidFromProcess(parent);
 
-	debugLog(DebugLogTypeInfo, "fork request from process %u\n", parentPid);
+	kernelLog(LogTypeInfo, "fork request from process %u\n", parentPid);
 
 	// Find a PID for the new process
 	ProcManPid childPid=procManFindUnusedPid();
 	if (childPid==ProcManPidMax) {
-		debugLog(DebugLogTypeWarning, "could not fork from %u - no spare PIDs\n", parentPid);
+		kernelLog(LogTypeWarning, "could not fork from %u - no spare PIDs\n", parentPid);
 		goto error;
 	}
 	ProcManProcess *child=&(procManData.processes[childPid]);
@@ -967,25 +967,25 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(childProcPath, sizeof(ProcManProcessProcData))) {
-		debugLog(DebugLogTypeWarning, "could not fork from %u - could not create child process data file at '%s' of size %u\n", parentPid, childProcPath, sizeof(procManProcessLoadProcData));
+		kernelLog(LogTypeWarning, "could not fork from %u - could not create child process data file at '%s' of size %u\n", parentPid, childProcPath, sizeof(procManProcessLoadProcData));
 		goto error;
 	}
 	uint16_t ramTotalSize=procData->argvDataLen+procData->ramLen;
 	if (!kernelFsFileCreateWithSize(childRamPath, ramTotalSize)) {
-		debugLog(DebugLogTypeWarning, "could not fork from %u - could not create child ram data file at '%s' of size %u\n", parentPid, childRamPath, ramTotalSize);
+		kernelLog(LogTypeWarning, "could not fork from %u - could not create child ram data file at '%s' of size %u\n", parentPid, childRamPath, ramTotalSize);
 		goto error;
 	}
 
 	// Attempt to open proc and ram files
 	child->procFd=kernelFsFileOpen(childProcPath);
 	if (child->procFd==KernelFsFdInvalid) {
-		debugLog(DebugLogTypeWarning, "could not fork from %u - could not open child process data file at '%s'\n", parentPid, childProcPath);
+		kernelLog(LogTypeWarning, "could not fork from %u - could not open child process data file at '%s'\n", parentPid, childProcPath);
 		goto error;
 	}
 
 	ramFd=kernelFsFileOpen(childRamPath);
 	if (ramFd==KernelFsFdInvalid) {
-		debugLog(DebugLogTypeWarning, "could not fork from %u - could not open child ram data file at '%s'\n", parentPid, childRamPath);
+		kernelLog(LogTypeWarning, "could not fork from %u - could not open child ram data file at '%s'\n", parentPid, childRamPath);
 		goto error;
 	}
 
@@ -1000,7 +1000,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	childProcData.regs[0]=0; // indicate success in the child
 
 	if (!procManProcessStoreProcData(child, &childProcData)) {
-		debugLog(DebugLogTypeWarning, "could not fork from %u - could not save child process data file to '%s'\n", parentPid, childProcPath);
+		kernelLog(LogTypeWarning, "could not fork from %u - could not save child process data file to '%s'\n", parentPid, childProcPath);
 		goto error;
 	}
 
@@ -1011,7 +1011,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 		res&=(kernelFsFileReadOffset(procData->ramFd, i, &value, 1, false)==1);
 		res&=(kernelFsFileWriteOffset(childProcData.ramFd, i, &value, 1)==1);
 		if (!res) {
-			debugLog(DebugLogTypeWarning, "could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n", parentPid, i, ramTotalSize);
+			kernelLog(LogTypeWarning, "could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n", parentPid, i, ramTotalSize);
 			goto error;
 		}
 	}
@@ -1019,7 +1019,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	// Update parent return value with child's PID
 	procData->regs[0]=childPid;
 
-	debugLog(DebugLogTypeInfo, "forked from %u, creating child %u\n", parentPid, childPid);
+	kernelLog(LogTypeInfo, "forked from %u, creating child %u\n", parentPid, childPid);
 
 	return;
 
@@ -1040,7 +1040,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 }
 
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData) {
-	debugLog(DebugLogTypeInfo, "exec in %u\n", procManGetPidFromProcess(process));
+	kernelLog(LogTypeInfo, "exec in %u\n", procManGetPidFromProcess(process));
 
 	// Grab path and args (if any)
 	char args[ARGVMAX][64]; // TODO: Avoid hardcoded 64
@@ -1048,36 +1048,36 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 		args[i][0]='\0';
 
 	if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], args[0], KernelFsPathMax)) {
-		debugLog(DebugLogTypeWarning, "exec in %u failed - could not read path argument\n", procManGetPidFromProcess(process));
+		kernelLog(LogTypeWarning, "exec in %u failed - could not read path argument\n", procManGetPidFromProcess(process));
 		return false;
 	}
 
 	for(unsigned i=1; i<ARGVMAX; ++i)
 		if (procData->regs[i+1]!=0)
 			if (!procManProcessMemoryReadStr(process, procData, procData->regs[i+1], args[i], KernelFsPathMax)) {
-				debugLog(DebugLogTypeWarning, "exec in %u failed - could not read argument %u\n", procManGetPidFromProcess(process), i);
+				kernelLog(LogTypeWarning, "exec in %u failed - could not read argument %u\n", procManGetPidFromProcess(process), i);
 				return false;
 			}
 
-	debugLog(DebugLogTypeInfo, "exec in %u - raw path '%s', arg1='%s', arg2='%s', arg3='%s'\n", procManGetPidFromProcess(process), args[0], args[1], args[2], args[3]); // TODO: Avoid hardcoded number of arguments
+	kernelLog(LogTypeInfo, "exec in %u - raw path '%s', arg1='%s', arg2='%s', arg3='%s'\n", procManGetPidFromProcess(process), args[0], args[1], args[2], args[3]); // TODO: Avoid hardcoded number of arguments
 
 	// Normalise path and then check if valid
 	kernelFsPathNormalise(args[0]);
 
 	if (!kernelFsPathIsValid(args[0])) {
-		debugLog(DebugLogTypeWarning, "exec in %u failed - path '%s' not valid\n", procManGetPidFromProcess(process), args[0]);
+		kernelLog(LogTypeWarning, "exec in %u failed - path '%s' not valid\n", procManGetPidFromProcess(process), args[0]);
 		return true;
 	}
 
 	if (kernelFsFileIsDir(args[0])) {
-		debugLog(DebugLogTypeWarning, "exec in %u failed - path '%s' is a directory\n", procManGetPidFromProcess(process), args[0]);
+		kernelLog(LogTypeWarning, "exec in %u failed - path '%s' is a directory\n", procManGetPidFromProcess(process), args[0]);
 		return true;
 	}
 
 	// Attempt to open new program file
 	KernelFsFd newProgmemFd=kernelFsFileOpen(args[0]);
 	if (newProgmemFd==KernelFsFdInvalid) {
-		debugLog(DebugLogTypeWarning, "exec in %u failed - could not open program at '%s'\n", procManGetPidFromProcess(process), args[0]);
+		kernelLog(LogTypeWarning, "exec in %u failed - could not open program at '%s'\n", procManGetPidFromProcess(process), args[0]);
 		return true;
 	}
 
@@ -1113,7 +1113,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 
 	kernelFsFileClose(procData->ramFd);
 	if (!kernelFsFileResize(ramPath, newRamTotalSize)) {
-		debugLog(DebugLogTypeWarning, "exec in %u failed - could not resize new processes RAM file at '%s' to %u\n", procManGetPidFromProcess(process), ramPath, newRamTotalSize);
+		kernelLog(LogTypeWarning, "exec in %u failed - could not resize new processes RAM file at '%s' to %u\n", procManGetPidFromProcess(process), ramPath, newRamTotalSize);
 		return false;
 	}
 	procData->ramFd=kernelFsFileOpen(ramPath);
@@ -1123,12 +1123,12 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	for(unsigned i=0; i<ARGVMAX; ++i) {
 		uint16_t argSize=strlen(args[i])+1;
 		if (kernelFsFileWriteOffset(procData->ramFd, procData->envVars.argv[i], (const uint8_t *)(args[i]), argSize)!=argSize) {
-			debugLog(DebugLogTypeWarning, "exec in %u failed - could not write args into new processes memory\n", procManGetPidFromProcess(process));
+			kernelLog(LogTypeWarning, "exec in %u failed - could not write args into new processes memory\n", procManGetPidFromProcess(process));
 			return false;
 		}
 	}
 
-	debugLog(DebugLogTypeInfo, "exec in %u succeeded\n", procManGetPidFromProcess(process));
+	kernelLog(LogTypeInfo, "exec in %u succeeded\n", procManGetPidFromProcess(process));
 
 	return true;
 }
