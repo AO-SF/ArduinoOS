@@ -11,9 +11,9 @@
 #endif
 #include <unistd.h>
 
-#include "debug.h"
 #include "kernel.h"
 #include "kernelfs.h"
+#include "log.h"
 #include "minifs.h"
 #include "procman.h"
 #include "progmembin.h"
@@ -146,26 +146,26 @@ int main(int argc, char **argv) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void kernelBoot(void) {
-	debugLog(DebugLogTypeInfo, "booting\n");
+	kernelLog(LogTypeInfo, "booting\n");
 
 #ifndef ARDUINO
 	// ON the Arduino we can leave this at 0 but otherwise we have to save offset
 	kernelBootTime=millisRaw();
-	debugLog(DebugLogTypeInfo, "set kernel boot time to %lu (PC wrapper)\n", kernelBootTime);
+	kernelLog(LogTypeInfo, "set kernel boot time to %lu (PC wrapper)\n", kernelBootTime);
 #endif
 
 	// Arduino-only: connect to serial (ready to mount as /dev/ttyS0).
 #ifdef ARDUINO
 	Serial.begin(9600);
 	while (!Serial) ;
-	debugLog(DebugLogTypeInfo, "initialised serial\n");
+	kernelLog(LogTypeInfo, "initialised serial\n");
 #endif
 
 	// Allocate space for /tmp
 	kernelTmpDataPool=malloc(KernelTmpDataPoolSize);
 	if (kernelTmpDataPool==NULL)
 		kernelFatalError("could not allocate /tmp data pool (size %u)\n", KernelTmpDataPoolSize);
-	debugLog(DebugLogTypeInfo, "allocated /tmp space (size %u)\n", KernelTmpDataPoolSize);
+	kernelLog(LogTypeInfo, "allocated /tmp space (size %u)\n", KernelTmpDataPoolSize);
 
 	// Non-arduino-only: create pretend EEPROM storage in a local file
 #ifndef ARDUINO
@@ -185,24 +185,24 @@ void kernelBoot(void) {
 		++eepromInitialSize;
 	}
 
-	debugLog(DebugLogTypeInfo, "openned pseudo EEPROM storage file (PC wrapper)\n");
+	kernelLog(LogTypeInfo, "openned pseudo EEPROM storage file (PC wrapper)\n");
 #endif
 
 	// Format /home if it does not look like it has been already
 	MiniFs homeMiniFs;
 	if (miniFsMountSafe(&homeMiniFs, &kernelHomeMiniFsReadFunctor, &kernelHomeMiniFsWriteFunctor, NULL)) {
 		miniFsUnmount(&homeMiniFs); // Unmount so we can mount again when we initialise the file system
-		debugLog(DebugLogTypeInfo, "/home volume already exists\n");
+		kernelLog(LogTypeInfo, "/home volume already exists\n");
 	} else {
 		if (!miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromSize))
 			kernelFatalError("could not format new /home volume\n");
-		debugLog(DebugLogTypeInfo, "formatted new /home volume (size %u)\n", KernelEepromSize);
+		kernelLog(LogTypeInfo, "formatted new /home volume (size %u)\n", KernelEepromSize);
 	}
 
 	// Format RAM used for /tmp
 	if (!miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize))
 		kernelFatalError("could not format /tmp volume\n");
-	debugLog(DebugLogTypeInfo, "formatted volume representing /tmp\n");
+	kernelLog(LogTypeInfo, "formatted volume representing /tmp\n");
 
 	// Init file system and add virtual devices
 	kernelFsInit();
@@ -233,41 +233,41 @@ void kernelBoot(void) {
 
 	if (error)
 		kernelFatalError("could not initialise filesystem\n");
-	debugLog(DebugLogTypeInfo, "initialised filesystem\n");
+	kernelLog(LogTypeInfo, "initialised filesystem\n");
 
 	// Initialise process manager and start init process
 	procManInit();
-	debugLog(DebugLogTypeInfo, "initialised process manager\n");
+	kernelLog(LogTypeInfo, "initialised process manager\n");
 
-	debugLog(DebugLogTypeInfo, "starting init\n");
+	kernelLog(LogTypeInfo, "starting init\n");
 	if (procManProcessNew("/bin/init")==ProcManPidMax)
 		kernelFatalError("could not start init at '%s'\n", "/bin/init");
 }
 
 void kernelShutdown(void) {
-	debugLog(DebugLogTypeInfo, "shutting down\n");
+	kernelLog(LogTypeInfo, "shutting down\n");
 
 	// Quit process manager
-	debugLog(DebugLogTypeInfo, "killing all processes\n");
+	kernelLog(LogTypeInfo, "killing all processes\n");
 	procManQuit();
 
 	// Quit file system
-	debugLog(DebugLogTypeInfo, "unmounting filesystem\n");
+	kernelLog(LogTypeInfo, "unmounting filesystem\n");
 	kernelFsQuit();
 
 	// Arduino-only: close serial connection (was mounted as /dev/ttyS0).
 #ifdef ARDUINO
-	debugLog(DebugLogTypeInfo, "closing serial connection\n");
+	kernelLog(LogTypeInfo, "closing serial connection\n");
 	Serial.end();
 #endif
 
 	// Free /tmp memory pool
-	debugLog(DebugLogTypeInfo, "freeing /tmp space\n");
+	kernelLog(LogTypeInfo, "freeing /tmp space\n");
 	free(kernelTmpDataPool);
 
 	// Non-arduino-only: close pretend EEPROM storage file
 #ifndef ARDUINO
-	debugLog(DebugLogTypeInfo, "closing pseudo EEPROM storage file (PC wrapper)\n");
+	kernelLog(LogTypeInfo, "closing pseudo EEPROM storage file (PC wrapper)\n");
 	fclose(kernelFakeEepromFile); // TODO: Check return
 #endif
 
@@ -277,11 +277,11 @@ void kernelShutdown(void) {
 
 void kernelHalt(void) {
 #ifdef ARDUINO
-	debugLog(DebugLogTypeInfo, "halting\n");
+	kernelLog(LogTypeInfo, "halting\n");
 	while(1)
 		;
 #else
-	debugLog(DebugLogTypeInfo, "exiting (PC wrapper)\n");
+	kernelLog(LogTypeInfo, "exiting (PC wrapper)\n");
 	exit(0);
 #endif
 }
@@ -294,7 +294,7 @@ void kernelFatalError(const char *format, ...) {
 }
 
 void kernelFatalErrorV(const char *format, va_list ap) {
-	debugLogV(DebugLogTypeError, format, ap);
+	kernelLogV(LogTypeError, format, ap);
 	kernelHalt();
 }
 
