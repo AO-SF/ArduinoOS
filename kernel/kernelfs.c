@@ -659,6 +659,20 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 	return 0;
 }
 
+bool kernelFsFileCanRead(KernelFsFd fd) {
+	// Invalid fd?
+	if (kernelFsData.fdt[fd]==NULL)
+		return false;
+
+	// Is this a virtual character device file?
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(kernelFsData.fdt[fd]);
+	if (device!=NULL && device->type==KernelFsDeviceTypeCharacter)
+		return device->d.character.canReadFunctor();
+
+	// Otherwise all other file types never block
+	return true;
+}
+
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen) {
 	return kernelFsFileWriteOffset(fd, 0, data, dataLen);
 }
