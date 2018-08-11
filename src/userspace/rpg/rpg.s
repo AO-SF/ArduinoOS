@@ -25,11 +25,14 @@ jmp temploop
 
 ; Exit
 label done
+call cursesReset
 mov r0 0
 call exit
 
 ; Errors
 label errorLevelLoad
+call cursesReset
 mov r0 errorStrLevelLoad
 call puts0
-jmp done
+mov r0 1
+call exit
