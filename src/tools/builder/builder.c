@@ -4,17 +4,55 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "debug.h"
-#include "minifs.h"
+#include "minifsextra.h"
 
 uint8_t dataArray[8*1024]; // current minifs limit is 8kb anyway
+
+#define eepromSize (8*1024)
+const char *fakeEepromPath="./eeprom";
 
 bool buildVolume(const char *name, uint16_t size, const char *srcDir);
 
 uint8_t readFunctor(uint16_t addr, void *userData);
 void writeFunctor(uint16_t addr, uint8_t value, void *userData);
 
+uint8_t homeMiniFsReadFunctor(uint16_t addr, void *userData);
+void homeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
+
 int main(int agrc, char **argv) {
+	// Create mock /home EEPROM file if it does not look like it already exists
+	FILE *fakeEepromFile=fopen(fakeEepromPath, "r+");
+	if (fakeEepromFile!=NULL) {
+		fclose(fakeEepromFile);
+	} else {
+		fakeEepromFile=fopen(fakeEepromPath, "a+");
+		if (fakeEepromFile!=NULL) {
+			for(unsigned i=0; i<eepromSize; ++i)
+				fputc(0xFF, fakeEepromFile);
+			fclose(fakeEepromFile);
+
+			fakeEepromFile=fopen(fakeEepromPath, "r+");
+			if (fakeEepromFile!=NULL) {
+				MiniFs homeMiniFs;
+				if (miniFsMountSafe(&homeMiniFs, &homeMiniFsReadFunctor, &homeMiniFsWriteFunctor, fakeEepromFile)) {
+					miniFsUnmount(&homeMiniFs);
+				} else {
+					miniFsFormat(&homeMiniFsWriteFunctor, fakeEepromFile, eepromSize);
+
+					// Add a few example files
+					miniFsMountSafe(&homeMiniFs, &homeMiniFsReadFunctor, &homeMiniFsWriteFunctor, fakeEepromFile);
+					miniFsExtraAddDir(&homeMiniFs, "./src/tools/builder/mockups/homemockup");
+					miniFsDebug(&homeMiniFs);
+					miniFsUnmount(&homeMiniFs);
+				}
+
+				fclose(fakeEepromFile);
+			}
+		}
+	}
+	fakeEepromFile=NULL;
+
+	// Build other read-only volumes
 	buildVolume("bin", 8*1024, "./src/tools/builder/mockups/binmockup");
 	buildVolume("usrbin", 8*1024, "./src/tools/builder/mockups/usrbinmockup");
 	buildVolume("libstdio", 8*1024, "./src/userspace/lib/std/io");
@@ -48,7 +86,7 @@ bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 	}
 
 	// Loop over files in given source dir and write each one to minifs
-	debugMiniFsAddDir(&miniFs, srcDir);
+	miniFsExtraAddDir(&miniFs, srcDir);
 
 	// Debug fs
 	//miniFsDebug(&miniFs);
@@ -119,4 +157,25 @@ uint8_t readFunctor(uint16_t addr, void *userData) {
 
 void writeFunctor(uint16_t addr, uint8_t value, void *userData) {
 	dataArray[addr]=value;
+}
+
+uint8_t homeMiniFsReadFunctor(uint16_t addr, void *userData) {
+	assert(userData!=NULL);
+	FILE *fakeEepromFile=(FILE *)userData;
+	int res=fseek(fakeEepromFile, addr, SEEK_SET);
+	assert(res==0);
+	assert(ftell(fakeEepromFile)==addr);
+	int c=fgetc(fakeEepromFile);
+	assert(c!=EOF);
+	return c;
+}
+
+void homeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
+	assert(userData!=NULL);
+	FILE *fakeEepromFile=(FILE *)userData;
+	int res=fseek(fakeEepromFile, addr, SEEK_SET);
+	assert(res==0);
+	assert(ftell(fakeEepromFile)==addr);
+	res=fputc(value, fakeEepromFile);
+	assert(res==value);
 }
