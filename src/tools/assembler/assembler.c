@@ -75,6 +75,7 @@ typedef enum {
 	AssemblerInstructionTypeRet,
 	AssemblerInstructionTypeStore8,
 	AssemblerInstructionTypeLoad8,
+	AssemblerInstructionTypeConst,
 } AssemblerInstructionType;
 
 typedef struct {
@@ -133,6 +134,11 @@ typedef struct {
 } AssemblerInstructionLoad8;
 
 typedef struct {
+	const char *symbol;
+	ByteCodeWord value;
+} AssemblerInstructionConst;
+
+typedef struct {
 	uint16_t lineIndex;
 	char *modifiedLineCopy; // so we can have fields pointing into this
 	AssemblerInstructionType type;
@@ -148,6 +154,7 @@ typedef struct {
 		AssemblerInstructionCall call;
 		AssemblerInstructionStore8 store8;
 		AssemblerInstructionLoad8 load8;
+		AssemblerInstructionConst constSymbol;
 	} d;
 
 	uint8_t machineCode[1024]; // TODO: this is pretty wasteful...
@@ -208,6 +215,9 @@ int assemblerGetDefineSymbolAddr(const AssemblerProgram *program, const char *sy
 
 int assemblerGetLabelSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found
 int assemblerGetLabelSymbolAddr(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found, otherwise result points into read-only program memory
+
+int assemblerGetConstSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found
+int assemblerGetConstSymbolValue(const AssemblerProgram *program, const char *symbol); // Returns -1 if symbol not found, otherwise contains 16 bit value
 
 BytecodeRegister assemblerRegisterFromStr(const char *str); // Returns BytecodeRegisterNB on failure
 
@@ -679,6 +689,11 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				return false;
 			}
 
+			if (assemblerGetConstSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a constant (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
@@ -721,6 +736,11 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 
 			if (assemblerGetLabelSymbolInstructionIndex(program, symbol)!=-1) {
 				printf("error - symbol '%s' already defined as a label (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetConstSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a constant (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
 
@@ -857,6 +877,11 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				return false;
 			}
 
+			if (assemblerGetConstSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a constant (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
@@ -958,6 +983,53 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->type=AssemblerInstructionTypeLoad8;
 			instruction->d.load8.dest=dest;
 			instruction->d.load8.src=src;
+		} else if (strcmp(first, "const")==0) {
+			char *symbol=strtok_r(NULL, " ", &savePtr);
+			if (symbol==NULL) {
+				printf("error - expected symbol name after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerRegisterFromStr(symbol)!=BytecodeRegisterNB) {
+				printf("error - cannot use reserved symbol '%s' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetAllocationSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as an 'allocation' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetDefineSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a 'define' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetLabelSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a label (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			if (assemblerGetConstSymbolInstructionIndex(program, symbol)!=-1) {
+				printf("error - symbol '%s' already defined as a constant (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			char *value=strtok_r(NULL, " ", &savePtr);
+			if (value==NULL) {
+				printf("error - expected value name after '%s' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			// TODO: Support single character constants
+			// TODO: Better error checking for bad constant (currently just defaults to 0)
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeConst;
+			instruction->d.constSymbol.symbol=symbol;
+			instruction->d.constSymbol.value=atoi(value);
 		} else {
 			// Check for an ALU operation
 			unsigned j;
@@ -1058,7 +1130,7 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeMov: {
 				// Check src and determine type
 				BytecodeRegister srcReg;
-				int defineAddr, allocationAddr;
+				int defineAddr, allocationAddr, constValue;
 				if (isdigit(instruction->d.mov.src[0])) {
 					// Integer - use set8 or set16 instruction as needed
 					unsigned value=atoi(instruction->d.mov.src);
@@ -1095,6 +1167,8 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				} else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1) {
 					// Allocation symbol may need set16
 					instruction->machineCodeLen=3;
+				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
+					instruction->machineCodeLen=(constValue>=256 ? 3 : 2);
 				} else {
 					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 					return false;
@@ -1130,6 +1204,9 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 			break;
 			case AssemblerInstructionTypeLoad8:
 				instruction->machineCodeLen=1;
+			break;
+			case AssemblerInstructionTypeConst:
+				instruction->machineCodeLen=0;
 			break;
 		}
 	}
@@ -1179,7 +1256,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 
 				// Determine type of src (we have already verified it in previous pass)
 				BytecodeRegister srcReg;
-				int defineAddr, allocationAddr;
+				int defineAddr, allocationAddr, constValue;
 				if (isdigit(instruction->d.mov.src[0])) {
 					// Integer - use set8 or set16 instruction as needed
 					unsigned value=atoi(instruction->d.mov.src);
@@ -1213,6 +1290,13 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, defineAddr);
 				} else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1) {
 					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, allocationAddr);
+				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
+					if (constValue<256) {
+						BytecodeInstructionStandard op=bytecodeInstructionCreateMiscSet8(destReg, constValue);
+						instruction->machineCode[0]=(op>>8);
+						instruction->machineCode[1]=(op&0xFF);
+					} else
+						bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, constValue);
 				} else {
 					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 					return false;
@@ -1399,6 +1483,8 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				// Create instruction
 				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeLoad8, destReg, srcReg);
 			} break;
+			case AssemblerInstructionTypeConst:
+			break;
 		}
 	}
 
@@ -1531,6 +1617,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			case AssemblerInstructionTypeLoad8:
 				printf("%s=[%s] (8 bit) (%s:%u '%s')\n", instruction->d.load8.dest, instruction->d.load8.src, line->file, line->lineNum, line->original);
 			break;
+			case AssemblerInstructionTypeConst:
+				printf("const %s=%u (%s:%u '%s')\n", instruction->d.constSymbol.symbol, instruction->d.constSymbol.value, line->file, line->lineNum, line->original);
+			break;
 		}
 	}
 }
@@ -1633,6 +1722,31 @@ int assemblerGetLabelSymbolAddr(const AssemblerProgram *program, const char *sym
 		return -1;
 
 	return program->instructions[index].machineCodeOffset;
+}
+
+int assemblerGetConstSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol) {
+	assert(program!=NULL);
+	assert(symbol!=NULL);
+
+	// Search through instructions looking for this symbol being defined
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		const AssemblerInstruction *loopInstruction=&program->instructions[i];
+		if (loopInstruction->type==AssemblerInstructionTypeConst && strcmp(loopInstruction->d.constSymbol.symbol, symbol)==0)
+			return i;
+	}
+
+	return -1;
+}
+
+int assemblerGetConstSymbolValue(const AssemblerProgram *program, const char *symbol) {
+	assert(program!=NULL);
+	assert(symbol!=NULL);
+
+	int index=assemblerGetConstSymbolInstructionIndex(program, symbol);
+	if (index==-1)
+		return -1;
+
+	return program->instructions[index].d.constSymbol.value;
 }
 
 BytecodeRegister assemblerRegisterFromStr(const char *str) {
