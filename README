@@ -1,5 +1,5 @@
 # Compiling and Building
-Run make from the ``bin`` directory.
+Run make from the root directory.
 This will:
 
 * compile all 'tools' (assembler, builder, disassembler and emulator)
