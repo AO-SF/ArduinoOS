@@ -3,9 +3,11 @@ requireend ../std/io/fputdec.s
 
 db cursesEscSeqStrClear 27, '[2J', 0
 db cursesEscSeqStrSetRgb 27, '[38;2;', 0
+db cursesEscSeqStrResetAttributes 27, '[0m', 0
 
 ; cursesReset - clear screen and set cursor to (0,0)
 label cursesReset
+call cursesResetAttributes
 call cursesClearScreen
 mov r0 0
 mov r1 0
@@ -15,6 +17,12 @@ ret
 ; cursesClearScreen
 label cursesClearScreen
 mov r0 cursesEscSeqStrClear
+call puts0
+ret
+
+; cursesResetAttributes
+label cursesResetAttributes
+mov r0 cursesEscSeqStrResetAttributes
 call puts0
 ret
 
