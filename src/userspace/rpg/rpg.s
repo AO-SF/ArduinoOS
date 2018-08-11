@@ -1,3 +1,4 @@
+requireend ../lib/std/io/fput.s
 requireend ../lib/std/proc/exit.s
 
 requireend draw.s
@@ -5,22 +6,30 @@ requireend level.s
 requireend load.s
 requireend tiles.s
 
-; Start
-; TODO: Remove proof of concept
-requireend ../lib/std/io/fput.s
-mov r0 tileData
-call puts0
-mov r0 tileData
-mov r1 16
-add r0 r0 r1
-call puts0
-mov r0 tileData
-mov r1 32
-add r0 r0 r1
-call puts0
-mov r0 '\n'
-call putc0
+db startLevelPath 'intro.lvl',0
+db errorStrLevelLoad 'could not load level\n',0
+
+; Load level
+mov r0 startLevelPath
+call loadLevel
+cmp r0 r0 r0
+skipneqz r0
+jmp errorLevelLoad
+
+; Draw level (initially we redraw everything)
+call redraw
+
+; TODO: remove this and write rest of game (waiting for input, moving player, redrawing etc)
+label temploop
+jmp temploop
 
 ; Exit
+label done
 mov r0 0
 call exit
+
+; Errors
+label errorLevelLoad
+mov r0 errorStrLevelLoad
+call puts0
+jmp done
