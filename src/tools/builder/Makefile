@@ -2,7 +2,7 @@ CPP = clang
 CFLAGS = -std=gnu11 -Wall -O0 -ggdb3 -I../../kernel
 LFLAGS = -lm
 
-OBJS = builder.o ../../kernel/debug.o ../../kernel/wrapper.o ../../kernel/kernelfs.o ../../kernel/minifs.o
+OBJS = builder.o minifsextra.o ../../kernel/minifs.o
 
 ALL: $(OBJS)
 	rm -rf mockups/binmockup/*

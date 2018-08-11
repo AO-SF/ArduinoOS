@@ -197,14 +197,6 @@ void kernelBoot(void) {
 		if (!miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromSize))
 			kernelFatalError("could not format new /home volume\n");
 		debugLog(DebugLogTypeInfo, "formatted new /home volume (size %u)\n", KernelEepromSize);
-
-		// Add a few example files
-		// TODO: this is only temporary
-		miniFsMountSafe(&homeMiniFs, &kernelHomeMiniFsReadFunctor, &kernelHomeMiniFsWriteFunctor, NULL);
-		debugMiniFsAddDir(&homeMiniFs, "../src/tools/builder/mockups/homemockup");
-		miniFsDebug(&homeMiniFs);
-		miniFsUnmount(&homeMiniFs);
-		debugLog(DebugLogTypeInfo, "add example files to /home\n");
 	}
 
 	// Format RAM used for /tmp
