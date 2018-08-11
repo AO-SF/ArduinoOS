@@ -26,6 +26,19 @@ cmp r3 r5 r3
 skipneq r3
 jmp fgetsLoopEnd
 
+; Check for backspace
+mov r3 127
+cmp r3 r5 r3
+skipeq r3
+jmp fgetsLoopNoBackspace
+; found a backspace
+; decrement r4 instead to delete the last char, unless we are already at the start
+cmp r3 r4 r4
+skipeqz r3
+dec r4
+jmp fgetsLoopStart
+label fgetsLoopNoBackspace
+
 ; Copy character
 mov r3 r2
 add r3 r3 r4
