@@ -1,3 +1,4 @@
 const levelW 64
 const levelH 16
-ab levelArray 1024 ; levelW*levelH
+const levelWH 1024 ; levelW*levelH
+ab levelArray 1024 ; levelWH
