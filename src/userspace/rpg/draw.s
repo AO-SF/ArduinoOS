@@ -43,6 +43,7 @@ label redrawColumnLoopEnd
 inc r1
 jmp redrawRowLoopStart
 label redrawRowLoopEnd
+call cursesResetAttributes
 ret
 
 label drawCellRaw ; takes x and y in r0 and r1
