@@ -65,6 +65,7 @@ const char *kernelFsGetFilePath(KernelFsFd fd);
 // The following functions are for non-directory files only.
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes read
 KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen, bool block); // offset is ignored for character device files. Returns number of bytes read. blocking only affects some character device files
+bool kernelFsFileCanRead(KernelFsFd fd); // character device files may return false if a read would block, all other files return true (as they never block)
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes written
 KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset offset, const uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes written
 
