@@ -74,7 +74,7 @@ bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcDat
 bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[64]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.  TODO: Avoid hardcoded limit
 
 bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong *instruction);
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction);
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManExitStatus *exitStatus);
 
 void procManProcessFork(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData); // Returns false only on critical error (e.g. segfault), i.e. may return true even though exec operation itself failed
@@ -101,7 +101,7 @@ void procManInit(void) {
 void procManQuit(void) {
 	// Kill all processes
 	for(int i=0; i<ProcManPidMax; ++i)
-		procManProcessKill(i);
+		procManProcessKill(i, ProcManExitStatusKilled);
 }
 
 void procManTickAll(void) {
@@ -207,7 +207,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	return ProcManPidMax;
 }
 
-void procManProcessKill(ProcManPid pid) {
+void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 	// Not even open?
 	ProcManProcess *process=procManGetProcessByPid(pid);
 	if (process==NULL)
@@ -255,30 +255,55 @@ void procManProcessKill(ProcManPid pid) {
 	// Check if any processes are waiting due to waitpid syscall
 	for(unsigned i=0; i<ProcManPidMax; ++i) {
 		if (procManData.processes[i].state==ProcManProcessStateWaitingWaitpid && procManData.processes[i].waitingData8==pid) {
-			// Bring this process back to life
-			procManData.processes[i].state=ProcManProcessStateActive;
+			// Bring this process back to life, storing the exit status into r0
+			ProcManProcess *waiterProcess=procManGetProcessByPid(i);
+			waiterProcess->state=ProcManProcessStateActive;
+
+			ProcManProcessProcData waiterProcData;
+			bool res=procManProcessLoadProcData(waiterProcess, &waiterProcData);
+			assert(res);
+			waiterProcData.regs[0]=exitStatus;
+			res=procManProcessStoreProcData(waiterProcess, &waiterProcData);
+			assert(res);
 		}
 	}
 }
 
 void procManProcessTick(ProcManPid pid) {
+	ProcManExitStatus exitStatus=ProcManExitStatusKilled;
+
 	// Find process from PID
 	ProcManProcess *process=procManGetProcessByPid(pid);
 	if (process==NULL)
 		return;
 
-	// Is this process waiting for a timeout, and that time has been reached?
-	if (process->state==ProcManProcessStateWaitingWaitpid && process->waitingData16>0 && millis()/1000>=process->waitingData16)
-		process->state=ProcManProcessStateActive;
-
-	// Is this process not even active?
-	if (procManData.processes[pid].state!=ProcManProcessStateActive)
-		return;
-
-	// Load proc data
+	// Inspect state of the process
 	ProcManProcessProcData procData;
-	bool res=procManProcessLoadProcData(process, &procData);
-	assert(res);
+	switch(process->state) {
+		case ProcManProcessStateUnused: {
+			// Process is unused (probably shouldn't pass the check above in this case anyway)
+			return;
+		} break;
+		case ProcManProcessStateActive: {
+			// Process is active, load process data ready to run next instruction
+			bool res=procManProcessLoadProcData(process, &procData);
+			assert(res);
+		} break;
+		case ProcManProcessStateWaitingWaitpid: {
+			// Is this process waiting for a timeout, and that time has been reached?
+			if (process->waitingData16>0 && millis()/1000>=process->waitingData16) {
+				// It has - load process data so we can update the state and set r0 to indicate a timeout occured
+				bool res=procManProcessLoadProcData(process, &procData);
+				assert(res);
+
+				process->state=ProcManProcessStateActive;
+				procData.regs[0]=ProcManExitStatusTimeout;
+			} else {
+				// Otherwise process stays waiting
+				return;
+			}
+		} break;
+	}
 
 	// Run a few instructions
 	for(unsigned instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
@@ -297,7 +322,7 @@ void procManProcessTick(ProcManPid pid) {
 		}
 
 		// Execute instruction
-		if (!procManProcessExecInstruction(process, &procData, instruction))
+		if (!procManProcessExecInstruction(process, &procData, instruction, &exitStatus))
 			goto kill;
 
 		// Increment instruction counter
@@ -315,7 +340,7 @@ void procManProcessTick(ProcManPid pid) {
 	return;
 
 	kill:
-	procManProcessKill(pid);
+	procManProcessKill(pid, exitStatus);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -496,7 +521,7 @@ bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcDat
 	return true;
 }
 
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction) {
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManExitStatus *exitStatus) {
 	// Parse instruction
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
@@ -598,7 +623,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 					uint16_t syscallId=procData->regs[0];
 					switch(syscallId) {
 						case ByteCodeSyscallIdExit:
-							return false; // TODO: pass on exit status
+							*exitStatus=procData->regs[1];
+							return false;
 						break;
 						case ByteCodeSyscallIdGetPid:
 							procData->regs[0]=procManGetPidFromProcess(process);
@@ -701,7 +727,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdKill: {
 							ByteCodeWord pid=procData->regs[1];
 							if (pid!=0) // do not allow killing init
-								procManProcessKill(pid);
+								procManProcessKill(pid, ProcManExitStatusKilled);
 						} break;
 						case ByteCodeSyscallIdGetPidRam: {
 							ByteCodeWord pid=procData->regs[1];
