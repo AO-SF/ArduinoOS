@@ -19,6 +19,7 @@ typedef enum {
 	ProcManProcessStateUnused,
 	ProcManProcessStateActive,
 	ProcManProcessStateWaitingWaitpid,
+	ProcManProcessStateWaitingRead,
 } ProcManProcessState;
 
 #define ARGVMAX 4
@@ -78,6 +79,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 void procManProcessFork(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData); // Returns false only on critical error (e.g. segfault), i.e. may return true even though exec operation itself failed
+
+bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData);
 
 void procManResetInstructionCounters(void);
 
@@ -326,6 +329,20 @@ void procManProcessTick(ProcManPid pid) {
 
 				process->state=ProcManProcessStateActive;
 				procData.regs[0]=ProcManExitStatusTimeout;
+			} else {
+				// Otherwise process stays waiting
+				return;
+			}
+		} break;
+		case ProcManProcessStateWaitingRead: {
+			// Is data now available?
+			if (kernelFsFileCanRead(process->waitingData8)) {
+				// It is - load process data so we can update the state and read the data
+				bool res=procManProcessLoadProcData(process, &procData);
+				assert(res);
+
+				process->state=ProcManProcessStateActive;
+				procManProcessRead(process, &procData);
 			} else {
 				// Otherwise process stays waiting
 				return;
@@ -731,6 +748,9 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 									case ProcManProcessStateWaitingWaitpid:
 										str="waiting";
 									break;
+									case ProcManProcessStateWaitingRead:
+										str="waiting";
+									break;
 								}
 								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, str))
 									return false;
@@ -770,19 +790,16 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						} break;
 						case ByteCodeSyscallIdRead: {
 							KernelFsFd fd=procData->regs[1];
-							uint16_t offset=procData->regs[2];
-							uint16_t bufAddr=procData->regs[3];
-							KernelFsFileOffset len=procData->regs[4];
 
-							KernelFsFileOffset i;
-							for(i=0; i<len; ++i) {
-								uint8_t value;
-								if (kernelFsFileReadOffset(fd, offset+i, &value, 1, true)!=1)
-									break;
-								if (!procManProcessMemoryWriteByte(process, procData, bufAddr+i, value))
+							if (!kernelFsFileCanRead(fd)) {
+								// Reading would block - so enter waiting state until data becomes available.
+								process->state=ProcManProcessStateWaitingRead;
+								process->waitingData8=fd;
+							} else {
+								// Otherwise read as normal (stopping before we would block)
+								if (!procManProcessRead(process, procData))
 									return false;
 							}
-							procData->regs[0]=i;
 						} break;
 						case ByteCodeSyscallIdWrite: {
 							KernelFsFd fd=procData->regs[1];
@@ -1112,6 +1129,25 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	}
 
 	debugLog(DebugLogTypeInfo, "exec in %u succeeded\n", procManGetPidFromProcess(process));
+
+	return true;
+}
+
+bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData) {
+	KernelFsFd fd=procData->regs[1];
+	uint16_t offset=procData->regs[2];
+	uint16_t bufAddr=procData->regs[3];
+	KernelFsFileOffset len=procData->regs[4];
+
+	KernelFsFileOffset i;
+	for(i=0; i<len; ++i) {
+		uint8_t value;
+		if (kernelFsFileReadOffset(fd, offset+i, &value, 1, false)!=1)
+			break;
+		if (!procManProcessMemoryWriteByte(process, procData, bufAddr+i, value))
+			return false;
+	}
+	procData->regs[0]=i;
 
 	return true;
 }
