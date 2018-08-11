@@ -80,15 +80,20 @@ int kernelTmpReadFunctor(KernelFsFileOffset addr);
 bool kernelTmpWriteFunctor(KernelFsFileOffset addr, uint8_t value);
 uint8_t kernelTmpMiniFsReadFunctor(uint16_t addr, void *userData);
 void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
-int kernelDevZeroReadFunctor(bool block);
+int kernelDevZeroReadFunctor(void);
+bool kernelDevZeroCanReadFunctor(void);
 bool kernelDevZeroWriteFunctor(uint8_t value);
-int kernelDevFullReadFunctor(bool block);
+int kernelDevFullReadFunctor(void);
+bool kernelDevFullCanReadFunctor(void);
 bool kernelDevFullWriteFunctor(uint8_t value);
-int kernelDevNullReadFunctor(bool block);
+int kernelDevNullReadFunctor(void);
+bool kernelDevNullCanReadFunctor(void);
 bool kernelDevNullWriteFunctor(uint8_t value);
-int kernelDevURandomReadFunctor(bool block);
+int kernelDevURandomReadFunctor(void);
+bool kernelDevURandomCanReadFunctor(void);
 bool kernelDevURandomWriteFunctor(uint8_t value);
-int kernelDevTtyS0ReadFunctor(bool block);
+int kernelDevTtyS0ReadFunctor(void);
+bool kernelDevTtyS0CanReadFunctor(void);
 bool kernelDevTtyS0WriteFunctor(uint8_t value);
 int kernelUsrBinReadFunctor(KernelFsFileOffset addr);
 
@@ -214,11 +219,11 @@ void kernelBoot(void) {
 	error|=!kernelFsAddDirectoryDeviceFile("/", &kernelRootGetChildFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelBinSize, &kernelBinReadFunctor, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/dev", &kernelDevGetChildFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroWriteFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullWriteFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullWriteFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomWriteFunctor);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0WriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, kernelHomeWriteFunctor);
 	error|=!kernelFsAddDirectoryDeviceFile("/lib", &kernelLibGetChildFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL);
@@ -455,58 +460,78 @@ void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
 	assert(result);
 }
 
-int kernelDevZeroReadFunctor(bool block) {
+int kernelDevZeroReadFunctor(void) {
 	return 0;
+}
+
+bool kernelDevZeroCanReadFunctor(void) {
+	return true;
 }
 
 bool kernelDevZeroWriteFunctor(uint8_t value) {
 	return true;
 }
 
-int kernelDevFullReadFunctor(bool block) {
+int kernelDevFullReadFunctor(void) {
 	return 0;
+}
+
+bool kernelDevFullCanReadFunctor(void) {
+	return true;
 }
 
 bool kernelDevFullWriteFunctor(uint8_t value) {
 	return false;
 }
 
-int kernelDevNullReadFunctor(bool block) {
+int kernelDevNullReadFunctor(void) {
 	return 0;
+}
+
+bool kernelDevNullCanReadFunctor(void) {
+	return true;
 }
 
 bool kernelDevNullWriteFunctor(uint8_t value) {
 	return true;
 }
 
-int kernelDevURandomReadFunctor(bool block) {
+int kernelDevURandomReadFunctor(void) {
 	return rand()&0xFF;
+}
+
+bool kernelDevURandomCanReadFunctor(void) {
+	return true;
 }
 
 bool kernelDevURandomWriteFunctor(uint8_t value) {
 	return false;
 }
 
-int kernelDevTtyS0ReadFunctor(bool block) {
+int kernelDevTtyS0ReadFunctor(void) {
 #ifdef ARDUINO
-	if (!block && Serial.available()<1)
-		return -1;
 	return Serial.read();
 #else
-	if (!block) {
-		struct pollfd pollFds[0];
-		memset(pollFds, 0, sizeof(pollFds));
-		pollFds[0].fd=STDIN_FILENO;
-		pollFds[0].events=POLLIN;
-		if (poll(pollFds, 1, 0)<=0)
-			return -1;
-
-		if (!(pollFds[0].revents & POLLIN))
-			return -1;
-	}
-
 	int c=getchar();
 	return (c!=EOF ? c : -1);
+#endif
+}
+
+bool kernelDevTtyS0CanReadFunctor(void) {
+#ifdef ARDUINO
+	return (Serial.available()>0);
+#else
+	struct pollfd pollFds[0];
+	memset(pollFds, 0, sizeof(pollFds));
+	pollFds[0].fd=STDIN_FILENO;
+	pollFds[0].events=POLLIN;
+	if (poll(pollFds, 1, 0)<=0)
+		return false;
+
+	if (!(pollFds[0].revents & POLLIN))
+		return false;
+
+	return true;
 #endif
 }
 

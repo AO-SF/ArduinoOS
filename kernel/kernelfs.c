@@ -18,6 +18,7 @@ typedef enum {
 
 typedef struct {
 	KernelFsCharacterDeviceReadFunctor *readFunctor;
+	KernelFsCharacterDeviceCanReadFunctor *canReadFunctor;
 	KernelFsCharacterDeviceWriteFunctor *writeFunctor;
 } KernelFsDeviceCharacter;
 
@@ -100,9 +101,10 @@ void kernelFsQuit(void) {
 	}
 }
 
-bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor) {
+bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor) {
 	assert(mountPoint!=NULL);
 	assert(readFunctor!=NULL);
+	assert(canReadFunctor!=NULL);
 	assert(writeFunctor!=NULL);
 
 	// Check mountPoint and attempt to add to device table.
@@ -112,6 +114,7 @@ bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDev
 
 	// Set specific fields.
 	device->d.character.readFunctor=readFunctor;
+	device->d.character.canReadFunctor=canReadFunctor;
 	device->d.character.writeFunctor=writeFunctor;
 
 	return true;
@@ -592,7 +595,9 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 				// offset is ignored as these are not seekable
 				KernelFsFileOffset read;
 				for(read=0; read<dataLen; ++read) {
-					int c=device->d.character.readFunctor(block);
+					if (!block && !device->d.character.canReadFunctor())
+						break;
+					int c=device->d.character.readFunctor();
 					if (c==-1)
 						break;
 					data[read]=c;
