@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../kernel/bytecode.h"
-#include "../kernel/kernelfs.h"
+#include "bytecode.h"
+#include "kernelfs.h"
 
 #define AssemblerLinesMax 65536
 
@@ -210,6 +210,7 @@ int assemblerGetLabelSymbolAddr(const AssemblerProgram *program, const char *sym
 
 BytecodeRegister assemblerRegisterFromStr(const char *str); // Returns BytecodeRegisterNB on failure
 
+#include <unistd.h> // .....
 int main(int argc, char **argv) {
 	// Parse arguments
 	if (argc!=3 && argc!=4) {
@@ -382,8 +383,12 @@ bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *gPath, 
 	assert(gPath!=NULL);
 
 	// Normalise path
-	char path[1024]; // TODO: better
-	strcpy(path, gPath);
+	char path[1024]={0}; // TODO: better
+	if (gPath[0]!='/') {
+		getcwd(path, 1024);
+		strcat(path, "/");
+	}
+	strcat(path, gPath);
 	kernelFsPathNormalise(path);
 
 	// Open input file

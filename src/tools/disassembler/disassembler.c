@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../kernel/bytecode.h"
+#include "bytecode.h"
 
 void disassemblerPrint(uint16_t addr, BytecodeInstructionLong instruction, const char *fmt, ...);
 void disassemblerPrintV(uint16_t addr, BytecodeInstructionLong instruction, const char *fmt, va_list ap);

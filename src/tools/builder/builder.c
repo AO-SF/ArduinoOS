@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../kernel/debug.h"
-#include "../kernel/minifs.h"
+#include "debug.h"
+#include "minifs.h"
 
 uint8_t dataArray[8*1024]; // current minifs limit is 8kb anyway
 
@@ -15,15 +15,15 @@ uint8_t readFunctor(uint16_t addr, void *userData);
 void writeFunctor(uint16_t addr, uint8_t value, void *userData);
 
 int main(int agrc, char **argv) {
-	buildVolume("bin", 8*1024, "../binmockup");
-	buildVolume("usrbin", 8*1024, "../usrbinmockup");
-	buildVolume("libstdio", 8*1024, "../binutilities/lib/std/io");
-	buildVolume("libstdmath", 8*1024, "../binutilities/lib/std/math");
-	buildVolume("libstdmem", 8*1024, "../binutilities/lib/std/mem");
-	buildVolume("libstdproc", 8*1024, "../binutilities/lib/std/proc");
-	buildVolume("libstdstr", 8*1024, "../binutilities/lib/std/str");
-	buildVolume("libstdtime", 8*1024, "../binutilities/lib/std/time");
-	buildVolume("libcurses", 8*1024, "../binutilities/lib/curses");
+	buildVolume("bin", 8*1024, "./src/tools/builder/mockups/binmockup");
+	buildVolume("usrbin", 8*1024, "./src/tools/builder/mockups/usrbinmockup");
+	buildVolume("libstdio", 8*1024, "./src/userspace/lib/std/io");
+	buildVolume("libstdmath", 8*1024, "./src/userspace/lib/std/math");
+	buildVolume("libstdmem", 8*1024, "./src/userspace/lib/std/mem");
+	buildVolume("libstdproc", 8*1024, "./src/userspace/lib/std/proc");
+	buildVolume("libstdstr", 8*1024, "./src/userspace/lib/std/str");
+	buildVolume("libstdtime", 8*1024, "./src/userspace/lib/std/time");
+	buildVolume("libcurses", 8*1024, "./src/userspace/lib/curses");
 
 	return 0;
 }
@@ -47,7 +47,7 @@ bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 		return false;
 	}
 
-	// Loop over files in ../binmockup and write each one to minifs
+	// Loop over files in given source dir and write each one to minifs
 	debugMiniFsAddDir(&miniFs, srcDir);
 
 	// Debug fs
@@ -59,8 +59,8 @@ bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 	// create .c file
 	char cFilePath[1024]; // TODO: better
 	char hFilePath[1024]; // TODO: better
-	sprintf(cFilePath, "../kernel/progmem%s.c", name);
-	sprintf(hFilePath, "../kernel/progmem%s.h", name);
+	sprintf(cFilePath, "src/kernel/progmem%s.c", name);
+	sprintf(hFilePath, "src/kernel/progmem%s.h", name);
 
 	FILE *cFile=fopen(cFilePath, "w+");
 	if (cFile==NULL) {

@@ -6,8 +6,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "../kernel/bytecode.h"
-#include "../kernel/procman.h"
+#include "bytecode.h"
+#include "procman.h"
 
 typedef struct {
 	ByteCodeWord regs[8];
