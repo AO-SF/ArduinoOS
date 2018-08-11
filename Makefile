@@ -1,4 +1,5 @@
 ALL:
+	mkdir -p bin
 	cd src/tools/assembler && make
 	cd src/tools/disassembler && make
 	cd src/tools/emulator && make
