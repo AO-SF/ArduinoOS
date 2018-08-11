@@ -8,10 +8,17 @@ label redraw
 ; TODO: clear screen, move to start of each row with curses, call drawCellRaw on each cell in row, move onto next row
 ret
 
-label drawCellRaw
-; TODO: load tile index from cell in level array and simply print tile colour+char string
+label drawCellRaw ; takes x and y in r0 and r1
+call levelLoadCell
+call tilesGetPrintString
+call puts0
 ret
 
-label updateCell
-; TODO: move cursor to correct position, then call drawCellRaw
+label updateCell ; takes x and y in r0 and r1
+push r0
+push r1
+call cursesSetPosXY
+pop r1
+pop r0
+call drawCellRaw
 ret
