@@ -5,9 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "bytecode.h"
-#include "kernelfs.h"
+#include "util.h"
 
 #define AssemblerLinesMax 65536
 
@@ -210,7 +211,6 @@ int assemblerGetLabelSymbolAddr(const AssemblerProgram *program, const char *sym
 
 BytecodeRegister assemblerRegisterFromStr(const char *str); // Returns BytecodeRegisterNB on failure
 
-#include <unistd.h> // .....
 int main(int argc, char **argv) {
 	// Parse arguments
 	if (argc!=3 && argc!=4) {
@@ -389,7 +389,7 @@ bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *gPath, 
 		strcat(path, "/");
 	}
 	strcat(path, gPath);
-	kernelFsPathNormalise(path);
+	pathNormalise(path);
 
 	// Open input file
 	FILE *file=fopen(path, "r");
@@ -548,7 +548,7 @@ bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) 
 		const char *relPath=strchr(assemblerLine->modified, ' ')+1; // No need to check return as we proved there was a space above
 		strcat(newPath, relPath);
 
-		kernelFsPathNormalise(newPath);
+		pathNormalise(newPath);
 
 		// Remove this line
 		assemblerRemoveLine(program, line);
