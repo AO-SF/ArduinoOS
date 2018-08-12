@@ -483,6 +483,12 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [isdir] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
+						case ByteCodeSyscallIdFileExists:
+							// TODO: see open
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [fileexists] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							process->regs[0]=process->envVars.stdioFd;
 							if (infoSyscalls)
