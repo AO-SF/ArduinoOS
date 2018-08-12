@@ -1,4 +1,4 @@
-require ../proc/getpath.s
+requireend ../proc/getpath.s
 
 ab openpathScratchBuf 64
 
