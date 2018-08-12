@@ -373,10 +373,15 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [getallcpucounts] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdKill:
+						case ByteCodeSyscallIdKill: {
+							ProcManPid pid=process->regs[1];
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [kill] (unimplemented)\n", syscallId);
-						break;
+								printf("Info: syscall(id=%i [kill], pid=%u\n", syscallId, pid);
+							if (pid==process->pid) {
+								printf("Killed by own kill syscall\n");
+								return false;
+							}
+						} break;
 						case ByteCodeSyscallIdGetPidRam:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidram] (unimplemented)\n", syscallId);
