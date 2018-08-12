@@ -8,6 +8,7 @@
 #include <string.h>
 #ifndef ARDUINO
 #include <termios.h>
+#include <sys/ioctl.h>
 #endif
 #include <unistd.h>
 
@@ -44,6 +45,9 @@ uint8_t *kernelTmpDataPool=NULL;
 #ifndef ARDUINO
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
+
+int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too often causing us to think no data is waiting
+
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -120,21 +124,9 @@ void loop() {
 #ifndef ARDUINO
 
 int main(int argc, char **argv) {
-	// save terminal settings
-	static struct termios termOld, termNew;
-	tcgetattr(STDIN_FILENO, &termOld);
-
-	// change terminal settings to avoid waiting for a newline before submitting any data
-	termNew=termOld;
-	termNew.c_lflag&=~ICANON;
-	tcsetattr(STDIN_FILENO, TCSANOW, &termNew);
-
 	// setup and main loop
 	setup();
 	loop();
-
-	// restore terminal settings
-	tcsetattr(STDIN_FILENO, TCSANOW, &termOld);
 
 	return 0;
 }
@@ -504,8 +496,14 @@ int kernelDevTtyS0ReadFunctor(void) {
 #ifdef ARDUINO
 	return Serial.read();
 #else
+	if (kernelTtyS0BytesAvailable==0)
+		kernelLog(LogTypeWarning, "kernelTtyS0BytesAvailable=0 going into kernelDevTtyS0ReadFunctor\n");
 	int c=getchar();
-	return (c!=EOF ? c : -1);
+	if (c==EOF)
+		return -1;
+	if (kernelTtyS0BytesAvailable>0)
+		--kernelTtyS0BytesAvailable;
+	return c;
 #endif
 }
 
@@ -513,6 +511,13 @@ bool kernelDevTtyS0CanReadFunctor(void) {
 #ifdef ARDUINO
 	return (Serial.available()>0);
 #else
+	// If we still think there are bytes waiting to be read, return true immediately
+	if (kernelTtyS0BytesAvailable>0) {
+		kernelLog(LogTypeInfo, "devtty canread true, kernelTtyS0BytesAvailable=%i\n", kernelTtyS0BytesAvailable);
+		return true;
+	}
+
+	// Otherwise poll for input events on stdin
 	struct pollfd pollFds[0];
 	memset(pollFds, 0, sizeof(pollFds));
 	pollFds[0].fd=STDIN_FILENO;
@@ -523,6 +528,8 @@ bool kernelDevTtyS0CanReadFunctor(void) {
 	if (!(pollFds[0].revents & POLLIN))
 		return false;
 
+	// Call ioctl to find number of bytes available
+	ioctl(STDIN_FILENO, FIONREAD, &kernelTtyS0BytesAvailable);
 	return true;
 #endif
 }

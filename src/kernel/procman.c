@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include "bytecode.h"
 #include "kernel.h"
@@ -886,8 +888,24 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdTryReadByte: {
 							KernelFsFd fd=procData->regs[1];
 
+							// save terminal settings
+							static struct termios termOld, termNew;
+							tcgetattr(STDIN_FILENO, &termOld);
+
+							// change terminal settings to avoid waiting for a newline before getting data
+							termNew=termOld;
+							termNew.c_lflag&=~ICANON;
+							tcsetattr(STDIN_FILENO, TCSANOW, &termNew);
+
+							// attempt to read
 							uint8_t value;
-							if (kernelFsFileReadOffset(fd, 0, &value, 1, false)==1)
+							KernelFsFileOffset readResult=kernelFsFileReadOffset(fd, 0, &value, 1, false);
+
+							// restore terminal settings
+							tcsetattr(STDIN_FILENO, TCSANOW, &termOld);
+
+							// set result in r0
+							if (readResult==1)
 								procData->regs[0]=value;
 							else
 								procData->regs[0]=256;
@@ -1144,7 +1162,7 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 	KernelFsFileOffset i;
 	for(i=0; i<len; ++i) {
 		uint8_t value;
-		if (kernelFsFileReadOffset(fd, offset+i, &value, 1, false)!=1)
+		if (kernelFsFileReadOffset(fd, offset+i, &value, 1, i==0)!=1)
 			break;
 		if (!procManProcessMemoryWriteByte(process, procData, bufAddr+i, value))
 			return false;
