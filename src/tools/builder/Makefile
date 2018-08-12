@@ -32,6 +32,7 @@ ALL: $(OBJS)
 	../../../bin/assembler ../../userspace/kill.s mockups/binmockup/kill
 	../../../bin/assembler ../../userspace/sleep.s mockups/binmockup/sleep
 	../../../bin/assembler ../../userspace/cp.s mockups/binmockup/cp
+	../../../bin/assembler ../../userspace/rm.s mockups/binmockup/rm
 
 	../../../bin/assembler ../../userspace/time.s mockups/usrbinmockup/time
 	../../../bin/assembler ../../userspace/uptime.s mockups/usrbinmockup/uptime
