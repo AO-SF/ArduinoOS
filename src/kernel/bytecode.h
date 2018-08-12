@@ -139,11 +139,6 @@ typedef enum {
 } ByteCodeSyscallId;
 
 typedef enum {
-	ByteCodeFdStdin=0,
-	ByteCodeFdStdout=1,
-} ByteCodeFd;
-
-typedef enum {
 	BytecodeInstructionMiscTypeNop,
 	BytecodeInstructionMiscTypeSyscall,
 	BytecodeInstructionMiscTypeSet8,
