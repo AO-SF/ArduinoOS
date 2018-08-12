@@ -213,6 +213,10 @@ bool processRunNextInstruction(Process *process) {
 						printf("Info: r%i=r%i*r%i (=%i*%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeDiv:
+					if (opB==0) {
+						printf("Error: division by 0\n");
+						return false;
+					}
 					process->regs[info.d.alu.destReg]=opA/opB;
 					if (infoInstructions)
 						printf("Info: r%i=r%i/r%i (=%i/%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);

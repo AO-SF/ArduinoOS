@@ -615,6 +615,10 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 					procData->regs[info.d.alu.destReg]=opA*opB;
 				break;
 				case BytecodeInstructionAluTypeDiv:
+					if (opB==0) {
+						kernelLog(LogTypeWarning, "division by zero, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
 					procData->regs[info.d.alu.destReg]=opA/opB;
 				break;
 				case BytecodeInstructionAluTypeXor:
