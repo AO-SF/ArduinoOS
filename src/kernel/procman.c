@@ -926,7 +926,6 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax))
 								return false;
 							kernelFsPathNormalise(path);
-							kernelLog(LogTypeInfo, "syscall file exists: '%s'\n", path);
 							procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileExists(path) : false);
 						} break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
