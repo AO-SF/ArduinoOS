@@ -400,6 +400,7 @@ bool processRunNextInstruction(Process *process) {
 							}
 						} break;
 						case ByteCodeSyscallIdOpen:
+							// TODO: file syscalls long term (handling fds etc)
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [open] (unimplemented)\n", syscallId);
 
@@ -407,34 +408,41 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdClose:
+							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [close] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdDirGetChildN:
+							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [dirgetchildn] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdGetPath:
+						case ByteCodeSyscallIdGetPath: {
+							// TODO: see open (we could technically support stdiofd, returning /dev/ttyS0)
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
-						break;
+						} break;
 						case ByteCodeSyscallIdResizeFile:
+							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [resizefile] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdFileGetLen:
+							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [filegetlen] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdTryReadByte:
+							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [tryreadbyte] (unimplemented)\n", syscallId);
 							process->regs[0]=256;
 						break;
 						case ByteCodeSyscallIdIsDir:
+							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [isdir] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
