@@ -512,10 +512,8 @@ bool kernelDevTtyS0CanReadFunctor(void) {
 	return (Serial.available()>0);
 #else
 	// If we still think there are bytes waiting to be read, return true immediately
-	if (kernelTtyS0BytesAvailable>0) {
-		kernelLog(LogTypeInfo, "devtty canread true, kernelTtyS0BytesAvailable=%i\n", kernelTtyS0BytesAvailable);
+	if (kernelTtyS0BytesAvailable>0)
 		return true;
-	}
 
 	// Otherwise poll for input events on stdin
 	struct pollfd pollFds[0];
