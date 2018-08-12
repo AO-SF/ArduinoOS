@@ -359,16 +359,19 @@ bool processRunNextInstruction(Process *process) {
 							}
 						} break;
 						case ByteCodeSyscallIdGetPidPath:
+							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdGetPidState:
+							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidstate] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdGetAllCpuCounts:
+							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getallcpucounts] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
@@ -383,6 +386,7 @@ bool processRunNextInstruction(Process *process) {
 							}
 						} break;
 						case ByteCodeSyscallIdGetPidRam:
+							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidram] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
@@ -483,18 +487,22 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [envsetstdiofd], new fd %u\n", syscallId, process->envVars.stdioFd);
 						break;
 						case ByteCodeSyscallIdEnvGetPwd:
+							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdEnvSetPwd:
+							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdEnvGetPath:
+							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdEnvSetPath:
+							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
