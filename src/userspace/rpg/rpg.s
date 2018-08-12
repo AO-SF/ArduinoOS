@@ -19,9 +19,7 @@ jmp errorLevelLoad
 ; Draw level (initially we redraw everything)
 call redraw
 
-; TODO: remove this and write rest of game (waiting for input, moving player, redrawing etc)
-label temploop
-jmp temploop
+; TODO: write rest of game here (waiting for input, moving player, redrawing etc)
 
 ; Exit
 label done
