@@ -13,7 +13,6 @@ ALL: $(OBJS)
 	mkdir -p mockups/homemockup
 
 	../../../bin/assembler ../../userspace/fib.s mockups/homemockup/fib
-	cp ../../userspace/fib.s mockups/homemockup/fib.s
 	cp homeexample/* mockups/homemockup
 	../../../bin/assembler ../../userspace/tree.s mockups/homemockup/tree
 	../../../bin/assembler ../../userspace/bomb.s mockups/homemockup/bomb
@@ -32,6 +31,7 @@ ALL: $(OBJS)
 	../../../bin/assembler ../../userspace/tty.s mockups/binmockup/tty
 	../../../bin/assembler ../../userspace/kill.s mockups/binmockup/kill
 	../../../bin/assembler ../../userspace/sleep.s mockups/binmockup/sleep
+	../../../bin/assembler ../../userspace/cp.s mockups/binmockup/cp
 
 	../../../bin/assembler ../../userspace/time.s mockups/usrbinmockup/time
 	../../../bin/assembler ../../userspace/uptime.s mockups/usrbinmockup/uptime
