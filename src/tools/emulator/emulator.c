@@ -457,7 +457,7 @@ bool processRunNextInstruction(Process *process) {
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							process->regs[0]=process->envVars.stdioFd;
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envgetstiofd] (return fd = %u)n", syscallId, process->regs[0]);
+								printf("Info: syscall(id=%i [envgetstiofd] (return fd = %u)\n", syscallId, process->regs[0]);
 						break;
 						case ByteCodeSyscallIdEnvSetStdioFd:
 							process->envVars.stdioFd=process->regs[0];
