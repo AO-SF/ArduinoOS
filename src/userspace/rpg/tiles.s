@@ -5,7 +5,7 @@
 ;
 ; Current tiles are: 0 - water, 1 - grass, 2 - tree.
 const tileDataSize 16
-db tileData 27,'[','3','4',';','1',';','4','4','m',226,150,147,0,0,0,	27,'[','3','2',';','1',';','4','2','m',226,150,145,0,0,0,	27,'[','3','3',';','4','2','m',240,159,140,178,0,0,0,0
+db tileData 27,'[34;1;44m',226,150,147,0,0,0,	27,'[32;1;42m',226,150,145,0,0,0,	27,'[0;33;42m',240,159,140,178,0,0
 
 label tilesGetPrintString ; takes tile id in r0, returns addr in r0
 mov r1 tileDataSize
