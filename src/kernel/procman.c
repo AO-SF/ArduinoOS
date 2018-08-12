@@ -883,7 +883,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax))
 								return false;
 							kernelFsPathNormalise(path);
-							procData->regs[0]=kernelFsFileGetLen(path);
+							procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileGetLen(path) : 0);
 						} break;
 						case ByteCodeSyscallIdTryReadByte: {
 							KernelFsFd fd=procData->regs[1];
