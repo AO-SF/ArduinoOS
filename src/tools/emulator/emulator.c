@@ -96,10 +96,17 @@ int main(int argc, char **argv) {
 	process->envVars.stdioFd=StdioFd;
 
 	// Read-in input file
-	inputFile=fopen(inputPath, "r");
-	if (inputFile==NULL) {
-		printf("Error: Could not open input file '%s' for reading\n", inputPath);
-		goto done;
+	const char *inputPath=argv[inputArgBaseIndex];
+	if (strcmp(inputPath, "-")!=0) {
+		// Read standard file
+		inputFile=fopen(inputPath, "r");
+		if (inputFile==NULL) {
+			printf("Error: Could not open input file '%s' for reading\n", inputPath);
+			goto done;
+		}
+	} else {
+		// Read from stdin instead
+		inputFile=stdin;
 	}
 
 	int c;
@@ -118,7 +125,7 @@ int main(int argc, char **argv) {
 
 	// Done
 	done:
-	if (inputFile!=NULL)
+	if (inputFile!=NULL && strcmp(inputPath, "-")!=0)
 		fclose(inputFile);
 	free(process);
 
