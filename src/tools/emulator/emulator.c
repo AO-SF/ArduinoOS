@@ -9,7 +9,19 @@
 #include "bytecode.h"
 #include "procman.h"
 
+#define PathMax 64 // TODO: use KernelFsPathMax
 #define InitPid 0
+#define StdioFd 1
+
+typedef struct {
+	int argc;
+	char **argv;
+
+	char pwd[PathMax];
+	char path[PathMax];
+	uint8_t stdioFd;
+} ProcessEnvVars;
+
 typedef struct {
 	ByteCodeWord regs[8];
 
@@ -20,8 +32,7 @@ typedef struct {
 	unsigned instructionCount;
 	ByteCodeWord pid;
 
-	int argc;
-	char **argv;
+	ProcessEnvVars envVars;
 } Process;
 
 Process *process=NULL;
@@ -73,9 +84,12 @@ int main(int argc, char **argv) {
 	process->instructionCount=0;
 	srand(time(NULL));
 	process->pid=(rand()%(ProcManPidMax-1))+1; // +1 to avoid InitPid at 0
-	process->argc=argc-inputArgBaseIndex;
-	process->argv=argv+inputArgBaseIndex;
-	const char *inputPath=argv[inputArgBaseIndex];
+
+	process->envVars.argc=argc-inputArgBaseIndex;
+	process->envVars.argv=argv+inputArgBaseIndex;
+	strcpy(process->envVars.pwd, "/bin");
+	strcpy(process->envVars.path, "/bin");
+	process->envVars.stdioFd=StdioFd;
 
 	// Read-in input file
 	inputFile=fopen(inputPath, "r");
@@ -285,21 +299,26 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=process->envVars.argc;
 						} break;
 						case ByteCodeSyscallIdGetArgVN: {
-							// TODO: Check n is sensible
-
 							int n=process->regs[1];
 							int buf=process->regs[2];
 							int len=process->regs[3];
 
-							const char *str=process->argv[n];
-							int trueLen=strlen(str);
+							if (n>=process->envVars.argc) {
+								process->regs[0]=0;
 
-							if (verbose)
-								printf("Info: syscall(id=%i [getargvn], n=%i, buf=%i, len=%i, return=%u with '%s')\n", syscallId, n, buf, len, trueLen, str);
+								if (infoSyscalls)
+									printf("Info: syscall(id=%i [getargvn], n=%i, buf=%i, len=%i, return=0 as n>=argc)\n", syscallId, n, buf, len);
+							} else {
+								const char *str=process->envVars.argv[n];
+								int trueLen=strlen(str);
 
-							for(int i=0; i<len && i<trueLen; ++i)
-								process->memory[buf+i]=str[i];
-							process->regs[0]=trueLen;
+								if (infoSyscalls)
+									printf("Info: syscall(id=%i [getargvn], n=%i, buf=%i, len=%i, return=%u with '%s')\n", syscallId, n, buf, len, trueLen, str);
+
+								for(int i=0; i<len && i<trueLen; ++i)
+									process->memory[buf+i]=str[i];
+								process->regs[0]=trueLen;
+							}
 						} break;
 						case ByteCodeSyscallIdFork:
 							if (infoSyscalls)
@@ -344,7 +363,7 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdRead:
-							if (process->regs[1]==ByteCodeFdStdin) {
+							if (process->regs[1]==process->envVars.stdioFd) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
 								if (result>=0)
 									process->regs[0]=result;
@@ -360,21 +379,26 @@ bool processRunNextInstruction(Process *process) {
 								printf("], len=%u, read=%u)\n", process->regs[3], process->regs[0]);
 							}
 						break;
-						case ByteCodeSyscallIdWrite:
-							if (process->regs[1]==ByteCodeFdStdout) {
-								for(int i=0; i<process->regs[3]; ++i)
-									printf("%c", process->memory[process->regs[2]+i]);
-								process->regs[0]=process->regs[3];
+						case ByteCodeSyscallIdWrite: {
+							uint8_t fd=process->regs[1];
+							// uint16_t offset=process->regs[2]; // offset is ignored as we currently only allow writing to stdout
+							uint16_t bufAddr=process->regs[3];
+							uint16_t bufLen=process->regs[4];
+
+							if (fd==process->envVars.stdioFd) {
+								for(int i=0; i<bufLen; ++i)
+									printf("%c", process->memory[bufAddr+i]);
+								process->regs[0]=bufLen;
 							} else
 								process->regs[0]=0;
 
 							if (infoSyscalls) {
-								printf("Info: syscall(id=%i [write], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
-								for(int i=0; i<process->regs[3]; ++i)
-									printf("%c", process->memory[process->regs[2]+i]);
-								printf("], len=%u, written=%u)\n", process->regs[3], process->regs[0]);
+								printf("Info: syscall(id=%i [write], fd=%u, data addr=%u [", syscallId, fd, bufAddr);
+								for(int i=0; i<bufLen; ++i)
+									printf("%c", process->memory[bufAddr+i]);
+								printf("], len=%u, written=%u)\n", bufLen, process->regs[0]);
 							}
-						break;
+						} break;
 						case ByteCodeSyscallIdOpen:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [open] (unimplemented)\n", syscallId);
@@ -416,12 +440,14 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
+							process->regs[0]=process->envVars.stdioFd;
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envgetstiofd] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [envgetstiofd] (return fd = %u)n", syscallId, process->regs[0]);
 						break;
 						case ByteCodeSyscallIdEnvSetStdioFd:
+							process->envVars.stdioFd=process->regs[0];
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetstdiofd] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [envsetstdiofd], new fd %u\n", syscallId, process->envVars.stdioFd);
 						break;
 						case ByteCodeSyscallIdEnvGetPwd:
 							if (infoSyscalls)
