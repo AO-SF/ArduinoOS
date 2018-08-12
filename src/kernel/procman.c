@@ -711,7 +711,9 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							ByteCodeWord timeout=procData->regs[2];
 
 							// If given pid does not represent a process, return immediately
-							if (procManGetProcessByPid(waitPid)!=NULL) {
+							if (procManGetProcessByPid(waitPid)==NULL) {
+								procData->regs[0]=ProcManExitStatusNoProcess;
+							} else {
 								// Otherwise indicate process is waiting for this pid to die
 								process->state=ProcManProcessStateWaitingWaitpid;
 								process->waitingData8=waitPid;
