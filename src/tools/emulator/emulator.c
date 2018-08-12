@@ -24,7 +24,9 @@ typedef struct {
 } Process;
 
 Process *process=NULL;
-bool verbose=false;
+bool infoSyscalls=false;
+bool infoInstructions=false;
+bool infoState=false;
 bool slow=false;
 
 bool processRunNextInstruction(Process *process);
@@ -35,7 +37,7 @@ int main(int argc, char **argv) {
 
 	// Parse arguments
 	if (argc<2) {
-		printf("Usage: %s [--verbose] [--slow] inputfile [inputargs ...]\n", argv[0]);
+		printf("Usage: %s [--infosyscalls] [--infoinstructions] [--infostate] [--slow] inputfile [inputargs ...]\n", argv[0]);
 		goto done;
 	}
 
@@ -43,8 +45,12 @@ int main(int argc, char **argv) {
 	for(i=1; i<argc; ++i) {
 		if (strncmp(argv[i], "--", 2)!=0)
 			break;
-		if (strcmp(argv[i], "--verbose")==0)
-			verbose=true;
+		if (strcmp(argv[i], "--infoSyscalls")==0)
+			infoSyscalls=true;
+		else if (strcmp(argv[i], "--infoInstructions")==0)
+			infoInstructions=true;
+		else if (strcmp(argv[i], "--infoState")==0)
+			infoState=true;
 		else if (strcmp(argv[i], "--slow")==0)
 			slow=true;
 		else
@@ -87,7 +93,7 @@ int main(int argc, char **argv) {
 		if (slow)
 			sleep(1);
 
-		if (verbose)
+		if (infoState)
 			processDebug(process);
 	} while(processRunNextInstruction(process));
 
@@ -111,13 +117,13 @@ bool processRunNextInstruction(Process *process) {
 
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
-		if (verbose)
+		if (infoInstructions)
 			printf("Error: Invalid instruction (bad bit sequence)\n");
 		return false;
 	}
 
 	if (process->skipFlag) {
-		if (verbose)
+		if (infoInstructions)
 			printf("Info: Skipping instruction\n");
 		process->skipFlag=false;
 		return true;
@@ -128,12 +134,12 @@ bool processRunNextInstruction(Process *process) {
 			switch(info.d.memory.type) {
 				case BytecodeInstructionMemoryTypeStore8:
 					process->memory[process->regs[info.d.memory.destReg]]=process->regs[info.d.memory.srcReg];
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: *r%i=r%i (*%u=%u)\n", info.d.memory.destReg, info.d.memory.srcReg, process->regs[info.d.memory.destReg], process->regs[info.d.memory.srcReg]);
 				break;
 				case BytecodeInstructionMemoryTypeLoad8:
 					process->regs[info.d.memory.destReg]=process->memory[info.d.memory.srcReg];
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=*r%i (=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, process->memory[info.d.memory.srcReg]);
 				break;
 				case BytecodeInstructionMemoryTypeReserved:
@@ -148,7 +154,7 @@ bool processRunNextInstruction(Process *process) {
 			switch(info.d.alu.type) {
 				case BytecodeInstructionAluTypeInc: {
 					int pre=process->regs[info.d.alu.destReg]+=info.d.alu.incDecValue;
-					if (verbose) {
+					if (infoInstructions) {
 						if (info.d.alu.incDecValue==1)
 							printf("Info: r%i++ (r%i=%i+1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
 						else
@@ -157,7 +163,7 @@ bool processRunNextInstruction(Process *process) {
 				} break;
 				case BytecodeInstructionAluTypeDec: {
 					int pre=process->regs[info.d.alu.destReg]-=info.d.alu.incDecValue;
-					if (verbose) {
+					if (infoInstructions) {
 						if (info.d.alu.incDecValue==1)
 							printf("Info: r%i-- (r%i=%i-1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
 						else
@@ -166,42 +172,42 @@ bool processRunNextInstruction(Process *process) {
 				} break;
 				case BytecodeInstructionAluTypeAdd:
 					process->regs[info.d.alu.destReg]=opA+opB;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=r%i+r%i (=%i+%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeSub:
 					process->regs[info.d.alu.destReg]=opA-opB;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=r%i-r%i (=%i-%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeMul:
 					process->regs[info.d.alu.destReg]=opA*opB;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=r%i*r%i (=%i*%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeDiv:
 					process->regs[info.d.alu.destReg]=opA/opB;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=r%i/r%i (=%i/%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeXor:
 					process->regs[info.d.alu.destReg]=opA^opB;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=r%i^r%i (=%i^%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeOr:
 					process->regs[info.d.alu.destReg]=opA|opB;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=r%i|r%i (=%i|%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeAnd:
 					process->regs[info.d.alu.destReg]=opA&opB;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=r%i&r%i (=%i&%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeNot:
 					process->regs[info.d.alu.destReg]=~opA;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=~r%i (=~%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, opA, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeCmp: {
@@ -216,35 +222,35 @@ bool processRunNextInstruction(Process *process) {
 					*d|=(opA>opB)<<BytecodeInstructionAluCmpBitGreaterThan;
 					*d|=(opA>=opB)<<BytecodeInstructionAluCmpBitGreaterEqual;
 
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=cmp(r%i,r%i) (=cmp(%i,%i)=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				} break;
 				case BytecodeInstructionAluTypeShiftLeft:
 					process->regs[info.d.alu.destReg]=opA<<opB;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=r%i<<r%i (=%i<<%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeShiftRight:
 					process->regs[info.d.alu.destReg]=opA>>opB;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=r%i>>r%i (=%i>>%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeSkip:
 					process->skipFlag=(process->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg));
 
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: skip%u r%i (=%i, %s, skip=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, process->regs[info.d.alu.destReg], byteCodeInstructionAluCmpBitStrings[info.d.alu.opAReg], process->skipFlag);
 				break;
 				case BytecodeInstructionAluTypeStore16:
 					process->memory[process->regs[info.d.alu.destReg]]=(process->regs[info.d.alu.opAReg]>>8);
 					process->memory[process->regs[info.d.alu.destReg]+1]=(process->regs[info.d.alu.opAReg]&0xFF);
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: [r%i]=r%i (16 bit) ([%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.destReg], opA);
 				break;
 				case BytecodeInstructionAluTypeLoad16:
 					process->regs[info.d.alu.destReg]=(((ByteCodeWord)process->memory[process->regs[info.d.alu.opAReg]])<<8) |
 					                                   process->memory[process->regs[info.d.alu.opAReg]+1];
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=[r%i] (16 bit) (=[%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, opA, process->regs[info.d.alu.destReg]);
 				break;
 			}
@@ -252,28 +258,30 @@ bool processRunNextInstruction(Process *process) {
 		case BytecodeInstructionTypeMisc:
 			switch(info.d.misc.type) {
 				case BytecodeInstructionMiscTypeNop:
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: nop\n");
 				break;
 				case BytecodeInstructionMiscTypeSyscall: {
 					uint16_t syscallId=process->regs[0];
+					if (infoInstructions)
+						printf("Info: syscall id=%i\n", syscallId);
 					switch(syscallId) {
 						case ByteCodeSyscallIdExit:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [exit], status=%u)\n", syscallId, process->regs[1]);
 							return false;
 						break;
 						case ByteCodeSyscallIdGetPid: {
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpid], return=%u)\n", syscallId, process->pid);
 
 							process->regs[0]=process->pid;
 						} break;
 						case ByteCodeSyscallIdGetArgC: {
-							if (verbose)
-								printf("Info: syscall(id=%i [getargc], return=%u)\n", syscallId, process->argc);
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [getargc], return=%u)\n", syscallId, process->envVars.argc);
 
-							process->regs[0]=process->argc;
+							process->regs[0]=process->envVars.argc;
 						} break;
 						case ByteCodeSyscallIdGetArgVN: {
 							// TODO: Check n is sensible
@@ -293,44 +301,44 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=trueLen;
 						} break;
 						case ByteCodeSyscallIdFork:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [fork] (unimplemented)\n", syscallId);
 
 							// This is not implemented - simply return error
 							process->regs[0]=ProcManPidMax;
 						break;
 						case ByteCodeSyscallIdExec:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [exec] (unimplemented)\n", syscallId);
 
 							// This is not implemented - simply return false
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdWaitPid:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [waitpid] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdGetPidPath:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdGetPidState:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidstate] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdGetAllCpuCounts:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getallcpucounts] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdKill:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [kill] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdGetPidRam:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidram] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
@@ -344,7 +352,7 @@ bool processRunNextInstruction(Process *process) {
 							} else
 								process->regs[0]=0;
 
-							if (verbose) {
+							if (infoSyscalls) {
 								printf("Info: syscall(id=%i [read], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
 								for(int i=0; i<process->regs[0]; ++i)
 									printf("%c", process->memory[process->regs[2]+i]);
@@ -359,7 +367,7 @@ bool processRunNextInstruction(Process *process) {
 							} else
 								process->regs[0]=0;
 
-							if (verbose) {
+							if (infoSyscalls) {
 								printf("Info: syscall(id=%i [write], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
 								for(int i=0; i<process->regs[3]; ++i)
 									printf("%c", process->memory[process->regs[2]+i]);
@@ -367,77 +375,77 @@ bool processRunNextInstruction(Process *process) {
 							}
 						break;
 						case ByteCodeSyscallIdOpen:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [open] (unimplemented)\n", syscallId);
 
 							// This is not implemented - simply return invalid fd
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdClose:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [close] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdDirGetChildN:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [dirgetchildn] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdGetPath:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdResizeFile:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [resizefile] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdFileGetLen:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [filegetlen] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdTryReadByte:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [tryreadbyte] (unimplemented)\n", syscallId);
 							process->regs[0]=256;
 						break;
 						case ByteCodeSyscallIdIsDir:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [isdir] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envgetstiofd] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdEnvSetStdioFd:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetstdiofd] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdEnvGetPwd:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdEnvSetPwd:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdEnvGetPath:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdEnvSetPath:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdTimeMonotonic:
 							// TODO: this
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [timemonotonic] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						default:
-							if (verbose)
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);
 							printf("Error: Unknown syscall with id %i\n", syscallId);
 							return false;
@@ -446,12 +454,12 @@ bool processRunNextInstruction(Process *process) {
 				} break;
 				case BytecodeInstructionMiscTypeSet8:
 					process->regs[info.d.misc.d.set8.destReg]=info.d.misc.d.set8.value;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=%u\n", info.d.misc.d.set8.destReg, info.d.misc.d.set8.value);
 				break;
 				case BytecodeInstructionMiscTypeSet16:
 					process->regs[info.d.misc.d.set16.destReg]=info.d.misc.d.set16.value;
-					if (verbose)
+					if (infoInstructions)
 						printf("Info: r%i=%u\n", info.d.misc.d.set16.destReg, info.d.misc.d.set16.value);
 				break;
 			}
