@@ -9,6 +9,7 @@
 #include "bytecode.h"
 #include "procman.h"
 
+#define InitPid 0
 typedef struct {
 	ByteCodeWord regs[8];
 
@@ -71,7 +72,7 @@ int main(int argc, char **argv) {
 	process->skipFlag=false;
 	process->instructionCount=0;
 	srand(time(NULL));
-	process->pid=(rand()&1023);
+	process->pid=(rand()%(ProcManPidMax-1))+1; // +1 to avoid InitPid at 0
 	process->argc=argc-inputArgBaseIndex;
 	process->argv=argv+inputArgBaseIndex;
 	const char *inputPath=argv[inputArgBaseIndex];
