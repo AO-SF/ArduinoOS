@@ -197,7 +197,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	kernelFsPathSplit(procData.envVars.pwd, &dirname, &basename);
 	assert(dirname==procData.envVars.pwd);
 
-	strcpy(procData.envVars.path, "/bin");
+	strcpy(procData.envVars.path, "/home:/usr/bin:/bin:");
 
 	uint8_t nullByte;
 	if (kernelFsFileWriteOffset(ramFd, 0, &nullByte, 1)!=1) {
