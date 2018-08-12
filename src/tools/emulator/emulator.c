@@ -341,10 +341,23 @@ bool processRunNextInstruction(Process *process) {
 							// This is not implemented - simply return false
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdWaitPid:
+						case ByteCodeSyscallIdWaitPid: {
+							ProcManPid waitPid=process->regs[1];
+							ByteCodeWord timeout=process->regs[2];
+
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [waitpid] (unimplemented)\n", syscallId);
-						break;
+								printf("Info: syscall(id=%i [waitpid], pid=%u, timeout=%u\n", syscallId, waitPid, timeout);
+							if (waitPid==InitPid || waitPid==process->pid) {
+								if (timeout==0) {
+									printf("Warning: Entered infinite waitpid syscall (waiting for own or init's PID with infinite timeout), exiting\n");
+									return false;
+								}
+								sleep(timeout);
+								process->regs[0]=ProcManExitStatusTimeout;
+							} else {
+								process->regs[0]=ProcManExitStatusNoProcess;
+							}
+						} break;
 						case ByteCodeSyscallIdGetPidPath:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidpath] (unimplemented)\n", syscallId);
