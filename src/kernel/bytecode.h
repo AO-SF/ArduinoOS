@@ -130,6 +130,7 @@ typedef enum {
 	ByteCodeSyscallIdTryReadByte=(256|8),
 	ByteCodeSyscallIdIsDir=(256|9),
 	ByteCodeSyscallIdFileExists=(256|10),
+	ByteCodeSyscallIdDelete=(256|11),
 	ByteCodeSyscallIdEnvGetStdioFd=(512|0),
 	ByteCodeSyscallIdEnvSetStdioFd=(512|1),
 	ByteCodeSyscallIdEnvGetPwd=(512|2),
