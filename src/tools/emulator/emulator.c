@@ -40,6 +40,8 @@ bool infoSyscalls=false;
 bool infoInstructions=false;
 bool infoState=false;
 bool slow=false;
+bool passOnExitStatus=false;
+int exitStatus=EXIT_SUCCESS;
 
 bool processRunNextInstruction(Process *process);
 void processDebug(const Process *process);
@@ -49,7 +51,7 @@ int main(int argc, char **argv) {
 
 	// Parse arguments
 	if (argc<2) {
-		printf("Usage: %s [--infosyscalls] [--infoinstructions] [--infostate] [--slow] inputfile [inputargs ...]\n", argv[0]);
+		printf("Usage: %s [--infosyscalls] [--infoinstructions] [--infostate] [--slow] [--passonexitstatus] inputfile [inputargs ...]\n", argv[0]);
 		goto done;
 	}
 
@@ -63,6 +65,8 @@ int main(int argc, char **argv) {
 			infoInstructions=true;
 		else if (strcmp(argv[i], "--infoState")==0)
 			infoState=true;
+		else if (strcmp(argv[i], "--passonexitstatus")==0)
+			passOnExitStatus=true;
 		else if (strcmp(argv[i], "--slow")==0)
 			slow=true;
 		else
@@ -118,7 +122,7 @@ int main(int argc, char **argv) {
 		fclose(inputFile);
 	free(process);
 
-	return 0;
+	return exitStatus;
 }
 
 bool processRunNextInstruction(Process *process) {
@@ -282,6 +286,8 @@ bool processRunNextInstruction(Process *process) {
 						printf("Info: syscall id=%i\n", syscallId);
 					switch(syscallId) {
 						case ByteCodeSyscallIdExit:
+							if (passOnExitStatus)
+								exitStatus=process->regs[1];
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [exit], status=%u)\n", syscallId, process->regs[1]);
 							return false;
