@@ -41,10 +41,8 @@ label int32add16
 inc2 r0
 load16 r2 r0
 dec2 r0
-
 mov r3 65535
 sub r2 r3 r2 ; r2 has maximum we can add before overflow
-
 cmp r3 r1 r2
 skipgt r3
 jmp int32add16finaladd
@@ -53,90 +51,71 @@ jmp int32add16finaladd
 ; overflowing (inc dest.upper, set dest.lower=0, and reduce src)
 sub r1 r1 r2
 dec r1
-
 load16 r2 r0
 inc r2
 store16 r0 r2
-
 inc2 r0
 mov r2 0
 store16 r0 r2
 dec2 r0
-
 ; Add without overflow (including remaining part if there would have been an overflow)
 label int32add16finaladd
 inc2 r0
 load16 r2 r0
 add r2 r2 r1
 store16 r0 r2
-
 ret
 
 ; int32add32(dest=r0, opA=r1)
 label int32add32
-
 ; Add upper part (not worrying about overflow)
 load16 r2 r0
 load16 r3 r1
 add r2 r2 r3
 store16 r0 r2
-
 ; Add lower part (which may overflow into upper part)
 inc2 r1
 load16 r1 r1
 call int32add16
-
 ret
 
 ; int32sub16(dest=r0, opA=r1)
 label int32sub16
-
-; Max we can subtract naively is dest lower
-; so see if this is enough
+; Max we can subtract naively is dest lower, so see if this is enough
 inc2 r0
 load16 r2 r0 ; r2 contains dest lower, the max we can subtract initially
 dec2 r0
-
 cmp r3 r1 r2
 skipgt r3
 jmp int32sub16finalsub
-
-; We can not subtract everything in one go
-; reduce opA by amount we can handle currently
+; We can not subtract everything in one go, reduce opA by amount we can handle currently
 sub r1 r1 r2
-
 ; set dest lower to 2^16-1
 mov r2 65535
 inc2 r0
 store16 r0 r2
 dec2 r0
-
 ; decrement dest upper
 load16 r2 r0
 dec r2
 store16 r0 r2
-
 label int32sub16finalsub
 inc2 r0
 load16 r2 r0
 sub r2 r2 r1
 store16 r0 r2
-
 ret
 
 ; int32mul1616(dest=r0, opA=r1, opB=r2) - stores product of two 16-bit values opA and opB into 32-bit dest ptr
 label int32mul1616
-
 ; Multiply two lower halves to get lower half of product, and set lower part of dest
 mov r5 255
 and r3 r1 r5
 and r4 r2 r5
 mul r3 r3 r4 ; r3 now contains lower half product
-
 inc2 r0
 store16 r0 r3
 dec2 r0
-
 ; Multiply two upper halves to get upper half of product, and set upper part of dest
 mov r5 8
 shr r3 r1 r5
@@ -145,9 +124,7 @@ mov r5 255
 and r3 r3 r5
 and r4 r4 r5
 mul r3 r3 r4 ; r3 now contains upper half product
-
 store16 r0 r3
-
 ; Multiply and add two other pairs to the lower half (which may overflow into the upper)
 mov r5 8
 shr r3 r1 r5
@@ -155,7 +132,6 @@ mov r5 255
 and r3 r3 r5
 and r4 r2 r5
 mul r3 r3 r4 ; r3 now contains ah*bl
-
 push r2
 push r1
 push r0
@@ -170,7 +146,6 @@ call int32add32
 pop r0
 pop r1
 pop r2
-
 mov r5 8
 shr r4 r2 r5
 mov r5 255
@@ -191,12 +166,10 @@ call int32add32
 pop r0
 pop r1
 pop r2
-
 ret
 
 ; int32div16(r0=dest, r1=divisor) - divide 32 bit quantity at r0 by 16 bit divisor in r1
 label int32div16
-
 ; TODO: Use a better (constant time) algorithm
 mov r2 0 ; result counter
 label int32div16loopstart
@@ -205,7 +178,6 @@ load16 r3 r0
 cmp r3 r3 r3
 skipeqz r3
 jmp int32div16loopnext
-
 inc2 r0
 load16 r3 r0
 dec2 r0
@@ -213,7 +185,6 @@ cmp r3 r3 r1
 skipge r3
 jmp int32div16loopend
 label int32div16loopnext
-
 ; Subtract divisor from dest
 push r0
 push r1
@@ -222,14 +193,11 @@ call int32sub16
 pop r2
 pop r1
 pop r0
-
 ; Inc result counter and loop again
 inc r2
 jmp int32div16loopstart
-
 ; Done
 label int32div16loopend
 mov r1 r2
 call int32set16
-
 ret
