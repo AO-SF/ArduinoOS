@@ -928,6 +928,15 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							kernelFsPathNormalise(path);
 							procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileExists(path) : false);
 						} break;
+						case ByteCodeSyscallIdDelete: {
+							uint16_t pathAddr=procData->regs[1];
+
+							char path[KernelFsPathMax];
+							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax))
+								return false;
+							kernelFsPathNormalise(path);
+							procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileDelete(path) : false);
+						} break;
 						case ByteCodeSyscallIdEnvGetStdioFd:
 							procData->regs[0]=procData->envVars.stdioFd;
 						break;
