@@ -1087,7 +1087,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						break;
 						case ByteCodeSyscallIdRegisterSignalHandler: {
 							uint16_t signalId=procData->regs[1];
-							uint8_t handlerAddr=procData->regs[2];
+							uint16_t handlerAddr=procData->regs[2];
 
 							if (signalId>=ByteCodeSignalIdNB) {
 								kernelLog(LogTypeWarning, "process %u (%s), tried to register handler for invalid signal %u\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), signalId);
