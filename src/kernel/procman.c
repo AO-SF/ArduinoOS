@@ -237,7 +237,8 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 void procManKillAll(void) {
 	for(int i=0; i<ProcManPidMax; ++i)
-		procManProcessKill(i, ProcManExitStatusKilled);
+		if (procManGetProcessByPid(i)!=NULL)
+			procManProcessKill(i, ProcManExitStatusKilled);
 }
 
 void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
