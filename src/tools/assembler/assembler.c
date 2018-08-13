@@ -1138,7 +1138,7 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeMov: {
 				// Check src and determine type
 				BytecodeRegister srcReg;
-				int defineAddr, allocationAddr, constValue;
+				int defineAddr, allocationAddr, constValue, labelAddr;
 				if (isdigit(instruction->d.mov.src[0])) {
 					// Integer - use set8 or set16 instruction as needed
 					unsigned value=atoi(instruction->d.mov.src);
@@ -1174,6 +1174,9 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 					instruction->machineCodeLen=3;
 				} else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1) {
 					// Allocation symbol may need set16
+					instruction->machineCodeLen=3;
+				} else if ((labelAddr=assemblerGetLabelSymbolAddr(program, instruction->d.mov.src))!=-1) {
+					// Label symbol may need set16
 					instruction->machineCodeLen=3;
 				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
 					instruction->machineCodeLen=(constValue>=256 ? 3 : 2);
@@ -1264,7 +1267,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 
 				// Determine type of src (we have already verified it in previous pass)
 				BytecodeRegister srcReg;
-				int defineAddr, allocationAddr, constValue;
+				int defineAddr, allocationAddr, constValue, labelAddr;
 				if (isdigit(instruction->d.mov.src[0])) {
 					// Integer - use set8 or set16 instruction as needed
 					unsigned value=atoi(instruction->d.mov.src);
@@ -1298,6 +1301,8 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, defineAddr);
 				} else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1) {
 					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, allocationAddr);
+				} else if ((labelAddr=assemblerGetLabelSymbolAddr(program, instruction->d.mov.src))!=-1) {
+					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, labelAddr);
 				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
 					if (constValue<256) {
 						BytecodeInstructionStandard op=bytecodeInstructionCreateMiscSet8(destReg, constValue);
