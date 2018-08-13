@@ -535,6 +535,11 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [timemonotonic] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
+						case ByteCodeSyscallIdRegisterSignalHandler:
+							// TODO: this
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [registersignalhandler] (unimplemented)\n", syscallId);
+						break;
 						default:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);

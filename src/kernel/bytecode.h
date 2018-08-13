@@ -13,6 +13,13 @@ typedef uint16_t ByteCodeWord;
 #define ByteCodeMemoryRamSize (ByteCodeMemoryTotalSize-ByteCodeMemoryProgmemSize)
 
 typedef enum {
+	ByteCodeSignalIdInterrupt,
+	ByteCodeSignalIdUser1,
+	ByteCodeSignalIdUser2,
+	ByteCodeSignalIdNB,
+} ByteCodeSignalId;
+
+typedef enum {
 	BytecodeRegister0,
 	BytecodeRegister1,
 	BytecodeRegister2,
@@ -138,6 +145,7 @@ typedef enum {
 	ByteCodeSyscallIdEnvGetPath=(512|4),
 	ByteCodeSyscallIdEnvSetPath=(512|5),
 	ByteCodeSyscallIdTimeMonotonic=(768|0),
+	ByteCodeSyscallIdRegisterSignalHandler=(1024|0),
 } ByteCodeSyscallId;
 
 typedef enum {
