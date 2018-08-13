@@ -27,6 +27,9 @@
 #include "progmemlibstdstr.h"
 #include "progmemlibstdtime.h"
 #include "progmemusrbin.h"
+#include "progmemman1.h"
+#include "progmemman2.h"
+#include "progmemman3.h"
 #include "wrapper.h"
 
 #define KernelPinNumMax 20
@@ -44,6 +47,9 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelLibStdStrSize PROGMEMlibstdstrDATASIZE
 #define KernelLibStdTimeSize PROGMEMlibstdtimeDATASIZE
 #define KernelUsrBinSize PROGMEMusrbinDATASIZE
+#define KernelMan1Size PROGMEMman1DATASIZE
+#define KernelMan2Size PROGMEMman2DATASIZE
+#define KernelMan3Size PROGMEMman3DATASIZE
 
 #define KernelEepromSize (8*1024) // Mega has 4kb for example
 #ifndef ARDUINO
@@ -74,6 +80,7 @@ bool kernelLibGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]
 bool kernelLibStdGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 bool kernelUsrGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
+bool kernelUsrManGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 int kernelBinReadFunctor(KernelFsFileOffset addr);
 int kernelLibCursesReadFunctor(KernelFsFileOffset addr);
 int kernelLibPinReadFunctor(KernelFsFileOffset addr);
@@ -83,6 +90,9 @@ int kernelLibStdProcReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdMemReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdStrReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdTimeReadFunctor(KernelFsFileOffset addr);
+int kernelMan1ReadFunctor(KernelFsFileOffset addr);
+int kernelMan2ReadFunctor(KernelFsFileOffset addr);
+int kernelMan3ReadFunctor(KernelFsFileOffset addr);
 int kernelHomeReadFunctor(KernelFsFileOffset addr);
 bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value);
 uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr, void *userData);
@@ -242,6 +252,10 @@ void kernelBoot(void) {
 	error|=!kernelFsAddDirectoryDeviceFile("/media", &kernelMediaGetChildFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, kernelTmpWriteFunctor);
 	error|=!kernelFsAddDirectoryDeviceFile("/usr", &kernelUsrGetChildFunctor);
+	error|=!kernelFsAddDirectoryDeviceFile("/usr/man", &kernelUsrManGetChildFunctor);
+	error|=!kernelFsAddBlockDeviceFile("/usr/man/1", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan1Size, &kernelMan1ReadFunctor, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/usr/man/2", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan2Size, &kernelMan2ReadFunctor, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/usr/man/3", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan3Size, &kernelMan3ReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL);
 
 	if (error)
@@ -368,6 +382,16 @@ bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMa
 bool kernelUsrGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
 	switch(childNum) {
 		case 0: strcpy(childPath, "/usr/bin"); return true; break;
+		case 1: strcpy(childPath, "/usr/man"); return true; break;
+	}
+	return false;
+}
+
+bool kernelUsrManGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
+	switch(childNum) {
+		case 0: strcpy(childPath, "/usr/man/1"); return true; break;
+		case 1: strcpy(childPath, "/usr/man/2"); return true; break;
+		case 2: strcpy(childPath, "/usr/man/3"); return true; break;
 	}
 	return false;
 }
@@ -415,6 +439,21 @@ int kernelLibStdStrReadFunctor(KernelFsFileOffset addr) {
 int kernelLibStdTimeReadFunctor(KernelFsFileOffset addr) {
 	assert(addr<KernelLibStdTimeSize);
 	return progmemlibstdtimeData[addr];
+}
+
+int kernelMan1ReadFunctor(KernelFsFileOffset addr) {
+	assert(addr<KernelMan1Size);
+	return progmemman1Data[addr];
+}
+
+int kernelMan2ReadFunctor(KernelFsFileOffset addr) {
+	assert(addr<KernelMan2Size);
+	return progmemman2Data[addr];
+}
+
+int kernelMan3ReadFunctor(KernelFsFileOffset addr) {
+	assert(addr<KernelMan3Size);
+	return progmemman3Data[addr];
 }
 
 int kernelHomeReadFunctor(KernelFsFileOffset addr) {

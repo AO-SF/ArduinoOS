@@ -1,0 +1,10 @@
+TRUE(1) - User Commands
+
+NAME
+      true - do nothing, successfully
+
+SYNOPSIS
+      true [ignored command line arguments]
+
+DESCRIPTION
+      Exit with a status code indicating success.

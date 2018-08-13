@@ -64,6 +64,10 @@ int main(int agrc, char **argv) {
 	buildVolume("libcurses", 8*1024, "./src/userspace/bin/lib/curses");
 	buildVolume("libpin", 8*1024, "./src/userspace/bin/lib/pin");
 
+	buildVolume("man1", 8*1024, "./src/userspace/man/1");
+	buildVolume("man2", 8*1024, "./src/userspace/man/2");
+	buildVolume("man3", 8*1024, "./src/userspace/man/3");
+
 	return 0;
 }
 
