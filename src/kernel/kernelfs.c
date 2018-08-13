@@ -20,6 +20,7 @@ typedef struct {
 	KernelFsCharacterDeviceReadFunctor *readFunctor;
 	KernelFsCharacterDeviceCanReadFunctor *canReadFunctor;
 	KernelFsCharacterDeviceWriteFunctor *writeFunctor;
+	void *functorUserData;
 } KernelFsDeviceCharacter;
 
 typedef struct {
@@ -101,7 +102,7 @@ void kernelFsQuit(void) {
 	}
 }
 
-bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor) {
+bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, void *functorUserData) {
 	assert(mountPoint!=NULL);
 	assert(readFunctor!=NULL);
 	assert(canReadFunctor!=NULL);
@@ -116,6 +117,7 @@ bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDev
 	device->d.character.readFunctor=readFunctor;
 	device->d.character.canReadFunctor=canReadFunctor;
 	device->d.character.writeFunctor=writeFunctor;
+	device->d.character.functorUserData=functorUserData;
 
 	return true;
 }
@@ -595,9 +597,9 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 				// offset is ignored as these are not seekable
 				KernelFsFileOffset read;
 				for(read=0; read<dataLen; ++read) {
-					if (!block && !device->d.character.canReadFunctor())
+					if (!block && !device->d.character.canReadFunctor(device->d.character.functorUserData))
 						break;
-					int c=device->d.character.readFunctor();
+					int c=device->d.character.readFunctor(device->d.character.functorUserData);
 					if (c==-1)
 						break;
 					data[read]=c;
@@ -667,7 +669,7 @@ bool kernelFsFileCanRead(KernelFsFd fd) {
 	// Is this a virtual character device file?
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(kernelFsData.fdt[fd]);
 	if (device!=NULL && device->type==KernelFsDeviceTypeCharacter)
-		return device->d.character.canReadFunctor();
+		return device->d.character.canReadFunctor(device->d.character.functorUserData);
 
 	// Otherwise all other file types never block
 	return true;
@@ -694,7 +696,7 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 				// offset is ignored as these are not seekable
 				KernelFsFileOffset written;
 				for(written=0; written<dataLen; ++written)
-					if (!device->d.character.writeFunctor(data[written]))
+					if (!device->d.character.writeFunctor(data[written], device->d.character.functorUserData))
 						break;
 				return written;
 			} break;
