@@ -1205,10 +1205,10 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeLen=4; // Reserve four bytes (dec2 + load16)
 			break;
 			case AssemblerInstructionTypeCall:
-				instruction->machineCodeLen=7; // Reserve seven bytes (store16, inc2, set16)
+				instruction->machineCodeLen=11;
 			break;
 			case AssemblerInstructionTypeRet:
-				instruction->machineCodeLen=8; // Reserve eight bytes (dec2, load16, inc5, or)
+				instruction->machineCodeLen=4;
 			break;
 			case AssemblerInstructionTypeStore8:
 				instruction->machineCodeLen=1;
@@ -1362,7 +1362,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				bytecodeInstructionCreateMiscSet16(instruction->machineCode, ByteCodeRegisterIP, addr);
 			} break;
 			case AssemblerInstructionTypePush: {
-				// This requires the stack register - can if we cannot use it
+				// This requires the stack register - fail if we cannot use it
 				if (program->noStack) {
 					printf("error - push requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 					return false;
@@ -1385,7 +1385,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[3]=(inc2Op&0xFF);
 			} break;
 			case AssemblerInstructionTypePop: {
-				// This requires the stack register - can if we cannot use it
+				// This requires the stack register - fail if we cannot use it
 				if (program->noStack) {
 					printf("error - pop requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 					return false;
@@ -1408,7 +1408,13 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[3]=(loadOp&0xFF);
 			} break;
 			case AssemblerInstructionTypeCall: {
-				// This requires the stack register - can if we cannot use it
+				// This requires the scratch register - fail if we cannot use it
+				if (program->noScratch) {
+					printf("error - ret requires scratch register but noscratch set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				// This requires the stack register - fail if we cannot use it
 				if (program->noStack) {
 					printf("error - call requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 					return false;
@@ -1421,46 +1427,45 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					return false;
 				}
 
-				// Create instructions (push IP onto stack and jump into function)
-				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, ByteCodeRegisterSP, ByteCodeRegisterIP, 0);
-				instruction->machineCode[0]=(store16Op>>8);
-				instruction->machineCode[1]=(store16Op&0xFF);
+				// Create instructions (push adjusted IP onto stack and jump into function)
+				// mov rS rIP
+				BytecodeInstructionStandard getIpOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, ByteCodeRegisterS, ByteCodeRegisterIP, ByteCodeRegisterIP);
+				instruction->machineCode[0]=(getIpOp>>8);
+				instruction->machineCode[1]=(getIpOp&0xFF);
 
-				BytecodeInstructionStandard incOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterSP, 2);
-				instruction->machineCode[2]=(incOp>>8);
-				instruction->machineCode[3]=(incOp&0xFF);
+				// inc9 rS
+				BytecodeInstructionStandard inc9Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterS, 9);
+				instruction->machineCode[2]=(inc9Op>>8);
+				instruction->machineCode[3]=(inc9Op&0xFF);
 
-				bytecodeInstructionCreateMiscSet16(instruction->machineCode+4, ByteCodeRegisterIP, addr);
+				// store16 rSP rS
+				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, ByteCodeRegisterSP, ByteCodeRegisterS, 0);
+				instruction->machineCode[4]=(store16Op>>8);
+				instruction->machineCode[5]=(store16Op&0xFF);
+
+				// inc2 rSP
+				BytecodeInstructionStandard inc2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterSP, 2);
+				instruction->machineCode[6]=(inc2Op>>8);
+				instruction->machineCode[7]=(inc2Op&0xFF);
+
+				// mov rIP jmpaddr
+				bytecodeInstructionCreateMiscSet16(instruction->machineCode+8, ByteCodeRegisterIP, addr);
 			} break;
 			case AssemblerInstructionTypeRet: {
-				// This requires the scratch register - can if we cannot use it
-				if (program->noScratch) {
-					printf("error - ret requires scratch register but noscratch set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
-					return false;
-				}
-
-				// This requires the stack register - can if we cannot use it
+				// This requires the stack register - fail if we cannot use it
 				if (program->noStack) {
 					printf("error - ret requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 					return false;
 				}
 
-				// Create instructions (pop ret addr off stack, adjust it to skip call pseudo instructions, and then jump)
+				// Create instructions (pop ret addr off stack and jump)
 				BytecodeInstructionStandard decOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 2);
 				instruction->machineCode[0]=(decOp>>8);
 				instruction->machineCode[1]=(decOp&0xFF);
 
-				BytecodeInstructionStandard load16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, ByteCodeRegisterS, ByteCodeRegisterSP, 0);
+				BytecodeInstructionStandard load16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, ByteCodeRegisterIP, ByteCodeRegisterSP, 0);
 				instruction->machineCode[2]=(load16Op>>8);
 				instruction->machineCode[3]=(load16Op&0xFF);
-
-				BytecodeInstructionStandard incOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterS, 5);
-				instruction->machineCode[4]=(incOp>>8);
-				instruction->machineCode[5]=(incOp&0xFF);
-
-				BytecodeInstructionStandard setIpOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, ByteCodeRegisterIP, ByteCodeRegisterS, ByteCodeRegisterS);
-				instruction->machineCode[6]=(setIpOp>>8);
-				instruction->machineCode[7]=(setIpOp&0xFF);
 			} break;
 			case AssemblerInstructionTypeStore8: {
 				// Verify dest and src are valid registers
