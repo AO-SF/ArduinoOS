@@ -62,6 +62,7 @@ int main(int agrc, char **argv) {
 	buildVolume("libstdstr", 8*1024, "./src/userspace/lib/std/str");
 	buildVolume("libstdtime", 8*1024, "./src/userspace/lib/std/time");
 	buildVolume("libcurses", 8*1024, "./src/userspace/lib/curses");
+	buildVolume("libpin", 8*1024, "./src/userspace/lib/pin");
 
 	return 0;
 }

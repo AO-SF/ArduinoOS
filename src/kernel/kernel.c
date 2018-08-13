@@ -19,6 +19,7 @@
 #include "procman.h"
 #include "progmembin.h"
 #include "progmemlibcurses.h"
+#include "progmemlibpin.h"
 #include "progmemlibstdio.h"
 #include "progmemlibstdmath.h"
 #include "progmemlibstdproc.h"
@@ -35,6 +36,7 @@ uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize PROGMEMbinDATASIZE
 #define KernelLibCursesSize PROGMEMlibcursesDATASIZE
+#define KernelLibPinSize PROGMEMlibpinDATASIZE
 #define KernelLibStdIoSize PROGMEMlibstdioDATASIZE
 #define KernelLibStdMathSize PROGMEMlibstdmathDATASIZE
 #define KernelLibStdProcSize PROGMEMlibstdprocDATASIZE
@@ -74,6 +76,7 @@ bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMa
 bool kernelUsrGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 int kernelBinReadFunctor(KernelFsFileOffset addr);
 int kernelLibCursesReadFunctor(KernelFsFileOffset addr);
+int kernelLibPinReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdIoReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdMathReadFunctor(KernelFsFileOffset addr);
 int kernelLibStdProcReadFunctor(KernelFsFileOffset addr);
@@ -377,6 +380,11 @@ int kernelBinReadFunctor(KernelFsFileOffset addr) {
 int kernelLibCursesReadFunctor(KernelFsFileOffset addr) {
 	assert(addr<KernelLibCursesSize);
 	return progmemlibcursesData[addr];
+}
+
+int kernelLibPinReadFunctor(KernelFsFileOffset addr) {
+	assert(addr<KernelLibPinSize);
+	return progmemlibpinData[addr];
 }
 
 int kernelLibStdIoReadFunctor(KernelFsFileOffset addr) {
