@@ -462,8 +462,7 @@ void procManProcessSendSignal(ProcManPid pid, ByteCodeSignalId signalId) {
 
 	// 'Call' the registered handler (in the same way the assembler generates call instructions)
 	// Do this by pushing the current IP as the return address, before jumping into handler.
-	uint16_t retAddr=procData.regs[ByteCodeRegisterIP]-5; // the -5 is because the assembler ret instruction normally has to do an inc5 call on the pushed return address (which are pushed slightly earlier than the actual desired return address).
-	procManProcessMemoryWriteWord(process, &procData, procData.regs[ByteCodeRegisterSP], retAddr); // TODO: Check return
+	procManProcessMemoryWriteWord(process, &procData, procData.regs[ByteCodeRegisterSP], procData.regs[ByteCodeRegisterIP]); // TODO: Check return
 	procData.regs[ByteCodeRegisterSP]+=2;
 	procData.regs[ByteCodeRegisterIP]=handlerAddr;
 
