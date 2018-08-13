@@ -107,8 +107,7 @@ void procManInit(void) {
 
 void procManQuit(void) {
 	// Kill all processes
-	for(int i=0; i<ProcManPidMax; ++i)
-		procManProcessKill(i, ProcManExitStatusKilled);
+	procManKillAll();
 }
 
 void procManTickAll(void) {
@@ -234,6 +233,11 @@ ProcManPid procManProcessNew(const char *programPath) {
 	}
 
 	return ProcManPidMax;
+}
+
+void procManKillAll(void) {
+	for(int i=0; i<ProcManPidMax; ++i)
+		procManProcessKill(i, ProcManExitStatusKilled);
 }
 
 void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
