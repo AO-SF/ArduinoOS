@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #ifndef ARDUINO
+#include <signal.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 #endif
@@ -125,6 +126,10 @@ int kernelDevPinReadFunctor(void *userData);
 bool kernelDevPinCanReadFunctor(void *userData);
 bool kernelDevPinWriteFunctor(uint8_t value, void *userData);
 
+#ifndef ARDUINO
+void kernelSigIntHandler(int sig);
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -173,6 +178,11 @@ void kernelBoot(void) {
 	// PC only - set pinStates array to all off
 #ifndef ARDUINO
 	memset(pinStates, 0, sizeof(pinStates));
+#endif
+
+	// PC only - register sigint handler so we can pass this signal onto e.g. the shell
+#ifndef ARDUINO
+    signal(SIGINT, kernelSigIntHandler); // TODO: Check return.
 #endif
 
 	// Arduino-only: connect to serial (ready to mount as /dev/ttyS0).
@@ -666,3 +676,9 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 	return true;
 #endif
 }
+
+#ifndef ARDUINO
+void kernelSigIntHandler(int sig) {
+	procManProcessSendSignal(kernelReaderPid, ByteCodeSignalIdInterrupt);
+}
+#endif
