@@ -1,0 +1,10 @@
+INIT(1) - User Commands
+
+NAME
+      init - starts a shell before sleeping forever
+
+SYNOPSIS
+      [not called from userspace]
+
+DESCRIPTION
+      Fork to start a shell, while waiting indefinitely in the parent. Fails if already running.

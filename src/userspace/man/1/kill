@@ -1,0 +1,13 @@
+KILL(1) - User Commands
+
+NAME
+      kill - kill a process
+
+SYNOPSIS
+      kill <pid>
+
+DESCRIPTION
+      Kill the process referred to by the given pid.
+
+NOTES
+      The process with pid 0 (init) cannot be killed this way.

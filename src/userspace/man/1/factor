@@ -1,0 +1,10 @@
+FACTOR(1) - User Commands
+
+NAME
+      factor - factor integers
+
+SYNOPSIS
+      factor NUM1 [NUM2 ...]
+
+DESCRIPTION
+      Take integers given as arguments and print a list of their prime factors.

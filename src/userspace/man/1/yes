@@ -1,0 +1,10 @@
+YES(1) - User Commands
+
+NAME
+      yes - print string endlessly
+
+SYNOPSIS
+      yes [STRING]
+
+DESCRIPTION
+      Prints lines of the given string, or 'y', until killed.
