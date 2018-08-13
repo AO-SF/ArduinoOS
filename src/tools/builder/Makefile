@@ -12,33 +12,33 @@ ALL: $(OBJS)
 	mkdir -p mockups/usrbinmockup
 	mkdir -p mockups/homemockup
 
-	../../../bin/assembler ../../userspace/fib.s mockups/homemockup/fib
+	../../../bin/assembler ../../userspace/bin/fib.s mockups/homemockup/fib
 	cp homeexample/* mockups/homemockup
-	../../../bin/assembler ../../userspace/tree.s mockups/homemockup/tree
-	../../../bin/assembler ../../userspace/bomb.s mockups/homemockup/bomb
-	../../../bin/assembler ../../userspace/sokoban.s mockups/homemockup/sokoban
-	../../../bin/assembler ../../userspace/blink.s mockups/homemockup/blink
+	../../../bin/assembler ../../userspace/bin/tree.s mockups/homemockup/tree
+	../../../bin/assembler ../../userspace/bin/bomb.s mockups/homemockup/bomb
+	../../../bin/assembler ../../userspace/bin/sokoban.s mockups/homemockup/sokoban
+	../../../bin/assembler ../../userspace/bin/blink.s mockups/homemockup/blink
 
-	../../../bin/assembler ../../userspace/cat.s mockups/binmockup/cat
-	../../../bin/assembler ../../userspace/false.s mockups/binmockup/false
-	../../../bin/assembler ../../userspace/init.s mockups/binmockup/init
-	../../../bin/assembler ../../userspace/ls.s mockups/binmockup/ls
-	../../../bin/assembler ../../userspace/pwd.s mockups/binmockup/pwd
-	../../../bin/assembler ../../userspace/sh.s mockups/binmockup/sh
-	../../../bin/assembler ../../userspace/true.s mockups/binmockup/true
-	../../../bin/assembler ../../userspace/echo.s mockups/binmockup/echo
-	../../../bin/assembler ../../userspace/yes.s mockups/binmockup/yes
-	../../../bin/assembler ../../userspace/tty.s mockups/binmockup/tty
-	../../../bin/assembler ../../userspace/kill.s mockups/binmockup/kill
-	../../../bin/assembler ../../userspace/sleep.s mockups/binmockup/sleep
-	../../../bin/assembler ../../userspace/cp.s mockups/binmockup/cp
-	../../../bin/assembler ../../userspace/rm.s mockups/binmockup/rm
+	../../../bin/assembler ../../userspace/bin/cat.s mockups/binmockup/cat
+	../../../bin/assembler ../../userspace/bin/false.s mockups/binmockup/false
+	../../../bin/assembler ../../userspace/bin/init.s mockups/binmockup/init
+	../../../bin/assembler ../../userspace/bin/ls.s mockups/binmockup/ls
+	../../../bin/assembler ../../userspace/bin/pwd.s mockups/binmockup/pwd
+	../../../bin/assembler ../../userspace/bin/sh.s mockups/binmockup/sh
+	../../../bin/assembler ../../userspace/bin/true.s mockups/binmockup/true
+	../../../bin/assembler ../../userspace/bin/echo.s mockups/binmockup/echo
+	../../../bin/assembler ../../userspace/bin/yes.s mockups/binmockup/yes
+	../../../bin/assembler ../../userspace/bin/tty.s mockups/binmockup/tty
+	../../../bin/assembler ../../userspace/bin/kill.s mockups/binmockup/kill
+	../../../bin/assembler ../../userspace/bin/sleep.s mockups/binmockup/sleep
+	../../../bin/assembler ../../userspace/bin/cp.s mockups/binmockup/cp
+	../../../bin/assembler ../../userspace/bin/rm.s mockups/binmockup/rm
 
-	../../../bin/assembler ../../userspace/time.s mockups/usrbinmockup/time
-	../../../bin/assembler ../../userspace/uptime.s mockups/usrbinmockup/uptime
-	../../../bin/assembler ../../userspace/factor.s mockups/usrbinmockup/factor
-	../../../bin/assembler ../../userspace/ps.s mockups/usrbinmockup/ps
-	../../../bin/assembler ../../userspace/burn.s mockups/usrbinmockup/burn
+	../../../bin/assembler ../../userspace/bin/time.s mockups/usrbinmockup/time
+	../../../bin/assembler ../../userspace/bin/uptime.s mockups/usrbinmockup/uptime
+	../../../bin/assembler ../../userspace/bin/factor.s mockups/usrbinmockup/factor
+	../../../bin/assembler ../../userspace/bin/ps.s mockups/usrbinmockup/ps
+	../../../bin/assembler ../../userspace/bin/burn.s mockups/usrbinmockup/burn
 
 	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/builder $(LFLAGS)
 
