@@ -501,14 +501,28 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		strcpy(ramFdPath, kernelFsGetFilePath(procData->ramFd));
 		kernelFsFileClose(procData->ramFd);
 
-		// Resize ram file
+		// Resize ram file (trying for up to 16 bytes extra, but falling back on minimum if fails)
 		KernelFsFileOffset oldRamLen=procData->ramLen;
-		uint16_t newRamLen=ramIndex+1;
-		uint16_t newRamTotalSize=procData->argvDataLen+newRamLen;
-		if (!kernelFsFileResize(ramFdPath, newRamTotalSize)) {
-			// TODO: tidy up better in this case? (ramfd in particular)
-			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM address (0x%04X, ram offset %u), beyond current size, but we could not allocate new size needed (%u vs original %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
-			return false;
+		uint16_t newRamLenMin=ramIndex+1;
+		uint16_t newRamTotalSizeMin=procData->argvDataLen+newRamLenMin;
+
+		uint16_t extra;
+		uint16_t newRamLen;
+		for(extra=16; extra>0; extra/=2) {
+			// Compute new len and total size for this amount of extra bytes
+			newRamLen=newRamLenMin+extra-1;
+			uint16_t newRamTotalSize=newRamTotalSizeMin+extra-1;
+
+			// Attempt to resize ram file
+			if (kernelFsFileResize(ramFdPath, newRamTotalSize))
+				break;
+
+			// Unable to allocate even 1 extra byte?
+			if (extra<=1) {
+				// TODO: tidy up better in this case? (ramfd in particular)
+				kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM address (0x%04X, ram offset %u), beyond current size, but we could not allocate new size needed (%u vs original %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
+				return false;
+			}
 		}
 
 		// Re-open ram file
