@@ -1,0 +1,20 @@
+EXIT(3) - Standard Library
+
+NAME
+      exit - terminate the calling process with given status
+
+SYNOPSIS
+      requireend lib/std/proc/exit.s
+
+      mov r0 0 ; status
+      call exit
+
+DESCRIPTION
+      The function exit(status) terminates the calling process "immediately".
+      The value status is returned to any waiting processes (see waitpid(2)) as the exit status.
+
+RETURN VALUE
+      This function do not return.
+
+SEE ALSO
+      exec(2), fork(2), kill(2), waitpid(2), exit(2)

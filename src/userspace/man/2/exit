@@ -1,0 +1,18 @@
+EXIT(2) - System Calls
+
+NAME
+      exit - terminate the calling process with given status
+
+SYNOPSIS
+      r0 - id=0
+      r1 - status
+
+DESCRIPTION
+      The exit system call terminates the calling process "immediately".
+      The value status is returned to any waiting processes (see waitpid(2)) as the exit status.
+
+RETURN VALUE
+      This function do not return.
+
+SEE ALSO
+      exec(2), fork(2), kill(2), waitpid(2), exit(3)
