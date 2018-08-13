@@ -17,6 +17,8 @@
 #define procManProcessTickInstructionsPerTick 8 // Generally a higher value causes faster execution, but decreased responsiveness if many processes running
 #define procManTicksPerInstructionCounterReset (3*1024) // must not exceed procManProcessInstructionCounterMax/procManProcessTickInstructionsPerTick, which is currently 8k, target is to reset roughly every 10s
 
+#define ProcManSignalHandlerInvalid 0
+
 typedef enum {
 	ProcManProcessStateUnused,
 	ProcManProcessStateActive,
@@ -34,6 +36,7 @@ typedef struct {
 
 typedef struct {
 	ByteCodeWord regs[BytecodeRegisterNB];
+	KernelFsFileOffset signalHandlers[ByteCodeSignalIdNB];
 	ProcManProcessEnvVars envVars;
 	uint16_t argvDataLen, ramLen;
 	uint8_t ramFd;
@@ -187,6 +190,8 @@ ProcManPid procManProcessNew(const char *programPath) {
 	// Initialise proc file (and argv data in ram file)
 	ProcManProcessProcData procData;
 	procData.regs[ByteCodeRegisterIP]=0;
+	for(uint16_t i=0; i<ByteCodeSignalIdNB; ++i)
+		procData.signalHandlers[i]=ProcManSignalHandlerInvalid;
 	procData.skipFlag=false;
 	procData.envVars.stdioFd=KernelFsFdInvalid;
 	procData.argvDataLen=argvDataLen;
@@ -1003,6 +1008,16 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdTimeMonotonic:
 							procData->regs[0]=(millis()/1000);
 						break;
+						case ByteCodeSyscallIdRegisterSignalHandler: {
+							uint16_t signalId=procData->regs[1];
+							uint8_t handlerAddr=procData->regs[2];
+
+							if (signalId>=ByteCodeSignalIdNB) {
+								kernelLog(LogTypeWarning, "process %u (%s), tried to register handler for invalid signal %u\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), signalId);
+							} else
+								procData->signalHandlers[signalId]=handlerAddr;
+
+						} break;
 						default:
 							kernelLog(LogTypeWarning, "invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							return false;
