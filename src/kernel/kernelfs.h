@@ -12,9 +12,9 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 #define KernelFsPathMax 63
 
-typedef int (KernelFsCharacterDeviceReadFunctor)(void); // returns -1 on failure
-typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void);
-typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value);
+typedef int (KernelFsCharacterDeviceReadFunctor)(void *userData); // returns -1 on failure
+typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData);
+typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value, void *userData);
 
 typedef bool (KernelFsDirectoryDeviceGetChildFunctor)(unsigned childNum, char childPath[KernelFsPathMax]);
 
@@ -37,7 +37,7 @@ void kernelFsQuit(void);
 // Virtual device functions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor);
+bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, void *functorUserData);
 bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDeviceGetChildFunctor *getChildFunctor);
 bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor);
 
