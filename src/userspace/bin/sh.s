@@ -21,6 +21,8 @@ aw readOffset 1
 
 ab runInBackground 1
 
+ab childPid 1
+
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputdec.s
@@ -32,6 +34,17 @@ requireend lib/std/proc/runpath.s
 requireend lib/std/str/strchr.s
 requireend lib/std/str/strequal.s
 requireend lib/std/str/strtrimlast.s
+
+; Clear child PID
+mov r0 childPid
+mov r1 64
+store8 r0 r1
+
+; Register interrupt signal handler
+mov r0 1024
+mov r1 0 ; interrupt signal id
+mov r2 interruptHandler
+syscall
 
 ; Is stdiofd already sensible?
 mov r0 handlingStdio
@@ -313,6 +326,8 @@ label shellForkExec
 ; Fork
 mov r0 4
 syscall
+mov r1 childPid
+store8 r1 r0
 
 mov r1 64 ; ProcManPidMax
 cmp r1 r0 r1
@@ -356,6 +371,10 @@ mov r1 r0 ; childs PID
 mov r0 6 ; waitpid syscall
 mov r2 0 ; infinite timeout
 syscall
+
+mov r0 64
+mov r1 childPid
+store8 r1 r0
 
 label shellRunFdRet
 ret
@@ -415,4 +434,16 @@ mov r0 515
 mov r1 homeDir
 syscall
 
+ret
+
+label interruptHandler
+; kill child (if any)
+push r0
+push r1
+mov r0 10
+mov r1 childPid
+load8 r1 r1
+syscall
+pop r1
+pop r0
 ret
