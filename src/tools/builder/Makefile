@@ -17,6 +17,7 @@ ALL: $(OBJS)
 	../../../bin/assembler ../../userspace/tree.s mockups/homemockup/tree
 	../../../bin/assembler ../../userspace/bomb.s mockups/homemockup/bomb
 	../../../bin/assembler ../../userspace/sokoban.s mockups/homemockup/sokoban
+	../../../bin/assembler ../../userspace/blink.s mockups/homemockup/blink
 
 	../../../bin/assembler ../../userspace/cat.s mockups/binmockup/cat
 	../../../bin/assembler ../../userspace/false.s mockups/binmockup/false
