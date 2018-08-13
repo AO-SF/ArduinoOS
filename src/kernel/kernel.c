@@ -460,14 +460,16 @@ int kernelHomeReadFunctor(KernelFsFileOffset addr) {
 #ifdef ARDUINO
 	return EEPROM.read(addr);
 #else
-	int res=fseek(kernelFakeEepromFile, addr, SEEK_SET);
-	assert(res==0);
-	assert(ftell(kernelFakeEepromFile)==addr);
-	int c=fgetc(kernelFakeEepromFile);
-	if (c==EOF)
+	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
+		kernelLog(LogTypeWarning, "could not seek to addr %u in home read functor\n", addr);
 		return -1;
-	else
-		return c;
+	}
+	int c=fgetc(kernelFakeEepromFile);
+	if (c==EOF) {
+		kernelLog(LogTypeWarning, "could not read at addr %u in home read functor\n", addr);
+		return -1;
+	}
+	return c;
 #endif
 }
 
@@ -476,10 +478,16 @@ bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value) {
 	EEPROM.update(addr, value);
 	return true;
 #else
-	int res=fseek(kernelFakeEepromFile, addr, SEEK_SET);
-	assert(res==0);
-	assert(ftell(kernelFakeEepromFile)==addr);
-	return (fputc(value, kernelFakeEepromFile)!=EOF);
+	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
+		kernelLog(LogTypeWarning, "could not seek to addr %u in home write functor\n", addr);
+		return false;
+	}
+	if (fputc(value, kernelFakeEepromFile)==EOF) {
+		kernelLog(LogTypeWarning, "could not write to addr %u in home write functor\n", addr);
+		return false;
+	}
+
+	return true;
 #endif
 }
 
