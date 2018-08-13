@@ -55,14 +55,14 @@ int main(int agrc, char **argv) {
 	// Build other read-only volumes
 	buildVolume("bin", 8*1024, "./src/tools/builder/mockups/binmockup");
 	buildVolume("usrbin", 8*1024, "./src/tools/builder/mockups/usrbinmockup");
-	buildVolume("libstdio", 8*1024, "./src/userspace/lib/std/io");
-	buildVolume("libstdmath", 8*1024, "./src/userspace/lib/std/math");
-	buildVolume("libstdmem", 8*1024, "./src/userspace/lib/std/mem");
-	buildVolume("libstdproc", 8*1024, "./src/userspace/lib/std/proc");
-	buildVolume("libstdstr", 8*1024, "./src/userspace/lib/std/str");
-	buildVolume("libstdtime", 8*1024, "./src/userspace/lib/std/time");
-	buildVolume("libcurses", 8*1024, "./src/userspace/lib/curses");
-	buildVolume("libpin", 8*1024, "./src/userspace/lib/pin");
+	buildVolume("libstdio", 8*1024, "./src/userspace/bin/lib/std/io");
+	buildVolume("libstdmath", 8*1024, "./src/userspace/bin/lib/std/math");
+	buildVolume("libstdmem", 8*1024, "./src/userspace/bin/lib/std/mem");
+	buildVolume("libstdproc", 8*1024, "./src/userspace/bin/lib/std/proc");
+	buildVolume("libstdstr", 8*1024, "./src/userspace/bin/lib/std/str");
+	buildVolume("libstdtime", 8*1024, "./src/userspace/bin/lib/std/time");
+	buildVolume("libcurses", 8*1024, "./src/userspace/bin/lib/curses");
+	buildVolume("libpin", 8*1024, "./src/userspace/bin/lib/pin");
 
 	return 0;
 }

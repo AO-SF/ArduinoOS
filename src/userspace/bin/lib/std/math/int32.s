@@ -46,7 +46,6 @@ sub r2 r3 r2 ; r2 has maximum we can add before overflow
 cmp r3 r1 r2
 skipgt r3
 jmp int32add16finaladd
-
 ; We cannot add without overflowing, so add what we can, then add one more,
 ; overflowing (inc dest.upper, set dest.lower=0, and reduce src)
 sub r1 r1 r2
