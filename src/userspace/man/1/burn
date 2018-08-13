@@ -1,0 +1,10 @@
+BURN(1) - User Commands
+
+NAME
+      burn - burn CPU cycles
+
+SYNOPSIS
+      burn
+
+DESCRIPTION
+      Burn CPU cycles by doing an infinite loop. Does not exit.

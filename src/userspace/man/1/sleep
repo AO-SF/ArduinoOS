@@ -1,0 +1,10 @@
+SLEEP(1) - User Commands
+
+NAME
+      sleep - delay for amount of time
+
+SYNOPSIS
+      sleep [SECONDS]
+
+DESCRIPTION
+      Delays for at least the given number of seconds, or returns immediately if no argument.

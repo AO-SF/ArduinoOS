@@ -1,0 +1,10 @@
+FALSE(1) - User Commands
+
+NAME
+      false - do nothing, unsuccessfully
+
+SYNOPSIS
+      false [ignored command line arguments]
+
+DESCRIPTION
+      Exit with a status code indicating failure.

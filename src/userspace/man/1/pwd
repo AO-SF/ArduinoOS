@@ -1,0 +1,10 @@
+PWD(1) - User Commands
+
+NAME
+      pwd - print present working directory
+
+SYNOPSIS
+      pwd [ignored command line arguments]
+
+DESCRIPTION
+      Prints current working directory.
