@@ -28,6 +28,8 @@
 #include "progmemusrbin.h"
 #include "wrapper.h"
 
+#define KernelPinNumMax 20
+
 #define KernelTmpDataPoolSize (8*1024) // 8kb - used as ram (will have to be smaller on Uno presumably)
 uint8_t *kernelTmpDataPool=NULL;
 
@@ -47,6 +49,8 @@ const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
 
 int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too often causing us to think no data is waiting
+
+bool pinStates[KernelPinNumMax];
 
 #endif
 
@@ -100,6 +104,9 @@ int kernelDevTtyS0ReadFunctor(void *userData);
 bool kernelDevTtyS0CanReadFunctor(void *userData);
 bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData);
 int kernelUsrBinReadFunctor(KernelFsFileOffset addr);
+int kernelDevPinReadFunctor(void *userData);
+bool kernelDevPinCanReadFunctor(void *userData);
+bool kernelDevPinWriteFunctor(uint8_t value, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -144,6 +151,11 @@ void kernelBoot(void) {
 	// ON the Arduino we can leave this at 0 but otherwise we have to save offset
 	kernelBootTime=millisRaw();
 	kernelLog(LogTypeInfo, "set kernel boot time to %lu (PC wrapper)\n", kernelBootTime);
+#endif
+
+	// PC only - set pinStates array to all off
+#ifndef ARDUINO
+	memset(pinStates, 0, sizeof(pinStates));
 #endif
 
 	// Arduino-only: connect to serial (ready to mount as /dev/ttyS0).
@@ -207,6 +219,11 @@ void kernelBoot(void) {
 	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, NULL);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, NULL);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, NULL);
+	for(uint8_t pinNum=0; pinNum<KernelPinNumMax; ++pinNum) {
+		char pinDevicePath[64];
+		sprintf(pinDevicePath, "/dev/pin%u", pinNum);
+		error|=!kernelFsAddCharacterDeviceFile(pinDevicePath, &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)pinNum);
+	}
 	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, kernelHomeWriteFunctor);
 	error|=!kernelFsAddDirectoryDeviceFile("/lib", &kernelLibGetChildFunctor);
@@ -312,6 +329,10 @@ bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]
 		case 3: strcpy(childPath, "/dev/urandom"); return true; break;
 		case 4: strcpy(childPath, "/dev/ttyS0"); return true; break;
 	}
+	if (childNum>=5 && childNum<5+KernelPinNumMax) {
+		sprintf(childPath, "/dev/pin%u", childNum-5);
+		return true;
+	}
 	return false;
 }
 
@@ -319,6 +340,7 @@ bool kernelLibGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]
 	switch(childNum) {
 		case 0: strcpy(childPath, "/lib/std"); return true; break;
 		case 1: strcpy(childPath, "/lib/curses"); return true; break;
+		case 2: strcpy(childPath, "/lib/pin"); return true; break;
 	}
 	return false;
 }
@@ -547,4 +569,41 @@ bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData) {
 int kernelUsrBinReadFunctor(KernelFsFileOffset addr) {
 	assert(addr<KernelUsrBinSize);
 	return progmemusrbinData[addr];
+}
+
+int kernelDevPinReadFunctor(void *userData) {
+	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
+	if (pinNum>=KernelPinNumMax) {
+		kernelLog(LogTypeWarning, "bad pin %u in read\n", pinNum);
+		return -1;
+	}
+#ifdef ARDUINO
+	// TODO: this pinRead() essentially
+	kernelLog(LogTypeWarning, "pin %u read - not implemented\n", pinNum);
+	return -1
+#else
+	kernelLog(LogTypeInfo, "pin %u read - value %u\n", pinNum, pinStates[pinNum]);
+	return pinStates[pinNum];
+#endif
+}
+
+bool kernelDevPinCanReadFunctor(void *userData) {
+	return true;
+}
+
+bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
+	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
+	if (pinNum>=KernelPinNumMax) {
+		kernelLog(LogTypeWarning, "bad pin %u in write\n", pinNum);
+		return false;
+	}
+#ifdef ARDUINO
+	// TODO: this pinWrite() essentially
+		kernelLog(LogTypeWarning, "pin %u write - not implemented\n", pinNum);
+	return false
+#else
+	kernelLog(LogTypeInfo, "pin %u write - new value %u\n", pinNum, value);
+	pinStates[pinNum]=(value!=0);
+	return true;
+#endif
 }
