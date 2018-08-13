@@ -5,7 +5,6 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include "bytecode.h"
 #include "kernel.h"
 #include "kernelfs.h"
 #include "log.h"
@@ -401,6 +400,71 @@ void procManProcessTick(ProcManPid pid) {
 
 	kill:
 	procManProcessKill(pid, exitStatus);
+}
+
+void procManProcessSendSignal(ProcManPid pid, ByteCodeSignalId signalId) {
+	// Check signal id
+	if (signalId>ByteCodeSignalIdNB) {
+		kernelLog(LogTypeWarning, "could not send signal %u to process %u, bad signal id\n", signalId, pid);
+		return;
+	}
+
+	// Find process
+	ProcManProcess *process=procManGetProcessByPid(pid);
+	if (process==NULL) {
+		kernelLog(LogTypeWarning, "could not send signal %u to process %u, no such process\n", signalId, pid);
+		return;
+	}
+
+	// Load process' data.
+	ProcManProcessProcData procData;
+	if (!procManProcessLoadProcData(process, &procData)) {
+		kernelLog(LogTypeWarning, "could not send signal %u to process %u, could not load process ddata\n", signalId, pid);
+		return;
+	}
+
+	// Look for a registered handler.
+	uint16_t handlerAddr=procData.signalHandlers[signalId];
+	if (handlerAddr==0) {
+		kernelLog(LogTypeInfo, "sent signal %u to process %u, but no handler registered so ignoring\n", signalId, pid);
+		return;
+	}
+
+	// Inspect processes current state
+	switch(process->state) {
+		case ProcManProcessStateUnused:
+			assert(false); // shouldn't reach here
+		break;
+		case ProcManProcessStateActive:
+			// Nothing special to do - ready to accept signal
+		break;
+		case ProcManProcessStateWaitingWaitpid:
+			// Set process active again but set r0 to indicate waitpid was interrupted.
+			process->state=ProcManProcessStateActive;
+			procData.regs[0]=ProcManExitStatusInterrupted;
+		break;
+		case ProcManProcessStateWaitingRead:
+			// Set process active again but set r0 to indicate read failed
+			process->state=ProcManProcessStateActive;
+			procData.regs[0]=0;
+		break;
+	}
+	assert(process->state==ProcManProcessStateActive);
+
+	// 'Call' the registered handler (in the same way the assembler generates call instructions)
+	// Do this by pushing the current IP as the return address, before jumping into handler.
+	uint16_t retAddr=procData.regs[ByteCodeRegisterIP]-5; // the -5 is because the assembler ret instruction normally has to do an inc5 call on the pushed return address (which are pushed slightly earlier than the actual desired return address).
+	procManProcessMemoryWriteWord(process, &procData, procData.regs[ByteCodeRegisterSP], retAddr); // TODO: Check return
+	procData.regs[ByteCodeRegisterSP]+=2;
+	procData.regs[ByteCodeRegisterIP]=handlerAddr;
+
+	// Save process' data.
+	if (!procManProcessStoreProcData(process, &procData)) {
+		kernelLog(LogTypeInfo, "could not send signal %u to process %u, could not store process ddata\n", signalId, pid);
+		return;
+	}
+
+	kernelLog(LogTypeInfo, "sent signal %u to process %u, calling registered handler at %u\n", signalId, pid, handlerAddr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
