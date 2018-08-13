@@ -1160,6 +1160,10 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								procData->signalHandlers[signalId]=handlerAddr;
 
 						} break;
+						case ByteCodeSyscallIdShutdown:
+							// Kill all processes, causing kernel to return/halt
+							procManKillAll();
+						break;
 						default:
 							kernelLog(LogTypeWarning, "invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							return false;
