@@ -1,3 +1,4 @@
+require inttostr.s
 require strcat.s
 require strchr.s
 require strcpy.s
