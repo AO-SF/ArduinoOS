@@ -288,16 +288,18 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 		ProcManProcess *waiterProcess=procManGetProcessByPid(waiterPid);
 		if (waiterProcess!=NULL && waiterProcess->state==ProcManProcessStateWaitingWaitpid && waiterProcess->waitingData8==pid) {
 			// Bring this process back to life, storing the exit status into r0
-			waiterProcess->state=ProcManProcessStateActive;
-
 			ProcManProcessProcData waiterProcData;
-			bool res=procManProcessLoadProcData(waiterProcess, &waiterProcData);
-			assert(res);
-			waiterProcData.regs[0]=exitStatus;
-			res=procManProcessStoreProcData(waiterProcess, &waiterProcData);
-			assert(res);
-
-			kernelLog(LogTypeInfo, "process %u died - waking process %u from waitpid syscall\n", pid, waiterPid);
+			if (!procManProcessLoadProcData(waiterProcess, &waiterProcData)) {
+				kernelLog(LogTypeWarning, "process %u died - could not wake process %u from waitpid syscall (could not load proc data)\n", pid, waiterPid);
+			} else {
+				waiterProcData.regs[0]=exitStatus;
+				if (!procManProcessStoreProcData(waiterProcess, &waiterProcData)) {
+					kernelLog(LogTypeWarning, "process %u died - could not wake process %u from waitpid syscall (could not save proc data)\n", pid, waiterPid);
+				} else {
+					kernelLog(LogTypeInfo, "process %u died - woke process %u from waitpid syscall\n", pid, waiterPid);
+					waiterProcess->state=ProcManProcessStateActive;
+				}
+			}
 		}
 	}
 }
@@ -319,15 +321,19 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateActive: {
 			// Process is active, load process data ready to run next instruction
-			bool res=procManProcessLoadProcData(process, &procData);
-			assert(res);
+			if (!procManProcessLoadProcData(process, &procData)) {
+				kernelLog(LogTypeWarning, "process %u tick (active) - could not load proc data, killing\n", pid);
+				goto kill;
+			}
 		} break;
 		case ProcManProcessStateWaitingWaitpid: {
 			// Is this process waiting for a timeout, and that time has been reached?
 			if (process->waitingData16>0 && millis()/1000>=process->waitingData16) {
 				// It has - load process data so we can update the state and set r0 to indicate a timeout occured
-				bool res=procManProcessLoadProcData(process, &procData);
-				assert(res);
+				if (!procManProcessLoadProcData(process, &procData)) {
+					kernelLog(LogTypeWarning, "process %u tick (waitpid timeout) - could not load proc data, killing\n", pid);
+					goto kill;
+				}
 
 				process->state=ProcManProcessStateActive;
 				procData.regs[0]=ProcManExitStatusTimeout;
@@ -340,8 +346,10 @@ void procManProcessTick(ProcManPid pid) {
 			// Is data now available?
 			if (kernelFsFileCanRead(process->waitingData8)) {
 				// It is - load process data so we can update the state and read the data
-				bool res=procManProcessLoadProcData(process, &procData);
-				assert(res);
+				if (!procManProcessLoadProcData(process, &procData)) {
+					kernelLog(LogTypeWarning, "process %u tick (read available) - could not load proc data, killing\n", pid);
+					goto kill;
+				}
 
 				process->state=ProcManProcessStateActive;
 				procManProcessRead(process, &procData);
@@ -437,8 +445,10 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcDat
 		// Address is in RAM
 		ByteCodeWord ramIndex=(addr-ByteCodeMemoryRamAddr);
 		if (ramIndex<procData->ramLen) {
-			bool res=kernelFsFileReadOffset(procData->ramFd, procData->argvDataLen+ramIndex, value, 1, false);
-			assert(res);
+			if (!kernelFsFileReadOffset(procData->ramFd, procData->argvDataLen+ramIndex, value, 1, false)) {
+				kernelLog(LogTypeWarning, "process %u (%s) tried to read valid address (0x%04X, pointing to RAM at offset %u, size %u) but failed, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, procData->ramLen);
+				return false;
+			}
 			return true;
 		} else {
 			kernelLog(LogTypeWarning, "process %u (%s) tried to read invalid address (0x%04X, pointing to RAM at offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, procData->ramLen);
@@ -480,8 +490,10 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 	// addr is in RAM
 	ByteCodeWord ramIndex=(addr-ByteCodeMemoryRamAddr);
 	if (ramIndex<procData->ramLen) {
-		bool res=kernelFsFileWriteOffset(procData->ramFd, procData->argvDataLen+ramIndex, &value, 1);
-		assert(res);
+		if (!kernelFsFileWriteOffset(procData->ramFd, procData->argvDataLen+ramIndex, &value, 1)) {
+			kernelLog(LogTypeWarning, "process %u (%s) tried to write to valid RAM address (0x%04X, ram offset %u), but failed, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
+			return false;
+		}
 		return true;
 	} else {
 		// Close ram file
@@ -490,22 +502,29 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		kernelFsFileClose(procData->ramFd);
 
 		// Resize ram file
+		KernelFsFileOffset oldRamLen=procData->ramLen;
 		uint16_t newRamLen=ramIndex+1;
 		uint16_t newRamTotalSize=procData->argvDataLen+newRamLen;
 		if (!kernelFsFileResize(ramFdPath, newRamTotalSize)) {
+			// TODO: tidy up better in this case? (ramfd in particular)
+			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM address (0x%04X, ram offset %u), beyond current size, but we could not allocate new size needed (%u vs original %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
 			return false;
 		}
 
 		// Re-open ram file
 		procData->ramFd=kernelFsFileOpen(ramFdPath);
-		if (procData->ramFd==KernelFsFdInvalid)
-			return false; // TODO: tidy up better?
+		if (procData->ramFd==KernelFsFdInvalid) {
+			// TODO: tidy up better in this case? (ramfd in particular)
+			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM address (0x%04X, ram offset %u), beyond current size, but we could not reopen ram file after resizing, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
+			return false;
+		}
 
 		// Update stored ram len and write byte
 		procData->ramLen=newRamLen;
-
-		bool res=kernelFsFileWriteOffset(procData->ramFd, procData->argvDataLen+ramIndex, &value, 1);
-		assert(res);
+		if (!kernelFsFileWriteOffset(procData->ramFd, procData->argvDataLen+ramIndex, &value, 1)) {
+			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM address (0x%04X, ram offset %u), beyond current size. We have resized (%u vs original %u) and reopened the file, but still could not write, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
+			return false;
+		}
 
 		return true;
 	}
@@ -790,9 +809,11 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							ProcManProcess *qProcess=procManGetProcessByPid(pid);
 							if (qProcess!=NULL) {
 								ProcManProcessProcData qProcData;
-								bool res=procManProcessLoadProcData(qProcess, &qProcData);
-								assert(res);
-								procData->regs[0]=sizeof(ProcManProcessProcData)+qProcData.argvDataLen+qProcData.ramLen;
+								if (!procManProcessLoadProcData(qProcess, &qProcData)) {
+									kernelLog(LogTypeWarning, "process %u getpid %u - could not load q proc data\n", pid, procManGetPidFromProcess(qProcess));
+									procData->regs[0]=0;
+								} else
+									procData->regs[0]=sizeof(ProcManProcessProcData)+qProcData.argvDataLen+qProcData.ramLen;
 							} else
 								procData->regs[0]=0;
 						} break;
