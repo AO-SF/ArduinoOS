@@ -200,6 +200,11 @@ store16 r2 r1
 cmp r0 r0 r0
 skipeqz r0
 jmp shellRunFdInputNoEof
+mov r0 interactiveMode
+load8 r0 r0
+cmp r0 r0 r0
+skipeqz r0
+jmp shellRunFdInputNoEof
 mov r0 1 ; continue
 ret
 label shellRunFdInputNoEof
