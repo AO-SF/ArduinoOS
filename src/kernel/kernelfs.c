@@ -31,6 +31,7 @@ typedef struct {
 	KernelFsBlockDeviceFormat format;
 	KernelFsBlockDeviceReadFunctor *readFunctor;
 	KernelFsBlockDeviceWriteFunctor *writeFunctor;
+	void *functorUserData;
 	union {
 		KernelFsDeviceBlockCustomMiniFs customMiniFs;
 	} d;
@@ -137,7 +138,7 @@ bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDev
 	return true;
 }
 
-bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor) {
+bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData) {
 	assert(mountPoint!=NULL);
 	assert(readFunctor!=NULL);
 
@@ -148,6 +149,7 @@ bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceForma
 	device->d.block.format=KernelFsBlockDeviceFormatCustomMiniFs;
 	device->d.block.readFunctor=readFunctor;
 	device->d.block.writeFunctor=writeFunctor;
+	device->d.block.functorUserData=functorUserData;
 
 	// Attempt to mount
 	switch(format) {
@@ -997,7 +999,7 @@ uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData) {
 	assert(device->type==KernelFsDeviceTypeBlock);
 	assert(device->d.block.format==KernelFsBlockDeviceFormatCustomMiniFs);
 
-	int c=device->d.block.readFunctor(addr);
+	int c=device->d.block.readFunctor(addr, device->d.block.functorUserData);
 	if (c==-1) {
 		// TODO: think about this
 		assert(false);
@@ -1020,5 +1022,5 @@ void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData) {
 		return;
 	}
 
-	device->d.block.writeFunctor(addr, value); // TODO: think about return
+	device->d.block.writeFunctor(addr, value, device->d.block.functorUserData); // TODO: think about return
 }
