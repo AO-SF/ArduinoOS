@@ -30,6 +30,7 @@ typedef struct {
 
 typedef struct {
 	KernelFsBlockDeviceFormat format;
+	KernelFsFileOffset size;
 	KernelFsBlockDeviceReadFunctor *readFunctor;
 	KernelFsBlockDeviceWriteFunctor *writeFunctor;
 	void *functorUserData;
@@ -132,7 +133,7 @@ bool kernelFsAddDirectoryDeviceFile(const char *mountPoint) {
 	return true;
 }
 
-bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData) {
+bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData) {
 	assert(mountPoint!=NULL);
 	assert(readFunctor!=NULL);
 
@@ -140,7 +141,8 @@ bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceForma
 	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, KernelFsDeviceTypeBlock);
 	if (device==NULL)
 		return false;
-	device->d.block.format=KernelFsBlockDeviceFormatCustomMiniFs;
+	device->d.block.format=format;
+	device->d.block.size=size;
 	device->d.block.readFunctor=readFunctor;
 	device->d.block.writeFunctor=writeFunctor;
 	device->d.block.functorUserData=functorUserData;
@@ -150,6 +152,8 @@ bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceForma
 		case KernelFsBlockDeviceFormatCustomMiniFs:
 			if (!miniFsMountSafe(&device->d.block.d.customMiniFs.miniFs, &kernelFsMiniFsReadWrapper, (writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), device))
 				goto error;
+		break;
+		case KernelFsBlockDeviceFormatFlatFile:
 		break;
 		case KernelFsBlockDeviceFormatNB:
 			goto error;
@@ -184,6 +188,10 @@ bool kernelFsFileExists(const char *path) {
 				switch(device->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
 						return miniFsFileExists(&device->d.block.d.customMiniFs.miniFs, basename);
+					break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -233,6 +241,9 @@ bool kernelFsFileIsDir(const char *path) {
 				case KernelFsBlockDeviceFormatCustomMiniFs:
 					return true;
 				break;
+				case KernelFsBlockDeviceFormatFlatFile:
+					return false;
+				break;
 				case KernelFsBlockDeviceFormatNB:
 					assert(false);
 					return false;
@@ -266,6 +277,10 @@ bool kernelFsFileIsDirEmpty(const char *path) {
 			switch(device->d.block.format) {
 				case KernelFsBlockDeviceFormatCustomMiniFs:
 					return (miniFsGetChildCount(&device->d.block.d.customMiniFs.miniFs)==0);
+				break;
+				case KernelFsBlockDeviceFormatFlatFile:
+					// These are not directories
+					return false;
 				break;
 				case KernelFsBlockDeviceFormatNB:
 					assert(false);
@@ -306,8 +321,19 @@ KernelFsFileOffset kernelFsFileGetLen(const char *path) {
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
-				// These act as directories at the top level (we check below for child)
-				return 0;
+				switch(device->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						// These act as directories at the top level (we check below for child)
+						return 0;
+					break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						return device->d.block.size;
+					break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+						return 0;
+					break;
+				}
 			break;
 			case KernelFsDeviceTypeCharacter:
 				return 0;
@@ -334,6 +360,10 @@ KernelFsFileOffset kernelFsFileGetLen(const char *path) {
 				switch(parentDevice->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
 						return miniFsFileGetLen(&parentDevice->d.block.d.customMiniFs.miniFs, basename);
+					break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return 0;
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -379,6 +409,10 @@ bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size) {
 						// In theory we can create files on a MiniFs if it is not mounted read only
 						return miniFsFileCreate(&device->d.block.d.customMiniFs.miniFs, basename, size);
 					} break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return false;
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 					break;
@@ -420,6 +454,9 @@ bool kernelFsFileDelete(const char *path) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
 						miniFsUnmount(&device->d.block.d.customMiniFs.miniFs);
 					break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// Nothing special to do
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 					break;
@@ -459,6 +496,10 @@ bool kernelFsFileDelete(const char *path) {
 				switch(parentDevice->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
 						return miniFsFileDelete(&parentDevice->d.block.d.customMiniFs.miniFs, basename);
+					break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -512,6 +553,10 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
 				switch(parentDevice->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
 						return miniFsFileResize(&parentDevice->d.block.d.customMiniFs.miniFs, basename, newSize);
+					break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -592,8 +637,25 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
-				// These act as directories at the top level (we check below for child)
-				return 0;
+				switch(device->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						// These act as directories at the top level (we check below for child)
+					break;
+					case KernelFsBlockDeviceFormatFlatFile: {
+						KernelFsFileOffset read;
+						for(read=0; read<dataLen; ++read) {
+							int c=device->d.block.readFunctor(offset+read, device->d.block.functorUserData);
+							if (c==-1)
+								break;
+							data[read]=c;
+						}
+						return read;
+					} break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+						return 0;
+					break;
+				}
 			break;
 			case KernelFsDeviceTypeCharacter: {
 				// offset is ignored as these are not seekable
@@ -640,6 +702,10 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 						}
 						return i;
 					} break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return 0;
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 						return 0;
@@ -691,8 +757,25 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
-				// These act as directories at the top level (we check below for child)
-				return 0;
+				switch(device->d.block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						// These act as directories at the top level (we check below for child)
+					break;
+					case KernelFsBlockDeviceFormatFlatFile: {
+						if (device->d.block.writeFunctor==NULL)
+							return 0;
+
+						KernelFsFileOffset written;
+						for(written=0; written<dataLen; ++written)
+							if (!device->d.block.writeFunctor(offset+written, data[written], device->d.character.functorUserData))
+								break;
+						return written;
+					} break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+						return 0;
+					break;
+				}
 			break;
 			case KernelFsDeviceTypeCharacter: {
 				// offset is ignored as these are not seekable
@@ -732,6 +815,10 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 						}
 						return i;
 					} break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return 0;
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 						return 0;
@@ -779,6 +866,10 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 						}
 						return false;
 					} break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return false;
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 					break;
@@ -902,8 +993,10 @@ bool kernelFsFileCanOpenMany(const char *path) {
 			case KernelFsDeviceTypeBlock:
 				switch(device->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
-						if (miniFsGetReadOnly(&device->d.block.d.customMiniFs.miniFs))
-							return true;
+						return miniFsGetReadOnly(&device->d.block.d.customMiniFs.miniFs);
+					break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						return (device->d.block.writeFunctor==NULL);
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -936,6 +1029,10 @@ bool kernelFsFileCanOpenMany(const char *path) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
 						if (miniFsGetReadOnly(&parentDevice->d.block.d.customMiniFs.miniFs))
 							return true;
+					break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);

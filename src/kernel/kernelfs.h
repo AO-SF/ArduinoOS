@@ -18,6 +18,7 @@ typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value, void *userData
 
 typedef enum {
 	KernelFsBlockDeviceFormatCustomMiniFs,
+	KernelFsBlockDeviceFormatFlatFile,
 	KernelFsBlockDeviceFormatNB,
 } KernelFsBlockDeviceFormat;
 
@@ -37,7 +38,7 @@ void kernelFsQuit(void);
 
 bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, void *functorUserData);
 bool kernelFsAddDirectoryDeviceFile(const char *mountPoint);
-bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData);
+bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // File functions -including directories (all paths are expected to be valid and normalised)
