@@ -7,6 +7,7 @@
 
 #include "kernel.h"
 #include "kernelfs.h"
+#include "kernelmount.h"
 #include "log.h"
 #include "procman.h"
 #include "wrapper.h"
@@ -1165,6 +1166,41 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							// Kill all processes, causing kernel to return/halt
 							procManKillAll();
 						break;
+						case ByteCodeSyscallIdMount: {
+							// Grab arguments
+							uint16_t format=procData->regs[1];
+							uint16_t devicePathAddr=procData->regs[2];
+							uint16_t dirPathAddr=procData->regs[3];
+
+							char devicePath[KernelFsPathMax], dirPath[KernelFsPathMax];
+							if (!procManProcessMemoryReadStr(process, procData, devicePathAddr, devicePath, KernelFsPathMax)) {
+								kernelLog(LogTypeWarning, "failed during mount syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								return false;
+							}
+							if (!procManProcessMemoryReadStr(process, procData, dirPathAddr, dirPath, KernelFsPathMax)) {
+								kernelLog(LogTypeWarning, "failed during mount syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								return false;
+							}
+							kernelFsPathNormalise(devicePath);
+							kernelFsPathNormalise(dirPath);
+
+							// Attempt to mount
+							procData->regs[0]=kernelMount(format, devicePath, dirPath);
+						} break;
+						case ByteCodeSyscallIdUnmount: {
+							// Grab arguments
+							uint16_t devicePathAddr=procData->regs[1];
+
+							char devicePath[KernelFsPathMax];
+							if (!procManProcessMemoryReadStr(process, procData, devicePathAddr, devicePath, KernelFsPathMax)) {
+								kernelLog(LogTypeWarning, "failed during mount syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								return false;
+							}
+							kernelFsPathNormalise(devicePath);
+
+							// Unmount
+							kernelUnmount(devicePath);
+						} break;
 						default:
 							kernelLog(LogTypeWarning, "invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							return false;
