@@ -52,7 +52,11 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelMan2Size PROGMEMman2DATASIZE
 #define KernelMan3Size PROGMEMman3DATASIZE
 
-#define KernelEepromSize (8*1024) // Mega has 4kb for example
+#define KernelEepromTotalSize (8*1024) // Mega has 4kb for example
+#define KernelEepromEtcOffset (0)
+#define KernelEepromEtcSize (1*1024)
+#define KernelEepromHomeOffset KernelEepromEtcSize
+#define KernelEepromHomeSize (KernelEepromTotalSize-KernelEepromHomeOffset)
 #ifndef ARDUINO
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
@@ -102,6 +106,10 @@ int kernelHomeReadFunctor(KernelFsFileOffset addr);
 bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value);
 uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr, void *userData);
 void kernelHomeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
+int kernelEtcReadFunctor(KernelFsFileOffset addr);
+bool kernelEtcWriteFunctor(KernelFsFileOffset addr, uint8_t value);
+uint8_t kernelEtcMiniFsReadFunctor(uint16_t addr, void *userData);
+void kernelEtcMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
 int kernelTmpReadFunctor(KernelFsFileOffset addr);
 bool kernelTmpWriteFunctor(KernelFsFileOffset addr, uint8_t value);
 uint8_t kernelTmpMiniFsReadFunctor(uint16_t addr, void *userData);
@@ -211,7 +219,7 @@ void kernelBoot(void) {
 	fseek(kernelFakeEepromFile, 0L, SEEK_END);
 	int eepromInitialSize=ftell(kernelFakeEepromFile);
 
-	while(eepromInitialSize<KernelEepromSize) {
+	while(eepromInitialSize<KernelEepromTotalSize) {
 		fputc(0xFF, kernelFakeEepromFile);
 		++eepromInitialSize;
 	}
@@ -225,9 +233,9 @@ void kernelBoot(void) {
 		miniFsUnmount(&homeMiniFs); // Unmount so we can mount again when we initialise the file system
 		kernelLog(LogTypeInfo, "/home volume already exists\n");
 	} else {
-		if (!miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromSize))
+		if (!miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromHomeSize))
 			kernelFatalError("could not format new /home volume\n");
-		kernelLog(LogTypeInfo, "formatted new /home volume (size %u)\n", KernelEepromSize);
+		kernelLog(LogTypeInfo, "formatted new /home volume (size %u)\n", KernelEepromHomeSize);
 	}
 
 	// Format RAM used for /tmp
@@ -252,7 +260,8 @@ void kernelBoot(void) {
 		error|=!kernelFsAddCharacterDeviceFile(pinDevicePath, &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)pinNum);
 	}
 	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromSize, &kernelHomeReadFunctor, kernelHomeWriteFunctor);
+	error|=!kernelFsAddBlockDeviceFile("/etc", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEtcReadFunctor, kernelEtcWriteFunctor);
+	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromHomeSize, &kernelHomeReadFunctor, kernelHomeWriteFunctor);
 	error|=!kernelFsAddDirectoryDeviceFile("/lib", &kernelLibGetChildFunctor);
 	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/pin", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL);
@@ -348,6 +357,7 @@ bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax
 		case 4: strcpy(childPath, "/media"); return true; break;
 		case 5: strcpy(childPath, "/tmp"); return true; break;
 		case 6: strcpy(childPath, "/usr"); return true; break;
+		case 7: strcpy(childPath, "/etc"); return true; break;
 	}
 	return false;
 }
@@ -471,6 +481,7 @@ int kernelMan3ReadFunctor(KernelFsFileOffset addr) {
 }
 
 int kernelHomeReadFunctor(KernelFsFileOffset addr) {
+	addr+=KernelEepromHomeOffset;
 #ifdef ARDUINO
 	return EEPROM.read(addr);
 #else
@@ -488,6 +499,7 @@ int kernelHomeReadFunctor(KernelFsFileOffset addr) {
 }
 
 bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value) {
+	addr+=KernelEepromHomeOffset;
 #ifdef ARDUINO
 	EEPROM.update(addr, value);
 	return true;
@@ -513,6 +525,54 @@ uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr, void *userData) {
 
 void kernelHomeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
 	bool result=kernelHomeWriteFunctor(addr, value);
+	assert(result);
+}
+
+int kernelEtcReadFunctor(KernelFsFileOffset addr) {
+	addr+=KernelEepromEtcOffset;
+#ifdef ARDUINO
+	return EEPROM.read(addr);
+#else
+	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
+		kernelLog(LogTypeWarning, "could not seek to addr %u in etc read functor\n", addr);
+		return -1;
+	}
+	int c=fgetc(kernelFakeEepromFile);
+	if (c==EOF) {
+		kernelLog(LogTypeWarning, "could not read at addr %u in etc read functor\n", addr);
+		return -1;
+	}
+	return c;
+#endif
+}
+
+bool kernelEtcWriteFunctor(KernelFsFileOffset addr, uint8_t value) {
+	addr+=KernelEepromEtcOffset;
+#ifdef ARDUINO
+	EEPROM.update(addr, value);
+	return true;
+#else
+	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
+		kernelLog(LogTypeWarning, "could not seek to addr %u in etc write functor\n", addr);
+		return false;
+	}
+	if (fputc(value, kernelFakeEepromFile)==EOF) {
+		kernelLog(LogTypeWarning, "could not write to addr %u in etc write functor\n", addr);
+		return false;
+	}
+
+	return true;
+#endif
+}
+
+uint8_t kernelEtcMiniFsReadFunctor(uint16_t addr, void *userData) {
+	int value=kernelEtcReadFunctor(addr);
+	assert(value>=0 && value<256);
+	return value;
+}
+
+void kernelEtcMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
+	bool result=kernelEtcWriteFunctor(addr, value);
 	assert(result);
 }
 
