@@ -147,6 +147,8 @@ typedef enum {
 	ByteCodeSyscallIdTimeMonotonic=(768|0),
 	ByteCodeSyscallIdRegisterSignalHandler=(1024|0),
 	ByteCodeSyscallIdShutdown=(1280|0),
+	ByteCodeSyscallIdMount=(1280|1),
+	ByteCodeSyscallIdUnmount=(1280|2),
 } ByteCodeSyscallId;
 
 typedef enum {
