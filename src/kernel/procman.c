@@ -801,7 +801,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 					switch(syscallId) {
 						case ByteCodeSyscallIdExit:
 							*exitStatus=procData->regs[1];
-							kernelLog(LogTypeWarning, "exit syscall from process %u (%s), status %u, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), *exitStatus);
+							kernelLog(LogTypeInfo, "exit syscall from process %u (%s), status %u, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), *exitStatus);
 							return false;
 						break;
 						case ByteCodeSyscallIdGetPid:
