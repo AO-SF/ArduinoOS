@@ -1,4 +1,4 @@
-label forkexec ; takes path in r0 to exec in a forked process, with arguments in r1-r3, and returns boolean result in r0 (in the parent)
+label forkexec ; takes path in r0 to exec in a forked process, with arguments in r1-r3, and returns childs PID in r0 (in the parent), or 0 on failure
 ; save path and arguments
 push r0
 push r1
@@ -26,13 +26,12 @@ syscall
 ; exec only returns on failure
 mov r0 1
 call exit
-; success in the parent - restore stack and return success
+; success in the parent - restore stack and return success (r0 already contains PID of new child)
 label forkexecsuccess
 pop r4
 pop r3
 pop r2
 pop r1
-mov r0 1
 ret
 
 ; error forking in the parent - restore stack and return failure
