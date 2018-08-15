@@ -55,8 +55,8 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelEepromTotalSize (8*1024) // Mega has 4kb for example
 #define KernelEepromEtcOffset (0)
 #define KernelEepromEtcSize (1*1024)
-#define KernelEepromHomeOffset KernelEepromEtcSize
-#define KernelEepromHomeSize (KernelEepromTotalSize-KernelEepromHomeOffset)
+#define KernelEepromDevEepromOffset KernelEepromEtcSize
+#define KernelEepromDevEepromSize (KernelEepromTotalSize-KernelEepromDevEepromOffset)
 #ifndef ARDUINO
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
@@ -95,10 +95,8 @@ int kernelLibStdTimeReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelMan1ReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelMan2ReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelMan3ReadFunctor(KernelFsFileOffset addr, void *userData);
-int kernelHomeReadFunctor(KernelFsFileOffset addr, void *userData);
-bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
-uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr, void *userData);
-void kernelHomeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
+int kernelDevEepromReadFunctor(KernelFsFileOffset addr, void *userData);
+bool kernelDevEepromWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
 int kernelEtcReadFunctor(KernelFsFileOffset addr, void *userData);
 bool kernelEtcWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
 uint8_t kernelEtcMiniFsReadFunctor(uint16_t addr, void *userData);
@@ -220,17 +218,6 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, "openned pseudo EEPROM storage file (PC wrapper)\n");
 #endif
 
-	// Format /home if it does not look like it has been already
-	MiniFs homeMiniFs;
-	if (miniFsMountSafe(&homeMiniFs, &kernelHomeMiniFsReadFunctor, &kernelHomeMiniFsWriteFunctor, NULL)) {
-		miniFsUnmount(&homeMiniFs); // Unmount so we can mount again when we initialise the file system
-		kernelLog(LogTypeInfo, "/home volume already exists\n");
-	} else {
-		if (!miniFsFormat(&kernelHomeMiniFsWriteFunctor, NULL, KernelEepromHomeSize))
-			kernelFatalError("could not format new /home volume\n");
-		kernelLog(LogTypeInfo, "formatted new /home volume (size %u)\n", KernelEepromHomeSize);
-	}
-
 	// Format RAM used for /tmp
 	if (!miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize))
 		kernelFatalError("could not format /tmp volume\n");
@@ -241,8 +228,9 @@ void kernelBoot(void) {
 
 	bool error=false;
 	error|=!kernelFsAddDirectoryDeviceFile("/");
-	error|=!kernelFsAddBlockDeviceFile("/bin", KernelFsBlockDeviceFormatCustomMiniFs, &kernelBinReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelBinSize, &kernelBinReadFunctor, NULL, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/dev");
+	error|=!kernelFsAddBlockDeviceFile("/dev/eeprom", KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelDevEepromReadFunctor, kernelDevEepromWriteFunctor, NULL);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, NULL);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, NULL);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, NULL);
@@ -253,26 +241,25 @@ void kernelBoot(void) {
 		error|=!kernelFsAddCharacterDeviceFile(pinDevicePath, &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)pinNum);
 	}
 	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/etc", KernelFsBlockDeviceFormatCustomMiniFs, &kernelEtcReadFunctor, kernelEtcWriteFunctor, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, &kernelHomeReadFunctor, kernelHomeWriteFunctor, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/etc", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEtcReadFunctor, kernelEtcWriteFunctor, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/lib");
-	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibCursesReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/pin", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibPinReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/pin", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/lib/std");
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/io", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdIoReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/math", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdMathReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/proc", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdProcReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/mem", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdMemReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/str", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdStrReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/time", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdTimeReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/std/io", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdIoSize, &kernelLibStdIoReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/std/math", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMathSize, &kernelLibStdMathReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/std/proc", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdProcSize, &kernelLibStdProcReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/std/mem", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMemSize, &kernelLibStdMemReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/std/str", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/std/time", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/media");
-	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/usr");
 	error|=!kernelFsAddDirectoryDeviceFile("/usr/man");
-	error|=!kernelFsAddBlockDeviceFile("/usr/man/1", KernelFsBlockDeviceFormatCustomMiniFs, &kernelMan1ReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/usr/man/2", KernelFsBlockDeviceFormatCustomMiniFs, &kernelMan2ReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/usr/man/3", KernelFsBlockDeviceFormatCustomMiniFs, &kernelMan3ReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, &kernelUsrBinReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/usr/man/1", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan1Size, &kernelMan1ReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/usr/man/2", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan2Size, &kernelMan2ReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/usr/man/3", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan3Size, &kernelMan3ReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
 
 	if (error)
 		kernelFatalError("could not initialise filesystem\n");
@@ -401,52 +388,41 @@ int kernelMan3ReadFunctor(KernelFsFileOffset addr, void *userData) {
 	return progmemman3Data[addr];
 }
 
-int kernelHomeReadFunctor(KernelFsFileOffset addr, void *userData) {
-	addr+=KernelEepromHomeOffset;
+int kernelDevEepromReadFunctor(KernelFsFileOffset addr, void *userData) {
+	addr+=KernelEepromDevEepromOffset;
 #ifdef ARDUINO
 	return EEPROM.read(addr);
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, "could not seek to addr %u in home read functor\n", addr);
+		kernelLog(LogTypeWarning, "could not seek to addr %u in /dev/eeprom read functor\n", addr);
 		return -1;
 	}
 	int c=fgetc(kernelFakeEepromFile);
 	if (c==EOF) {
-		kernelLog(LogTypeWarning, "could not read at addr %u in home read functor\n", addr);
+		kernelLog(LogTypeWarning, "could not read at addr %u in /dev/eeprom read functor\n", addr);
 		return -1;
 	}
 	return c;
 #endif
 }
 
-bool kernelHomeWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData) {
-	addr+=KernelEepromHomeOffset;
+bool kernelDevEepromWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData) {
+	addr+=KernelEepromDevEepromOffset;
 #ifdef ARDUINO
 	EEPROM.update(addr, value);
 	return true;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, "could not seek to addr %u in home write functor\n", addr);
+		kernelLog(LogTypeWarning, "could not seek to addr %u in /dev/eeprom write functor\n", addr);
 		return false;
 	}
 	if (fputc(value, kernelFakeEepromFile)==EOF) {
-		kernelLog(LogTypeWarning, "could not write to addr %u in home write functor\n", addr);
+		kernelLog(LogTypeWarning, "could not write to addr %u in /dev/eeprom write functor\n", addr);
 		return false;
 	}
 
 	return true;
 #endif
-}
-
-uint8_t kernelHomeMiniFsReadFunctor(uint16_t addr, void *userData) {
-	int value=kernelHomeReadFunctor(addr, userData);
-	assert(value>=0 && value<256);
-	return value;
-}
-
-void kernelHomeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
-	bool result=kernelHomeWriteFunctor(addr, value, userData);
-	assert(result);
 }
 
 int kernelEtcReadFunctor(KernelFsFileOffset addr, void *userData) {
