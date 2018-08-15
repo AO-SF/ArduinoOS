@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "kernelfs.h"
+#include "log.h"
 #include "minifs.h"
 
 #define KernelFsDevicesMax 64
@@ -38,16 +39,11 @@ typedef struct {
 } KernelFsDeviceBlock;
 
 typedef struct {
-	KernelFsDirectoryDeviceGetChildFunctor *getChildFunctor;
-} KernelFsDeviceDirectory;
-
-typedef struct {
 	KernelFsDeviceType type;
 	char *mountPoint;
 	union {
 		KernelFsDeviceBlock block;
 		KernelFsDeviceCharacter character;
-		KernelFsDeviceDirectory directory;
 	} d;
 } KernelFsDevice;
 
@@ -68,6 +64,8 @@ bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 
 KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType type);
+
+bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
 
 uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData);
 void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData);
@@ -123,17 +121,13 @@ bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDev
 	return true;
 }
 
-bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDeviceGetChildFunctor *getChildFunctor) {
+bool kernelFsAddDirectoryDeviceFile(const char *mountPoint) {
 	assert(mountPoint!=NULL);
-	assert(getChildFunctor!=NULL);
 
 	// Check mountPoint and attempt to add to device table.
 	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, KernelFsDeviceTypeDirectory);
 	if (device==NULL)
 		return false;
-
-	// Set specific fields.
-	device->d.directory.getChildFunctor=getChildFunctor;
 
 	return true;
 }
@@ -200,13 +194,8 @@ bool kernelFsFileExists(const char *path) {
 				// Not used as directories
 			break;
 			case KernelFsDeviceTypeDirectory:
-				for(uint8_t i=0; ; ++i) {
-					char childPath[KernelFsPathMax];
-					if (!device->d.directory.getChildFunctor(i, childPath))
-						return false;
-					if (strcmp(childPath, basename)==0)
-						return true;
-				}
+				// We have already checked for an explicit device above, so no more children
+				return false;
 			break;
 			case KernelFsDeviceTypeNB:
 				assert(false);
@@ -288,8 +277,19 @@ bool kernelFsFileIsDirEmpty(const char *path) {
 			return false;
 		break;
 		case KernelFsDeviceTypeDirectory: {
-			char dummyPath[KernelFsPathMax];
-			return (!device->d.directory.getChildFunctor(0, dummyPath));
+			// Check explicit virtual devices as children
+			for(uint8_t i=0; i<KernelFsDevicesMax; ++i) {
+				KernelFsDevice *childDevice=&kernelFsData.devices[i];
+				if (childDevice->type==KernelFsDeviceTypeNB)
+					continue;
+
+				if (kernelFsDeviceIsChildOfPath(childDevice, path))
+					// Not empty
+					return false;
+			}
+
+			// Empty
+			return true;
 		} break;
 		case KernelFsDeviceTypeNB:
 			assert(false);
@@ -757,11 +757,12 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 
 bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelFsPathMax]) {
 	// Invalid fd?
-	if (kernelFsData.fdt[fd]==NULL)
+	const char *parentPath=kernelFsData.fdt[fd];
+	if (parentPath==NULL)
 		return false;
 
 	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(kernelFsData.fdt[fd]);
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(parentPath);
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
@@ -769,7 +770,7 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						int j=0;
 						for(int i=0; i<MINIFSMAXFILES; ++i) {
-							sprintf(childPath, "%s/", kernelFsData.fdt[fd]);
+							sprintf(childPath, "%s/", parentPath);
 							if (!miniFsGetChildN(&device->d.block.d.customMiniFs.miniFs, i, childPath+strlen(childPath)))
 								continue;
 							if (j==childNum)
@@ -788,9 +789,23 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 				// Character files cannot be directories
 				return false;
 			} break;
-			case KernelFsDeviceTypeDirectory:
-				return device->d.directory.getChildFunctor(childNum, childPath);
-			break;
+			case KernelFsDeviceTypeDirectory: {
+				// Check for virtual devices as children
+				uint8_t foundCount=0;
+				for(uint8_t i=0; i<KernelFsDevicesMax; ++i) {
+					KernelFsDevice *childDevice=&kernelFsData.devices[i];
+					if (childDevice->type==KernelFsDeviceTypeNB)
+						continue;
+
+					if (kernelFsDeviceIsChildOfPath(childDevice, parentPath)) {
+						if (foundCount==childNum) {
+							strcpy(childPath, childDevice->mountPoint);
+							return true;
+						}
+						++foundCount;
+					}
+				}
+			} break;
 			case KernelFsDeviceTypeNB:
 			break;
 		}
@@ -990,6 +1005,32 @@ KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType
 	}
 
 	return NULL;
+}
+
+bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir) {
+	assert(device!=NULL);
+	assert(parentDir!=NULL);
+
+	// Invalid path?
+	if (!kernelFsPathIsValid(parentDir))
+		return false;
+
+	// Special case for root 'child' device (root has no parent dir)
+	if (strcmp(device->mountPoint, "/")==0)
+		return false;
+
+	// Compute dirname for this device's mount point
+	char mountPointCopy[KernelFsPathMax];
+	strcpy(mountPointCopy, device->mountPoint);
+
+	char *dirname, *basename;
+	kernelFsPathSplit(mountPointCopy, &dirname, &basename);
+
+	// Special case for root as parentDir
+	if (strcmp(parentDir, "/")==0)
+		return (strcmp(dirname, "")==0);
+
+	return (strcmp(dirname, parentDir)==0);
 }
 
 uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData) {
