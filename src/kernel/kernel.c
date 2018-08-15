@@ -83,13 +83,6 @@ void kernelHalt(void);
 void kernelFatalError(const char *format, ...);
 void kernelFatalErrorV(const char *format, va_list ap);
 
-bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
-bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
-bool kernelLibGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
-bool kernelLibStdGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
-bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
-bool kernelUsrGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
-bool kernelUsrManGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]);
 int kernelBinReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelLibCursesReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelLibPinReadFunctor(KernelFsFileOffset addr, void *userData);
@@ -247,9 +240,9 @@ void kernelBoot(void) {
 	kernelFsInit();
 
 	bool error=false;
-	error|=!kernelFsAddDirectoryDeviceFile("/", &kernelRootGetChildFunctor);
+	error|=!kernelFsAddDirectoryDeviceFile("/");
 	error|=!kernelFsAddBlockDeviceFile("/bin", KernelFsBlockDeviceFormatCustomMiniFs, &kernelBinReadFunctor, NULL, NULL);
-	error|=!kernelFsAddDirectoryDeviceFile("/dev", &kernelDevGetChildFunctor);
+	error|=!kernelFsAddDirectoryDeviceFile("/dev");
 	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, NULL);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, NULL);
 	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, NULL);
@@ -262,20 +255,20 @@ void kernelBoot(void) {
 	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/etc", KernelFsBlockDeviceFormatCustomMiniFs, &kernelEtcReadFunctor, kernelEtcWriteFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/home", KernelFsBlockDeviceFormatCustomMiniFs, &kernelHomeReadFunctor, kernelHomeWriteFunctor, NULL);
-	error|=!kernelFsAddDirectoryDeviceFile("/lib", &kernelLibGetChildFunctor);
+	error|=!kernelFsAddDirectoryDeviceFile("/lib");
 	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibCursesReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/pin", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibPinReadFunctor, NULL, NULL);
-	error|=!kernelFsAddDirectoryDeviceFile("/lib/std", &kernelLibStdGetChildFunctor);
+	error|=!kernelFsAddDirectoryDeviceFile("/lib/std");
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/io", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdIoReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/math", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdMathReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/proc", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdProcReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/mem", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdMemReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/str", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdStrReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/time", KernelFsBlockDeviceFormatCustomMiniFs, &kernelLibStdTimeReadFunctor, NULL, NULL);
-	error|=!kernelFsAddDirectoryDeviceFile("/media", &kernelMediaGetChildFunctor);
+	error|=!kernelFsAddDirectoryDeviceFile("/media");
 	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL);
-	error|=!kernelFsAddDirectoryDeviceFile("/usr", &kernelUsrGetChildFunctor);
-	error|=!kernelFsAddDirectoryDeviceFile("/usr/man", &kernelUsrManGetChildFunctor);
+	error|=!kernelFsAddDirectoryDeviceFile("/usr");
+	error|=!kernelFsAddDirectoryDeviceFile("/usr/man");
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/1", KernelFsBlockDeviceFormatCustomMiniFs, &kernelMan1ReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/2", KernelFsBlockDeviceFormatCustomMiniFs, &kernelMan2ReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/3", KernelFsBlockDeviceFormatCustomMiniFs, &kernelMan3ReadFunctor, NULL, NULL);
@@ -346,78 +339,6 @@ void kernelFatalError(const char *format, ...) {
 void kernelFatalErrorV(const char *format, va_list ap) {
 	kernelLogV(LogTypeError, format, ap);
 	kernelHalt();
-}
-
-bool kernelRootGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
-	switch(childNum) {
-		case 0: strcpy(childPath, "/bin"); return true; break;
-		case 1: strcpy(childPath, "/dev"); return true; break;
-		case 2: strcpy(childPath, "/lib"); return true; break;
-		case 3: strcpy(childPath, "/home"); return true; break;
-		case 4: strcpy(childPath, "/media"); return true; break;
-		case 5: strcpy(childPath, "/tmp"); return true; break;
-		case 6: strcpy(childPath, "/usr"); return true; break;
-		case 7: strcpy(childPath, "/etc"); return true; break;
-	}
-	return false;
-}
-
-bool kernelDevGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
-	switch(childNum) {
-		case 0: strcpy(childPath, "/dev/zero"); return true; break;
-		case 1: strcpy(childPath, "/dev/full"); return true; break;
-		case 2: strcpy(childPath, "/dev/null"); return true; break;
-		case 3: strcpy(childPath, "/dev/urandom"); return true; break;
-		case 4: strcpy(childPath, "/dev/ttyS0"); return true; break;
-	}
-	if (childNum>=5 && childNum<5+KernelPinNumMax) {
-		sprintf(childPath, "/dev/pin%u", childNum-5);
-		return true;
-	}
-	return false;
-}
-
-bool kernelLibGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
-	switch(childNum) {
-		case 0: strcpy(childPath, "/lib/std"); return true; break;
-		case 1: strcpy(childPath, "/lib/curses"); return true; break;
-		case 2: strcpy(childPath, "/lib/pin"); return true; break;
-	}
-	return false;
-}
-
-bool kernelLibStdGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
-	switch(childNum) {
-		case 0: strcpy(childPath, "/lib/std/io"); return true; break;
-		case 1: strcpy(childPath, "/lib/std/math"); return true; break;
-		case 2: strcpy(childPath, "/lib/std/proc"); return true; break;
-		case 3: strcpy(childPath, "/lib/std/mem"); return true; break;
-		case 4: strcpy(childPath, "/lib/std/str"); return true; break;
-		case 5: strcpy(childPath, "/lib/std/time"); return true; break;
-	}
-	return false;
-}
-
-bool kernelMediaGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
-	// TODO: this (along with implementing mounting of external drives)
-	return false;
-}
-
-bool kernelUsrGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
-	switch(childNum) {
-		case 0: strcpy(childPath, "/usr/bin"); return true; break;
-		case 1: strcpy(childPath, "/usr/man"); return true; break;
-	}
-	return false;
-}
-
-bool kernelUsrManGetChildFunctor(unsigned childNum, char childPath[KernelFsPathMax]) {
-	switch(childNum) {
-		case 0: strcpy(childPath, "/usr/man/1"); return true; break;
-		case 1: strcpy(childPath, "/usr/man/2"); return true; break;
-		case 2: strcpy(childPath, "/usr/man/3"); return true; break;
-	}
-	return false;
 }
 
 int kernelBinReadFunctor(KernelFsFileOffset addr, void *userData) {

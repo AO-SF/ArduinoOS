@@ -16,8 +16,6 @@ typedef int (KernelFsCharacterDeviceReadFunctor)(void *userData); // returns -1 
 typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData);
 typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value, void *userData);
 
-typedef bool (KernelFsDirectoryDeviceGetChildFunctor)(unsigned childNum, char childPath[KernelFsPathMax]);
-
 typedef enum {
 	KernelFsBlockDeviceFormatCustomMiniFs,
 	KernelFsBlockDeviceFormatNB,
@@ -38,7 +36,7 @@ void kernelFsQuit(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, void *functorUserData);
-bool kernelFsAddDirectoryDeviceFile(const char *mountPoint, KernelFsDirectoryDeviceGetChildFunctor *getChildFunctor);
+bool kernelFsAddDirectoryDeviceFile(const char *mountPoint);
 bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData);
 
 ////////////////////////////////////////////////////////////////////////////////
