@@ -8,9 +8,13 @@ ALL: $(OBJS)
 	rm -rf mockups/binmockup/*
 	rm -rf mockups/usrbinmockup/*
 	rm -rf mockups/homemockup/*
+	rm -rf mockups/etcmockup/*
 	mkdir -p mockups/binmockup
 	mkdir -p mockups/usrbinmockup
 	mkdir -p mockups/homemockup
+	mkdir -p mockups/etcmockup
+
+	../../../bin/assembler ../../userspace/bin/startup.s mockups/etcmockup/startup
 
 	../../../bin/assembler ../../userspace/bin/fib.s mockups/homemockup/fib
 	cp homeexample/* mockups/homemockup
@@ -54,3 +58,4 @@ clean:
 	rm -rf mockups/binmockup/*
 	rm -rf mockups/usrbinmockup/*
 	rm -rf mockups/homemockup/*
+	rm -rf mockups/etcmockup/*

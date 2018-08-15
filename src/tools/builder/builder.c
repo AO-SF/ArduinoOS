@@ -8,7 +8,11 @@
 
 uint8_t dataArray[8*1024]; // current minifs limit is 8kb anyway
 
-#define eepromSize (8*1024)
+#define eepromTotalSize (8*1024)
+#define eepromEtcOffset 0
+#define eepromEtcSize (1*1024)
+#define eepromHomeOffset eepromEtcSize
+#define eepromHomeSize (eepromTotalSize-eepromHomeOffset)
 const char *fakeEepromPath="./eeprom";
 
 bool buildVolume(const char *name, uint16_t size, const char *srcDir);
@@ -19,32 +23,38 @@ void writeFunctor(uint16_t addr, uint8_t value, void *userData);
 uint8_t homeMiniFsReadFunctor(uint16_t addr, void *userData);
 void homeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
 
+uint8_t etcMiniFsReadFunctor(uint16_t addr, void *userData);
+void etcMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
+
 int main(int agrc, char **argv) {
-	// Create mock /home EEPROM file if it does not look like it already exists
+	// Create /etc and mock /home in EEPROM file, if it does not look like it already exists
 	FILE *fakeEepromFile=fopen(fakeEepromPath, "r+");
 	if (fakeEepromFile!=NULL) {
 		fclose(fakeEepromFile);
 	} else {
 		fakeEepromFile=fopen(fakeEepromPath, "a+");
 		if (fakeEepromFile!=NULL) {
-			for(unsigned i=0; i<eepromSize; ++i)
+			for(unsigned i=0; i<eepromTotalSize; ++i)
 				fputc(0xFF, fakeEepromFile);
 			fclose(fakeEepromFile);
 
 			fakeEepromFile=fopen(fakeEepromPath, "r+");
 			if (fakeEepromFile!=NULL) {
-				MiniFs homeMiniFs;
-				if (miniFsMountSafe(&homeMiniFs, &homeMiniFsReadFunctor, &homeMiniFsWriteFunctor, fakeEepromFile)) {
-					miniFsUnmount(&homeMiniFs);
-				} else {
-					miniFsFormat(&homeMiniFsWriteFunctor, fakeEepromFile, eepromSize);
+				// Format /etc
+				MiniFs etcMiniFs;
+				miniFsFormat(&etcMiniFsWriteFunctor, fakeEepromFile, eepromEtcSize);
+				miniFsMountSafe(&etcMiniFs, &etcMiniFsReadFunctor, &etcMiniFsWriteFunctor, fakeEepromFile);
+				miniFsExtraAddDir(&etcMiniFs, "./src/tools/builder/mockups/etcmockup");
+				miniFsDebug(&etcMiniFs);
+				miniFsUnmount(&etcMiniFs);
 
-					// Add a few example files
-					miniFsMountSafe(&homeMiniFs, &homeMiniFsReadFunctor, &homeMiniFsWriteFunctor, fakeEepromFile);
-					miniFsExtraAddDir(&homeMiniFs, "./src/tools/builder/mockups/homemockup");
-					miniFsDebug(&homeMiniFs);
-					miniFsUnmount(&homeMiniFs);
-				}
+				// Format /home and add a few example files
+				MiniFs homeMiniFs;
+				miniFsFormat(&homeMiniFsWriteFunctor, fakeEepromFile, eepromHomeSize);
+				miniFsMountSafe(&homeMiniFs, &homeMiniFsReadFunctor, &homeMiniFsWriteFunctor, fakeEepromFile);
+				miniFsExtraAddDir(&homeMiniFs, "./src/tools/builder/mockups/homemockup");
+				miniFsDebug(&homeMiniFs);
+				miniFsUnmount(&homeMiniFs);
 
 				fclose(fakeEepromFile);
 			}
@@ -167,9 +177,9 @@ void writeFunctor(uint16_t addr, uint8_t value, void *userData) {
 uint8_t homeMiniFsReadFunctor(uint16_t addr, void *userData) {
 	assert(userData!=NULL);
 	FILE *fakeEepromFile=(FILE *)userData;
-	int res=fseek(fakeEepromFile, addr, SEEK_SET);
+	int res=fseek(fakeEepromFile, addr+eepromHomeOffset, SEEK_SET);
 	assert(res==0);
-	assert(ftell(fakeEepromFile)==addr);
+	assert(ftell(fakeEepromFile)==addr+eepromHomeOffset);
 	int c=fgetc(fakeEepromFile);
 	assert(c!=EOF);
 	return c;
@@ -178,9 +188,30 @@ uint8_t homeMiniFsReadFunctor(uint16_t addr, void *userData) {
 void homeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
 	assert(userData!=NULL);
 	FILE *fakeEepromFile=(FILE *)userData;
-	int res=fseek(fakeEepromFile, addr, SEEK_SET);
+	int res=fseek(fakeEepromFile, addr+eepromHomeOffset, SEEK_SET);
 	assert(res==0);
-	assert(ftell(fakeEepromFile)==addr);
+	assert(ftell(fakeEepromFile)==addr+eepromHomeOffset);
+	res=fputc(value, fakeEepromFile);
+	assert(res==value);
+}
+
+uint8_t etcMiniFsReadFunctor(uint16_t addr, void *userData) {
+	assert(userData!=NULL);
+	FILE *fakeEepromFile=(FILE *)userData;
+	int res=fseek(fakeEepromFile, addr+eepromEtcOffset, SEEK_SET);
+	assert(res==0);
+	assert(ftell(fakeEepromFile)==addr+eepromEtcOffset);
+	int c=fgetc(fakeEepromFile);
+	assert(c!=EOF);
+	return c;
+}
+
+void etcMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
+	assert(userData!=NULL);
+	FILE *fakeEepromFile=(FILE *)userData;
+	int res=fseek(fakeEepromFile, addr+eepromEtcOffset, SEEK_SET);
+	assert(res==0);
+	assert(ftell(fakeEepromFile)==addr+eepromEtcOffset);
 	res=fputc(value, fakeEepromFile);
 	assert(res==value);
 }
