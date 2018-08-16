@@ -636,6 +636,7 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 
 #ifndef ARDUINO
 void kernelSigIntHandler(int sig) {
-	procManProcessSendSignal(kernelReaderPid, ByteCodeSignalIdInterrupt);
+	if (kernelReaderPid!=ProcManPidMax)
+		procManProcessSendSignal(kernelReaderPid, ByteCodeSignalIdInterrupt);
 }
 #endif
