@@ -271,22 +271,50 @@ int main(int argc, char **argv) {
 		change|=optionChange;
 	} while(change);
 
+	// Prepend initial 'header' bytes/instructions.
+	const char *autoFile="<auto>";
+	char autoLine[64];
+	uint16_t autoLineNext=0;
+	AssemblerLine *assemblerLine;
+
+	// Add a couple of lines to put magic bytes at the front of the file ('GG')
+	sprintf(autoLine, "load8 r0 r7 ; 'G' magic header byte 1");
+	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+	assemblerLine->lineNum=autoLineNext+1;
+	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
+	strcpy(assemblerLine->file, autoFile);
+	assemblerLine->original=malloc(strlen(autoLine)+1); // TODO: Check return
+	strcpy(assemblerLine->original, autoLine);
+	assemblerLine->modified=malloc(strlen(autoLine)+1); // TODO: Check return
+	strcpy(assemblerLine->modified, autoLine);
+	assemblerInsertLine(program, assemblerLine, autoLineNext++);
+
+	sprintf(autoLine, "load8 r0 r7 ; 'G' magic header byte 1");
+	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+	assemblerLine->lineNum=autoLineNext+1;
+	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
+	strcpy(assemblerLine->file, autoFile);
+	assemblerLine->original=malloc(strlen(autoLine)+1); // TODO: Check return
+	strcpy(assemblerLine->original, autoLine);
+	assemblerLine->modified=malloc(strlen(autoLine)+1); // TODO: Check return
+	strcpy(assemblerLine->modified, autoLine);
+	assemblerInsertLine(program, assemblerLine, autoLineNext++);
+
 	// Unless nostack set, add line to set the stack pointer (this is just reserving it for now)
+	uint16_t stackSetLineIndex=0;
 	if (!program->noStack) {
-		const char *spFile="<auto>";
-		char spLine[64];
-		sprintf(spLine, "mov r%u 65535", ByteCodeRegisterSP);
+		sprintf(autoLine, "mov r%u 65535", ByteCodeRegisterSP);
 
-		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
-		assemblerLine->lineNum=1;
-		assemblerLine->file=malloc(strlen(spFile)+1); // TODO: Check return
-		strcpy(assemblerLine->file, spFile);
-		assemblerLine->original=malloc(strlen(spLine)+1); // TODO: Check return
-		strcpy(assemblerLine->original, spLine);
-		assemblerLine->modified=malloc(strlen(spLine)+1); // TODO: Check return
-		strcpy(assemblerLine->modified, spLine);
-
-		assemblerInsertLine(program, assemblerLine, 0);
+		assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+		assemblerLine->lineNum=autoLineNext+1;
+		assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
+		strcpy(assemblerLine->file, autoFile);
+		assemblerLine->original=malloc(strlen(autoLine)+1); // TODO: Check return
+		strcpy(assemblerLine->original, autoLine);
+		assemblerLine->modified=malloc(strlen(autoLine)+1); // TODO: Check return
+		strcpy(assemblerLine->modified, autoLine);
+		assemblerInsertLine(program, assemblerLine, autoLineNext);
+		stackSetLineIndex=autoLineNext++;
 	}
 
 	// Verbose output
@@ -318,7 +346,7 @@ int main(int argc, char **argv) {
 		// TODO: Check for not finding
 		for(unsigned i=0; i<program->instructionsNext; ++i) {
 			AssemblerInstruction *instruction=&program->instructions[i];
-			if (instruction->lineIndex==0) {
+			if (instruction->lineIndex==stackSetLineIndex) {
 				// Update line to put correct ram offset in. No need to update dest or src pointers as the start of the string has not changed, and we know this is safe because the new offset cannot be longer than the one we used when allocating the line in the first place.
 				sprintf(instruction->d.mov.src, "%u", program->stackRamOffset);
 				break;

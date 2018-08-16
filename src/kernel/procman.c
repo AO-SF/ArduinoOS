@@ -158,6 +158,20 @@ ProcManPid procManProcessNew(const char *programPath) {
 		goto error;
 	}
 
+	// Read first two bytes to decide how to execute
+	uint8_t magicBytes[2];
+	if (kernelFsFileRead(procManData.processes[pid].progmemFd, magicBytes, 2)!=2) {
+		kernelLog(LogTypeWarning, "could not create new process - could not read 2 magic bytes at start of '%s', fd %u\n", programPath, procManData.processes[pid].progmemFd);
+		goto error;
+	}
+
+	if (magicBytes[0]=='G' && magicBytes[1]=='G') {
+		// A standard native executable - no special handling required (the magic bytes run as harmless instructions)
+	} else {
+		kernelLog(LogTypeWarning, "could not create new process - unknown magic byte sequence 0x%02X%02X at start of '%s', fd %u\n", magicBytes[0], magicBytes[1], programPath, procManData.processes[pid].progmemFd);
+		goto error;
+	}
+
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(procPath, sizeof(ProcManProcessProcData))) {
 		kernelLog(LogTypeWarning, "could not create new process - could not create process data file at '%s' of size %u\n", procPath, sizeof(ProcManProcessProcData));
@@ -1353,6 +1367,22 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	KernelFsFd newProgmemFd=kernelFsFileOpen(args[0]);
 	if (newProgmemFd==KernelFsFdInvalid) {
 		kernelLog(LogTypeWarning, "exec in %u failed - could not open program at '%s'\n", procManGetPidFromProcess(process), args[0]);
+		return true;
+	}
+
+	// Read first two bytes to decide how to execute
+	uint8_t magicBytes[2];
+	if (kernelFsFileRead(newProgmemFd, magicBytes, 2)!=2) {
+		kernelLog(LogTypeWarning, "exec in %u failed - could not read 2 magic bytes at start of '%s', fd %u\n", procManGetPidFromProcess(process), args[0], newProgmemFd);
+		kernelFsFileClose(newProgmemFd);
+		return true;
+	}
+
+	if (magicBytes[0]=='G' && magicBytes[1]=='G') {
+		// A standard native executable - no special handling required (the magic bytes run as harmless instructions)
+	} else {
+		kernelLog(LogTypeWarning, "exec in %u failed - unknown magic byte sequence 0x%02X%02X at start of '%s', fd %u\n", procManGetPidFromProcess(process), magicBytes[0], magicBytes[1], args[0], newProgmemFd);
+		kernelFsFileClose(newProgmemFd);
 		return true;
 	}
 
