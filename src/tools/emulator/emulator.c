@@ -111,6 +111,18 @@ int main(int argc, char **argv) {
 
 	int c;
 	uint8_t *next=process->memory;
+	c=fgetc(inputFile);
+	if (c!='G') {
+		printf("Error: first magic byte is not 'G' as expected\n");
+		goto done;
+	}
+	*next++=c;
+	c=fgetc(inputFile);
+	if (c!='G') {
+		printf("Error: second magic byte is not 'G' as expected\n");
+		goto done;
+	}
+	*next++=c;
 	while((c=fgetc(inputFile))!=EOF)
 		*next++=c;
 
