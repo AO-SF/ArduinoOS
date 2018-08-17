@@ -1,6 +1,7 @@
 require inttostr.s
 require strcat.s
 require strchr.s
+require strrchr.s
 require strcpy.s
 require strequal.s
 require strlen.s
