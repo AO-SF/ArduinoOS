@@ -35,6 +35,10 @@ cmp r0 r0 r0
 skipneqz r0
 jmp errorBadLevel
 
+; Turn off echoing of input
+mov r0 0
+call cursesSetEcho
+
 ; Clear screen, show info and draw level
 label redraw
 call cursesReset
@@ -86,6 +90,8 @@ jmp inputLoop
 ; Exit
 label done
 call cursesReset
+mov r0 1
+call cursesSetEcho
 mov r0 0
 call exit
 
