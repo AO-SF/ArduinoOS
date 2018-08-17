@@ -1,0 +1,14 @@
+MOUNT(1) - User Commands
+
+NAME
+      mount - mount filesystems
+
+SYNOPSIS
+      mount type device dir
+
+DESCRIPTION
+      Mounts the device at the given path, of the given type, to the given dir.
+
+      Type can be one of:
+      * customminifs - A single-directory format for volumes of 1-8kb
+      * flatfile - A single-file format (essentially a 'runtime' link/shortcut)
