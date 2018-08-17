@@ -568,6 +568,11 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unmount] (unimplemented)\n", syscallId);
 						break;
+						case ByteCodeSyscallIdIoctl:
+							// TODO: this
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [ioctl] (unimplemented)\n", syscallId);
+						break;
 						default:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);

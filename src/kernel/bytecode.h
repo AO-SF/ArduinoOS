@@ -114,6 +114,10 @@ typedef struct {
 } BytecodeInstructionAluInfo;
 
 typedef enum {
+	ByteCodeSyscallIdIoctlCommandSetEcho,
+} ByteCodeSyscallIdIoctlCommand;
+
+typedef enum {
 	ByteCodeSyscallIdExit=(0|0),
 	ByteCodeSyscallIdGetPid=(0|1),
 	ByteCodeSyscallIdGetArgC=(0|2),
@@ -149,6 +153,7 @@ typedef enum {
 	ByteCodeSyscallIdShutdown=(1280|0),
 	ByteCodeSyscallIdMount=(1280|1),
 	ByteCodeSyscallIdUnmount=(1280|2),
+	ByteCodeSyscallIdIoctl=(1280|3),
 } ByteCodeSyscallId;
 
 typedef enum {
