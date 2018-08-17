@@ -226,6 +226,13 @@ store16 r0 r1
 mov r0 inputBuf
 call strtrimlast
 
+; Check for an empty line
+mov r0 inputBuf
+load8 r0 r0
+cmp r0 r0 r0
+skipneqz r0
+jmp shellRunFdInputLoopStart
+
 ; Parse input - check for trailing '&' to indicate background
 mov r0 runInBackground
 mov r1 0
