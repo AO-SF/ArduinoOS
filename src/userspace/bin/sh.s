@@ -58,6 +58,10 @@ skipeqz r0
 jmp startDone
 
 ; No - open it
+mov r0 handlingStdio
+mov r1 1
+store8 r0 r1
+
 mov r0 258
 mov r1 stdioPath
 syscall
