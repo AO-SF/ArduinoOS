@@ -26,6 +26,17 @@ mov r0 cursesEscSeqStrResetAttributes
 call puts0
 ret
 
+; cursesSetEcho(value=r0) - turns terminal echo on/off
+label cursesSetEcho
+mov r3 r0 ; on/off value
+mov r0 512
+syscall
+mov r1 r0 ; fd for stdio
+mov r0 1283 ; ioctl syscall id
+mov r2 0 ; set echo command
+syscall
+ret
+
 ; cursesSetPosXY(x=r0, y=r1)
 label cursesSetPosXY
 inc r0
