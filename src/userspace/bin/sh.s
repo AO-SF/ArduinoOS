@@ -32,6 +32,7 @@ requireend lib/std/proc/getpwd.s
 requireend lib/std/proc/openpath.s
 requireend lib/std/proc/runpath.s
 requireend lib/std/str/strchr.s
+requireend lib/std/str/strrchr.s
 requireend lib/std/str/strequal.s
 requireend lib/std/str/strtrimlast.s
 
@@ -225,6 +226,17 @@ store16 r0 r1
 ; Parse input - trim trailing newline
 mov r0 inputBuf
 call strtrimlast
+
+; Trim trailing comment (if any)
+mov r0 inputBuf
+mov r1 '#'
+call strrchr
+cmp r1 r0 r0
+skipneqz r1
+jmp shellRunFdInputCommentRemoved
+mov r1 0
+store8 r0 r1
+label shellRunFdInputCommentRemoved
 
 ; Check for an empty line
 mov r0 inputBuf
