@@ -1178,6 +1178,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						} break;
 						case ByteCodeSyscallIdShutdown:
 							// Kill all processes, causing kernel to return/halt
+							kernelLog(LogTypeInfo, "process %u (%s) initiated shutdown via syscall, killing all processes\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							procManKillAll();
 						break;
 						case ByteCodeSyscallIdMount: {
