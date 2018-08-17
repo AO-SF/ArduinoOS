@@ -203,6 +203,7 @@ label levelReadLoopEnd
 ; Close file
 mov r1 r0
 mov r0 259
+syscall
 
 ; Success
 mov r0 1
