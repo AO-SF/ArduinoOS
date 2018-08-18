@@ -4,9 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "minifs.h"
 #include "minifsextra.h"
 
-uint8_t dataArray[8*1024]; // current minifs limit is 8kb anyway
+uint8_t dataArray[MINIFSMAXSIZE];
 
 #define eepromTotalSize (8*1024)
 #define eepromEtcOffset 0

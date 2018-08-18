@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define MINIFSFACTOR 64 // 1<=factor<=256, increasing allows for a greater total volume size, but wastes more space padding small files (so their length is a multiple of the factor)
+#define MINIFSMAXSIZE (MINIFSFACTOR*256) // we use offseted 8 bits to represent the total size (with factor=64 this allows up to 16kb)
+
 #define MINIFSMAXFILES 62
 
 #define MiniFsPathMax 63
