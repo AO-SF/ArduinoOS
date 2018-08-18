@@ -10,5 +10,5 @@ DESCRIPTION
       Mounts the device at the given path, of the given type, to the given dir.
 
       Type can be one of:
-      * customminifs - A single-directory format for volumes of 1-8kb
+      * customminifs - A single-directory format for volumes of around 1-16kb
       * flatfile - A single-file format (essentially a 'runtime' link/shortcut)
