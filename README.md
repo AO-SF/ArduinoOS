@@ -1,7 +1,7 @@
 # Overview
 A kernel/operating system designed to run on Arduino boards (the Uno and Mega in particular), while also proving a wrapper to run on a standard PC.
 
-The kernel provides a basic virtual filesystem, with directories such as ``/bin``, ``/etc`` and `/tmp``, and can run processes (using preemptive multitasking) written in a custom machine code/bytecode format. The Arduino version also maps e.g. the USB Serial connection to /dev/ttyS0 and the board's pins to /dev/pinX, while the PC wrapper maps stdin/out to /dev/ttyS0 and provides virtual /dev/pinX files.
+The kernel provides a basic virtual filesystem, with directories such as ``/bin``, ``/etc`` and `/tmp``, and can run processes (using preemptive multitasking) written in a custom machine code/bytecode format. The Arduino version also maps e.g. the USB Serial connection to ``/dev/ttyS0`` and the board's pins to ``/dev/pinX``, while the PC wrapper maps stdin/out to ``/dev/ttyS0`` and provides virtual ``/dev/pinX`` files.
 
 The userspace environment consists of various command line utilities, such as ``sh`` - with builtins such as ``exit`` and ``cd``, ``mount``, ``kill`` and ``cat``, along with a startup script in ``/etc/startup`` mounting an example home directory (stored in EEPROM). The example home directory contains a few extra example programs, in particular a 2D game ``sokoban``. In addition, if there is space (so in the PC wrapper and on the Mega usually), other read-only directories exist, such as ``/lib`` with assembly source files, and ``/man`` with man-pages split into sections
 
@@ -13,10 +13,12 @@ See the wiki Documentation page for more information.
 Run make from the root directory.
 This will:
 
-* compile all 'tools' (assembler, builder, disassembler and emulator)
-* create all mockup directories by copying files and assembling all userspace programs
-* call the builder, which creates the read-only minifs volumes which are stored in the kernel 'code' itself)
-* compiles the kernel (which requies the output from the builder)
+* compile initial tools - the assembler, disassembler and emulator
+* run the builder makefile, which will:
+	* compile the builder
+	* create all mockup directories by copying files and assembling all userspace programs
+	* generate C source files for the kenrel, with data representing read-only volumes containing said mockup files
+* compiles the kernel (which requies the the generated progmem* files from the builder)
 
 # Running
 All compiled tools and the kernel are placed in the ``bin`` directory after compiling. The assembler and disassembler work as one would expect. The emulator takes compiled machine code and runs it on a standard PC - although it is far from a full virtual environment (most syscalls are not implemented, for example). The kernel takes no arguments, and boots into a shell (sh.s) via init (init.s). From there standard commands such as ``cd`` and ``ls`` can be used, and programs on the file system can be executed.
