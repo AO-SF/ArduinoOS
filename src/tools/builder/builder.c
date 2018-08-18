@@ -64,7 +64,7 @@ int main(int agrc, char **argv) {
 	fakeEepromFile=NULL;
 
 	// Build other read-only volumes
-	buildVolume("bin", 8*1024, "./src/tools/builder/mockups/binmockup");
+	buildVolume("bin", 16*1024, "./src/tools/builder/mockups/binmockup");
 	buildVolume("usrbin", 8*1024, "./src/tools/builder/mockups/usrbinmockup");
 	buildVolume("libstdio", 8*1024, "./src/userspace/bin/lib/std/io");
 	buildVolume("libstdmath", 8*1024, "./src/userspace/bin/lib/std/math");
