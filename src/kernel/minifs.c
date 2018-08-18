@@ -11,10 +11,6 @@
 #define MINIFSHEADERFILEBASEADDR (MINIFSHEADERTOTALSIZEADDR+1)
 #define MINIFSHEADERSIZE (1+1+MINIFSMAXFILES) // 64 bytes
 
-#define MINIFSFACTOR 32
-
-#define MINIFSMAXSIZE (MINIFSFACTOR*256) // we use offseted 8 bits to represent the total size (with factor=32 this allows up to 8kb)
-
 #define MINIFSFILEMINOFFSETFACTOR (MINIFSHEADERSIZE/MINIFSFACTOR) // no file can be stored where the header is
 #define MINIFSFILEOFFSETINVALID 0 // this would point into the header anyway
 
