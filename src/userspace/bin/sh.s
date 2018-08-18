@@ -422,15 +422,22 @@ load16 r0 r0
 call strlen
 
 cmp r0 r0 r0
-skipneqz r0
+skipeqz r0
+jmp shellCdNotHome
+
+mov r0 absBuf
+mov r1 homeDir
+call strcpy
 jmp shellCdHome
 
 ; Make sure path is absolute
+label shellCdNotHome
 mov r0 absBuf
 mov r1 arg1Ptr
 load16 r1 r1
 call getabspath
 
+label shellCdHome
 ; Ensure path is a directory
 mov r0 265
 mov r1 absBuf
@@ -452,14 +459,6 @@ ret
 label shellCdUpdateEnvVars
 mov r0 515
 mov r1 absBuf
-syscall
-
-ret
-
-label shellCdHome
-
-mov r0 515
-mov r1 homeDir
 syscall
 
 ret
