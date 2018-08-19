@@ -40,4 +40,6 @@ void procManProcessTick(ProcManPid pid);
 
 void procManProcessSendSignal(ProcManPid pid, ByteCodeSignalId signalId);
 
+bool procManProcessExists(ProcManPid pid);
+
 #endif
