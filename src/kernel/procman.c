@@ -938,6 +938,14 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							if (pid!=0) // do not allow killing init
 								procManProcessKill(pid, ProcManExitStatusKilled);
 						} break;
+						case ByteCodeSyscallIdSignal: {
+							ProcManPid targetPid=procData->regs[1];
+							ByteCodeSignalId signalId=procData->regs[2];
+							if (signalId<ByteCodeSignalIdNB)
+								procManProcessSendSignal(targetPid, signalId);
+							else
+								kernelLog(LogTypeWarning, "process %u - warning bad signalId %u in signal syscall (target pid=%u)\n", procManGetPidFromProcess(process), signalId, targetPid);
+						} break;
 						case ByteCodeSyscallIdGetPidRam: {
 							ByteCodeWord pid=procData->regs[1];
 							ProcManProcess *qProcess=procManGetProcessByPid(pid);
