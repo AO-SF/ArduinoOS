@@ -945,9 +945,12 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdSignal: {
 							ProcManPid targetPid=procData->regs[1];
 							ByteCodeSignalId signalId=procData->regs[2];
-							if (signalId<ByteCodeSignalIdNB)
-								procManProcessSendSignal(targetPid, signalId);
-							else
+							if (signalId<ByteCodeSignalIdNB) {
+								if (targetPid==0 && signalId==ByteCodeSignalIdSuicide)
+									kernelLog(LogTypeWarning, "process %u - warning cannot send signal 'suicide' to init (target pid=%u)\n", procManGetPidFromProcess(process), targetPid);
+								else
+									procManProcessSendSignal(targetPid, signalId);
+							} else
 								kernelLog(LogTypeWarning, "process %u - warning bad signalId %u in signal syscall (target pid=%u)\n", procManGetPidFromProcess(process), signalId, targetPid);
 						} break;
 						case ByteCodeSyscallIdGetPidRam: {
@@ -1188,8 +1191,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						} break;
 						case ByteCodeSyscallIdShutdown:
 							// Kill all processes, causing kernel to return/halt
-							kernelLog(LogTypeInfo, "process %u (%s) initiated shutdown via syscall, killing all processes\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-							procManKillAll();
+							kernelLog(LogTypeInfo, "process %u (%s) initiated shutdown via syscall\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							kernelShutdownBegin();
 						break;
 						case ByteCodeSyscallIdMount: {
 							// Grab arguments
