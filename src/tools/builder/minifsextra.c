@@ -24,19 +24,21 @@ bool miniFsExtraAddFile(MiniFs *fs, const char *destPath, const char *srcPath) {
 
 	// Copy data from file to file
 	fseek(file, 0L, SEEK_SET);
+	bool result=true;
 	for(uint16_t offset=0; 1; ++offset) {
 		int value=fgetc(file);
 		if (value==-1)
 			break;
 		if (!miniFsFileWrite(fs, destPath, offset, value)) {
 			printf("warning unable to write complete data for '%s' representing '%s' (managed %i/%i bytes)\n", destPath, srcPath, offset, fileSize);
+			result=false;
 			break;
 		}
 	}
 
 	fclose(file);
 
-	return true;
+	return result;
 }
 
 bool miniFsExtraAddDir(MiniFs *fs, const char *dirPath) {
@@ -66,7 +68,7 @@ bool miniFsExtraAddDir(MiniFs *fs, const char *dirPath) {
 		else
 			if (!miniFsExtraAddFile(fs, dp->d_name, fullName)) {
 				printf("warning unable to add file '%s'\n", fullName);
-				continue;
+				return false;
 			}
 	}
 
