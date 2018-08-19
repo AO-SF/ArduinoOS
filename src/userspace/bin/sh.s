@@ -41,6 +41,12 @@ mov r0 childPid
 mov r1 64
 store8 r0 r1
 
+; Register suicide signal handler
+mov r0 1024
+mov r1 3 ; suicide signal id
+mov r2 suicideHandler
+syscall
+
 ; Register interrupt signal handler
 mov r0 1024
 mov r1 0 ; interrupt signal id
@@ -462,6 +468,12 @@ mov r1 absBuf
 syscall
 
 ret
+
+label suicideHandler
+; Simulate an interrupt to kill child (if any)
+call interruptHandler
+; Jump to finish label which calls exit, so we do not need to return from this handler
+jmp finish
 
 label interruptHandler
 ; kill child (if any)
