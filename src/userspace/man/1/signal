@@ -1,0 +1,10 @@
+SIGNAL(1) - User Commands
+
+NAME
+      signal - send a signal to a process
+
+SYNOPSIS
+      signal <pid> <signalid>
+
+DESCRIPTION
+      Send the given signal to the process represented by the given pid
