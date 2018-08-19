@@ -1446,6 +1446,10 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 		}
 	}
 
+	// Clear any registered signal handlers.
+	for(uint16_t i=0; i<ByteCodeSignalIdNB; ++i)
+		procData->signalHandlers[i]=ProcManSignalHandlerInvalid;
+
 	kernelLog(LogTypeInfo, "exec in %u succeeded\n", procManGetPidFromProcess(process));
 
 	return true;
