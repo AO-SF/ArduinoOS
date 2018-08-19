@@ -506,9 +506,12 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor) {
 	}
 
 	// No files?
-	if (firstFileIndex==MINIFSMAXFILES)
-		// TODO: Check sufficent space on volume
+	if (firstFileIndex==MINIFSMAXFILES) {
+		// Check for insufficent space in volumeminiFsGetTotalSizeFactorMinusOne(fs)-MINIFSHEADERSIZE/MINIFSFACTOR+1);
+		if (sizeFactor>miniFsGetTotalSizeFactorMinusOne(fs)-MINIFSHEADERSIZE/MINIFSFACTOR+1)
+			return 0;
 		return MINIFSFILEMINOFFSETFACTOR;
+	}
 
 	// Check for space before first file.
 	if (sizeFactor<=miniFsFileGetBaseOffsetFactorFromIndex(fs, firstFileIndex)-MINIFSFILEMINOFFSETFACTOR)
