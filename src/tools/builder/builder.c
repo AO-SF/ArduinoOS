@@ -102,7 +102,10 @@ bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 	}
 
 	// Loop over files in given source dir and write each one to minifs
-	miniFsExtraAddDir(&miniFs, srcDir);
+	if (!miniFsExtraAddDir(&miniFs, srcDir)) {
+		printf("could not add dir '%s'\n", srcDir);
+		return false;
+	}
 
 	// Debug fs
 	//miniFsDebug(&miniFs);
