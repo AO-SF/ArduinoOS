@@ -16,7 +16,8 @@ uint8_t dataArray[MINIFSMAXSIZE];
 #define eepromHomeSize (eepromTotalSize-eepromHomeOffset)
 const char *fakeEepromPath="./eeprom";
 
-bool buildVolume(const char *name, uint16_t size, const char *srcDir);
+bool buildVolume(const char *name, const char *srcDir);
+bool buildVolumeTrySize(const char *name, uint16_t size, const char *srcDir, bool verbose);
 
 uint8_t readFunctor(uint16_t addr, void *userData);
 void writeFunctor(uint16_t addr, uint8_t value, void *userData);
@@ -45,7 +46,7 @@ int main(int agrc, char **argv) {
 				MiniFs etcMiniFs;
 				miniFsFormat(&etcMiniFsWriteFunctor, fakeEepromFile, eepromEtcSize);
 				miniFsMountSafe(&etcMiniFs, &etcMiniFsReadFunctor, &etcMiniFsWriteFunctor, fakeEepromFile);
-				miniFsExtraAddDir(&etcMiniFs, "./src/tools/builder/mockups/etcmockup");
+				miniFsExtraAddDir(&etcMiniFs, "./src/tools/builder/mockups/etcmockup", true);
 				miniFsDebug(&etcMiniFs);
 				miniFsUnmount(&etcMiniFs);
 
@@ -53,7 +54,7 @@ int main(int agrc, char **argv) {
 				MiniFs homeMiniFs;
 				miniFsFormat(&homeMiniFsWriteFunctor, fakeEepromFile, eepromHomeSize);
 				miniFsMountSafe(&homeMiniFs, &homeMiniFsReadFunctor, &homeMiniFsWriteFunctor, fakeEepromFile);
-				miniFsExtraAddDir(&homeMiniFs, "./src/tools/builder/mockups/homemockup");
+				miniFsExtraAddDir(&homeMiniFs, "./src/tools/builder/mockups/homemockup", true);
 				miniFsDebug(&homeMiniFs);
 				miniFsUnmount(&homeMiniFs);
 
@@ -64,25 +65,37 @@ int main(int agrc, char **argv) {
 	fakeEepromFile=NULL;
 
 	// Build other read-only volumes
-	buildVolume("bin", 16*1024, "./src/tools/builder/mockups/binmockup");
-	buildVolume("usrbin", 8*1024, "./src/tools/builder/mockups/usrbinmockup");
-	buildVolume("libstdio", 8*1024, "./src/userspace/bin/lib/std/io");
-	buildVolume("libstdmath", 8*1024, "./src/userspace/bin/lib/std/math");
-	buildVolume("libstdmem", 8*1024, "./src/userspace/bin/lib/std/mem");
-	buildVolume("libstdproc", 8*1024, "./src/userspace/bin/lib/std/proc");
-	buildVolume("libstdstr", 8*1024, "./src/userspace/bin/lib/std/str");
-	buildVolume("libstdtime", 8*1024, "./src/userspace/bin/lib/std/time");
-	buildVolume("libcurses", 8*1024, "./src/userspace/bin/lib/curses");
-	buildVolume("libpin", 8*1024, "./src/userspace/bin/lib/pin");
+	buildVolume("bin", "./src/tools/builder/mockups/binmockup");
+	buildVolume("usrbin", "./src/tools/builder/mockups/usrbinmockup");
+	buildVolume("libstdio", "./src/userspace/bin/lib/std/io");
+	buildVolume("libstdmath", "./src/userspace/bin/lib/std/math");
+	buildVolume("libstdmem", "./src/userspace/bin/lib/std/mem");
+	buildVolume("libstdproc", "./src/userspace/bin/lib/std/proc");
+	buildVolume("libstdstr", "./src/userspace/bin/lib/std/str");
+	buildVolume("libstdtime", "./src/userspace/bin/lib/std/time");
+	buildVolume("libcurses", "./src/userspace/bin/lib/curses");
+	buildVolume("libpin", "./src/userspace/bin/lib/pin");
 
-	buildVolume("man1", 8*1024, "./src/userspace/man/1");
-	buildVolume("man2", 8*1024, "./src/userspace/man/2");
-	buildVolume("man3", 8*1024, "./src/userspace/man/3");
+	buildVolume("man1", "./src/userspace/man/1");
+	buildVolume("man2", "./src/userspace/man/2");
+	buildVolume("man3", "./src/userspace/man/3");
 
 	return 0;
 }
 
-bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
+bool buildVolume(const char *name, const char *srcDir) {
+	// Loop, trying increasing powers of 2 for max volume size until we succeed (if we do at all).
+	uint16_t size;
+	for(size=MINIFSMINSIZE; size<=MINIFSMAXSIZE; size*=2) {
+		if (buildVolumeTrySize(name, size, srcDir, false))
+			return true;
+	}
+
+	// We have failed - run final size again but with logging turned on.
+	return buildVolumeTrySize(name, MINIFSMAXSIZE, srcDir, true);
+}
+
+bool buildVolumeTrySize(const char *name, uint16_t size, const char *srcDir, bool verbose) {
 	MiniFs miniFs;
 
 	// clear data arary (not strictly necessary but might avoid confusion in the future when e.g. stdio functions are in unused part of the stdmath volume)
@@ -91,19 +104,22 @@ bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 
 	// format
 	if (!miniFsFormat(&writeFunctor, NULL, size)) {
-		printf("could not format\n");
+		if (verbose)
+			printf("could not format\n");
 		return false;
 	}
 
 	// mount
 	if (!miniFsMountSafe(&miniFs, &readFunctor, &writeFunctor, NULL)) {
-		printf("could not mount\n");
+		if (verbose)
+			printf("could not mount\n");
 		return false;
 	}
 
 	// Loop over files in given source dir and write each one to minifs
-	if (!miniFsExtraAddDir(&miniFs, srcDir)) {
-		printf("could not add dir '%s'\n", srcDir);
+	if (!miniFsExtraAddDir(&miniFs, srcDir, verbose)) {
+		if (verbose)
+			printf("could not add dir '%s'\n", srcDir);
 		return false;
 	}
 
@@ -121,7 +137,8 @@ bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 
 	FILE *cFile=fopen(cFilePath, "w+");
 	if (cFile==NULL) {
-		printf("could not open '%s' for writing\n", cFilePath);
+		if (verbose)
+			printf("could not open '%s' for writing\n", cFilePath);
 		return false;
 	}
 
@@ -152,7 +169,8 @@ bool buildVolume(const char *name, uint16_t size, const char *srcDir) {
 	// create .h file
 	FILE *hFile=fopen(hFilePath, "w+");
 	if (hFile==NULL) {
-		printf("could not open '%s' for writing\n", hFilePath);
+		if (verbose)
+			printf("could not open '%s' for writing\n", hFilePath);
 		return false;
 	}
 
