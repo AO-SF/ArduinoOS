@@ -414,6 +414,10 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [getpidram] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
+						case ByteCodeSyscallIdSignal:
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [signal] (unimplemented)\n", syscallId);
+						break;
 						case ByteCodeSyscallIdRead:
 							if (process->regs[1]==process->envVars.stdioFd) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
