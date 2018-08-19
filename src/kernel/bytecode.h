@@ -16,6 +16,7 @@ typedef enum {
 	ByteCodeSignalIdInterrupt,
 	ByteCodeSignalIdUser1,
 	ByteCodeSignalIdUser2,
+	ByteCodeSignalIdSuicide,
 	ByteCodeSignalIdNB,
 } ByteCodeSignalId;
 

@@ -71,12 +71,19 @@ bool pinStates[KernelPinNumMax];
 ProcManPid kernelReaderPid=ProcManPidMax;
 #endif
 
+KernelState kernelState=KernelStateInvalid;
+uint32_t kernelStateTime=0;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
+void kernelSetState(KernelState newState);
+
+void kernelShutdownNext(void);
+
 void kernelBoot(void);
-void kernelShutdown(void);
+void kernelShutdownFinal(void);
 
 void kernelHalt(void);
 
@@ -138,11 +145,22 @@ void setup() {
 	kernelBoot();
 
 	// Run processes
-	while(procManGetProcessCount()>0)
+	kernelSetState(KernelStateRunning);
+	while(procManGetProcessCount()>0) {
+		// If we are shutting down, check for all relevant processes dead or a timeout
+		if (kernelGetState()==KernelStateShuttingDownWaitAll &&
+			(procManGetProcessCount()==1 || millis()-kernelStateTime>=3000)) // 3s timeout
+			kernelShutdownNext();
+
+		if (kernelGetState()==KernelStateShuttingDownWaitInit && millis()-kernelStateTime>=3000) // 3s timeout
+			break; // break to call shutdown final
+
+		// Run each process for 1 tick
 		procManTickAll();
+	}
 
 	// Quit
-	kernelShutdown();
+	kernelShutdownFinal();
 }
 
 void loop() {
@@ -161,11 +179,58 @@ int main(int argc, char **argv) {
 
 #endif
 
+void kernelShutdownBegin(void) {
+	// Already shutting down?
+	if (kernelGetState()>KernelStateRunning)
+		return;
+
+	// Send suicide signals to all process except init
+	kernelSetState(KernelStateShuttingDownWaitAll);
+	kernelLog(LogTypeInfo, "shutdown request, sending suicide signal to all processes except init\n");
+
+	for(ProcManPid pid=1; pid<ProcManPidMax; ++pid) {
+		if (!procManProcessExists(pid))
+			continue;
+
+		procManProcessSendSignal(pid, ByteCodeSignalIdSuicide);
+	}
+
+	// Return to let main loop wait for processes to die or a  timeout to occur
+}
+
+KernelState kernelGetState(void) {
+	return kernelState;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
+void kernelSetState(KernelState newState) {
+	kernelState=newState;
+	kernelStateTime=millis();
+}
+
+void kernelShutdownNext(void) {
+	assert(kernelGetState()==KernelStateShuttingDownWaitAll);
+
+	// Forcibly kill any processes who did not commit suicide in time
+	kernelLog(LogTypeInfo, "shutdown request, killing any processes (except init) which did not commit suicide soon enough\n");
+	for(ProcManPid pid=1; pid<ProcManPidMax; ++pid) {
+		if (!procManProcessExists(pid))
+			continue;
+
+		procManProcessKill(pid, ProcManExitStatusKilled);
+	}
+
+	// Send suicide signal to init
+	kernelSetState(KernelStateShuttingDownWaitInit);
+	kernelLog(LogTypeInfo, "shutdown request, sending suicide signal to init\n");
+	procManProcessSendSignal(0, ByteCodeSignalIdSuicide);
+}
+
 void kernelBoot(void) {
+	kernelSetState(KernelStateBooting);
 	kernelLog(LogTypeInfo, "booting\n");
 
 #ifndef ARDUINO
@@ -272,10 +337,13 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, "starting init\n");
 	if (procManProcessNew("/bin/init")==ProcManPidMax)
 		kernelFatalError("could not start init at '%s'\n", "/bin/init");
+
+	kernelLog(LogTypeInfo, "booting complete\n");
 }
 
-void kernelShutdown(void) {
-	kernelLog(LogTypeInfo, "shutting down\n");
+void kernelShutdownFinal(void) {
+	kernelSetState(KernelStateShuttingDownFinal);
+	kernelLog(LogTypeInfo, "shutting down final\n");
 
 	// Quit process manager
 	kernelLog(LogTypeInfo, "killing all processes\n");
@@ -306,6 +374,8 @@ void kernelShutdown(void) {
 }
 
 void kernelHalt(void) {
+	kernelSetState(KernelStateShutdown);
+
 #ifdef ARDUINO
 	kernelLog(LogTypeInfo, "halting\n");
 	while(1)
