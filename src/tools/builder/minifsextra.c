@@ -5,11 +5,12 @@
 
 #include "minifsextra.h"
 
-bool miniFsExtraAddFile(MiniFs *fs, const char *destPath, const char *srcPath) {
+bool miniFsExtraAddFile(MiniFs *fs, const char *destPath, const char *srcPath, bool verbose) {
 	// Open src file for reading
 	FILE *file=fopen(srcPath, "r");
 	if (file==NULL) {
-		printf("warning unable to open file '%s' for reading\n", srcPath);
+		if (verbose)
+			printf("warning unable to open file '%s' for reading\n", srcPath);
 		return false;
 	}
 
@@ -17,10 +18,20 @@ bool miniFsExtraAddFile(MiniFs *fs, const char *destPath, const char *srcPath) {
 	fseek(file, 0L, SEEK_END);
 	uint16_t fileSize=ftell(file);
 	if (!miniFsFileCreate(fs, destPath, fileSize)) {
-		printf("warning unable to create file '%s' representing '%s'\n", destPath, srcPath);
+		if (verbose)
+			printf("warning unable to create file '%s' representing '%s'\n", destPath, srcPath);
 		fclose(file);
 		return false;
 	}
+
+	/*
+
+	.....
+
+	new builder idea almost works
+	but curses and man2 are truncated way to small
+
+	*/
 
 	// Copy data from file to file
 	fseek(file, 0L, SEEK_SET);
@@ -30,7 +41,8 @@ bool miniFsExtraAddFile(MiniFs *fs, const char *destPath, const char *srcPath) {
 		if (value==-1)
 			break;
 		if (!miniFsFileWrite(fs, destPath, offset, value)) {
-			printf("warning unable to write complete data for '%s' representing '%s' (managed %i/%i bytes)\n", destPath, srcPath, offset, fileSize);
+			if (verbose)
+				printf("warning unable to write complete data for '%s' representing '%s' (managed %i/%i bytes)\n", destPath, srcPath, offset, fileSize);
 			result=false;
 			break;
 		}
@@ -41,11 +53,12 @@ bool miniFsExtraAddFile(MiniFs *fs, const char *destPath, const char *srcPath) {
 	return result;
 }
 
-bool miniFsExtraAddDir(MiniFs *fs, const char *dirPath) {
+bool miniFsExtraAddDir(MiniFs *fs, const char *dirPath, bool verbose) {
 	// Loop over files in given dir and write each one to minifs
 	DIR *dir=opendir(dirPath);
 	if (dir==NULL) {
-		printf("could not open directory '%s'\n", dirPath);
+		if (verbose)
+			printf("could not open directory '%s'\n", dirPath);
 		return false;
 	}
 
@@ -59,14 +72,16 @@ bool miniFsExtraAddDir(MiniFs *fs, const char *dirPath) {
 
 		struct stat stbuf;
 		if (stat(fullName, &stbuf)==-1) {
-			printf("warning unable to stat file '%s'\n", fullName);
+			if (verbose)
+				printf("warning unable to stat file '%s'\n", fullName);
 			continue;
 		}
 
 		if ((stbuf.st_mode & S_IFMT)==S_IFDIR)
 			continue; // Skip directories
 		else
-			if (!miniFsExtraAddFile(fs, dp->d_name, fullName)) {
+			if (!miniFsExtraAddFile(fs, dp->d_name, fullName, verbose)) {
+				if (verbose)
 				printf("warning unable to add file '%s'\n", fullName);
 				return false;
 			}
