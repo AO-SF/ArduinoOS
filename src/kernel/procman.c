@@ -493,6 +493,10 @@ void procManProcessSendSignal(ProcManPid pid, ByteCodeSignalId signalId) {
 	kernelLog(LogTypeInfo, "sent signal %u to process %u, calling registered handler at %u\n", signalId, pid, handlerAddr);
 }
 
+bool procManProcessExists(ProcManPid pid) {
+	return (procManGetProcessByPid(pid)!=NULL);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
