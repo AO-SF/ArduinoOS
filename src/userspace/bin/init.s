@@ -5,6 +5,7 @@ requireend lib/std/proc/forkexec.s
 requireend lib/std/proc/forkexecwait.s
 
 db startupPath '/etc/startup', 0
+db shutdownPath '/etc/shutdown', 0
 db shellPath '/bin/sh', 0
 
 ; ensure we have pid 0 (otherwise init should already be running)
@@ -53,6 +54,12 @@ mov r0 1
 call exit
 
 label suicideHandler
-; For now simply exit
+; call forkexecwait to run shutdown file and wait for it to complete
+mov r0 shutdownPath
+mov r1 0
+mov r2 0
+mov r3 0
+call forkexecwait
+; Exit ASAP
 mov r0 0
 call exit
