@@ -50,6 +50,7 @@ ALL: $(OBJS)
 	../../../bin/assembler ../../userspace/bin/burn.s mockups/usrbinmockup/burn
 	../../../bin/assembler ../../userspace/bin/man.s mockups/usrbinmockup/man
 	../../../bin/assembler ../../userspace/bin/getpin.s mockups/usrbinmockup/getpin
+	../../../bin/assembler ../../userspace/bin/setpin.s mockups/usrbinmockup/setpin
 
 	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/builder $(LFLAGS)
 
