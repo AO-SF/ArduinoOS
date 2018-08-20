@@ -1,0 +1,10 @@
+GETPIN(1) - User Commands
+
+NAME
+      getpin - get Arduino pin states
+
+SYNOPSIS
+      getpin pinnum
+
+DESCRIPTION
+      Prints 'on'/'off' based on current state of given pin.
