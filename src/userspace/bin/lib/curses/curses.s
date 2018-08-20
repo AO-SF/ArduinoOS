@@ -4,10 +4,14 @@ requireend ../std/io/fputdec.s
 db cursesEscSeqStrClear 27, '[2J', 0
 db cursesEscSeqStrSetRgb 27, '[38;2;', 0
 db cursesEscSeqStrResetAttributes 27, '[0m', 0
+db cursesEscSeqStrCursorShow 27, '[?25h', 0
+db cursesEscSeqStrCursorHide 27, '[?25l', 0
 
-; cursesReset - clear screen and set cursor to (0,0)
+; cursesReset - clear screen and set (visible) cursor to (0,0)
 label cursesReset
 call cursesResetAttributes
+mov r0 1
+call cursesCursorSetVisible
 call cursesClearScreen
 mov r0 0
 mov r1 0
@@ -17,6 +21,23 @@ ret
 ; cursesClearScreen
 label cursesClearScreen
 mov r0 cursesEscSeqStrClear
+call puts0
+ret
+
+; cursesCursorSetVisible (r0=boolean visible value)
+label cursesCursorSetVisible
+cmp r0 r0 r0
+skipneqz r0
+jmp cursesCursorHide
+jmp cursesCursorShow
+
+label cursesCursorShow
+mov r0 cursesEscSeqStrCursorShow
+call puts0
+ret
+
+label cursesCursorHide
+mov r0 cursesEscSeqStrCursorHide
 call puts0
 ret
 
