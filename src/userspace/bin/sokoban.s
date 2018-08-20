@@ -236,7 +236,7 @@ pop r3
 push r0
 push r3
 push r4
-call putc0
+call levelDrawUpdateCellRawPrint
 pop r4
 pop r3
 pop r0
@@ -332,6 +332,11 @@ pop r0
 call levelLoadCellAdjusted
 mov r2 r0
 ; write character onto screen
+call levelDrawUpdateCellRawPrint
+ret
+
+; levelDrawUpdateCellRawPrint(x=cell) - takes cell and prints
+label levelDrawUpdateCellRawPrint
 call putc0
 ret
 
