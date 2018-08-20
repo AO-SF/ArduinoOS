@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include "wrapper.h"
 
@@ -15,6 +16,10 @@ uint32_t millisRaw(void) {
 
 uint32_t millis(void) {
 	return millisRaw()-kernelBootTime;
+}
+
+void delay(uint32_t ms) {
+	usleep(ms*1000llu);
 }
 
 #endif
