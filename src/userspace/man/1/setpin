@@ -1,0 +1,10 @@
+SETPIN(1) - User Commands
+
+NAME
+      setpin - set Arduino pin states
+
+SYNOPSIS
+      setpin pinnum state
+
+DESCRIPTION
+      Sets given pin to given state (1/0 for on/off).
