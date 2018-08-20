@@ -24,6 +24,7 @@ typedef enum {
 	ProcManProcessStateActive,
 	ProcManProcessStateWaitingWaitpid,
 	ProcManProcessStateWaitingRead,
+	ProcManProcessStateExiting,
 } ProcManProcessState;
 
 #define ARGVMAX 4
@@ -395,6 +396,12 @@ void procManProcessTick(ProcManPid pid) {
 				return;
 			}
 		} break;
+		case ProcManProcessStateExiting:
+			// This shouldn't happen as exiting processes are removed as soon as the syscall runs.
+			// But to be safe, kill
+			kernelLog(LogTypeWarning, "process %u tick - internal error: state is exiting at tick init, killing\n", pid);
+			goto kill;
+		break;
 	}
 
 	// Run a few instructions
@@ -408,7 +415,8 @@ void procManProcessTick(ProcManPid pid) {
 
 		// Execute instruction
 		if (!procManProcessExecInstruction(process, &procData, instruction, &exitStatus)) {
-			kernelLog(LogTypeWarning, "process %u tick - could not exec instruction or returned false, killing\n", pid);
+			if (process->state!=ProcManProcessStateExiting)
+				kernelLog(LogTypeWarning, "process %u tick - could not exec instruction or returned false, killing\n", pid);
 			goto kill;
 		}
 
@@ -478,6 +486,11 @@ void procManProcessSendSignal(ProcManPid pid, ByteCodeSignalId signalId) {
 			// Set process active again but set r0 to indicate read failed
 			process->state=ProcManProcessStateActive;
 			procData.regs[0]=0;
+		break;
+		case ProcManProcessStateExiting:
+			// Shouldn't really happen, log
+			kernelLog(LogTypeWarning, "sent signal %u to process %u, but its state is exiting (internal error), ignoring\n", signalId, pid);
+			return;
 		break;
 	}
 	assert(process->state==ProcManProcessStateActive);
@@ -857,7 +870,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 					switch(syscallId) {
 						case ByteCodeSyscallIdExit:
 							*exitStatus=procData->regs[1];
-							kernelLog(LogTypeInfo, "exit syscall from process %u (%s), status %u, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), *exitStatus);
+							kernelLog(LogTypeInfo, "exit syscall from process %u (%s), status %u, updating state\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), *exitStatus);
+							process->state=ProcManProcessStateExiting;
 							return false;
 						break;
 						case ByteCodeSyscallIdGetPid:
@@ -951,6 +965,9 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 									break;
 									case ProcManProcessStateWaitingRead:
 										str="waiting";
+									break;
+									case ProcManProcessStateExiting:
+										str="exiting";
 									break;
 								}
 								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, str)) {
