@@ -8,7 +8,22 @@ db startupPath '/etc/startup', 0
 db shutdownPath '/etc/shutdown', 0
 db shellPath '/bin/sh', 0
 
+jmp start
+
+; signal handler labels must be within first 256 bytes of executable, so put this function first
+label suicideHandler
+; call forkexecwait to run shutdown file and wait for it to complete
+mov r0 shutdownPath
+mov r1 0
+mov r2 0
+mov r3 0
+call forkexecwait
+; Exit ASAP
+mov r0 0
+call exit
+
 ; ensure we have pid 0 (otherwise init should already be running)
+label start
 mov r0 1
 syscall
 cmp r0 r0 r0
@@ -51,15 +66,4 @@ jmp parent ; in case waitpid fails for any reason
 ; forkexec error
 label error
 mov r0 1
-call exit
-
-label suicideHandler
-; call forkexecwait to run shutdown file and wait for it to complete
-mov r0 shutdownPath
-mov r1 0
-mov r2 0
-mov r3 0
-call forkexecwait
-; Exit ASAP
-mov r0 0
 call exit

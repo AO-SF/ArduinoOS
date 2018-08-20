@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct {
 	ByteCodeWord regs[BytecodeRegisterNB];
-	KernelFsFileOffset signalHandlers[ByteCodeSignalIdNB];
+	uint8_t signalHandlers[ByteCodeSignalIdNB]; // pointers to functions to run on signals (restricted to first 256 bytes)
 	ProcManProcessEnvVars envVars;
 	uint16_t envVarDataLen, ramLen;
 	uint8_t ramFd;
@@ -1243,6 +1243,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							if (signalId>=ByteCodeSignalIdNB) {
 								kernelLog(LogTypeWarning, "process %u (%s), tried to register handler for invalid signal %u\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), signalId);
+							} else if (handlerAddr>=256) {
+								kernelLog(LogTypeWarning, "process %u (%s), tried to register handler for signal %u, but handler addr %u is out of range (must be less than 256)\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), signalId, handlerAddr);
 							} else
 								procData->signalHandlers[signalId]=handlerAddr;
 

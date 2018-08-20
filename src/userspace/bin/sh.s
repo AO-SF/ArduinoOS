@@ -37,7 +37,16 @@ requireend lib/std/str/strrchr.s
 requireend lib/std/str/strequal.s
 requireend lib/std/str/strtrimlast.s
 
+jmp start
+
+; signal handler labels must be within first 256 bytes of executable, so put these 'trampoline' functions first
+label suicideHandlerTrampoline
+jmp suicideHandler
+label interruptHandlerTrampoline
+jmp interruptHandler
+
 ; Clear child PID
+label start
 mov r0 childPid
 mov r1 64
 store8 r0 r1
@@ -45,13 +54,13 @@ store8 r0 r1
 ; Register suicide signal handler
 mov r0 1024
 mov r1 3 ; suicide signal id
-mov r2 suicideHandler
+mov r2 suicideHandlerTrampoline
 syscall
 
 ; Register interrupt signal handler
 mov r0 1024
 mov r1 0 ; interrupt signal id
-mov r2 interruptHandler
+mov r2 interruptHandlerTrampoline
 syscall
 
 ; Is stdiofd already sensible?
