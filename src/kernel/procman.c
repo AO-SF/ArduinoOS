@@ -43,7 +43,6 @@ typedef struct {
 	ProcManProcessEnvVars envVars;
 	uint16_t envVarDataLen, ramLen;
 	uint8_t ramFd;
-	bool skipFlag; // skip next instruction?
 } ProcManProcessProcData;
 
 typedef struct {
@@ -228,7 +227,6 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procData.regs[ByteCodeRegisterIP]=0;
 	for(uint16_t i=0; i<ByteCodeSignalIdNB; ++i)
 		procData.signalHandlers[i]=ProcManSignalHandlerInvalid;
-	procData.skipFlag=false;
 	procData.envVars.stdioFd=KernelFsFdInvalid;
 	procData.envVarDataLen=envVarDataLen;
 	procData.ramLen=0;
@@ -405,17 +403,6 @@ void procManProcessTick(ProcManPid pid) {
 		if (!procManProcessGetInstruction(process, &procData, &instruction)) {
 			kernelLog(LogTypeWarning, "process %u tick - could not get instruction, killing\n", pid);
 			goto kill;
-		}
-
-		// Are we meant to skip this instruction? (due to a previous skipN instruction)
-		if (procData.skipFlag) {
-			procData.skipFlag=false;
-
-			// Read the next instruction instead
-			if (!procManProcessGetInstruction(process, &procData, &instruction)) {
-				kernelLog(LogTypeWarning, "process %u tick - could not get next instruction after skipping, killing\n", pid);
-				goto kill;
-			}
 		}
 
 		// Execute instruction
@@ -834,9 +821,16 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 				case BytecodeInstructionAluTypeShiftRight:
 					procData->regs[info.d.alu.destReg]=opA>>opB;
 				break;
-				case BytecodeInstructionAluTypeSkip:
-					procData->skipFlag=(procData->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg));
-				break;
+				case BytecodeInstructionAluTypeSkip: {
+					if (procData->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg)) {
+						// Skip next instruction
+						BytecodeInstructionLong nextInstruction;
+						if (!procManProcessGetInstruction(process, procData, &nextInstruction)) {
+							kernelLog(LogTypeWarning, "could not skip next instruction, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							return false;
+						}
+					}
+				} break;
 				case BytecodeInstructionAluTypeStore16: {
 					ByteCodeWord destAddr=procData->regs[info.d.alu.destReg];
 					if (!procManProcessMemoryWriteWord(process, procData, destAddr, opA)) {
