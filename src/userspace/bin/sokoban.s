@@ -7,8 +7,9 @@ db infoStr '\n\nwasd move/push, r redraw, q quit\n# wall, @ player, + player-on-
 db errorStrNoArg 'usage: sokoban LEVELPATH\n', 0
 db errorStrBadLevel 'error: could not load given level\n', 0
 
-db maxSize 32
-ab levelArray 1024 ; maxSize*maxSize
+const maxW 32
+const maxH 32
+ab levelArray 1024 ; maxW*maxH
 
 ab playerX 1
 ab playerY 1
@@ -177,8 +178,7 @@ label levelReadLoopNotPlayer
 ; store character in current row
 mov r1 levelArray
 add r1 r1 r5
-mov r3 maxSize
-load8 r3 r3
+mov r3 maxH
 mul r3 r3 r4
 add r1 r1 r3
 mov r3 scratchByte
@@ -269,8 +269,7 @@ ret
 label levelLoadCell
 mov r2 levelArray ; base offset
 add r0 r0 r2 ; add x
-mov r2 maxSize ; add y*maxSize
-load8 r2 r2
+mov r2 maxH ; add y*maxH
 mul r2 r2 r1
 add r0 r0 r2
 load8 r0 r0 ; load cell
@@ -313,8 +312,7 @@ ret
 label levelSetCell
 mov r3 levelArray ; base offset
 add r0 r0 r3 ; add x
-mov r3 maxSize ; add y*maxSize
-load8 r3 r3
+mov r3 maxH ; add y*maxH
 mul r3 r3 r1
 add r0 r0 r3
 store8 r0 r2 ; update cell
