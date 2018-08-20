@@ -32,7 +32,7 @@ typedef struct {
 	// The arguments are fixed, but pwd and path may be updated later by the process itself to point to new strings, beyond the initial read-only section.
 	KernelFsFileOffset argv[ARGVMAX];
 	KernelFsFileOffset pwd; // set to '/' when init is called
-	KernelFsFileOffset path; // set to '/home:/usr/bin:/bin:' when init is called
+	KernelFsFileOffset path; // set to '/usr/bin:/bin:' when init is called
 
 	KernelFsFd stdioFd; // set to KernelFsFdInvalid when init is called
 } ProcManProcessEnvVars;
@@ -185,7 +185,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	envVarDataLen+=strlen(tempPwd)+1;
 
 	char tempPath[KernelFsPathMax];
-	strcpy(tempPath, "/home:/usr/bin:/bin:");
+	strcpy(tempPath, "/usr/bin:/bin:");
 	procData.envVars.path=envVarDataLen;
 	strcpy(envVarData+envVarDataLen, tempPath);
 	envVarDataLen+=strlen(tempPath)+1;
