@@ -1,0 +1,10 @@
+CP(1) - User Commands
+
+NAME
+      cp - copy files
+
+SYNOPSIS
+      cp source dest
+
+DESCRIPTION
+      Copy source file to dest (dest cannot be partial - it must specify a file not a directory)

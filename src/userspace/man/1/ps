@@ -1,0 +1,10 @@
+PS(1) - User Commands
+
+NAME
+      ps - display info on currently running processes
+
+SYNOPSIS
+      ps
+
+DESCRIPTION
+      Lists all running processes, along such information such as their states, RAM allocations and CPU usages.
