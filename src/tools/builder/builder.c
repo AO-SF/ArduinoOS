@@ -129,44 +129,10 @@ bool buildVolumeTrySize(const char *name, uint16_t size, const char *srcDir, boo
 	// unmount to save any changes
 	miniFsUnmount(&miniFs);
 
-	// create .c file
-	char cFilePath[1024]; // TODO: better
+	// create .h file
 	char hFilePath[1024]; // TODO: better
-	sprintf(cFilePath, "src/kernel/progmem%s.c", name);
 	sprintf(hFilePath, "src/kernel/progmem%s.h", name);
 
-	FILE *cFile=fopen(cFilePath, "w+");
-	if (cFile==NULL) {
-		if (verbose)
-			printf("could not open '%s' for writing\n", cFilePath);
-		return false;
-	}
-
-	fprintf(cFile, "// NOTE: File auto-generated (see builder)\n\n");
-	fprintf(cFile, "#include \"progmem%s.h\"\n\n", name);
-	fprintf(cFile, "const uint8_t progmem%sData[%u]={\n", name, size);
-	fprintf(cFile, "\t");
-	const int perLine=16;
-	for(int i=0; i<size; ++i) {
-		fprintf(cFile, "0x%02X", dataArray[i]);
-		if (i+1<size)
-			fprintf(cFile, ",");
-		if ((i+1)%perLine==0) {
-			fprintf(cFile, " // ");
-			for(int j=0; j<perLine; ++j) {
-				int c=dataArray[i+1-perLine+j];
-				fprintf(cFile, "%c", isgraph(c) ? c : '.');
-			}
-			fprintf(cFile, " END\n");
-			if (i+1!=size)
-				fprintf(cFile, "\t");
-		}
-	}
-	fprintf(cFile, "};\n");
-
-	fclose(cFile);
-
-	// create .h file
 	FILE *hFile=fopen(hFilePath, "w+");
 	if (hFile==NULL) {
 		if (verbose)
@@ -178,9 +144,29 @@ bool buildVolumeTrySize(const char *name, uint16_t size, const char *srcDir, boo
 	fprintf(hFile, "#ifndef PROGMEM%s_H\n", name);
 	fprintf(hFile, "#define PROGMEM%s_H\n\n", name);
 	fprintf(hFile, "#include <stdint.h>\n\n");
+
 	fprintf(hFile, "// TODO: this needs to be done specially for arduino\n");
 	fprintf(hFile, "#define PROGMEM%sDATASIZE %iu\n", name, size);
-	fprintf(hFile, "extern const uint8_t progmem%sData[PROGMEM%sDATASIZE];\n\n", name, name);
+	fprintf(hFile, "static const uint8_t progmem%sData[PROGMEM%sDATASIZE]={\n", name, name);
+	fprintf(hFile, "\t");
+	const int perLine=16;
+	for(int i=0; i<size; ++i) {
+		fprintf(hFile, "0x%02X", dataArray[i]);
+		if (i+1<size)
+			fprintf(hFile, ",");
+		if ((i+1)%perLine==0) {
+			fprintf(hFile, " // ");
+			for(int j=0; j<perLine; ++j) {
+				int c=dataArray[i+1-perLine+j];
+				fprintf(hFile, "%c", isgraph(c) ? c : '.');
+			}
+			fprintf(hFile, " END\n");
+			if (i+1!=size)
+				fprintf(hFile, "\t");
+		}
+	}
+	fprintf(hFile, "};\n");
+
 	fprintf(hFile, "#endif\n");
 
 	fclose(hFile);
