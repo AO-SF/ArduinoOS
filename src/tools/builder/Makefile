@@ -15,6 +15,7 @@ ALL: $(OBJS)
 	mkdir -p mockups/etcmockup
 
 	cp ../../userspace/bin/startup.sh mockups/etcmockup/startup
+	cp ../../userspace/bin/shutdown.sh mockups/etcmockup/shutdown
 
 	../../../bin/assembler ../../userspace/bin/fib.s mockups/homemockup/fib
 	cp homeexample/* mockups/homemockup
