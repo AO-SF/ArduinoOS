@@ -11,6 +11,7 @@ db homeDir '/home', 0
 ab handlingStdio 1
 ab inputBuf 64
 ab absBuf 64
+ab pwdBuf 64
 aw arg1Ptr 1
 aw arg2Ptr 1
 aw arg3Ptr 1
@@ -463,8 +464,12 @@ ret
 
 ; Update environment variables
 label shellCdUpdateEnvVars
-mov r0 515
+mov r0 pwdBuf
 mov r1 absBuf
+call strcpy
+
+mov r0 515
+mov r1 pwdBuf
 syscall
 
 ret
