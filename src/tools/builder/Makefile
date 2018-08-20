@@ -40,6 +40,7 @@ ALL: $(OBJS)
 	../../../bin/assembler ../../userspace/bin/shutdown.s mockups/binmockup/shutdown
 	../../../bin/assembler ../../userspace/bin/mount.s mockups/binmockup/mount
 	../../../bin/assembler ../../userspace/bin/signal.s mockups/binmockup/signal
+	../../../bin/assembler ../../userspace/bin/unmount.s mockups/binmockup/unmount
 
 	../../../bin/assembler ../../userspace/bin/time.s mockups/usrbinmockup/time
 	../../../bin/assembler ../../userspace/bin/uptime.s mockups/usrbinmockup/uptime

@@ -1,0 +1,10 @@
+UNMOUNT(1) - User Commands
+
+NAME
+      unmount - unmount filesystems
+
+SYNOPSIS
+      unmount device
+
+DESCRIPTION
+      Unmounts the given device, see MOUNT(1).
