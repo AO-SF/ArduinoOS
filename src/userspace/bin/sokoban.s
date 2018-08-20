@@ -3,9 +3,15 @@ requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/openpath.s
 
-db infoStr '\n\nwasd move/push, r redraw, q quit\n# wall, @ player, + player-on-goal, $ box, * box on goal, . goal\n\n', 0
+db infoStr '\n\nwasd move/push, r redraw, q quit\n',27,'[30;1m#'27,'[0m wall, '27,'[33;1m@',27,'[0m player, '27,'[33;1m+',27,'[0m player-on-goal, ',27,'[38;5;130m$',27,'[0m box, ',27,'[32;1m*',27,'[0m box on goal, '27,'[33;1m.',27,'[0m goal\n\n', 0
 db errorStrNoArg 'usage: sokoban LEVELPATH\n', 0
 db errorStrBadLevel 'error: could not load given level\n', 0
+
+db cellColourStrDefault 27,'[0m',0
+db cellColourStrYellow 27,'[33;1m',0
+db cellColourStrGrey 27,'[30;1m',0
+db cellColourStrBrown 27,'[38;5;130m',0
+db cellColourStrGreen 27,'[32;1m',0
 
 const maxW 16
 const maxH 16
@@ -335,8 +341,37 @@ mov r2 r0
 call levelDrawUpdateCellRawPrint
 ret
 
-; levelDrawUpdateCellRawPrint(x=cell) - takes cell and prints
+; levelDrawUpdateCellRawPrint(cell=r0) - takes cell and prints
 label levelDrawUpdateCellRawPrint
+mov r2 r0
+mov r0 cellColourStrDefault
+mov r1 '.'
+cmp r1 r1 r2
+skipneq r1
+mov r0 cellColourStrYellow
+mov r1 '@'
+cmp r1 r1 r2
+skipneq r1
+mov r0 cellColourStrYellow
+mov r1 '+'
+cmp r1 r1 r2
+skipneq r1
+mov r0 cellColourStrYellow
+mov r1 '#'
+cmp r1 r1 r2
+skipneq r1
+mov r0 cellColourStrGrey
+mov r1 '$'
+cmp r1 r1 r2
+skipneq r1
+mov r0 cellColourStrBrown
+mov r1 '*'
+cmp r1 r1 r2
+skipneq r1
+mov r0 cellColourStrGreen
+push r2
+call puts0
+pop r0
 call putc0
 ret
 
