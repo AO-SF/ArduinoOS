@@ -155,8 +155,16 @@ void setup() {
 		if (kernelGetState()==KernelStateShuttingDownWaitInit && millis()-kernelStateTime>=3000) // 3s timeout
 			break; // break to call shutdown final
 
-		// Run each process for 1 tick
+		// Run each process for 1 tick, and delay if we have spare time (PC wrapper only - pointless on Arduino)
+		#ifndef ARDUINO
+		uint32_t t=millis();
+		#endif
 		procManTickAll();
+		#ifndef ARDUINO
+		t=millis()-t;
+		if (t<kernelTickMinTimeMs)
+			delay(kernelTickMinTimeMs-t);
+		#endif
 	}
 
 	// Quit

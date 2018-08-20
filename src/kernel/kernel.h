@@ -13,6 +13,8 @@ typedef enum {
 	KernelStateShutdown,
 } KernelState;
 
+#define kernelTickMinTimeMs 10
+
 #ifndef ARDUINO
 extern ProcManPid kernelReaderPid; // set to whoever has /dev/ttyS0 open, used for ctrl+c propagation from host
 #endif

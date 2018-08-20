@@ -14,8 +14,8 @@
 
 #define procManProcessInstructionCounterMax ((1u)<<16) // TODO: On arduino this needs 32 bit
 #define procManProcessInstructionCounterMaxMinusOne (((1u)<<16)-1) // TODO: On arduino this only needs 16 bit but needs calculating differently
-#define procManProcessTickInstructionsPerTick 8 // Generally a higher value causes faster execution, but decreased responsiveness if many processes running
-#define procManTicksPerInstructionCounterReset (3*1024) // must not exceed procManProcessInstructionCounterMax/procManProcessTickInstructionsPerTick, which is currently 8k, target is to reset roughly every 10s
+#define procManProcessTickInstructionsPerTick 80 // Generally a higher value causes faster execution, but decreased responsiveness if many processes running
+#define procManTicksPerInstructionCounterReset (800) // must not exceed procManProcessInstructionCounterMax/procManProcessTickInstructionsPerTick, which is currently ~819. target is to reset roughly every 10s
 
 #define ProcManSignalHandlerInvalid 0
 
