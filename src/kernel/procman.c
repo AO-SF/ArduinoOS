@@ -30,9 +30,9 @@ typedef enum {
 typedef struct {
 	// The following fields are pointers into the start of the ramFd file.
 	// The arguments are fixed, but pwd and path may be updated later by the process itself to point to new strings, beyond the initial read-only section.
-	KernelFsFileOffset argv[ARGVMAX];
-	KernelFsFileOffset pwd; // set to '/' when init is called
-	KernelFsFileOffset path; // set to '/usr/bin:/bin:' when init is called
+	uint8_t argv[ARGVMAX];
+	uint8_t pwd; // set to '/' when init is called
+	uint8_t path; // set to '/usr/bin:/bin:' when init is called
 
 	KernelFsFd stdioFd; // set to KernelFsFdInvalid when init is called
 } ProcManProcessEnvVars;
@@ -41,7 +41,8 @@ typedef struct {
 	ByteCodeWord regs[BytecodeRegisterNB];
 	uint8_t signalHandlers[ByteCodeSignalIdNB]; // pointers to functions to run on signals (restricted to first 256 bytes)
 	ProcManProcessEnvVars envVars;
-	uint16_t envVarDataLen, ramLen;
+	uint8_t envVarDataLen;
+	uint16_t ramLen;
 	uint8_t ramFd;
 } ProcManProcessProcData;
 
