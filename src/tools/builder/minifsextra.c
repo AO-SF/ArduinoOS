@@ -24,15 +24,6 @@ bool miniFsExtraAddFile(MiniFs *fs, const char *destPath, const char *srcPath, b
 		return false;
 	}
 
-	/*
-
-	.....
-
-	new builder idea almost works
-	but curses and man2 are truncated way to small
-
-	*/
-
 	// Copy data from file to file
 	fseek(file, 0L, SEEK_SET);
 	bool result=true;
