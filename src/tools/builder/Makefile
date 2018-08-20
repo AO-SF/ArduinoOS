@@ -46,6 +46,7 @@ ALL: $(OBJS)
 	../../../bin/assembler ../../userspace/bin/factor.s mockups/usrbinmockup/factor
 	../../../bin/assembler ../../userspace/bin/ps.s mockups/usrbinmockup/ps
 	../../../bin/assembler ../../userspace/bin/burn.s mockups/usrbinmockup/burn
+	../../../bin/assembler ../../userspace/bin/man.s mockups/usrbinmockup/man
 
 	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/builder $(LFLAGS)
 

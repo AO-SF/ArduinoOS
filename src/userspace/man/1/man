@@ -1,0 +1,10 @@
+MAN(1) - User Commands
+
+NAME
+      man - display manuals
+
+SYNOPSIS
+      man section page
+
+DESCRIPTION
+      Display given manual page at the given section.
