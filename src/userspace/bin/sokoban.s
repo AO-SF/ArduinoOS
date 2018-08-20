@@ -7,9 +7,9 @@ db infoStr '\n\nwasd move/push, r redraw, q quit\n# wall, @ player, + player-on-
 db errorStrNoArg 'usage: sokoban LEVELPATH\n', 0
 db errorStrBadLevel 'error: could not load given level\n', 0
 
-const maxW 32
-const maxH 32
-ab levelArray 1024 ; maxW*maxH
+const maxW 16
+const maxH 16
+ab levelArray 256 ; maxW*maxH
 
 ab playerX 1
 ab playerY 1
