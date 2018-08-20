@@ -1,0 +1,10 @@
+CAT(1) - User Commands
+
+NAME
+      cat - concatenate files and print to stdout
+
+SYNOPSIS
+      cat [FILE1 [FILE2 ...]]
+
+DESCRIPTION
+      Write each file to stdout in turn, effectively concatenating them.

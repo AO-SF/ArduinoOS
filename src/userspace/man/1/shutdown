@@ -1,0 +1,10 @@
+SHUTDOWN(1) - User Commands
+
+NAME
+      shutdown - begin shutting down the system
+
+SYNOPSIS
+      shutdown
+
+DESCRIPTION
+      Initiates shutting down the system (sending suicide signals to all processes, before killing if they take too long).

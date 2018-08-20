@@ -1,0 +1,10 @@
+SH(1) - User Commands
+
+NAME
+      sh - basic shell
+
+SYNOPSIS
+      sh [SCRIPT1 [SCRIPT2 ...]]
+
+DESCRIPTION
+      A basic shell interpreter. Runs the scripts given as arguments (if any), before reading from stdin. If any scripts call exit, no further scripts are ran, nor is stdin read. Supports cd and exit built-ins, as well as running a command in the background by appending an '&' character to it.

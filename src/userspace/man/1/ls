@@ -1,0 +1,10 @@
+LS(1) - User Commands
+
+NAME
+      ls - display directory contents
+
+SYNOPSIS
+      ls
+
+DESCRIPTION
+      List files in present working directory.

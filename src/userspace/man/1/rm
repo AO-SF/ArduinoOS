@@ -1,0 +1,10 @@
+RM(1) - User Commands
+
+NAME
+      rm - remove file
+
+SYNOPSIS
+      rm file
+
+DESCRIPTION
+      Deletes given file, which can be a directory (in which case it must be empty to succeed).

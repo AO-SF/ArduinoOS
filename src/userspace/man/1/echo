@@ -1,0 +1,10 @@
+ECHO(1) - User Commands
+
+NAME
+      echo - print arguments to stdout
+
+SYNOPSIS
+      echo [STRING1 [STRING2 ...]]
+
+DESCRIPTION
+      Print each argument to stdout in term, with a space character printed between each.

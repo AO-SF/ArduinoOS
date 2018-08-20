@@ -1,0 +1,10 @@
+TIME(1) - User Commands
+
+NAME
+      time - time a program
+
+SYNOPSIS
+      time program programarg1 programarg2
+
+DESCRIPTION
+      Runs the given program (with the given args, if any), and reports how long it took to execute.
