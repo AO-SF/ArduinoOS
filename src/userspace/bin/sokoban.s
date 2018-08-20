@@ -43,6 +43,7 @@ call cursesSetEcho
 ; Clear screen, show info and draw level
 label redraw
 call cursesReset
+call cursesCursorHide
 mov r0 infoStr
 call puts0
 call levelDraw
