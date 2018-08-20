@@ -30,7 +30,7 @@ typedef enum {
 typedef struct {
 	KernelFsFileOffset argv[ARGVMAX]; // Pointers into start of ramFd
 	char pwd[KernelFsPathMax]; // set to '/' when init is called
-	char path[KernelFsPathMax]; // set to '/bin' when init is called
+	char path[KernelFsPathMax]; // set to '/home:/usr/bin:/bin:' when init is called
 	KernelFsFd stdioFd; // set to KernelFsFdInvalid when init is called
 } ProcManProcessEnvVars;
 
