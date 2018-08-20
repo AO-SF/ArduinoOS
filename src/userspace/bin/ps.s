@@ -10,7 +10,6 @@ aw cpuTotal 1
 
 ab psPidPid 1
 ab psPidStateBuf 64
-ab psPidCommandBuf 64
 ab psPidScratchBuf 64
 
 ab psPidInt32 4
@@ -78,26 +77,12 @@ label psPid
 mov r1 psPidPid
 store8 r1 r0
 
-; Grab command
-mov r0 7
-mov r1 psPidPid
-load8 r1 r1
-mov r2 psPidCommandBuf
-syscall
-
-cmp r0 r0 r0
-skipeqz r0
-jmp psPidGotCommand
-ret
-label psPidGotCommand
-
-; Grab state
+; Grab state and check for existence of process
 mov r0 8
 mov r1 psPidPid
 load8 r1 r1
 mov r2 psPidStateBuf
 syscall
-
 cmp r0 r0 r0
 skipeqz r0
 jmp psPidGotState
@@ -157,7 +142,18 @@ mov r0 ' '
 call putc0
 
 ; Print command
-mov r0 psPidCommandBuf
+mov r0 7
+mov r1 psPidPid
+load8 r1 r1
+mov r2 psPidScratchBuf
+syscall
+
+cmp r0 r0 r0
+skipeqz r0
+jmp psPidGotCommand
+ret
+label psPidGotCommand
+mov r0 psPidScratchBuf
 call puts0
 
 ; Terminate line
