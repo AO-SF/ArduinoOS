@@ -2,7 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef ARDUINO
+#else
 #include <sys/types.h>
+#endif
 
 #include "log.h"
 #include "wrapper.h"

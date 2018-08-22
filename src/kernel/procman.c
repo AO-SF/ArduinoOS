@@ -2,8 +2,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#ifdef ARDUINO
+#else
 #include <termios.h>
 #include <unistd.h>
+#endif
 
 #include "kernel.h"
 #include "kernelfs.h"
@@ -12,8 +16,8 @@
 #include "procman.h"
 #include "wrapper.h"
 
-#define procManProcessInstructionCounterMax ((1u)<<16) // TODO: On arduino this needs 32 bit
-#define procManProcessInstructionCounterMaxMinusOne (((1u)<<16)-1) // TODO: On arduino this only needs 16 bit but needs calculating differently
+#define procManProcessInstructionCounterMax (65536llu) // TODO: On arduino this needs 32 bit
+#define procManProcessInstructionCounterMaxMinusOne (65535lu)
 #define procManProcessTickInstructionsPerTick 80 // Generally a higher value causes faster execution, but decreased responsiveness if many processes running
 #define procManTicksPerInstructionCounterReset (800) // must not exceed procManProcessInstructionCounterMax/procManProcessTickInstructionsPerTick, which is currently ~819. target is to reset roughly every 10s
 
@@ -1146,6 +1150,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdTryReadByte: {
 							KernelFsFd fd=procData->regs[1];
 
+							#ifndef ARDUINO
 							// save terminal settings
 							static struct termios termOld, termNew;
 							tcgetattr(STDIN_FILENO, &termOld);
@@ -1154,13 +1159,16 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							termNew=termOld;
 							termNew.c_lflag&=~ICANON;
 							tcsetattr(STDIN_FILENO, TCSANOW, &termNew);
+							#endif
 
 							// attempt to read
 							uint8_t value;
 							KernelFsFileOffset readResult=kernelFsFileReadOffset(fd, 0, &value, 1, false);
 
+							#ifndef ARDUINO
 							// restore terminal settings
 							tcsetattr(STDIN_FILENO, TCSANOW, &termOld);
+							#endif
 
 							// set result in r0
 							if (readResult==1)
@@ -1308,6 +1316,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							kernelUnmount(devicePath);
 						} break;
 						case ByteCodeSyscallIdIoctl: {
+							// Only PC wrapper currently supports ioctl
+							#ifndef ARDUINO
 							// Grab arguments
 							uint16_t fd=procData->regs[1];
 							uint16_t command=procData->regs[2];
@@ -1315,8 +1325,6 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							// We currently only support ioctl on /dev/ttyS0
 							if (strcmp(kernelFsGetFilePath(fd), "/dev/ttyS0")==0) {
-								// Only PC wrapper currently supports console ioctl
-								#ifndef ARDUINO
 								switch(command) {
 									case ByteCodeSyscallIdIoctlCommandSetEcho: {
 										// change terminal settings to add/remove echo
@@ -1332,8 +1340,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 										kernelLog(LogTypeWarning, "invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n", command, fd, kernelFsGetFilePath(fd), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									break;
 								}
-								#endif
 							}
+							#endif
 						} break;
 						default:
 							kernelLog(LogTypeWarning, "invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));

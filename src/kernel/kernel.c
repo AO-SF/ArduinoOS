@@ -1,24 +1,29 @@
 #include <assert.h>
-#include <poll.h>
-#include <signal.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef ARDUINO
+
+#ifdef ARDUINO
+#include <avr/eeprom.h>
+#else
+#include <poll.h>
 #include <signal.h>
-#include <termios.h>
 #include <sys/ioctl.h>
-#endif
+#include <termios.h>
 #include <unistd.h>
+#endif
 
 #include "kernel.h"
 #include "kernelfs.h"
 #include "log.h"
 #include "minifs.h"
 #include "procman.h"
+#include "wrapper.h"
+
 #include "progmembin.h"
+#ifndef ARDUINO
 #include "progmemlibcurses.h"
 #include "progmemlibpin.h"
 #include "progmemlibstdio.h"
@@ -27,11 +32,11 @@
 #include "progmemlibstdmem.h"
 #include "progmemlibstdstr.h"
 #include "progmemlibstdtime.h"
-#include "progmemusrbin.h"
 #include "progmemman1.h"
 #include "progmemman2.h"
 #include "progmemman3.h"
-#include "wrapper.h"
+#endif
+#include "progmemusrbin.h"
 
 #define KernelPinNumMax 20
 
@@ -39,6 +44,7 @@
 uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize PROGMEMbinDATASIZE
+#ifndef ARDUINO
 #define KernelLibCursesSize PROGMEMlibcursesDATASIZE
 #define KernelLibPinSize PROGMEMlibpinDATASIZE
 #define KernelLibStdIoSize PROGMEMlibstdioDATASIZE
@@ -47,10 +53,11 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelLibStdMemSize PROGMEMlibstdmemDATASIZE
 #define KernelLibStdStrSize PROGMEMlibstdstrDATASIZE
 #define KernelLibStdTimeSize PROGMEMlibstdtimeDATASIZE
-#define KernelUsrBinSize PROGMEMusrbinDATASIZE
 #define KernelMan1Size PROGMEMman1DATASIZE
 #define KernelMan2Size PROGMEMman2DATASIZE
 #define KernelMan3Size PROGMEMman3DATASIZE
+#endif
+#define KernelUsrBinSize PROGMEMusrbinDATASIZE
 
 #define KernelEepromTotalSize (8*1024) // Mega has 4kb for example
 #define KernelEepromEtcOffset (0)
@@ -91,6 +98,7 @@ void kernelFatalError(const char *format, ...);
 void kernelFatalErrorV(const char *format, va_list ap);
 
 int kernelBinReadFunctor(KernelFsFileOffset addr, void *userData);
+#ifndef ARDUINO
 int kernelLibCursesReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelLibPinReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelLibStdIoReadFunctor(KernelFsFileOffset addr, void *userData);
@@ -102,6 +110,7 @@ int kernelLibStdTimeReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelMan1ReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelMan2ReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelMan3ReadFunctor(KernelFsFileOffset addr, void *userData);
+#endif
 int kernelDevEepromReadFunctor(KernelFsFileOffset addr, void *userData);
 bool kernelDevEepromWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
 int kernelEtcReadFunctor(KernelFsFileOffset addr, void *userData);
@@ -140,7 +149,7 @@ void kernelSigIntHandler(int sig);
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void setup() {
+int main(void) {
 	// Init
 	kernelBoot();
 
@@ -169,23 +178,9 @@ void setup() {
 
 	// Quit
 	kernelShutdownFinal();
-}
-
-void loop() {
-	// Do nothing - we should never reach here
-}
-
-#ifndef ARDUINO
-
-int main(int argc, char **argv) {
-	// setup and main loop
-	setup();
-	loop();
 
 	return 0;
 }
-
-#endif
 
 void kernelShutdownBegin(void) {
 	// Already shutting down?
@@ -259,9 +254,12 @@ void kernelBoot(void) {
 
 	// Arduino-only: connect to serial (ready to mount as /dev/ttyS0).
 #ifdef ARDUINO
+	/*
+	.....
 	Serial.begin(9600);
 	while (!Serial) ;
 	kernelLog(LogTypeInfo, "initialised serial\n");
+	*/
 #endif
 
 	// Allocate space for /tmp
@@ -315,6 +313,7 @@ void kernelBoot(void) {
 	}
 	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/etc", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEtcReadFunctor, kernelEtcWriteFunctor, NULL);
+	#ifndef ARDUINO
 	error|=!kernelFsAddDirectoryDeviceFile("/lib");
 	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/pin", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL, NULL);
@@ -325,13 +324,16 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/mem", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMemSize, &kernelLibStdMemReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/str", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/time", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL, NULL);
+	#endif
 	error|=!kernelFsAddDirectoryDeviceFile("/media");
 	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/usr");
 	error|=!kernelFsAddDirectoryDeviceFile("/usr/man");
+	#ifndef ARDUINO
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/1", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan1Size, &kernelMan1ReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/2", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan2Size, &kernelMan2ReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/3", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan3Size, &kernelMan3ReadFunctor, NULL, NULL);
+	#endif
 	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
 
 	if (error)
@@ -363,8 +365,11 @@ void kernelShutdownFinal(void) {
 
 	// Arduino-only: close serial connection (was mounted as /dev/ttyS0).
 #ifdef ARDUINO
+	/*
+	.....
 	kernelLog(LogTypeInfo, "closing serial connection\n");
 	Serial.end();
+	*/
 #endif
 
 	// Free /tmp memory pool
@@ -411,6 +416,7 @@ int kernelBinReadFunctor(KernelFsFileOffset addr, void *userData) {
 	return progmembinData[addr];
 }
 
+#ifndef ARDUINO
 int kernelLibCursesReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelLibCursesSize);
 	return progmemlibcursesData[addr];
@@ -465,11 +471,12 @@ int kernelMan3ReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelMan3Size);
 	return progmemman3Data[addr];
 }
+#endif
 
 int kernelDevEepromReadFunctor(KernelFsFileOffset addr, void *userData) {
 	addr+=KernelEepromDevEepromOffset;
 #ifdef ARDUINO
-	return EEPROM.read(addr);
+	return eeprom_read_byte((void *)addr);
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
 		kernelLog(LogTypeWarning, "could not seek to addr %u in /dev/eeprom read functor\n", addr);
@@ -487,7 +494,7 @@ int kernelDevEepromReadFunctor(KernelFsFileOffset addr, void *userData) {
 bool kernelDevEepromWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData) {
 	addr+=KernelEepromDevEepromOffset;
 #ifdef ARDUINO
-	EEPROM.update(addr, value);
+	eeprom_update_byte((void *)addr, value);
 	return true;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
@@ -506,7 +513,7 @@ bool kernelDevEepromWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *u
 int kernelEtcReadFunctor(KernelFsFileOffset addr, void *userData) {
 	addr+=KernelEepromEtcOffset;
 #ifdef ARDUINO
-	return EEPROM.read(addr);
+	return eeprom_read_byte((void *)addr);
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
 		kernelLog(LogTypeWarning, "could not seek to addr %u in etc read functor\n", addr);
@@ -524,7 +531,7 @@ int kernelEtcReadFunctor(KernelFsFileOffset addr, void *userData) {
 bool kernelEtcWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData) {
 	addr+=KernelEepromEtcOffset;
 #ifdef ARDUINO
-	EEPROM.update(addr, value);
+	eeprom_update_byte((void *)addr, value);
 	return true;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
@@ -621,7 +628,11 @@ bool kernelDevURandomWriteFunctor(uint8_t value, void *userData) {
 
 int kernelDevTtyS0ReadFunctor(void *userData) {
 #ifdef ARDUINO
+	/*
+	.....
 	return Serial.read();
+	*/
+	return -1;
 #else
 	if (kernelTtyS0BytesAvailable==0)
 		kernelLog(LogTypeWarning, "kernelTtyS0BytesAvailable=0 going into kernelDevTtyS0ReadFunctor\n");
@@ -636,7 +647,11 @@ int kernelDevTtyS0ReadFunctor(void *userData) {
 
 bool kernelDevTtyS0CanReadFunctor(void *userData) {
 #ifdef ARDUINO
+	/*
+	.....
 	return (Serial.available()>0);
+	*/
+	return false;
 #else
 	// If we still think there are bytes waiting to be read, return true immediately
 	if (kernelTtyS0BytesAvailable>0)
@@ -661,7 +676,11 @@ bool kernelDevTtyS0CanReadFunctor(void *userData) {
 
 bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData) {
 #ifdef ARDUINO
+	/*
+	.....
 	return (Serial.write(value)==1);
+	*/
+	return false;
 #else
 	if (putchar(value)!=value)
 		return false;
@@ -684,7 +703,7 @@ int kernelDevPinReadFunctor(void *userData) {
 #ifdef ARDUINO
 	// TODO: this pinRead() essentially
 	kernelLog(LogTypeWarning, "pin %u read - not implemented\n", pinNum);
-	return -1
+	return -1;
 #else
 	kernelLog(LogTypeInfo, "pin %u read - value %u\n", pinNum, pinStates[pinNum]);
 	return pinStates[pinNum];
@@ -703,8 +722,8 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 	}
 #ifdef ARDUINO
 	// TODO: this pinWrite() essentially
-		kernelLog(LogTypeWarning, "pin %u write - not implemented\n", pinNum);
-	return false
+	kernelLog(LogTypeWarning, "pin %u write - not implemented\n", pinNum);
+	return false;
 #else
 	kernelLog(LogTypeInfo, "pin %u write - new value %u\n", pinNum, value);
 	pinStates[pinNum]=(value!=0);
