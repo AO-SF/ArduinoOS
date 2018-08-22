@@ -1,5 +1,3 @@
-#ifndef ARDUINO
-
 #ifndef WRAPPER_H
 #define WRAPPER_H
 
@@ -12,5 +10,4 @@ uint32_t millis(void);
 
 void delay(uint32_t ms);
 
-#endif
 #endif
