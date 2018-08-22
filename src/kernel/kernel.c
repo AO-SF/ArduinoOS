@@ -417,63 +417,111 @@ void kernelFatalErrorV(const char *format, va_list ap) {
 
 int kernelBinReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelBinSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmembinData[addr]));
+	#else
 	return progmembinData[addr];
+	#endif
 }
 
 #ifndef ARDUINO
 int kernelLibCursesReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelLibCursesSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemlibcursesData[addr]));
+	#else
 	return progmemlibcursesData[addr];
+	#endif
 }
 
 int kernelLibPinReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelLibPinSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemlibpinData[addr]));
+	#else
 	return progmemlibpinData[addr];
+	#endif
 }
 
 int kernelLibStdIoReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelLibStdIoSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemlibstdioData[addr]));
+	#else
 	return progmemlibstdioData[addr];
+	#endif
 }
 
 int kernelLibStdMathReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelLibStdMathSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemlibstdmathData[addr]));
+	#else
 	return progmemlibstdmathData[addr];
+	#endif
 }
 
 int kernelLibStdProcReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelLibStdProcSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemlibstdprocData[addr]));
+	#else
 	return progmemlibstdprocData[addr];
+	#endif
 }
 
 int kernelLibStdMemReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelLibStdProcSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemlibstdmemData[addr]));
+	#else
 	return progmemlibstdmemData[addr];
+	#endif
 }
 
 int kernelLibStdStrReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelLibStdStrSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemlibstdstrData[addr]));
+	#else
 	return progmemlibstdstrData[addr];
+	#endif
 }
 
 int kernelLibStdTimeReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelLibStdTimeSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemlibstdtimeData[addr]));
+	#else
 	return progmemlibstdtimeData[addr];
+	#endif
 }
 
 int kernelMan1ReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelMan1Size);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemman1Data[addr]));
+	#else
 	return progmemman1Data[addr];
+	#endif
 }
 
 int kernelMan2ReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelMan2Size);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemman2Data[addr]));
+	#else
 	return progmemman2Data[addr];
+	#endif
 }
 
 int kernelMan3ReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelMan3Size);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemman3Data[addr]));
+	#else
 	return progmemman3Data[addr];
+	#endif
 }
 #endif
 
@@ -695,12 +743,20 @@ bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData) {
 
 int kernelUsrBinReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelUsrBinSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemusrbinData[addr]));
+	#else
 	return progmemusrbinData[addr];
+	#endif
 }
 
 int kernelUsrGamesReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelUsrGamesSize);
+	#ifdef ARDUINO
+	return pgm_read_byte(&(progmemusrgamesData[addr]));
+	#else
 	return progmemusrgamesData[addr];
+	#endif
 }
 
 int kernelDevPinReadFunctor(void *userData) {

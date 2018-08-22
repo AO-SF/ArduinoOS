@@ -147,9 +147,13 @@ bool buildVolumeTrySize(const char *name, uint16_t size, const char *srcDir, boo
 	fprintf(hFile, "#define PROGMEM%s_H\n\n", name);
 	fprintf(hFile, "#include <stdint.h>\n\n");
 
-	fprintf(hFile, "// TODO: this needs to be done specially for arduino\n");
 	fprintf(hFile, "#define PROGMEM%sDATASIZE %iu\n", name, size);
+	fprintf(hFile, "#ifdef ARDUINO\n");
+	fprintf(hFile, "#include <avr/pgmspace.h>\n");
+	fprintf(hFile, "static const uint8_t progmem%sData[PROGMEM%sDATASIZE] PROGMEM ={\n", name, name);
+	fprintf(hFile, "#else\n");
 	fprintf(hFile, "static const uint8_t progmem%sData[PROGMEM%sDATASIZE]={\n", name, name);
+	fprintf(hFile, "#endif\n");
 	fprintf(hFile, "\t");
 	const int perLine=16;
 	for(int i=0; i<size; ++i) {
