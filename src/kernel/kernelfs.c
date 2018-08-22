@@ -2,7 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef ARDUINO
+#else
 #include <unistd.h>
+#endif
 
 #include "kernelfs.h"
 #include "log.h"
