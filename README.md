@@ -10,7 +10,7 @@ There are also a few tools (which run on a standard PC, not the Arduino) such as
 See the wiki Documentation page for more information.
 
 # Compiling and Building
-Run make from the root directory.
+Run either ``make arduino`` or ``make pc`` from the root directory.
 This will:
 
 * compile initial tools - the assembler, disassembler and emulator

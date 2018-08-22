@@ -1,11 +1,21 @@
-ALL:
+arduino:
 	mkdir -p bin
 	cd src/tools/assembler && make
 	cd src/tools/disassembler && make
 	cd src/tools/emulator && make
 	cd src/tools/builder && make
 	./bin/builder
-	cd src/kernel && make
+	cd src/kernel && make clean # HACK as builder makes pc versions of some of the objects
+	cd src/kernel && make arduino
+
+pc:
+	mkdir -p bin
+	cd src/tools/assembler && make
+	cd src/tools/disassembler && make
+	cd src/tools/emulator && make
+	cd src/tools/builder && make
+	./bin/builder
+	cd src/kernel && make pc
 
 clean:
 	cd src/tools/assembler && make clean
