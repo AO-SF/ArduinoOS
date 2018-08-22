@@ -9,10 +9,12 @@ ALL: $(OBJS)
 	rm -rf mockups/usrbinmockup/*
 	rm -rf mockups/homemockup/*
 	rm -rf mockups/etcmockup/*
+	rm -rf mockups/usrgamesmockup/*
 	mkdir -p mockups/binmockup
 	mkdir -p mockups/usrbinmockup
 	mkdir -p mockups/homemockup
 	mkdir -p mockups/etcmockup
+	mkdir -p mockups/usrgamesmockup
 
 	cp ../../userspace/bin/startup.sh mockups/etcmockup/startup
 	cp ../../userspace/bin/shutdown.sh mockups/etcmockup/shutdown
@@ -21,8 +23,10 @@ ALL: $(OBJS)
 	cp homeexample/* mockups/homemockup
 	../../../bin/assembler ../../userspace/bin/tree.s mockups/homemockup/tree
 	../../../bin/assembler ../../userspace/bin/bomb.s mockups/homemockup/bomb
-	../../../bin/assembler ../../userspace/bin/sokoban.s mockups/homemockup/sokoban
 	../../../bin/assembler ../../userspace/bin/blink.s mockups/homemockup/blink
+
+	cp usrgamesexample/* mockups/usrgamesmockup
+	../../../bin/assembler ../../userspace/bin/sokoban.s mockups/usrgamesmockup/sokoban
 
 	../../../bin/assembler ../../userspace/bin/cat.s mockups/binmockup/cat
 	../../../bin/assembler ../../userspace/bin/false.s mockups/binmockup/false

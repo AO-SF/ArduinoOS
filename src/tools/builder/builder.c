@@ -67,6 +67,8 @@ int main(int agrc, char **argv) {
 	// Build other read-only volumes
 	buildVolume("bin", "./src/tools/builder/mockups/binmockup");
 	buildVolume("usrbin", "./src/tools/builder/mockups/usrbinmockup");
+	buildVolume("usrgames", "./src/tools/builder/mockups/usrgamesmockup");
+
 	buildVolume("libstdio", "./src/userspace/bin/lib/std/io");
 	buildVolume("libstdmath", "./src/userspace/bin/lib/std/math");
 	buildVolume("libstdmem", "./src/userspace/bin/lib/std/mem");
