@@ -19,8 +19,9 @@ void kernelLog(LogType type, const char *format, ...) {
 }
 
 void kernelLogV(LogType type, const char *format, va_list ap) {
-	// TODO: Think about Arduino case
-#ifndef ARDUINO
+#ifdef ARDUINO
+	// TODO: this (use serial presumably)
+#else
 	// Open file
 	FILE *file=fopen("kernel.log", "a");
 	if (file!=NULL) {
