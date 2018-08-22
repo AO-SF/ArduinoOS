@@ -41,7 +41,7 @@
 
 #define KernelPinNumMax 20
 
-#define KernelTmpDataPoolSize (8*1024) // 8kb - used as ram (will have to be smaller on Uno presumably)
+#define KernelTmpDataPoolSize (4*1024) // 4kb - used as ram (will have to be smaller on Uno presumably)
 uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize PROGMEMbinDATASIZE
