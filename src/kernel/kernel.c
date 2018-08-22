@@ -61,7 +61,7 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelUsrBinSize PROGMEMusrbinDATASIZE
 #define KernelUsrGamesSize PROGMEMusrgamesDATASIZE
 
-#define KernelEepromTotalSize (8*1024) // Mega has 4kb for example
+#define KernelEepromTotalSize (4*1024) // Mega has 4kb for example
 #define KernelEepromEtcOffset (0)
 #define KernelEepromEtcSize (1*1024)
 #define KernelEepromDevEepromOffset KernelEepromEtcSize

@@ -9,7 +9,7 @@
 
 uint8_t dataArray[MINIFSMAXSIZE];
 
-#define eepromTotalSize (8*1024)
+#define eepromTotalSize (4*1024)
 #define eepromEtcOffset 0
 #define eepromEtcSize (1*1024)
 #define eepromHomeOffset eepromEtcSize
