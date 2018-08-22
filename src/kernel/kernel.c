@@ -37,6 +37,7 @@
 #include "progmemman3.h"
 #endif
 #include "progmemusrbin.h"
+#include "progmemusrgames.h"
 
 #define KernelPinNumMax 20
 
@@ -58,6 +59,7 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelMan3Size PROGMEMman3DATASIZE
 #endif
 #define KernelUsrBinSize PROGMEMusrbinDATASIZE
+#define KernelUsrGamesSize PROGMEMusrgamesDATASIZE
 
 #define KernelEepromTotalSize (8*1024) // Mega has 4kb for example
 #define KernelEepromEtcOffset (0)
@@ -137,6 +139,7 @@ int kernelDevTtyS0ReadFunctor(void *userData);
 bool kernelDevTtyS0CanReadFunctor(void *userData);
 bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData);
 int kernelUsrBinReadFunctor(KernelFsFileOffset addr, void *userData);
+int kernelUsrGamesReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelDevPinReadFunctor(void *userData);
 bool kernelDevPinCanReadFunctor(void *userData);
 bool kernelDevPinWriteFunctor(uint8_t value, void *userData);
@@ -335,6 +338,7 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/3", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan3Size, &kernelMan3ReadFunctor, NULL, NULL);
 	#endif
 	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/usr/games", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
 
 	if (error)
 		kernelFatalError("could not initialise filesystem\n");
@@ -692,6 +696,11 @@ bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData) {
 int kernelUsrBinReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelUsrBinSize);
 	return progmemusrbinData[addr];
+}
+
+int kernelUsrGamesReadFunctor(KernelFsFileOffset addr, void *userData) {
+	assert(addr<KernelUsrGamesSize);
+	return progmemusrgamesData[addr];
 }
 
 int kernelDevPinReadFunctor(void *userData) {
