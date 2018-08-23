@@ -43,7 +43,7 @@
 #define KernelPinNumMax 20
 
 #ifdef ARDUINO
-#define KernelTmpDataPoolSize (1*1024) // 1kb - used as rams
+#define KernelTmpDataPoolSize (2*1024) // 2kb - used as ram
 #else
 #define KernelTmpDataPoolSize (4*1024) // 4kb - used as ram
 #endif
