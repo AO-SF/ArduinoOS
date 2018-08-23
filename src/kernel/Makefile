@@ -3,7 +3,7 @@ LFLAGS = -lm
 
 pc: CFLAGS += -O2 -DPC
 pc: CPP = clang
-arduino: CFLAGS += -O3 -mmcu=atmega2560 -DF_CPU=16000000UL -DARDUINO
+arduino: CFLAGS += -Os -flto -mcall-prologues -mmcu=atmega2560 -DF_CPU=16000000UL -DBAUD=9600 -DARDUINO
 arduino: CPP = avr-gcc
 
 pc: ALL
