@@ -33,8 +33,7 @@ uint32_t millis(void) {
 
 void delay(uint32_t ms) {
 	#ifdef ARDUINO
-	_delay_ms(5);
-	// ..... _delay_ms(ms);
+	_delay_ms(ms);
 	#else
 	usleep(ms*1000llu);
 	#endif
