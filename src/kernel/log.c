@@ -4,6 +4,7 @@
 #include <string.h>
 
 #ifdef ARDUINO
+#include <avr/pgmspace.h>
 #else
 #include <sys/types.h>
 #endif
@@ -11,15 +12,15 @@
 #include "log.h"
 #include "wrapper.h"
 
-void kernelLog(LogType type, const char *format, ...) {
+#ifdef ARDUINO
+void kernelLogRaw(LogType type, const char *format, ...) {
 	va_list ap;
 	va_start(ap, format);
-	kernelLogV(type, format, ap);
+	kernelLogRawV(type, format, ap);
 	va_end(ap);
 }
 
-void kernelLogV(LogType type, const char *format, va_list ap) {
-#ifdef ARDUINO
+void kernelLogRawV(LogType type, const char *format, va_list ap) {
 	// Print time
 	uint32_t t=millis();
 	uint32_t h=t/(60u*60u*1000u);
@@ -34,8 +35,17 @@ void kernelLogV(LogType type, const char *format, va_list ap) {
 	printf("%7s ", logTypeToString(type));
 
 	// Print user string
-	vprintf(format, ap);
+	vfprintf_P(stdout, format, ap);
+}
 #else
+void kernelLog(LogType type, const char *format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	kernelLogV(type, format, ap);
+	va_end(ap);
+}
+
+void kernelLogV(LogType type, const char *format, va_list ap) {
 	// Open file
 	FILE *file=fopen("kernel.log", "a");
 	if (file!=NULL) {
@@ -58,8 +68,8 @@ void kernelLogV(LogType type, const char *format, va_list ap) {
 		// Close file
 		fclose(file);
 	}
-#endif
 }
+#endif
 
 const char *logTypeToString(LogType type) {
 	static const char *logTypeToStringArray[]={
