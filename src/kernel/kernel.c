@@ -790,14 +790,16 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 		return false;
 	}
 #ifdef ARDUINO
-	// TODO: this pinWrite() essentially
-	kernelLog(LogTypeWarning, "pin %u write - not implemented\n", pinNum);
-	return false;
+	// TODO: Support pins other than 13 for the LED
+	DDRB|=(1<<PB7);
+	if (value!=0)
+		PORTB|=(1<<PB7);
+	else
+		PORTB&=~(1<<PB7);
 #else
-	kernelLog(LogTypeInfo, "pin %u write - new value %u\n", pinNum, value);
 	pinStates[pinNum]=(value!=0);
-	return true;
 #endif
+	return true;
 }
 
 #ifndef ARDUINO
