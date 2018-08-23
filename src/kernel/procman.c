@@ -239,7 +239,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procData.ramFd=ramFd;
 
 	if (kernelFsFileWriteOffset(ramFd, 0, (uint8_t *)envVarData, envVarDataLen)!=envVarDataLen) {
-		kernelLog(LogTypeWarning, "could not create new process - could not write env var data into start of ram data file at '%s', fd %u (tried to write %u bytes)\n", ramPath, ramFd, envVarDataLen);
+		kernelLog(LogTypeWarning, "could not create new process - could not write env var data into ram file '%s', fd %u (tried %u bytes)\n", ramPath, ramFd, envVarDataLen);
 		goto error;
 	}
 
@@ -669,7 +669,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 			// Unable to allocate even 1 extra byte?
 			if (extra<=1) {
 				// TODO: tidy up better in this case? (ramfd in particular)
-				kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM address (0x%04X, ram offset %u), beyond current size, but we could not allocate new size needed (%u vs original %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
+				kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not allocate new size (%u vs %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
 				return false;
 			}
 		}
@@ -678,14 +678,14 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		procData->ramFd=kernelFsFileOpen(ramFdPath);
 		if (procData->ramFd==KernelFsFdInvalid) {
 			// TODO: tidy up better in this case? (ramfd in particular)
-			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM address (0x%04X, ram offset %u), beyond current size, but we could not reopen ram file after resizing, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
+			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not reopen file after resizing, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
 			return false;
 		}
 
 		// Update stored ram len and write byte
 		procData->ramLen=newRamLen;
 		if (!kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, &value, 1)) {
-			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM address (0x%04X, ram offset %u), beyond current size. We have resized (%u vs original %u) and reopened the file, but still could not write, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
+			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM (0x%04X, offset %u) had to resize (%u vs %u), but could not write, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
 			return false;
 		}
 
@@ -1621,7 +1621,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 			// Look for newline and if found terminate string here
 			char *newlinePtr=strchr(interpreterPath, '\n');
 			if (newlinePtr==NULL) {
-				kernelLog(LogTypeWarning, "loading executable in %u failed - magic bytes '#!' not followed by newline terminated interpreter path (original exec path '%s', fd %u)\n", procManGetPidFromProcess(process), args[0], newProgmemFd);
+				kernelLog(LogTypeWarning, "loading executable in %u failed - '#!' not followed by interpreter path (original exec path '%s', fd %u)\n", procManGetPidFromProcess(process), args[0], newProgmemFd);
 				kernelFsFileClose(newProgmemFd);
 				return KernelFsFdInvalid;
 			}
