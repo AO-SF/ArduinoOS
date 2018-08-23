@@ -20,7 +20,21 @@ void kernelLog(LogType type, const char *format, ...) {
 
 void kernelLogV(LogType type, const char *format, va_list ap) {
 #ifdef ARDUINO
-	// TODO: this (use serial presumably)
+	// Print time
+	uint32_t t=millis();
+	uint32_t h=t/(60u*60u*1000u);
+	t-=h*(60u*60u*1000u);
+	uint32_t m=t/(60u*1000u);
+	t-=m*(60u*1000u);
+	uint32_t s=t/1000u;
+	uint32_t ms=t-s*1000u;
+	printf("%3lu:%02lu:%02lu:%03lu ", h, m, s, ms);
+
+	// Print log type
+	printf("%7s ", logTypeToString(type));
+
+	// Print user string
+	vprintf(format, ap);
 #else
 	// Open file
 	FILE *file=fopen("kernel.log", "a");
