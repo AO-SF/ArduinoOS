@@ -42,7 +42,11 @@
 
 #define KernelPinNumMax 20
 
-#define KernelTmpDataPoolSize (4*1024) // 4kb - used as ram (will have to be smaller on Uno presumably)
+#ifdef ARDUINO
+#define KernelTmpDataPoolSize (1*1024) // 1kb - used as rams
+#else
+#define KernelTmpDataPoolSize (4*1024) // 4kb - used as ram
+#endif
 uint8_t *kernelTmpDataPool=NULL;
 
 #define KernelBinSize PROGMEMbinDATASIZE
