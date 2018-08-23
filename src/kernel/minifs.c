@@ -136,6 +136,7 @@ uint8_t miniFsGetChildCount(const MiniFs *fs) {
 }
 
 void miniFsDebug(const MiniFs *fs) {
+#ifndef ARDUINO
 	printf("Volume debug:\n");
 	printf("	max total size: %u bytes\n", miniFsGetTotalSize(fs));
 	printf("	header size: %u bytes (%u%% of total, leaving %u bytes for file data)\n", MINIFSHEADERSIZE, (100*MINIFSHEADERSIZE)/miniFsGetTotalSize(fs), miniFsGetTotalSize(fs)-MINIFSHEADERSIZE);
@@ -159,6 +160,7 @@ void miniFsDebug(const MiniFs *fs) {
 		}
 		printf("\n");
 	}
+#endif
 }
 
 bool miniFsFileExists(const MiniFs *fs, const char *filename) {
