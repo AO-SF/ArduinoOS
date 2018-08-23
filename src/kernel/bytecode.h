@@ -75,7 +75,9 @@ typedef enum {
 	BytecodeInstructionAluCmpBitNB,
 } BytecodeInstructionAluCmpBit;
 
+#ifndef ARDUINO
 extern const char *byteCodeInstructionAluCmpBitStrings[BytecodeInstructionAluCmpBitNB];
+#endif
 
 typedef enum {
 	BytecodeInstructionAluCmpMaskEqual=(1u<<BytecodeInstructionAluCmpBitEqual),

@@ -2,6 +2,7 @@
 
 #include "bytecode.h"
 
+#ifndef ARDUINO
 const char *byteCodeInstructionAluCmpBitStrings[BytecodeInstructionAluCmpBitNB]={
 	[BytecodeInstructionAluCmpBitEqual]="Equal",
 	[BytecodeInstructionAluCmpBitEqualZero]="EqualZero",
@@ -12,6 +13,7 @@ const char *byteCodeInstructionAluCmpBitStrings[BytecodeInstructionAluCmpBitNB]=
 	[BytecodeInstructionAluCmpBitGreaterThan]="GreaterThan",
 	[BytecodeInstructionAluCmpBitGreaterEqual]="GreaterEqual",
 };
+#endif
 
 BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstructionLong instruction) {
 	if ((instruction[0]>>4)<0xD)
