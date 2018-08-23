@@ -303,49 +303,76 @@ void kernelBoot(void) {
 
 	// Init file system and add virtual devices
 	kernelFsInit();
+	bool error;
 
-	bool error=false;
+	// ... base directories
+	error=false;
 	error|=!kernelFsAddDirectoryDeviceFile("/");
-	error|=!kernelFsAddBlockDeviceFile("/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelBinSize, &kernelBinReadFunctor, NULL, NULL);
 	error|=!kernelFsAddDirectoryDeviceFile("/dev");
-	error|=!kernelFsAddBlockDeviceFile("/dev/eeprom", KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelDevEepromReadFunctor, kernelDevEepromWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, NULL);
-	for(uint8_t pinNum=0; pinNum<KernelPinNumMax; ++pinNum) {
-		char pinDevicePath[64];
-		sprintf(pinDevicePath, "/dev/pin%u", pinNum);
-		error|=!kernelFsAddCharacterDeviceFile(pinDevicePath, &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)pinNum);
-	}
-	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/etc", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEtcReadFunctor, kernelEtcWriteFunctor, NULL);
+	error|=!kernelFsAddDirectoryDeviceFile("/media");
+	error|=!kernelFsAddDirectoryDeviceFile("/usr");
 	#ifndef ARDUINO
 	error|=!kernelFsAddDirectoryDeviceFile("/lib");
+	error|=!kernelFsAddDirectoryDeviceFile("/lib/std");
+	error|=!kernelFsAddDirectoryDeviceFile("/usr/man");
+	#endif
+	if (error)
+		kernelFatalError("fs init failure: base directories\n");
+
+	// ... essential: tmp directory used for ram
+	if (!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL))
+		kernelFatalError("fs init failure: /tmp\n");
+
+	// ... essential: RO volume /bin
+	if (!kernelFsAddBlockDeviceFile("/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelBinSize, &kernelBinReadFunctor, NULL, NULL))
+		kernelFatalError("fs init failure: /bin\n");
+
+	// ... non-essential RO volumes
+	error=false;
+	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/usr/games", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
+	#ifndef ARDUINO
+	error=false;
 	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/pin", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL, NULL);
-	error|=!kernelFsAddDirectoryDeviceFile("/lib/std");
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/io", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdIoSize, &kernelLibStdIoReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/math", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMathSize, &kernelLibStdMathReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/proc", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdProcSize, &kernelLibStdProcReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/mem", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMemSize, &kernelLibStdMemReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/str", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/time", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL, NULL);
-	#endif
-	error|=!kernelFsAddDirectoryDeviceFile("/media");
-	error|=!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL);
-	error|=!kernelFsAddDirectoryDeviceFile("/usr");
-	error|=!kernelFsAddDirectoryDeviceFile("/usr/man");
-	#ifndef ARDUINO
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/1", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan1Size, &kernelMan1ReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/2", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan2Size, &kernelMan2ReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/usr/man/3", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan3Size, &kernelMan3ReadFunctor, NULL, NULL);
 	#endif
-	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/usr/games", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
+	if (error)
+		kernelLog(LogTypeWarning, "fs init failure: /lib and /usr\n");
+
+	// ... optional EEPROM volumes
+	error=false;
+	error|=!kernelFsAddBlockDeviceFile("/etc", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEtcReadFunctor, kernelEtcWriteFunctor, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/dev/eeprom", KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelDevEepromReadFunctor, kernelDevEepromWriteFunctor, NULL);
+	if (error)
+		kernelLog(LogTypeWarning, "fs init failure: /etc and /home\n");
+
+	// ... optional device files
+	error=false;
+	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
+
+	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, NULL);
+
+	for(uint8_t pinNum=0; pinNum<KernelPinNumMax; ++pinNum) {
+		char pinDevicePath[64];
+		sprintf(pinDevicePath, "/dev/pin%u", pinNum);
+		error|=!kernelFsAddCharacterDeviceFile(pinDevicePath, &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)pinNum);
+	}
 
 	if (error)
-		kernelFatalError("could not initialise filesystem\n");
+		kernelLog(LogTypeWarning, "fs init failure: /dev\n");
+
 	kernelLog(LogTypeInfo, "initialised filesystem\n");
 
 	// Initialise process manager and start init process
@@ -364,7 +391,7 @@ void kernelShutdownFinal(void) {
 	kernelLog(LogTypeInfo, "shutting down final\n");
 
 	// Quit process manager
-	kernelLog(LogTypeInfo, "killing all processes\n");
+	kernelLog(LogTypeInfo, "killing process manager\n");
 	procManQuit();
 
 	// Quit file system
