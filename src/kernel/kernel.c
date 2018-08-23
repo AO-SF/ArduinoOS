@@ -88,6 +88,8 @@ ProcManPid kernelReaderPid=ProcManPidMax;
 KernelState kernelState=KernelStateInvalid;
 uint32_t kernelStateTime=0;
 
+#define kernelFatalError(format, ...) do { kernelLog(LogTypeError, format, ##__VA_ARGS__); kernelHalt(); } while(0)
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -100,9 +102,6 @@ void kernelBoot(void);
 void kernelShutdownFinal(void);
 
 void kernelHalt(void);
-
-void kernelFatalError(const char *format, ...);
-void kernelFatalErrorV(const char *format, va_list ap);
 
 int kernelBinReadFunctor(KernelFsFileOffset addr, void *userData);
 #ifndef ARDUINO
@@ -423,18 +422,6 @@ void kernelHalt(void) {
 	kernelLog(LogTypeInfo, "exiting (PC wrapper)\n");
 	exit(0);
 #endif
-}
-
-void kernelFatalError(const char *format, ...) {
-	va_list ap;
-	va_start(ap, format);
-	kernelFatalErrorV(format, ap);
-	va_end(ap);
-}
-
-void kernelFatalErrorV(const char *format, va_list ap) {
-	kernelLogV(LogTypeError, format, ap);
-	kernelHalt();
 }
 
 int kernelBinReadFunctor(KernelFsFileOffset addr, void *userData) {
