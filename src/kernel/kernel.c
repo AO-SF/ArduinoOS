@@ -7,6 +7,7 @@
 
 #ifdef ARDUINO
 #include <avr/eeprom.h>
+#include "uart.h"
 #else
 #include <poll.h>
 #include <signal.h>
@@ -236,6 +237,15 @@ void kernelShutdownNext(void) {
 }
 
 void kernelBoot(void) {
+	// Arduino-only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
+#ifdef ARDUINO
+	uart_init();
+	stdout=&uart_output;
+	stdin=&uart_input;
+	kernelLog(LogTypeInfo, "initialised uart (serial)\n");
+#endif
+
+	// Enter booting state
 	kernelSetState(KernelStateBooting);
 	kernelLog(LogTypeInfo, "booting\n");
 
@@ -253,16 +263,6 @@ void kernelBoot(void) {
 	// PC only - register sigint handler so we can pass this signal onto e.g. the shell
 #ifndef ARDUINO
     signal(SIGINT, kernelSigIntHandler); // TODO: Check return.
-#endif
-
-	// Arduino-only: connect to serial (ready to mount as /dev/ttyS0).
-#ifdef ARDUINO
-	/*
-	.....
-	Serial.begin(9600);
-	while (!Serial) ;
-	kernelLog(LogTypeInfo, "initialised serial\n");
-	*/
 #endif
 
 	// Allocate space for /tmp
@@ -366,15 +366,6 @@ void kernelShutdownFinal(void) {
 	// Quit file system
 	kernelLog(LogTypeInfo, "unmounting filesystem\n");
 	kernelFsQuit();
-
-	// Arduino-only: close serial connection (was mounted as /dev/ttyS0).
-#ifdef ARDUINO
-	/*
-	.....
-	kernelLog(LogTypeInfo, "closing serial connection\n");
-	Serial.end();
-	*/
-#endif
 
 	// Free /tmp memory pool
 	kernelLog(LogTypeInfo, "freeing /tmp space\n");
@@ -680,11 +671,10 @@ bool kernelDevURandomWriteFunctor(uint8_t value, void *userData) {
 
 int kernelDevTtyS0ReadFunctor(void *userData) {
 #ifdef ARDUINO
-	/*
-	.....
-	return Serial.read();
-	*/
-	return -1;
+	int c=getchar();
+	if (c==EOF)
+		return -1;
+	return c;
 #else
 	if (kernelTtyS0BytesAvailable==0)
 		kernelLog(LogTypeWarning, "kernelTtyS0BytesAvailable=0 going into kernelDevTtyS0ReadFunctor\n");
@@ -699,10 +689,7 @@ int kernelDevTtyS0ReadFunctor(void *userData) {
 
 bool kernelDevTtyS0CanReadFunctor(void *userData) {
 #ifdef ARDUINO
-	/*
-	.....
-	return (Serial.available()>0);
-	*/
+	// TODO: this
 	return false;
 #else
 	// If we still think there are bytes waiting to be read, return true immediately
@@ -728,11 +715,10 @@ bool kernelDevTtyS0CanReadFunctor(void *userData) {
 
 bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData) {
 #ifdef ARDUINO
-	/*
-	.....
-	return (Serial.write(value)==1);
-	*/
-	return false;
+	if (putchar(value)!=value)
+		return false;
+	fflush(stdout);
+	return true;
 #else
 	if (putchar(value)!=value)
 		return false;
