@@ -302,7 +302,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 	if (process->procFd!=KernelFsFdInvalid) {
 		// Close and delete ram file
 		ProcManProcessProcData procData;
-		if (procManProcessLoadProcData(process, &procData)) {
+		if (procManProcessLoadProcData(process, &procData) && procData.ramFd!=KernelFsFdInvalid) {
 			char ramPath[KernelFsPathMax];
 			strcpy(ramPath, kernelFsGetFilePath(procData.ramFd));
 			kernelFsFileClose(procData.ramFd);
@@ -649,6 +649,8 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		char ramFdPath[KernelFsPathMax];
 		strcpy(ramFdPath, kernelFsGetFilePath(procData->ramFd));
 		kernelFsFileClose(procData->ramFd);
+		KernelFsFd prefd=procData->ramFd;
+		procData->ramFd=KernelFsFdInvalid;
 
 		// Resize ram file (trying for up to 16 bytes extra, but falling back on minimum if fails)
 		KernelFsFileOffset oldRamLen=procData->ramLen;
@@ -668,28 +670,33 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 
 			// Unable to allocate even 1 extra byte?
 			if (extra<=1) {
-				// TODO: tidy up better in this case? (ramfd in particular)
 				kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not allocate new size (%u vs %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
-				return false;
+				kernelFsFileDelete(ramFdPath);
+				goto error;
 			}
 		}
 
 		// Re-open ram file
 		procData->ramFd=kernelFsFileOpen(ramFdPath);
 		if (procData->ramFd==KernelFsFdInvalid) {
-			// TODO: tidy up better in this case? (ramfd in particular)
 			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not reopen file after resizing, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
-			return false;
+			kernelFsFileDelete(ramFdPath);
+			goto error;
 		}
 
 		// Update stored ram len and write byte
 		procData->ramLen=newRamLen;
 		if (!kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, &value, 1)) {
 			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM (0x%04X, offset %u) had to resize (%u vs %u), but could not write, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
-			return false;
+			goto error;
 		}
 
 		return true;
+
+		error:
+		// Store procdata back as otherwise when we come to kill ramFd will not be saved
+		procManProcessStoreProcData(process, procData); // TODO: Check return
+		return false;
 	}
 }
 
