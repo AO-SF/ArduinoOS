@@ -1,7 +1,7 @@
 CFLAGS = -std=gnu11 -Wall
 LFLAGS = -lm
 
-pc: CFLAGS += -O2 -DPC
+pc: CFLAGS += -O2 -DPC -ggdb3
 pc: CPP = clang
 arduino: CFLAGS += -Os -flto -mcall-prologues -mmcu=atmega2560 -DF_CPU=16000000UL -DBAUD=9600 -DARDUINO
 arduino: CPP = avr-gcc
