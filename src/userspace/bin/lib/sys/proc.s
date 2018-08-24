@@ -1,1 +1,1 @@
-const PidMax 64
+const PidMax 16
