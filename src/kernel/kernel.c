@@ -76,8 +76,8 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelEepromDevEepromSize (KernelEepromTotalSize-KernelEepromDevEepromOffset)
 
 #ifdef ARDUINO
-volatile CircBuf kernelDevTtyCircBuf;
-volatile uint8_t kernelDevTtyCircBufNewlineCount;
+volatile CircBuf kernelDevTtyS0CircBuf;
+volatile uint8_t kernelDevTtyS0CircBufNewlineCount;
 #else
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
@@ -165,9 +165,9 @@ void kernelSigIntHandler(int sig);
 ISR(USART0_RX_vect) {
 	ATOMIC_BLOCK(ATOMIC_FORCEON) {
 		uint8_t value=UDR0;
-		circBufPush(&kernelDevTtyCircBuf, value);
+		circBufPush(&kernelDevTtyS0CircBuf, value);
 		if (value=='\n')
-			++kernelDevTtyCircBufNewlineCount;
+			++kernelDevTtyS0CircBufNewlineCount;
 	}
 }
 #endif
@@ -262,8 +262,8 @@ void kernelShutdownNext(void) {
 void kernelBoot(void) {
 	// Arduino-only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
 #ifdef ARDUINO
-	kernelDevTtyCircBufNewlineCount=0;
-	circBufInit(&kernelDevTtyCircBuf);
+	kernelDevTtyS0CircBufNewlineCount=0;
+	circBufInit(&kernelDevTtyS0CircBuf);
 	uart_init();
 
 	stdout=&uart_output;
@@ -722,10 +722,10 @@ int kernelDevTtyS0ReadFunctor(void *userData) {
 	int ret=-1;
 	uint8_t value;
 	ATOMIC_BLOCK(ATOMIC_FORCEON) {
-		if (circBufPop(&kernelDevTtyCircBuf, &value)) {
+		if (circBufPop(&kernelDevTtyS0CircBuf, &value)) {
 			ret=value;
 			if (value=='\n')
-				--kernelDevTtyCircBufNewlineCount;
+				--kernelDevTtyS0CircBufNewlineCount;
 		}
 	}
 	return ret;
@@ -743,7 +743,7 @@ int kernelDevTtyS0ReadFunctor(void *userData) {
 
 bool kernelDevTtyS0CanReadFunctor(void *userData) {
 #ifdef ARDUINO
-	return (kernelDevTtyCircBufNewlineCount>0);
+	return (kernelDevTtyS0CircBufNewlineCount>0);
 #else
 	// If we still think there are bytes waiting to be read, return true immediately
 	if (kernelTtyS0BytesAvailable>0)
