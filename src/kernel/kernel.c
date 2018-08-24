@@ -7,6 +7,9 @@
 
 #ifdef ARDUINO
 #include <avr/eeprom.h>
+#include <avr/interrupt.h>
+#include <util/atomic.h>
+#include "circbuf.h"
 #include "uart.h"
 #else
 #include <poll.h>
@@ -71,7 +74,11 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelEepromEtcSize (1*1024)
 #define KernelEepromDevEepromOffset KernelEepromEtcSize
 #define KernelEepromDevEepromSize (KernelEepromTotalSize-KernelEepromDevEepromOffset)
-#ifndef ARDUINO
+
+#ifdef ARDUINO
+volatile CircBuf kernelDevTtyCircBuf;
+volatile uint8_t kernelDevTtyCircBufNewlineCount;
+#else
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
 
@@ -150,6 +157,19 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData);
 
 #ifndef ARDUINO
 void kernelSigIntHandler(int sig);
+#endif
+
+#ifdef ARDUINO
+#include <avr/io.h>
+#include <avr/sleep.h>
+ISR(USART0_RX_vect) {
+	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+		uint8_t value=UDR0;
+		circBufPush(&kernelDevTtyCircBuf, value);
+		if (value=='\n')
+			++kernelDevTtyCircBufNewlineCount;
+	}
+}
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -242,9 +262,18 @@ void kernelShutdownNext(void) {
 void kernelBoot(void) {
 	// Arduino-only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
 #ifdef ARDUINO
+	kernelDevTtyCircBufNewlineCount=0;
+	circBufInit(&kernelDevTtyCircBuf);
 	uart_init();
+
 	stdout=&uart_output;
 	stdin=&uart_input;
+
+	cli();
+	UCSR0B=(1<<RXEN0)|(1<<TXEN0)|(1<<RXCIE0);
+	set_sleep_mode(SLEEP_MODE_IDLE);
+	sei();
+
 	kernelLog(LogTypeInfo, "initialised uart (serial)\n");
 #endif
 
@@ -689,10 +718,16 @@ bool kernelDevURandomWriteFunctor(uint8_t value, void *userData) {
 
 int kernelDevTtyS0ReadFunctor(void *userData) {
 #ifdef ARDUINO
-	int c=getchar();
-	if (c==EOF)
-		return -1;
-	return c;
+	int ret=-1;
+	uint8_t value;
+	ATOMIC_BLOCK(ATOMIC_FORCEON) {
+		if (circBufPop(&kernelDevTtyCircBuf, &value)) {
+			ret=value;
+			if (value=='\n')
+				--kernelDevTtyCircBufNewlineCount;
+		}
+	}
+	return ret;
 #else
 	if (kernelTtyS0BytesAvailable==0)
 		kernelLog(LogTypeWarning, "kernelTtyS0BytesAvailable=0 going into kernelDevTtyS0ReadFunctor\n");
@@ -707,8 +742,7 @@ int kernelDevTtyS0ReadFunctor(void *userData) {
 
 bool kernelDevTtyS0CanReadFunctor(void *userData) {
 #ifdef ARDUINO
-	// TODO: this
-	return false;
+	return (kernelDevTtyCircBufNewlineCount>0);
 #else
 	// If we still think there are bytes waiting to be read, return true immediately
 	if (kernelTtyS0BytesAvailable>0)
