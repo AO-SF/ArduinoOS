@@ -267,6 +267,7 @@ void kernelBoot(void) {
 	uart_init();
 
 	stdout=&uart_output;
+	stderr=&uart_output;
 	stdin=&uart_input;
 
 	cli();
