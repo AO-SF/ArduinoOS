@@ -6,7 +6,7 @@
 #include "bytecode.h"
 
 typedef uint8_t ProcManPid;
-#define ProcManPidMax 64
+#define ProcManPidMax 16
 
 typedef enum {
 	ProcManExitStatusSuccess=0, // 0 and all other unused values can be used when calling exit
