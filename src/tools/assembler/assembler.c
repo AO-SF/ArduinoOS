@@ -730,12 +730,16 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				return false;
 			}
 
+			int allocationLen=assemblerGetConstSymbolValue(program, lenStr);
+			if (allocationLen==-1)
+				allocationLen=atoi(lenStr);
+
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeAllocation;
 			instruction->d.allocation.membSize=membSize;
-			instruction->d.allocation.len=atoi(lenStr);
+			instruction->d.allocation.len=allocationLen;
 			instruction->d.allocation.totalSize=instruction->d.allocation.membSize*instruction->d.allocation.len;
 			instruction->d.allocation.symbol=symbol;
 
