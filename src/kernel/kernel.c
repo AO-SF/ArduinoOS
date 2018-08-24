@@ -166,6 +166,8 @@ void kernelSigIntHandler(int sig);
 ISR(USART0_RX_vect) {
 	ATOMIC_BLOCK(ATOMIC_FORCEON) {
 		uint8_t value=UDR0;
+		if (value=='\r')
+			value='\n'; // HACK
 		circBufPush(&kernelDevTtyS0CircBuf, value);
 		if (value=='\n')
 			++kernelDevTtyS0CircBufNewlineCount;
