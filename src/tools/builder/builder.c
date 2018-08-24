@@ -92,6 +92,7 @@ int main(int argc, char **argv) {
 	buildVolume("libstdtime", "./src/userspace/bin/lib/std/time");
 	buildVolume("libcurses", "./src/userspace/bin/lib/curses");
 	buildVolume("libpin", "./src/userspace/bin/lib/pin");
+	buildVolume("libsys", "./src/userspace/bin/lib/sys");
 
 	buildVolume("man1", "./src/userspace/man/1");
 	buildVolume("man2", "./src/userspace/man/2");
