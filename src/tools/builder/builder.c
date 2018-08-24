@@ -7,6 +7,8 @@
 #include "minifs.h"
 #include "minifsextra.h"
 
+bool builderCompact=false;
+
 uint8_t dataArray[MINIFSMAXSIZE];
 
 #define eepromTotalSize (4*1024)
@@ -28,7 +30,20 @@ void homeMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
 uint8_t etcMiniFsReadFunctor(uint16_t addr, void *userData);
 void etcMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
 
-int main(int agrc, char **argv) {
+int main(int argc, char **argv) {
+	if (argc>2) {
+		printf("usage: %s [--compact]\n", argv[0]);
+		return 0;
+	}
+
+	if (argc>1) {
+		if (strcmp(argv[1], "--compact")==0) {
+			builderCompact=true;
+		} else {
+			printf("warning: unknown option '%s'\n", argv[1]);
+		}
+	}
+
 	// Create /etc and mock /home in EEPROM file, if it does not look like it already exists
 	FILE *fakeEepromFile=fopen(fakeEepromPath, "r+");
 	if (fakeEepromFile!=NULL) {
@@ -89,8 +104,23 @@ bool buildVolume(const char *name, const char *srcDir) {
 	// Loop, trying increasing powers of 2 for max volume size until we succeed (if we do at all).
 	uint16_t size;
 	for(size=MINIFSMINSIZE; size<=MINIFSMAXSIZE; size*=2) {
-		if (buildVolumeTrySize(name, size, srcDir, false))
-			return true;
+		if (buildVolumeTrySize(name, size, srcDir, false)) {
+			// Not in compact mode? If so, done
+			if (!builderCompact)
+				return true;
+
+			// Otherwise try to shrink
+			// TODO: Use a binary search or similar, rather than linear
+			uint16_t compactSize;
+			for(compactSize=size-MINIFSFACTOR; compactSize>=MINIFSMINSIZE; compactSize-=MINIFSFACTOR) {
+				if (!buildVolumeTrySize(name, compactSize, srcDir, false))
+					break;
+			}
+
+			// Fall back on last size found
+			if (buildVolumeTrySize(name, compactSize+MINIFSFACTOR, srcDir, false))
+				return true;
+		}
 	}
 
 	// We have failed - run final size again but with logging turned on.

@@ -5,7 +5,7 @@ arduino:
 	cd src/tools/disassembler && make
 	cd src/tools/emulator && make
 	cd src/tools/builder && make
-	./bin/builder
+	./bin/builder --compact
 	cd src/kernel && make clean # HACK as builder and others make pc versions of some of the objects
 	cd src/kernel && make arduino
 	avr-objcopy -O ihex ./bin/kernel ./bin/kernel.hex
@@ -16,7 +16,7 @@ pc:
 	cd src/tools/disassembler && make
 	cd src/tools/emulator && make
 	cd src/tools/builder && make
-	./bin/builder
+	./bin/builder --compact
 	cd src/kernel && make pc
 
 clean:
