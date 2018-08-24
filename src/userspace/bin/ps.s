@@ -1,3 +1,5 @@
+require lib/sys/proc.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputdec.s
 requireend lib/std/math/int32.s
@@ -5,7 +7,7 @@ requireend lib/std/proc/exit.s
 requireend lib/std/str/strpad.s
 
 db header '  PID  %CPU   RAM    STATE COMMAND\n', 0
-aw cpuCounts 64
+aw cpuCounts PidMax
 aw cpuTotal 1
 
 ab psPidPid 1
@@ -33,7 +35,7 @@ mov r1 0
 mov r2 cpuCounts
 mov r3 0
 label cpusumstart
-mov r4 64
+mov r4 PidMax
 cmp r4 r3 r4
 skipneq r4
 jmp cpusumend
@@ -52,7 +54,7 @@ mov r0 0
 label loopstart
 
 ; Hit max pid?
-mov r1 64
+mov r1 64..... pidmax?
 cmp r1 r0 r1
 skiplt r1
 jmp loopend

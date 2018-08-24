@@ -24,6 +24,8 @@ ab runInBackground 1
 
 ab childPid 1
 
+require lib/sys/proc.s
+
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputdec.s
@@ -373,7 +375,7 @@ syscall
 mov r1 childPid
 store8 r1 r0
 
-mov r1 64 ; ProcManPidMax
+mov r1 PidMax
 cmp r1 r0 r1
 skipneq r1
 jmp shellForkExecError
@@ -416,7 +418,7 @@ mov r0 6 ; waitpid syscall
 mov r2 0 ; infinite timeout
 syscall
 
-mov r0 64
+mov r0 PidMax
 mov r1 childPid
 store8 r1 r0
 
