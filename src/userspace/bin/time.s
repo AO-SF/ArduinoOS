@@ -1,3 +1,5 @@
+require lib/sys/proc.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputtime.s
 requireend lib/std/proc/exit.s
@@ -49,7 +51,7 @@ store16 r1 r0
 mov r0 4
 syscall
 
-mov r1 64
+mov r1 PidMax
 cmp r1 r0 r1
 skipneqz r1
 jmp forkChild
