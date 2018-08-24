@@ -649,7 +649,6 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		char ramFdPath[KernelFsPathMax];
 		strcpy(ramFdPath, kernelFsGetFilePath(procData->ramFd));
 		kernelFsFileClose(procData->ramFd);
-		KernelFsFd prefd=procData->ramFd;
 		procData->ramFd=KernelFsFdInvalid;
 
 		// Resize ram file (trying for up to 16 bytes extra, but falling back on minimum if fails)
