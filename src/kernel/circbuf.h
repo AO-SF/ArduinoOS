@@ -18,4 +18,8 @@ bool circBufIsEmpty(volatile CircBuf *cb);
 bool circBufPush(volatile CircBuf *cb, uint8_t value);
 bool circBufPop(volatile CircBuf *cb, uint8_t *value);
 
+bool circBufUnpush(volatile CircBuf *cb); // to implement backspace
+
+bool circBufTailPeek(volatile CircBuf *cb, uint8_t *value);
+
 #endif

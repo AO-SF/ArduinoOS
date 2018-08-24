@@ -50,3 +50,29 @@ bool circBufPop(volatile CircBuf *cb, uint8_t *value) {
 
 	return true;
 }
+
+bool circBufUnpush(volatile CircBuf *cb) {
+	assert(cb!=NULL);
+
+	// empty?
+	if (cb->head==cb->tail)
+		return false;
+
+	// pop from tail
+	cb->tail=(cb->tail==0 ? 255 :cb->tail-1);
+
+	return true;
+}
+
+bool circBufTailPeek(volatile CircBuf *cb, uint8_t *value) {
+	assert(cb!=NULL);
+
+	// empty?
+	if (cb->head==cb->tail)
+		return false;
+
+	// peek at tail
+	*value=cb->buffer[cb->tail==0 ? 255 : cb->tail-1];
+
+	return true;
+}
