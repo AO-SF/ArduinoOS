@@ -30,6 +30,7 @@
 #ifndef ARDUINO
 #include "progmemlibcurses.h"
 #include "progmemlibpin.h"
+#include "progmemlibsys.h"
 #include "progmemlibstdio.h"
 #include "progmemlibstdmath.h"
 #include "progmemlibstdproc.h"
@@ -56,6 +57,7 @@ uint8_t *kernelTmpDataPool=NULL;
 #ifndef ARDUINO
 #define KernelLibCursesSize PROGMEMlibcursesDATASIZE
 #define KernelLibPinSize PROGMEMlibpinDATASIZE
+#define KernelLibSysSize PROGMEMlibsysDATASIZE
 #define KernelLibStdIoSize PROGMEMlibstdioDATASIZE
 #define KernelLibStdMathSize PROGMEMlibstdmathDATASIZE
 #define KernelLibStdProcSize PROGMEMlibstdprocDATASIZE
@@ -113,6 +115,7 @@ int kernelBinReadFunctor(KernelFsFileOffset addr, void *userData);
 #ifndef ARDUINO
 int kernelLibCursesReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelLibPinReadFunctor(KernelFsFileOffset addr, void *userData);
+int kernelLibSysReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelLibStdIoReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelLibStdMathReadFunctor(KernelFsFileOffset addr, void *userData);
 int kernelLibStdProcReadFunctor(KernelFsFileOffset addr, void *userData);
@@ -385,6 +388,7 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile("/usr/games", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/pin", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile("/lib/sys", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibSysSize, &kernelLibSysReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/io", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdIoSize, &kernelLibStdIoReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/math", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMathSize, &kernelLibStdMathReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile("/lib/std/proc", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdProcSize, &kernelLibStdProcReadFunctor, NULL, NULL);
@@ -500,6 +504,15 @@ int kernelLibPinReadFunctor(KernelFsFileOffset addr, void *userData) {
 	return pgm_read_byte_far(&(progmemlibpinData[addr]));
 	#else
 	return progmemlibpinData[addr];
+	#endif
+}
+
+int kernelLibSysReadFunctor(KernelFsFileOffset addr, void *userData) {
+	assert(addr<KernelLibSysSize);
+	#ifdef ARDUINO
+	return pgm_read_byte_far(&(progmemlibsysData[addr]));
+	#else
+	return progmemlibsysData[addr];
 	#endif
 }
 
