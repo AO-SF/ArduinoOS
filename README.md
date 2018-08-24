@@ -20,8 +20,21 @@ This will:
 	* generate C source files for the kenrel, with data representing read-only volumes containing said mockup files
 * compiles the kernel (which requies the the generated progmem* files from the builder)
 
-# Running
+# Running (tools and kernel PC wrapper)
 All compiled tools and the kernel are placed in the ``bin`` directory after compiling. The assembler and disassembler work as one would expect. The emulator takes compiled machine code and runs it on a standard PC - although it is far from a full virtual environment (most syscalls are not implemented, for example). The kernel takes no arguments, and boots into a shell (sh.s) via init (init.s). From there standard commands such as ``cd`` and ``ls`` can be used, and programs on the file system can be executed.
+
+# Arduino
+Note: Currently only the Arduino Mega 2560 is supported.
+
+## Uploading
+After running ``make arduino``, the hex file ``./bin/kernel.hex`` is produced, which needs flashing to the Arduino with something like:
+```
+avrdude -v -patmega2560 -cwiring -P/dev/ttyACM0 -b115200 -D -Uflash:w:./bin/kernel.hex
+```
+TODO: Add our own conf file to this to make it actually work (as a work around for now, use the Arduino IDE in verbose mode to see what conf file it uses, and just use that).
+
+## Interfacing
+Kernel logging and std/stout uses the Mega's USB serial, baud rate 115200 and a single newline ``'\n'`` for line endings.
 
 # License
 Copyright (C) 2018 Daniel White
