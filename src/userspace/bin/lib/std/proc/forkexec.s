@@ -2,8 +2,6 @@ label forkexec ; takes path in r0 to exec in a forked process, with arguments in
 ; save path and arguments
 push r0
 push r1
-push r2
-push r3
 ; call fork
 mov r0 4
 syscall
@@ -18,8 +16,8 @@ jmp forkexecsuccess
 ; child - exec given program with given args
 label forkexecchild
 mov r0 5
-pop r4
-pop r3
+mov r4 r3
+mov r3 r2
 pop r2
 pop r1
 syscall
@@ -28,16 +26,12 @@ mov r0 1
 call exit
 ; success in the parent - restore stack and return success (r0 already contains PID of new child)
 label forkexecsuccess
-pop r4
-pop r3
 pop r2
 pop r1
 ret
 
 ; error forking in the parent - restore stack and return failure
 label forkexecerror
-pop r4
-pop r3
 pop r2
 pop r1
 mov r0 0
