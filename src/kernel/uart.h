@@ -2,6 +2,8 @@
 #ifndef KERNEL_UART_H
 #define KERNEL_UART_H
 
+#include <stdio.h>
+
 void uart_putchar(char c, FILE *stream);
 char uart_getchar(FILE *stream);
 
