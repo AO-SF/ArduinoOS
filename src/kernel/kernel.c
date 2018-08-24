@@ -168,6 +168,17 @@ ISR(USART0_RX_vect) {
 			// Ctrl+c
 			if (kernelReaderPid!=ProcManPidMax)
 				procManProcessSendSignal(kernelReaderPid, ByteCodeSignalIdInterrupt);
+		} else if (value==127) {
+			// Backspace - try to remove last char from buffer, unless it is a newline
+			uint8_t tailValue;
+			if (circBufTailPeek(&kernelDevTtyS0CircBuf, &tailValue)) {
+				if (tailValue!='\n' && circBufUnpush(&kernelDevTtyS0CircBuf)) {
+					// Clear last char on screen
+					kernelDevTtyS0WriteFunctor(8, NULL);
+					kernelDevTtyS0WriteFunctor(' ', NULL);
+					kernelDevTtyS0WriteFunctor(8, NULL);
+				}
+			}
 		} else {
 			// Standard character
 			if (value=='\r')
