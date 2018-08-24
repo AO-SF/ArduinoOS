@@ -1069,20 +1069,16 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							kernelFsPathNormalise(path);
 							procData->regs[0]=kernelFsFileOpen(path);
 
-							#ifndef ARDUINO
 							if (procData->regs[0]!=KernelFsFdInvalid && strcmp(path, "/dev/ttyS0")==0) {
 								assert(kernelReaderPid==ProcManPidMax);
 								kernelReaderPid=procManGetPidFromProcess(process);
 							}
-							#endif
 						} break;
 						case ByteCodeSyscallIdClose:
-							#ifndef ARDUINO
 							if (strcmp(kernelFsGetFilePath(procData->regs[1]), "/dev/ttyS0")==0) {
 								assert(kernelReaderPid==procManGetPidFromProcess(process));
 								kernelReaderPid=ProcManPidMax;
 							}
-							#endif
 							kernelFsFileClose(procData->regs[1]);
 						break;
 						case ByteCodeSyscallIdDirGetChildN: {

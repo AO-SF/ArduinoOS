@@ -18,8 +18,9 @@ typedef enum {
 #ifdef ARDUINO
 extern volatile bool kernelDevTtyS0EchoFlag;
 #else
-extern ProcManPid kernelReaderPid; // set to whoever has /dev/ttyS0 open, used for ctrl+c propagation from host
 #endif
+
+extern ProcManPid kernelReaderPid; // set to whoever has /dev/ttyS0 open, used for ctrl+c propagation from host
 
 void kernelShutdownBegin(void);
 

@@ -89,9 +89,7 @@ bool pinStates[KernelPinNumMax];
 
 #endif
 
-#ifndef ARDUINO
 ProcManPid kernelReaderPid=ProcManPidMax;
-#endif
 
 KernelState kernelState=KernelStateInvalid;
 uint32_t kernelStateTime=0;
@@ -166,13 +164,20 @@ void kernelSigIntHandler(int sig);
 ISR(USART0_RX_vect) {
 	ATOMIC_BLOCK(ATOMIC_FORCEON) {
 		uint8_t value=UDR0;
-		if (value=='\r')
-			value='\n'; // HACK
-		circBufPush(&kernelDevTtyS0CircBuf, value);
-		if (value=='\n')
-			++kernelDevTtyS0CircBufNewlineCount;
-		if (kernelDevTtyS0EchoFlag)
-			kernelDevTtyS0WriteFunctor(value, NULL);
+		if (value==3) {
+			// Ctrl+c
+			if (kernelReaderPid!=ProcManPidMax)
+				procManProcessSendSignal(kernelReaderPid, ByteCodeSignalIdInterrupt);
+		} else {
+			// Standard character
+			if (value=='\r')
+				value='\n'; // HACK
+			circBufPush(&kernelDevTtyS0CircBuf, value);
+			if (value=='\n')
+				++kernelDevTtyS0CircBufNewlineCount;
+			if (kernelDevTtyS0EchoFlag)
+				kernelDevTtyS0WriteFunctor(value, NULL);
+		}
 	}
 }
 #endif
