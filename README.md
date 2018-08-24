@@ -34,7 +34,9 @@ avrdude -v -patmega2560 -cwiring -P/dev/ttyACM0 -b115200 -D -Uflash:w:./bin/kern
 TODO: Add our own conf file to this to make it actually work (as a work around for now, use the Arduino IDE in verbose mode to see what conf file it uses, and just use that).
 
 ## Interfacing
-Kernel logging and std/stout uses the Mega's USB serial, baud rate 115200 and a single newline ``'\n'`` for line endings.
+Kernel logging and std/stout uses the Mega's USB serial, baud rate 115200 and a carriage return plus newline ``'\r\n'`` pair for line endings. It accepts either ``\r`` OR ``\n``, but both will result in a double 'return'.
+
+Example: ``screen /dev/ttyACM0 9600``
 
 # License
 Copyright (C) 2018 Daniel White
