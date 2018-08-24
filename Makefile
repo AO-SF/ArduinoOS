@@ -8,6 +8,7 @@ arduino:
 	./bin/builder
 	cd src/kernel && make clean # HACK as builder and others make pc versions of some of the objects
 	cd src/kernel && make arduino
+	avr-objcopy -O ihex ./bin/kernel ./bin/kernel.hex
 
 pc:
 	mkdir -p bin
