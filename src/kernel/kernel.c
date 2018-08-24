@@ -726,14 +726,18 @@ bool kernelDevURandomWriteFunctor(uint8_t value, void *userData) {
 int kernelDevTtyS0ReadFunctor(void *userData) {
 #ifdef ARDUINO
 	int ret=-1;
-	uint8_t value;
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
-		if (circBufPop(&kernelDevTtyS0CircBuf, &value)) {
-			ret=value;
-			if (value=='\n')
-				--kernelDevTtyS0CircBufNewlineCount;
+
+	if (kernelDevTtyS0CircBufNewlineCount>0) {
+		uint8_t value;
+		ATOMIC_BLOCK(ATOMIC_FORCEON) {
+			if (circBufPop(&kernelDevTtyS0CircBuf, &value)) {
+				ret=value;
+				if (value=='\n')
+					--kernelDevTtyS0CircBufNewlineCount;
+			}
 		}
 	}
+
 	return ret;
 #else
 	if (kernelTtyS0BytesAvailable==0)
