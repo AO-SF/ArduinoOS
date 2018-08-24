@@ -76,6 +76,7 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelEepromDevEepromSize (KernelEepromTotalSize-KernelEepromDevEepromOffset)
 
 #ifdef ARDUINO
+volatile bool kernelDevTtyS0EchoFlag;
 volatile CircBuf kernelDevTtyS0CircBuf;
 volatile uint8_t kernelDevTtyS0CircBufNewlineCount;
 #else
@@ -168,6 +169,8 @@ ISR(USART0_RX_vect) {
 		circBufPush(&kernelDevTtyS0CircBuf, value);
 		if (value=='\n')
 			++kernelDevTtyS0CircBufNewlineCount;
+		if (kernelDevTtyS0EchoFlag)
+			kernelDevTtyS0WriteFunctor(value, NULL);
 	}
 }
 #endif
@@ -262,6 +265,7 @@ void kernelShutdownNext(void) {
 void kernelBoot(void) {
 	// Arduino-only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
 #ifdef ARDUINO
+	kernelDevTtyS0EchoFlag=true;
 	kernelDevTtyS0CircBufNewlineCount=0;
 	circBufInit(&kernelDevTtyS0CircBuf);
 	uart_init();

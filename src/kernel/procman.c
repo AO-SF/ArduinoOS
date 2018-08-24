@@ -1316,8 +1316,6 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							kernelUnmount(devicePath);
 						} break;
 						case ByteCodeSyscallIdIoctl: {
-							// Only PC wrapper currently supports ioctl
-							#ifndef ARDUINO
 							// Grab arguments
 							uint16_t fd=procData->regs[1];
 							uint16_t command=procData->regs[2];
@@ -1327,6 +1325,9 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							if (strcmp(kernelFsGetFilePath(fd), "/dev/ttyS0")==0) {
 								switch(command) {
 									case ByteCodeSyscallIdIoctlCommandSetEcho: {
+										#ifdef ARDUINO
+										kernelDevTtyS0EchoFlag=data;
+										#else
 										// change terminal settings to add/remove echo
 										static struct termios termSettings;
 										tcgetattr(STDIN_FILENO, &termSettings);
@@ -1335,13 +1336,13 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 										else
 											termSettings.c_lflag&=~ECHO;
 										tcsetattr(STDIN_FILENO, TCSANOW, &termSettings);
+										#endif
 									} break;
 									default:
 										kernelLog(LogTypeWarning, "invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n", command, fd, kernelFsGetFilePath(fd), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									break;
 								}
 							}
-							#endif
 						} break;
 						default:
 							kernelLog(LogTypeWarning, "invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
