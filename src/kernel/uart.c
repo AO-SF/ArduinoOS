@@ -23,6 +23,8 @@ void uart_init(void) {
 }
 
 void uart_putchar(char c, FILE *stream) {
+	if (c=='\n')
+		uart_putchar('\r', stream);
 	loop_until_bit_is_set(UCSR0A, UDRE0);
 	UDR0=c;
 }
