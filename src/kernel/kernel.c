@@ -357,8 +357,8 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, "formatted volume representing /tmp\n");
 
 	// Init file system and add virtual devices
-#ifdef ARDUINO
 	char tempBuf[KernelFsPathMax];
+#ifdef ARDUINO
 	#define KSTR(str) ({static const char tempBufProgMem[KernelFsPathMax] PROGMEM = (str); strcpy_P(tempBuf, tempBufProgMem); tempBuf;})
 #else
 	#define KSTR(str) (str)
