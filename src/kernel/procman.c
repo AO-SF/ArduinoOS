@@ -790,8 +790,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 			}
 		break;
 		case BytecodeInstructionTypeAlu: {
-			int opA=procData->regs[info.d.alu.opAReg];
-			int opB=procData->regs[info.d.alu.opBReg];
+			ByteCodeWord opA=procData->regs[info.d.alu.opAReg];
+			ByteCodeWord opB=procData->regs[info.d.alu.opBReg];
 			switch(info.d.alu.type) {
 				case BytecodeInstructionAluTypeInc:
 					procData->regs[info.d.alu.destReg]+=info.d.alu.incDecValue;
