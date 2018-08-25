@@ -419,7 +419,7 @@ void kernelBoot(void) {
 	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, NULL);
 
 	for(uint8_t pinNum=0; pinNum<KernelPinNumMax; ++pinNum) {
-		char pinDevicePath[64];
+		char pinDevicePath[KernelFsPathMax];
 		sprintf(pinDevicePath, "/dev/pin%u", pinNum);
 		error|=!kernelFsAddCharacterDeviceFile(pinDevicePath, &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)pinNum);
 	}
