@@ -11,7 +11,8 @@ db emptyStr 0
 db homeDir '/home', 0
 
 ab handlingStdio 1
-ab inputBuf PathMax
+const inputBufLen 128
+ab inputBuf inputBufLen
 ab absBuf PathMax
 ab pwdBuf PathMax
 aw arg1Ptr 1
@@ -212,7 +213,7 @@ load8 r0 r0
 mov r1 readOffset
 load16 r1 r1
 mov r2 inputBuf
-mov r3 PathMax
+mov r3 inputBufLen
 call fgets
 
 ; Update read offset for next time
