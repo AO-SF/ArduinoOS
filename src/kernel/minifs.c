@@ -336,7 +336,7 @@ bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newContentLen) 
 	miniFsWrite(fs, fileOffset++, (newTotalLen>>8));
 	miniFsWrite(fs, fileOffset++, (newTotalLen&0xFF));
 	miniFsWrite(fs, fileOffset++, newSizeFactor);
-	unsigned i=0;
+	uint16_t i=0;
 	do {
 		miniFsWrite(fs, fileOffset++, filename[i]);
 	} while(filename[i++]!='\0');
@@ -357,7 +357,7 @@ bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newContentLen) 
 	return true;
 }
 
-int miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset) {
+int16_t miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset) {
 	// Find index for this filename
 	uint8_t index=miniFsFilenameToIndex(fs, filename);
 	if (index==MINIFSMAXFILES)

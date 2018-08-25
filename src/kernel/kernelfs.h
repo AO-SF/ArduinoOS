@@ -12,7 +12,7 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 #define KernelFsPathMax 32
 
-typedef int (KernelFsCharacterDeviceReadFunctor)(void *userData); // returns -1 on failure
+typedef int16_t (KernelFsCharacterDeviceReadFunctor)(void *userData); // returns -1 on failure
 typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData);
 typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value, void *userData);
 
@@ -22,7 +22,7 @@ typedef enum {
 	KernelFsBlockDeviceFormatNB,
 } KernelFsBlockDeviceFormat;
 
-typedef int (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr, void *userData); // returns -1 on failure
+typedef int16_t (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr, void *userData); // returns -1 on failure
 typedef bool (KernelFsBlockDeviceWriteFunctor)(KernelFsFileOffset addr, uint8_t value, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
