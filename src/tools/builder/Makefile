@@ -56,6 +56,7 @@ ALL: $(OBJS)
 	../../../bin/assembler ../../userspace/bin/getpin.s mockups/usrbinmockup/getpin
 	../../../bin/assembler ../../userspace/bin/setpin.s mockups/usrbinmockup/setpin
 	../../../bin/assembler ../../userspace/bin/reset.s mockups/usrbinmockup/reset
+	../../../bin/assembler ../../userspace/bin/hash.s mockups/usrbinmockup/hash
 
 	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/builder $(LFLAGS)
 
