@@ -14,6 +14,7 @@
 #include "wrapper.h"
 
 #define KernelFsDevicesMax 64
+typedef uint8_t KernelFsDeviceIndex;
 
 typedef enum {
 	KernelFsDeviceTypeBlock,
@@ -82,23 +83,23 @@ void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData);
 
 void kernelFsInit(void) {
 	// Clear file descriptor table
-	for(int i=0; i<KernelFsFdMax; ++i)
+	for(KernelFsFd i=0; i<KernelFsFdMax; ++i)
 		kernelFsData.fdt[i]=NULL;
 
 	// Clear virtual device array
-	for(int i=0; i<KernelFsDevicesMax; ++i)
+	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i)
 		kernelFsData.devices[i].type=KernelFsDeviceTypeNB;
 }
 
 void kernelFsQuit(void) {
 	// Free memory used in file descriptor table.
-	for(int i=0; i<KernelFsFdMax; ++i) {
+	for(KernelFsFd i=0; i<KernelFsFdMax; ++i) {
 		free(kernelFsData.fdt[i]);
 		kernelFsData.fdt[i]=NULL;
 	}
 
 	// Free virtual device array
-	for(int i=0; i<KernelFsDevicesMax; ++i) {
+	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
 		KernelFsDevice *device=&kernelFsData.devices[i];
 		if (device->type==KernelFsDeviceTypeNB)
 			continue;
@@ -223,7 +224,7 @@ bool kernelFsFileExists(const char *path) {
 }
 
 bool kernelFsFileIsOpen(const char *path) {
-	for(int i=0; i<KernelFsFdMax; ++i) {
+	for(KernelFsFd i=0; i<KernelFsFdMax; ++i) {
 		if (i==KernelFsFdInvalid)
 			continue;
 
@@ -478,7 +479,7 @@ bool kernelFsFileDelete(const char *path) {
 		}
 
 		// Remove device
-		int slot=device-kernelFsData.devices;
+		KernelFsDeviceIndex slot=device-kernelFsData.devices;
 		assert(&kernelFsData.devices[slot]==device);
 		_unused(slot);
 
@@ -595,7 +596,7 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 	// Check if this file is already open and also look for an empty slot to use if not.
 	KernelFsFd newFd=KernelFsFdInvalid;
 	bool alreadyOpen=false;
-	for(int i=0; i<KernelFsFdMax; ++i) {
+	for(KernelFsFd i=0; i<KernelFsFdMax; ++i) {
 		if (i==KernelFsFdInvalid)
 			continue;
 
@@ -650,7 +651,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 					case KernelFsBlockDeviceFormatFlatFile: {
 						KernelFsFileOffset read;
 						for(read=0; read<dataLen; ++read) {
-							int c=device->d.block.readFunctor(offset+read, device->d.block.functorUserData);
+							int16_t c=device->d.block.readFunctor(offset+read, device->d.block.functorUserData);
 							if (c==-1)
 								break;
 							data[read]=c;
@@ -669,7 +670,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 				for(read=0; read<dataLen; ++read) {
 					if (!block && !device->d.character.canReadFunctor(device->d.character.functorUserData))
 						break;
-					int c=device->d.character.readFunctor(device->d.character.functorUserData);
+					int16_t c=device->d.character.readFunctor(device->d.character.functorUserData);
 					if (c==-1)
 						break;
 					data[read]=c;
@@ -701,8 +702,8 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						KernelFsFileOffset i;
 						for(i=0; i<dataLen; ++i) {
-							int res=miniFsFileRead(&parentDevice->d.block.d.customMiniFs.miniFs, basename, offset+i);
-							if (res==-1)
+							int16_t res=miniFsFileRead(&parentDevice->d.block.d.customMiniFs.miniFs, basename, offset+i);
+							if (res==-1 || res>=256)
 								break;
 							data[i]=res;
 						}
@@ -861,8 +862,8 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 			case KernelFsDeviceTypeBlock:
 				switch(device->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
-						int j=0;
-						for(int i=0; i<MINIFSMAXFILES; ++i) {
+						KernelFsFd j=0;
+						for(KernelFsFd i=0; i<MINIFSMAXFILES; ++i) {
 							sprintf(childPath, "%s/", parentPath);
 							if (!miniFsGetChildN(&device->d.block.d.customMiniFs.miniFs, i, childPath+strlen(childPath)))
 								continue;
@@ -1061,7 +1062,7 @@ bool kernelFsFileCanOpenMany(const char *path) {
 }
 
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path) {
-	for(int i=0; i<KernelFsDevicesMax; ++i) {
+	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
 		KernelFsDevice *device=&kernelFsData.devices[i];
 		if (device->type!=KernelFsDeviceTypeNB && strcmp(path, device->mountPoint)==0)
 			return device;
@@ -1093,7 +1094,7 @@ KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType
 	}
 
 	// Look for an empty slot in the device table
-	for(int i=0; i<KernelFsDevicesMax; ++i) {
+	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
 		KernelFsDevice *device=&kernelFsData.devices[i];
 		if (device->type!=KernelFsDeviceTypeNB)
 			continue;
@@ -1143,7 +1144,7 @@ uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData) {
 	assert(device->type==KernelFsDeviceTypeBlock);
 	assert(device->d.block.format==KernelFsBlockDeviceFormatCustomMiniFs);
 
-	int c=device->d.block.readFunctor(addr, device->d.block.functorUserData);
+	int16_t c=device->d.block.readFunctor(addr, device->d.block.functorUserData);
 	if (c==-1) {
 		// TODO: think about this
 		assert(false);

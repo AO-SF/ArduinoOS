@@ -111,7 +111,7 @@ void procManResetInstructionCounters(void);
 
 void procManInit(void) {
 	// Clear processes table
-	for(int i=0; i<ProcManPidMax; ++i) {
+	for(ProcManPid i=0; i<ProcManPidMax; ++i) {
 		procManData.processes[i].state=ProcManProcessStateUnused;
 		procManData.processes[i].progmemFd=KernelFsFdInvalid;
 		procManData.processes[i].procFd=KernelFsFdInvalid;
@@ -141,8 +141,8 @@ void procManTickAll(void) {
 	}
 }
 
-int procManGetProcessCount(void) {
-	int count=0;
+ProcManPid procManGetProcessCount(void) {
+	ProcManPid count=0;
 	ProcManPid pid;
 	for(pid=0; pid<ProcManPidMax; ++pid)
 		count+=(procManGetProcessByPid(pid)!=NULL);
@@ -272,7 +272,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 }
 
 void procManKillAll(void) {
-	for(int i=0; i<ProcManPidMax; ++i)
+	for(ProcManPid i=0; i<ProcManPidMax; ++i)
 		if (procManGetProcessByPid(i)!=NULL)
 			procManProcessKill(i, ProcManExitStatusKilled);
 }
@@ -329,7 +329,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 	kernelLog(LogTypeInfo, "killed process %u\n", pid);
 
 	// Check if any processes are waiting due to waitpid syscall
-	for(unsigned waiterPid=0; waiterPid<ProcManPidMax; ++waiterPid) {
+	for(ProcManPid waiterPid=0; waiterPid<ProcManPidMax; ++waiterPid) {
 		ProcManProcess *waiterProcess=procManGetProcessByPid(waiterPid);
 		if (waiterProcess!=NULL && waiterProcess->state==ProcManProcessStateWaitingWaitpid && waiterProcess->waitingData8==pid) {
 			// Bring this process back to life, storing the exit status into r0
@@ -412,7 +412,7 @@ void procManProcessTick(ProcManPid pid) {
 	}
 
 	// Run a few instructions
-	for(unsigned instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
+	for(uint16_t instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
 		// Run a single instruction
 		BytecodeInstructionLong instruction;
 		if (!procManProcessGetInstruction(process, &procData, &instruction)) {
@@ -541,7 +541,7 @@ const char *procManGetExecPathFromProcess(const ProcManProcess *process) {
 
 ProcManPid procManFindUnusedPid(void) {
 	// Given that fork uses return pid 0 to indicate child process, we have to make sure the first process created uses pid 0, and exists for as long as the system is running (so that fork can never return)
-	for(int i=0; i<ProcManPidMax; ++i)
+	for(ProcManPid i=0; i<ProcManPidMax; ++i)
 		if (procManData.processes[i].state==ProcManProcessStateUnused)
 			return i;
 	return ProcManPidMax;
@@ -892,7 +892,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						break;
 						case ByteCodeSyscallIdGetArgC: {
 							procData->regs[0]=0;
-							for(unsigned i=0; i<ARGVMAX; ++i) {
+							for(uint8_t i=0; i<ARGVMAX; ++i) {
 								char arg[ProcManArgLenMax];
 								if (!procManProcessGetArgvN(process, procData, i, arg)) {
 									kernelLog(LogTypeWarning, "failed during getargc syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
@@ -902,7 +902,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							}
 						} break;
 						case ByteCodeSyscallIdGetArgVN: {
-							int n=procData->regs[1];
+							uint8_t n=procData->regs[1];
 							ByteCodeWord bufAddr=procData->regs[2];
 							// TODO: Use this: ByteCodeWord bufLen=procData->regs[3];
 
@@ -991,7 +991,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						} break;
 						case ByteCodeSyscallIdGetAllCpuCounts: {
 							ByteCodeWord bufAddr=procData->regs[1];
-							for(unsigned i=0; i<ProcManPidMax; ++i) {
+							for(ProcManPid i=0; i<ProcManPidMax; ++i) {
 								ProcManProcess *qProcess=procManGetProcessByPid(i);
 								uint16_t value;
 								if (qProcess!=NULL)
@@ -1466,7 +1466,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	// Grab path and args (if any)
 	char args[ARGVMAX][ProcManArgLenMax];
 
-	for(unsigned i=0; i<ARGVMAX; ++i)
+	for(uint8_t i=0; i<ARGVMAX; ++i)
 		args[i][0]='\0';
 
 	if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], args[0], KernelFsPathMax)) {
@@ -1474,7 +1474,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 		return false;
 	}
 
-	for(unsigned i=1; i<ARGVMAX; ++i)
+	for(uint8_t i=1; i<ARGVMAX; ++i)
 		if (procData->regs[i+1]!=0)
 			if (!procManProcessMemoryReadStr(process, procData, procData->regs[i+1], args[i], KernelFsPathMax)) {
 				kernelLog(LogTypeWarning, "exec in %u failed - could not read argument %u\n", procManGetPidFromProcess(process), i);
@@ -1510,7 +1510,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	KernelFsFd oldProgmemFd=procManData.processes[pid].progmemFd;
 	procManData.processes[pid].progmemFd=newProgmemFd;
 
-	unsigned i;
+	ProcManPid i;
 	for(i=0; i<ProcManPidMax; ++i)
 		if (procManData.processes[i].progmemFd==oldProgmemFd)
 			break;
@@ -1528,7 +1528,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	procData->path=procData->envVarDataLen;
 	procData->envVarDataLen+=strlen(tempPath)+1;
 
-	for(unsigned i=0; i<ARGVMAX; ++i) {
+	for(uint8_t i=0; i<ARGVMAX; ++i) {
 		uint16_t argLen=strlen(args[i]);
 		procData->argv[i]=procData->envVarDataLen;
 		procData->envVarDataLen+=argLen+1; // +1 for null terminator
@@ -1560,7 +1560,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 		return false;
 	}
 
-	for(unsigned i=0; i<ARGVMAX; ++i) {
+	for(uint8_t i=0; i<ARGVMAX; ++i) {
 		uint16_t argSize=strlen(args[i])+1;
 		if (kernelFsFileWriteOffset(procData->ramFd, procData->argv[i], (const uint8_t *)(args[i]), argSize)!=argSize) {
 			kernelLog(LogTypeWarning, "exec in %u failed - could not write args into new processes memory\n", procManGetPidFromProcess(process));
@@ -1687,6 +1687,6 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 }
 
 void procManResetInstructionCounters(void) {
-	for(unsigned i=0; i<ProcManPidMax; ++i)
+	for(ProcManPid i=0; i<ProcManPidMax; ++i)
 		procManData.processes[i].instructionCounter=0;
 }

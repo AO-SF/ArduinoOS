@@ -8,7 +8,7 @@
 uint8_t kernelMountedDeviceFdsNext=0;
 KernelFsFd kernelMountedDeviceFds[kernelMountedDeviceFdsMax];
 
-int kernelMountReadFunctor(KernelFsFileOffset addr, void *userData);
+int16_t kernelMountReadFunctor(KernelFsFileOffset addr, void *userData);
 bool kernelMountWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
 
 bool kernelMount(KernelFsBlockDeviceFormat format, const char *devicePath, const char *dirPath) {
@@ -79,7 +79,7 @@ void kernelUnmount(const char *devicePath) {
 	kernelLog(LogTypeWarning, "could not unmount - no such device mounted (devicePath='%s')\n", devicePath);
 }
 
-int kernelMountReadFunctor(KernelFsFileOffset addr, void *userData) {
+int16_t kernelMountReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(((uintptr_t)userData)<KernelFsFdMax);
 	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
 

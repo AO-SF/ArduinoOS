@@ -25,7 +25,7 @@ void procManQuit(void);
 
 void procManTickAll(void);
 
-int procManGetProcessCount(void);
+ProcManPid procManGetProcessCount(void);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Process functions
