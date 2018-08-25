@@ -5,7 +5,7 @@ requireend ../str/strcat.s
 requireend ../str/strchr.s
 requireend ../str/strcpy.s
 
-ab getpathPATHBuf PathMax
+ab getpathPATHBuf EnvVarPathMax
 ab getpathScratchBuf PathMax
 db getpathSlashStr '/', 0
 

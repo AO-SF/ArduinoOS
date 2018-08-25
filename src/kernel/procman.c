@@ -24,6 +24,7 @@
 #define ProcManSignalHandlerInvalid 0
 
 #define ProcManArgLenMax 32
+#define ProcManEnvVarPathMax 64
 
 typedef enum {
 	ProcManProcessStateUnused,
@@ -1241,7 +1242,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							procData->envVars.pwd=ramIndex+procData->envVarDataLen;
 						} break;
 						case ByteCodeSyscallIdEnvGetPath: {
-							char path[KernelFsPathMax];
+							char path[ProcManEnvVarPathMax];
 							if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->envVars.path, path, KernelFsPathMax)) {
 								kernelLog(LogTypeWarning, "failed during envgetpath syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
@@ -1489,7 +1490,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	}
 	kernelFsPathNormalise(tempPwd);
 
-	char tempPath[KernelFsPathMax];
+	char tempPath[ProcManEnvVarPathMax];
 	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->envVars.path, tempPath, KernelFsPathMax)) {
 		kernelLog(LogTypeWarning, "exec in %u failed - could not read env var path at offset %u\n", procManGetPidFromProcess(process), procData->envVars.path);
 		return false;
