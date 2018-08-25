@@ -23,7 +23,7 @@
 
 #define ProcManSignalHandlerInvalid 0
 
-#define ProcManArgLenMax 64
+#define ProcManArgLenMax 32
 
 typedef enum {
 	ProcManProcessStateUnused,
