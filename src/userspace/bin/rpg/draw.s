@@ -17,9 +17,9 @@ skiplt r4
 jmp redrawRowLoopEnd
 ; draw first cell of this row (this moves the cursor for us)
 mov r0 0 ; column=0
-push r1
+push8 r1
 call updateCell
-pop r1
+pop8 r1
 ; loop over all other cells in this row
 mov r2 1 ; current column
 label redrawColumnLoopStart
@@ -29,12 +29,12 @@ cmp r4 r2 r4
 skiplt r4
 jmp redrawColumnLoopEnd
 ; Draw this cell
-push r1
-push r2
+push8 r1
+push8 r2
 mov r0 r2
 call drawCellRaw
-pop r2
-pop r1
+pop8 r2
+pop8 r1
 ; Advance to next column
 inc r2
 jmp redrawColumnLoopStart
@@ -53,10 +53,10 @@ call puts0
 ret
 
 label updateCell ; takes x and y in r0 and r1
-push r0
-push r1
+push8 r0
+push8 r1
 call cursesSetPosXY
-pop r1
-pop r0
+pop8 r1
+pop8 r0
 call drawCellRaw
 ret

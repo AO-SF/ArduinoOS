@@ -5,12 +5,12 @@ require strlen.s
 label strcat
 
 ; Find length of dest
-push r0
-push r1
+push16 r0
+push16 r1
 call strlen
 mov r2 r0 ; length in r2
-pop r1
-pop r0
+pop16 r1
+pop16 r0
 
 ; Copy src to end of dest
 add r0 r0 r2 ; r0 starts with dest, ends with dest+len

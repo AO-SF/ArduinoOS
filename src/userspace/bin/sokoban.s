@@ -132,8 +132,8 @@ mov r4 0 ; row (y)
 mov r5 0 ; column (x)
 label levelReadLoopStart
 ; read a byte
-push r0
-push r4
+push8 r0
+push8 r4
 mov r1 r0
 mov r0 256
 mov r3 scratchByte
@@ -141,8 +141,8 @@ mov r4 1
 syscall
 inc r2
 mov r1 r0
-pop r4
-pop r0
+pop8 r4
+pop8 r0
 
 ; EOF?
 cmp r1 r1 r1
@@ -232,22 +232,22 @@ mov r3 0 ; x
 label levelDrawXStart
 
 ; load at data at (x,y)
-push r3
-push r4
+push8 r3
+push8 r4
 mov r0 r3
 mov r1 r4
 call levelLoadCellAdjusted
-pop r4
-pop r3
+pop8 r4
+pop8 r3
 
 ; print this character
-push r0
-push r3
-push r4
+push8 r0
+push8 r3
+push8 r4
 call levelDrawUpdateCellRawPrint
-pop r4
-pop r3
-pop r0
+pop8 r4
+pop8 r3
+pop8 r0
 
 ; end of row?
 mov r1 '\n'
@@ -287,12 +287,12 @@ ret
 ; levelLoadCellAdjusted(x=r0, y=r1) - returns cell value in r0, adjusted to put the player on if needed
 label levelLoadCellAdjusted
 ; load raw cell value
-push r0
-push r1
+push8 r0
+push8 r1
 call levelLoadCell
 mov r2 r0
-pop r1
-pop r0
+pop8 r1
+pop8 r0
 ; check if this is the players cell also
 mov r3 playerX
 load8 r3 r3
@@ -330,12 +330,12 @@ ret
 ; levelDrawUpdateCell(x=r0, y=r1) - takes coordinates and updates that cell on screen to match value in array
 label levelDrawUpdateCell
 ; move cursor to correct position
-push r0
-push r1
+push8 r0
+push8 r1
 inc5 r1 ; due to printing infoStr
 call cursesSetPosXY
-pop r1
-pop r0
+pop8 r1
+pop8 r0
 ; load character
 call levelLoadCellAdjusted
 mov r2 r0
@@ -371,9 +371,9 @@ mov r1 '*'
 cmp r1 r1 r2
 skipneq r1
 mov r0 cellColourStrGreen
-push r2
+push8 r2
 call puts0
-pop r0
+pop8 r0
 call putc0
 ret
 
@@ -489,11 +489,11 @@ mov r0 playerX
 load8 r0 r0
 mov r1 playerY
 load8 r1 r1
-push r0
-push r1
+push8 r0
+push8 r1
 call levelDrawUpdateCell
-pop r1
-pop r0
+pop8 r1
+pop8 r0
 inc r0
 call levelDrawUpdateCell
 ; return to wait for next move
@@ -611,11 +611,11 @@ mov r0 playerX
 load8 r0 r0
 mov r1 playerY
 load8 r1 r1
-push r0
-push r1
+push8 r0
+push8 r1
 call levelDrawUpdateCell
-pop r1
-pop r0
+pop8 r1
+pop8 r0
 dec r0
 call levelDrawUpdateCell
 ; return to wait for next move
@@ -733,11 +733,11 @@ mov r0 playerX
 load8 r0 r0
 mov r1 playerY
 load8 r1 r1
-push r0
-push r1
+push8 r0
+push8 r1
 call levelDrawUpdateCell
-pop r1
-pop r0
+pop8 r1
+pop8 r0
 inc r1
 call levelDrawUpdateCell
 ; return to wait for next move
@@ -855,11 +855,11 @@ mov r0 playerX
 load8 r0 r0
 mov r1 playerY
 load8 r1 r1
-push r0
-push r1
+push8 r0
+push8 r1
 call levelDrawUpdateCell
-pop r1
-pop r0
+pop8 r1
+pop8 r0
 dec r1
 call levelDrawUpdateCell
 ; return to wait for next move

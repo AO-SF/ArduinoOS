@@ -11,9 +11,9 @@ ab argBuf ArgLenMax
 ; Loop over args in turn
 mov r0 1 ; 0 is program name
 label loopstart
-push r0
+push8 r0
 call factorArgN ; this will exit for us if no such argument
-pop r0
+pop8 r0
 inc r0
 jmp loopstart
 
@@ -46,11 +46,11 @@ skipneqz r1
 jmp factorArgNRet
 
 ; Print input and separator
-push r0
+push16 r0
 call putdec
 mov r0 separator
 call puts0
-pop r0
+pop16 r0
 
 ; Trial division loop
 mov r4 2 ; // trial divisor
@@ -68,14 +68,14 @@ skipeq r2
 jmp factorArgNLoopNext
 
 ; We have found a factor, print it
-push r0
-push r4
+push16 r0
+push16 r4
 mov r0 r4
 call putdec
 mov r0 ' '
 call putc0
-pop r4
-pop r0
+pop16 r4
+pop16 r0
 
 ; Divide number and decrement divisor so next time we try the same one again
 div r0 r0 r4

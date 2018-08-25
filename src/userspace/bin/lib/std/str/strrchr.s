@@ -3,12 +3,12 @@ requireend strlen.s
 ; r0=strrchr(r0=haystack addr, r1=needle char), r0 is addr of last occurence, or 0 on failure
 label strrchr
 ; call strlen so we can start at the end of the string and work backwards
-push r0
-push r1
+push16 r0
+push8 r1
 call strlen
 mov r2 r0
-pop r1
-pop r0
+pop8 r1
+pop16 r0
 
 ; empty string?
 cmp r3 r2 r2

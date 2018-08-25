@@ -31,11 +31,11 @@ jmp usage
 ; Convert to pid and signalId to integers and invoke signal syscall
 mov r0 pidArgBuf
 call strtoint
-push r0
+push8 r0
 mov r0 signalIdArgBuf
 call strtoint
 mov r2 r0
-pop r1
+pop8 r1
 mov r0 12
 syscall
 

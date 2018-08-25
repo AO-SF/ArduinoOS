@@ -11,17 +11,17 @@ mov r3 0
 store8 r0 r3
 
 ; Find length of src
-push r0
-push r1
-push r2
+push16 r0
+push16 r1
+push16 r2
 
 mov r0 r1
 call strlen
 mov r3 r0
 
-pop r2
-pop r1
-pop r0
+pop16 r2
+pop16 r1
+pop16 r0
 
 ; if src is smaller than len, we can pad
 cmp r4 r3 r2
@@ -34,14 +34,14 @@ label strpadspacestart
 cmp r3 r2 r2
 skipneqz r3
 jmp strpadspaceend
-push r0
-push r1
-push r2
+push16 r0
+push16 r1
+push16 r2
 mov r1 strpadspacestr
 call strcat
-pop r2
-pop r1
-pop r0
+pop16 r2
+pop16 r1
+pop16 r0
 dec r2
 jmp strpadspacestart
 label strpadspaceend

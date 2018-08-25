@@ -26,20 +26,20 @@ call exit
 label printDir
 
 ; Indent as required
-push r0
+push8 r0
 mov r1 r0 ; move indent into r1 as a loop variable
 label printDirIndentLoopStart
 cmp r0 r1 r1 ; finished?
 skipneqz r0
 jmp printDirIndentLoopEnd
-push r1 ; print tab
+push8 r1 ; print tab
 mov r0 ' '
 call putc0
-pop r1
+pop8 r1
 dec r1 ; decrement remaining count and loop again
 jmp printDirIndentLoopStart
 label printDirIndentLoopEnd
-pop r0
+pop8 r0
 
 ; Print name
 mov r1 1
@@ -100,14 +100,14 @@ skipneqz r0
 jmp printDirChildLoopEnd
 
 ; Call printDir recursively for child
-push r1
-push r2
-push r4
+push8 r1
+push8 r2
+push8 r4
 mov r0 r4
 call printDir
-pop r4
-pop r2
-pop r1
+pop8 r4
+pop8 r2
+pop8 r1
 
 ; Loop again to try for next child
 inc r2

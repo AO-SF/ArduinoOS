@@ -131,40 +131,40 @@ mov r5 255
 and r3 r3 r5
 and r4 r2 r5
 mul r3 r3 r4 ; r3 now contains ah*bl
-push r2
-push r1
-push r0
+push16 r2
+push16 r1
+push16 r0
 mov r0 int32ScratchInt32
 mov r1 r3
 mov r2 8
 call int32set16shift
-pop r0
-push r0
+pop16 r0
+push16 r0
 mov r1 int32ScratchInt32
 call int32add32
-pop r0
-pop r1
-pop r2
+pop16 r0
+pop16 r1
+pop16 r2
 mov r5 8
 shr r4 r2 r5
 mov r5 255
 and r3 r1 r5
 and r4 r4 r5
 mul r3 r3 r4 ; r3 now contains al*bh
-push r2
-push r1
-push r0
+push16 r2
+push16 r1
+push16 r0
 mov r0 int32ScratchInt32
 mov r1 r3
 mov r2 8
 call int32set16shift
-pop r0
-push r0
+pop16 r0
+push16 r0
 mov r1 int32ScratchInt32
 call int32add32
-pop r0
-pop r1
-pop r2
+pop16 r0
+pop16 r1
+pop16 r2
 ret
 
 ; int32div16(r0=dest, r1=divisor) - divide 32 bit quantity at r0 by 16 bit divisor in r1
@@ -185,13 +185,13 @@ skipge r3
 jmp int32div16loopend
 label int32div16loopnext
 ; Subtract divisor from dest
-push r0
-push r1
-push r2
+push16 r0
+push16 r1
+push16 r2
 call int32sub16
-pop r2
-pop r1
-pop r0
+pop16 r2
+pop16 r1
+pop16 r0
 ; Inc result counter and loop again
 inc r2
 jmp int32div16loopstart

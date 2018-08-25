@@ -12,9 +12,9 @@ ab fd 1
 ; Loop over args in turn
 mov r0 1 ; 0 is program name
 label loopstart
-push r0
+push8 r0
 call catArgN ; this will exit for us if no such argument
-pop r0
+pop8 r0
 inc r0
 jmp loopstart
 
@@ -65,9 +65,9 @@ label catArgNLoopStart
 ; Read character
 mov r0 fd
 load8 r0 r0
-push r1
+push16 r1
 call fgetc
-pop r1
+pop16 r1
 
 ; Check for EOF
 mov r2 256
@@ -76,9 +76,9 @@ skipneq r2
 jmp catArgNLoopEnd
 
 ; Print character
-push r1
+push16 r1
 call putc0
-pop r1
+pop16 r1
 
 ; Advance to next character
 inc r1

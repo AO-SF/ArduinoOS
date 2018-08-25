@@ -18,19 +18,19 @@ skipneq r2
 jmp getabspathnext ; already has a '/', continue
 
 ; Add pwd
-push r0
-push r1
+push16 r0
+push16 r1
 call getpwd
-pop r1
-pop r0
+pop16 r1
+pop16 r0
 
 ; Add '/'
-push r0
-push r1
+push16 r0
+push16 r1
 mov r1 libprocSlashStr
 call strcat
-pop r1
-pop r0
+pop16 r1
+pop16 r0
 
 label getabspathnext
 ; Add src string to dest (r0 and r1 already setup)

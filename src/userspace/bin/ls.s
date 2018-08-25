@@ -61,22 +61,23 @@ store8 r1 r0
 
 ; Loop calling getChildN and printing results
 mov r2 0
-push r2
+push8 r2
 
 label loopStart
 mov r0 260
 mov r1 queryDirFd
 load8 r1 r1
-pop r2
+pop8 r2
 mov r3 queryDir
 syscall
 inc r2
-push r2
 
 ; End of children?
 cmp r0 r0 r0
 skipneqz r0
 jmp success
+
+push8 r2
 
 ; Strip queryDir from front of child path
 mov r0 queryDir

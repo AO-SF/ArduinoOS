@@ -65,19 +65,19 @@ jmp fputdecLoopNext
 
 ; Print digit
 label fputdecLoopPrint
-push r0
-push r1
-push r2
-push r3
-push r4
+push8 r0
+push16 r1
+push16 r2
+push8 r3
+push8 r4
 mov r1 '0'
 add r1 r1 r3
 call fputc0 ; TODO: Add offset argument to fputdec
-pop r4
-pop r3
-pop r2
-pop r1
-pop r0
+pop8 r4
+pop8 r3
+pop16 r2
+pop16 r1
+pop8 r0
 
 mov r4 1 ; set foundDigit flag
 

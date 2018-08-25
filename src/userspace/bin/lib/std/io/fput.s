@@ -33,15 +33,15 @@ skipneqz r3
 jmp fputsDone
 
 ; print character
-push r0
-push r1
-push r4
-push r5
+push8 r0
+push16 r1
+push16 r4
+push16 r5
 call fputc
-pop r5
-pop r4
-pop r1
-pop r0
+pop16 r5
+pop16 r4
+pop16 r1
+pop8 r0
 
 inc r1
 inc r4

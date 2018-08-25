@@ -103,7 +103,7 @@ label startDone
 ; Check for scripts passed as arguments
 mov r1 1 ; child loop index
 label argLoopStart
-push r1
+push8 r1
 mov r0 3
 mov r2 inputBuf
 syscall
@@ -126,7 +126,7 @@ mov r1 interactiveMode
 store8 r1 r0
 call shellRunFd
 
-push r0 ; save return value
+push8 r0 ; save return value
 
 ; Close file
 mov r0 259
@@ -135,17 +135,17 @@ load8 r1 r1
 syscall
 
 ; shellRunFd return indicates we should exit?
-pop r0
+pop8 r0
 cmp r0 r0 r0
 skipneqz r0
 jmp finish
 
 ; Advance to next arg
-pop r1
+pop8 r1
 inc r1
 jmp argLoopStart
 label argLoopEnd
-pop r1
+pop8 r1
 
 ; Call shellRunFd on stdio fd
 mov r0 512
@@ -496,12 +496,12 @@ jmp finish
 
 label interruptHandler
 ; kill child (if any)
-push r0
-push r1
+push16 r0
+push16 r1
 mov r0 10
 mov r1 childPid
 load8 r1 r1
 syscall
-pop r1
-pop r0
+pop16 r1
+pop16 r0
 ret
