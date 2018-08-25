@@ -11,6 +11,7 @@
 #include "kernelfs.h"
 #include "log.h"
 #include "minifs.h"
+#include "wrapper.h"
 
 #define KernelFsDevicesMax 64
 
@@ -479,6 +480,7 @@ bool kernelFsFileDelete(const char *path) {
 		// Remove device
 		int slot=device-kernelFsData.devices;
 		assert(&kernelFsData.devices[slot]==device);
+		_unused(slot);
 
 		free(device->mountPoint);
 		device->mountPoint=NULL;
