@@ -1,6 +1,6 @@
 require ../proc/getpath.s
 
-ab runpathPathBuf 64
+ab runpathPathBuf PathMax
 
 ; runpath(r0=path, r1=arg1, r2=arg2, r3=arg3) - executes path as the shell would - checking in PATH first if path has no slashes, otherwise making absolute if needed by preprending pwd. on sucess does not return
 label runpath

@@ -1,4 +1,4 @@
-require lib/sys/proc.s
+require lib/sys/sys.s
 
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputtime.s
@@ -12,28 +12,28 @@ db forkErrorStr 'could not fork\n', 0
 db emptyStr 0
 
 aw startTime 1
-ab arg1Buf 64
-ab arg2Buf 64
-ab arg3Buf 64
-ab cmdBuf 64
+ab arg1Buf ArgLenMax
+ab arg2Buf ArgLenMax
+ab arg3Buf ArgLenMax
+ab cmdBuf ArgLenMax
 
 ; Grab arguments
 mov r0 3
 mov r1 1
 mov r2 arg1Buf
-mov r3 64
+mov r3 ArgLenMax
 syscall
 
 mov r0 3
 mov r1 2
 mov r2 arg2Buf
-mov r3 64
+mov r3 ArgLenMax
 syscall
 
 mov r0 3
 mov r1 3
 mov r2 arg3Buf
-mov r3 64
+mov r3 ArgLenMax
 syscall
 
 ; Copy command path

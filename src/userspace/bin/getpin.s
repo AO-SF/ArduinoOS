@@ -1,3 +1,5 @@
+require lib/sys/sys.s
+
 requireend lib/pin/pinget.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
@@ -7,7 +9,7 @@ db usageStr 'usage: getpin pinnum\n',0
 db onStr 'on\n',0
 db offStr 'off\n',0
 
-ab argBuf 64
+ab argBuf ArgLenMax
 
 ; Grab arg
 mov r0 3

@@ -1,17 +1,19 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getpath.s
 
 db usageStr 'usage: rm PATH\n', 0
 
-ab pathArg 64
-ab rmScratchBuf 64
+ab pathArg PathMax
+ab rmScratchBuf PathMax
 
 ; Get path argument
 mov r0 3
 mov r1 1
 mov r2 rmScratchBuf
-mov r3 64
+mov r3 PathMax
 syscall
 cmp r0 r0 r0
 skipneqz r0

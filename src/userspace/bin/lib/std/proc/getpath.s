@@ -1,10 +1,12 @@
-require ../proc/getabspath.s
-require ../str/strcat.s
-require ../str/strchr.s
-require ../str/strcpy.s
+require ../../sys/sys.s
 
-ab getpathPATHBuf 64
-ab getpathScratchBuf 64
+requireend ../proc/getabspath.s
+requireend ../str/strcat.s
+requireend ../str/strchr.s
+requireend ../str/strcpy.s
+
+ab getpathPATHBuf PathMax
+ab getpathScratchBuf PathMax
 db getpathSlashStr '/', 0
 
 ; getpath(r0=dest path, r1=src path) - interprets path as the shell would - checking in PATH first if path has no slashes, otherwise making absolute if needed by preprending pwd

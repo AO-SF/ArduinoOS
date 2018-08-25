@@ -1,7 +1,9 @@
+require lib/sys/sys.s
+
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strtoint.s
 
-ab argBuf 64
+ab argBuf ArgLenMax
 
 ; Grab pid from first argument
 mov r0 3

@@ -1,10 +1,12 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputdec.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strtoint.s
 
 db separator ': ', 0
-ab argBuf 64
+ab argBuf ArgLenMax
 
 ; Loop over args in turn
 mov r0 1 ; 0 is program name
@@ -26,7 +28,7 @@ label factorArgN
 mov r1 r0
 mov r0 3
 mov r2 argBuf
-mov r3 64
+mov r3 ArgLenMax
 syscall
 
 ; No arg found?

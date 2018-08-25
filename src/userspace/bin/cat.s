@@ -1,10 +1,12 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 
-ab argBuf 64
-ab pathBuf 64
+ab argBuf PathMax
+ab pathBuf PathMax
 ab fd 1
 
 ; Loop over args in turn
@@ -30,7 +32,7 @@ label catArgN
 mov r1 r0
 mov r0 3
 mov r2 argBuf
-mov r3 64
+mov r3 PathMax
 syscall
 
 ; No arg found?

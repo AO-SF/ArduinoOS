@@ -1,12 +1,14 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/getpwd.s
 requireend lib/std/str/strlen.s
 
-ab argBuf 64
+ab argBuf PathMax
 
-ab queryDir 64
+ab queryDir PathMax
 ab queryDirFd 1
 ab queryDirLen 1
 
@@ -14,7 +16,7 @@ ab queryDirLen 1
 mov r0 3
 mov r1 1
 mov r2 argBuf
-mov r3 64
+mov r3 PathMax
 syscall
 cmp r0 r0 r0
 skipneqz r0

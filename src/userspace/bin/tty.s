@@ -1,7 +1,9 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 
-ab pathBuf 64
+ab pathBuf PathMax
 
 ; Grab stdio fd
 mov r0 512

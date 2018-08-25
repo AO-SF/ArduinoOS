@@ -1,3 +1,5 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/mem/memprint.s
 requireend lib/std/proc/exit.s
@@ -5,7 +7,7 @@ requireend lib/std/str/strcpy.s
 requireend lib/std/str/strlen.s
 
 db rootPath '/', 0
-ab pathBuf 64
+ab pathBuf PathMax
 
 ; Copy root path into path buffer
 mov r0 pathBuf
