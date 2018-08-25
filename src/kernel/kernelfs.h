@@ -8,7 +8,7 @@ typedef uint16_t KernelFsFileOffset;
 
 typedef uint8_t KernelFsFd; // file-descriptor
 #define KernelFsFdInvalid 0
-#define KernelFsFdMax 256
+#define KernelFsFdMax 64
 
 #define KernelFsPathMax 63
 
