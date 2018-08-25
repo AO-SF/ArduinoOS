@@ -10,7 +10,7 @@ typedef uint8_t KernelFsFd; // file-descriptor
 #define KernelFsFdInvalid 0
 #define KernelFsFdMax 64
 
-#define KernelFsPathMax 64
+#define KernelFsPathMax 32
 
 typedef int (KernelFsCharacterDeviceReadFunctor)(void *userData); // returns -1 on failure
 typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData);
