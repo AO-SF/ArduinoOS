@@ -388,8 +388,8 @@ void kernelBoot(void) {
 	// ... non-essential RO volumes
 	error=false;
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/bin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
-	#ifndef ARDUINO
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/games"), KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
+	#ifndef ARDUINO
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/curses"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/pin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/sys"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibSysSize, &kernelLibSysReadFunctor, NULL, NULL);
