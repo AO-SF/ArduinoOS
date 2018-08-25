@@ -297,10 +297,36 @@ bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newContentLen) 
 	}
 
 	// Check if we have space after us to increase size (and length) sufficiently, without touching anything else
-	// TODO: this
+	uint8_t newSizeFactor=(newTotalLen+MINIFSFACTOR-1)/MINIFSFACTOR;
+	uint8_t nextFileIndex;
+	uint8_t nextFileOffsetFactor;
+	for(nextFileIndex=index+1; nextFileIndex<MINIFSMAXFILES; ++nextFileIndex) {
+		nextFileOffsetFactor=miniFsFileGetBaseOffsetFactorFromIndex(fs, nextFileIndex);
+		if (nextFileOffsetFactor!=0)
+			break;
+	}
+
+	uint8_t currFileOffsetFactor=miniFsFileGetBaseOffsetFactorFromIndex(fs, index);
+	uint8_t maxSizeIfDesiredFactor;
+	if (nextFileIndex!=MINIFSMAXFILES)
+		// Calculate maximum size we could be if desired, before hitting this next file
+		maxSizeIfDesiredFactor=nextFileOffsetFactor-currFileOffsetFactor;
+	else
+		// Calculate maximum size we could be if desired, before hitting end of volume
+		maxSizeIfDesiredFactor=miniFsGetTotalSizeFactorMinusOne(fs)-currFileOffsetFactor+1;
+	if (newSizeFactor<=maxSizeIfDesiredFactor) {
+		// We can simply extend in place, update stored length and size
+		uint16_t fileLenOffset=miniFsFileGetLengthOffsetFromIndex(fs, index);
+		miniFsWrite(fs, fileLenOffset++, (newTotalLen>>8));
+		miniFsWrite(fs, fileLenOffset++, (newTotalLen&0xFF));
+		uint16_t fileSizeFactorOffset=miniFsFileGetSizeFactorOffsetFromIndex(fs, index);
+		miniFsWrite(fs, fileSizeFactorOffset++, newSizeFactor);
+
+		assert(miniFsIsConsistent(fs));
+		return true;
+	}
 
 	// Attempt to simply move to a larger free region
-	uint8_t newSizeFactor=(newTotalLen+MINIFSFACTOR-1)/MINIFSFACTOR;
 	uint8_t newFileOffsetFactor=miniFsFindFreeRegionFactor(fs, newSizeFactor);
 	if (newFileOffsetFactor==0)
 		return false;
