@@ -21,7 +21,7 @@ This will:
 * compiles the kernel (which requies the the generated progmem* files from the builder)
 
 # Running (tools and kernel PC wrapper)
-All compiled tools and the kernel are placed in the ``bin`` directory after compiling. The assembler and disassembler work as one would expect. The emulator takes compiled machine code and runs it on a standard PC - although it is far from a full virtual environment (most syscalls are not implemented, for example). The kernel takes no arguments, and boots into a shell (sh.s) via init (init.s). From there standard commands such as ``cd`` and ``ls`` can be used, and programs on the file system can be executed.
+All compiled tools and the kernel are placed in the ``bin`` directory after compiling. The assembler and disassembler work as one would expect. The emulator takes compiled machine code and runs it on a standard PC - although it is far from a full virtual environment (most syscalls are not implemented, for example). The kernel takes no arguments, and boots into a shell (sh.s) via init (init.s). From there standard commands such as ``cd`` and ``ls`` can be used, and programs on the file system can be executed. Note: The mock eeprom file - which is generated during a build - is stored in the project root, so run the kernel from there as ``./bin/kernel`` so it can find it.
 
 # Arduino
 Note: Currently only the Arduino Mega 2560 is supported.
