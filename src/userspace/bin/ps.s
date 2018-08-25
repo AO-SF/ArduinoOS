@@ -54,7 +54,7 @@ mov r0 0
 label loopstart
 
 ; Hit max pid?
-mov r1 64..... pidmax?
+mov r1 PidMax
 cmp r1 r0 r1
 skiplt r1
 jmp loopend
