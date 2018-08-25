@@ -4,10 +4,10 @@ require strlen.s
 label strtrimlast
 
 ; Find addr of last char
-push r0
+push16 r0
 call strlen
 mov r1 r0
-pop r0
+pop16 r0
 
 add r2 r0 r1
 dec r2

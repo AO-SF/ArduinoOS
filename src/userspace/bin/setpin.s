@@ -29,11 +29,11 @@ jmp usage
 ; Convert args to integers
 mov r0 pinNumArgBuf
 call strtoint
-push r0
+push8 r0
 mov r0 stateArgBuf
 call strtoint
 mov r1 r0
-pop r0
+pop8 r0
 
 ; Use pin library to set state
 call pinset

@@ -94,10 +94,10 @@ mov r1 startTime
 load16 r1 r1
 sub r0 r0 r1
 
-push r0
+push16 r0
 mov r0 preMsg
 call puts0
-pop r0
+pop16 r0
 call puttime
 mov r0 '\n'
 call putc0

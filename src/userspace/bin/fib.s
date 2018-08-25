@@ -8,12 +8,12 @@ mov r5 1 ; r5 is the higher
 
 label loopstart
 ; Print lowest of two values (protecting r4 and r5)
-push r4
-push r5
+push16 r4
+push16 r5
 mov r0 r4
 call putdec
-pop r5
-pop r4
+pop16 r5
+pop16 r4
 
 ; Time to end?
 mov r3 40000
@@ -22,14 +22,14 @@ skiplt r3 ; if r4<40000 is true this causes us to skip the next instruction and 
 jmp loopend ; but if false then we end up here and break out of the loop
 
 ; Print comma
-push r4
-push r5
+push16 r4
+push16 r5
 mov r0 ','
 call putc0
 mov r0 ' '
 call putc0
-pop r5
-pop r4
+pop16 r5
+pop16 r4
 
 ; Perform single Fibonacci step
 add r3 r4 r5 ; add two numbers and store into temp register

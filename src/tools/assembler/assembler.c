@@ -77,8 +77,10 @@ typedef enum {
 	AssemblerInstructionTypeSyscall,
 	AssemblerInstructionTypeAlu,
 	AssemblerInstructionTypeJmp,
-	AssemblerInstructionTypePush,
-	AssemblerInstructionTypePop,
+	AssemblerInstructionTypePush8,
+	AssemblerInstructionTypePop8,
+	AssemblerInstructionTypePush16,
+	AssemblerInstructionTypePop16,
 	AssemblerInstructionTypeCall,
 	AssemblerInstructionTypeRet,
 	AssemblerInstructionTypeStore8,
@@ -123,11 +125,19 @@ typedef struct {
 
 typedef struct {
 	const char *src;
-} AssemblerInstructionPush;
+} AssemblerInstructionPush8;
 
 typedef struct {
 	const char *dest;
-} AssemblerInstructionPop;
+} AssemblerInstructionPop8;
+
+typedef struct {
+	const char *src;
+} AssemblerInstructionPush16;
+
+typedef struct {
+	const char *dest;
+} AssemblerInstructionPop16;
 
 typedef struct {
 	const char *label;
@@ -157,8 +167,10 @@ typedef struct {
 		AssemblerInstructionLabel label;
 		AssemblerInstructionAlu alu;
 		AssemblerInstructionJmp jmp;
-		AssemblerInstructionPush push;
-		AssemblerInstructionPop pop;
+		AssemblerInstructionPush8 push8;
+		AssemblerInstructionPop8 pop8;
+		AssemblerInstructionPush16 push16;
+		AssemblerInstructionPop16 pop16;
 		AssemblerInstructionCall call;
 		AssemblerInstructionStore8 store8;
 		AssemblerInstructionLoad8 load8;
@@ -944,7 +956,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeJmp;
 			instruction->d.jmp.addr=addr;
-		} else if (strcmp(first, "push")==0) {
+		} else if (strcmp(first, "push8")==0) {
 			char *src=strtok_r(NULL, " ", &savePtr);
 			if (src==NULL) {
 				printf("error - expected src register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
@@ -954,9 +966,9 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
-			instruction->type=AssemblerInstructionTypePush;
-			instruction->d.push.src=src;
-		} else if (strcmp(first, "pop")==0) {
+			instruction->type=AssemblerInstructionTypePush8;
+			instruction->d.push8.src=src;
+		} else if (strcmp(first, "pop8")==0) {
 			char *dest=strtok_r(NULL, " ", &savePtr);
 			if (dest==NULL) {
 				printf("error - expected dest register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
@@ -966,8 +978,32 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
-			instruction->type=AssemblerInstructionTypePop;
-			instruction->d.pop.dest=dest;
+			instruction->type=AssemblerInstructionTypePop8;
+			instruction->d.pop8.dest=dest;
+		} else if (strcmp(first, "push16")==0) {
+			char *src=strtok_r(NULL, " ", &savePtr);
+			if (src==NULL) {
+				printf("error - expected src register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypePush16;
+			instruction->d.push16.src=src;
+		} else if (strcmp(first, "pop16")==0) {
+			char *dest=strtok_r(NULL, " ", &savePtr);
+			if (dest==NULL) {
+				printf("error - expected dest register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypePop16;
+			instruction->d.pop16.dest=dest;
 		} else if (strcmp(first, "call")==0) {
 			char *label=strtok_r(NULL, " ", &savePtr);
 			if (label==NULL) {
@@ -1230,10 +1266,16 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeJmp:
 				instruction->machineCodeLen=3; // Reserve three bytes for set16 instruction
 			break;
-			case AssemblerInstructionTypePush:
+			case AssemblerInstructionTypePush8:
+				instruction->machineCodeLen=3; // Reserve three bytes (store8 + inc1)
+			break;
+			case AssemblerInstructionTypePop8:
+				instruction->machineCodeLen=3; // Reserve three bytes (dec1 + load8)
+			break;
+			case AssemblerInstructionTypePush16:
 				instruction->machineCodeLen=4; // Reserve four bytes (store16 + inc2)
 			break;
-			case AssemblerInstructionTypePop:
+			case AssemblerInstructionTypePop16:
 				instruction->machineCodeLen=4; // Reserve four bytes (dec2 + load16)
 			break;
 			case AssemblerInstructionTypeCall:
@@ -1393,17 +1435,59 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				// Create instruction which sets the IP register
 				bytecodeInstructionCreateMiscSet16(instruction->machineCode, ByteCodeRegisterIP, addr);
 			} break;
-			case AssemblerInstructionTypePush: {
+			case AssemblerInstructionTypePush8: {
 				// This requires the stack register - fail if we cannot use it
 				if (program->noStack) {
-					printf("error - push requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					printf("error - push8 requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 					return false;
 				}
 
 				// Verify src is a valid register
-				BytecodeRegister srcReg=assemblerRegisterFromStr(instruction->d.push.src);
+				BytecodeRegister srcReg=assemblerRegisterFromStr(instruction->d.push8.src);
 				if (srcReg==BytecodeRegisterNB) {
-					printf("error - expected register (r0-r7) as src, instead got '%s' (%s:%u '%s')\n", instruction->d.push.src, line->file, line->lineNum, line->original);
+					printf("error - expected register (r0-r7) as src, instead got '%s' (%s:%u '%s')\n", instruction->d.push8.src, line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				// Create as two instructions: store8 SP srcReg; inc1 SP
+				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeStore8, ByteCodeRegisterSP, srcReg);
+
+				BytecodeInstructionStandard inc1Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, ByteCodeRegisterSP, 1);
+				instruction->machineCode[1]=(inc1Op>>8);
+				instruction->machineCode[2]=(inc1Op&0xFF);
+			} break;
+			case AssemblerInstructionTypePop8: {
+				// This requires the stack register - fail if we cannot use it
+				if (program->noStack) {
+					printf("error - pop8 requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				// Verify dest is a valid register
+				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.pop8.dest);
+				if (destReg==BytecodeRegisterNB) {
+					printf("error - expected register (r0-r7) as dest, instead got '%s' (%s:%u '%s')\n", instruction->d.pop8.dest, line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				// Create as two instructions: dec1 SP; load16 destReg SP
+				BytecodeInstructionStandard dec1Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, ByteCodeRegisterSP, 1);
+				instruction->machineCode[0]=(dec1Op>>8);
+				instruction->machineCode[1]=(dec1Op&0xFF);
+
+				instruction->machineCode[2]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeLoad8, destReg, ByteCodeRegisterSP);
+			} break;
+			case AssemblerInstructionTypePush16: {
+				// This requires the stack register - fail if we cannot use it
+				if (program->noStack) {
+					printf("error - push16 requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				// Verify src is a valid register
+				BytecodeRegister srcReg=assemblerRegisterFromStr(instruction->d.push16.src);
+				if (srcReg==BytecodeRegisterNB) {
+					printf("error - expected register (r0-r7) as src, instead got '%s' (%s:%u '%s')\n", instruction->d.push16.src, line->file, line->lineNum, line->original);
 					return false;
 				}
 
@@ -1416,17 +1500,17 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[2]=(inc2Op>>8);
 				instruction->machineCode[3]=(inc2Op&0xFF);
 			} break;
-			case AssemblerInstructionTypePop: {
+			case AssemblerInstructionTypePop16: {
 				// This requires the stack register - fail if we cannot use it
 				if (program->noStack) {
-					printf("error - pop requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+					printf("error - pop16 requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 					return false;
 				}
 
 				// Verify dest is a valid register
-				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.pop.dest);
+				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.pop16.dest);
 				if (destReg==BytecodeRegisterNB) {
-					printf("error - expected register (r0-r7) as dest, instead got '%s' (%s:%u '%s')\n", instruction->d.pop.dest, line->file, line->lineNum, line->original);
+					printf("error - expected register (r0-r7) as dest, instead got '%s' (%s:%u '%s')\n", instruction->d.pop16.dest, line->file, line->lineNum, line->original);
 					return false;
 				}
 
@@ -1649,11 +1733,17 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			case AssemblerInstructionTypeJmp:
 				printf("jmp %s (%s:%u '%s')\n", instruction->d.jmp.addr, line->file, line->lineNum, line->original);
 			break;
-			case AssemblerInstructionTypePush:
-				printf("push %s (%s:%u '%s')\n", instruction->d.push.src, line->file, line->lineNum, line->original);
+			case AssemblerInstructionTypePush8:
+				printf("push8 %s (%s:%u '%s')\n", instruction->d.push8.src, line->file, line->lineNum, line->original);
 			break;
-			case AssemblerInstructionTypePop:
-				printf("pop %s (%s:%u '%s')\n", instruction->d.pop.dest, line->file, line->lineNum, line->original);
+			case AssemblerInstructionTypePop8:
+				printf("pop8 %s (%s:%u '%s')\n", instruction->d.pop8.dest, line->file, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypePush16:
+				printf("push16 %s (%s:%u '%s')\n", instruction->d.push16.src, line->file, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypePop16:
+				printf("pop16 %s (%s:%u '%s')\n", instruction->d.pop16.dest, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeCall:
 				printf("call %s (%s:%u '%s')\n", instruction->d.call.label, line->file, line->lineNum, line->original);

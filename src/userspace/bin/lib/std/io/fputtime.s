@@ -19,21 +19,21 @@ cmp r3 r2 r2
 skipneqz r3
 jmp minutes
 
-push r2
-push r1
-push r0
+push16 r2
+push16 r1
+push8 r0
 
 mov r1 r2
 call fputdec
 
-pop r0
-push r0
+pop8 r0
+push8 r0
 mov r1 'h'
 call fputc0
 
-pop r0
-pop r1
-pop r2
+pop8 r0
+pop16 r1
+pop16 r2
 
 mov r3 3600
 mul r2 r2 r3
@@ -49,21 +49,21 @@ cmp r3 r2 r2
 skipneqz r3
 jmp seconds
 
-push r2
-push r1
-push r0
+push16 r2
+push16 r1
+push8 r0
 
 mov r1 r2
 call fputdec
 
-pop r0
-push r0
+pop8 r0
+push8 r0
 mov r1 'm'
 call fputc0
 
-pop r0
-pop r1
-pop r2
+pop8 r0
+pop16 r1
+pop16 r2
 
 mov r3 60
 mul r2 r2 r3
@@ -71,11 +71,11 @@ sub r1 r1 r2
 
 ; Seconds
 label seconds
-push r0
+push8 r0
 
 call fputdec
 
-pop r0
+pop8 r0
 mov r1 's'
 call fputc0
 

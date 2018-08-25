@@ -10,13 +10,13 @@ skipge r1
 jmp memprintbytes
 
 ; Print first (ones) digit of kb by dividing size by 1024
-push r0
+push16 r0
 mov r1 1024
 div r0 r0 r1
 call putdec
 mov r0 '.'
 call putc0
-pop r0
+pop16 r0
 
 ; Now compute tenths-digit
 mov r2 1024

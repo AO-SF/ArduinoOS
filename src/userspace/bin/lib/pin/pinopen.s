@@ -9,11 +9,11 @@ ab pinopenPathBuf PathMax
 
 label pinopen ; num=r0, returns fd in r0 (or 0 on failure)
 ; Copy prefix into path buf
-push r0
+push8 r0
 mov r0 pinopenPathBuf
 mov r1 pinopenPrefix
 call strcpy
-pop r1
+pop8 r1
 ; Append given pin num to path buf
 mov r0 pinopenPathBuf
 mov r2 pinopenPrefixLen

@@ -9,16 +9,16 @@ mov r4 0 ; // loop index
 label fgetsLoopStart
 
 ; Call fgetc
-push r0
-push r1
-push r2
-push r4
+push8 r0
+push16 r1
+push16 r2
+push16 r4
 call fgetc
 mov r5 r0 ; r5 contains read character
-pop r4
-pop r2
-pop r1
-pop r0
+pop16 r4
+pop16 r2
+pop16 r1
+pop8 r0
 
 ; Check for failure
 mov r3 256

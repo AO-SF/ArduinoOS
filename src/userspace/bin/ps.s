@@ -60,9 +60,9 @@ skiplt r1
 jmp loopend
 
 ; Call psPid to get and print data for this process (if any)
-push r0
+push8 r0
 call psPid
-pop r0
+pop8 r0
 
 ; Try next pid
 inc r0

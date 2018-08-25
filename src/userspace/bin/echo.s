@@ -8,7 +8,7 @@ ab buf ArgLenMax
 ; Get argc
 mov r0 2 ; getargc
 syscall
-push r0
+push8 r0
 
 ; Init ready for loop
 mov r4 1
@@ -16,8 +16,8 @@ mov r4 1
 label loopstart
 
 ; Check if hit argc
-pop r0
-push r0
+pop8 r0
+push8 r0
 cmp r0 r0 r4
 skipneq r0
 jmp loopend
@@ -29,12 +29,12 @@ skipgt r0
 jmp skipspace
 
 ; Print space
-push r0
-push r4
+push8 r0
+push8 r4
 mov r0 ' '
 call putc0
-pop r4
-pop r0
+pop8 r4
+pop8 r0
 label skipspace
 
 ; Get arg
@@ -45,12 +45,12 @@ mov r3 ArgLenMax
 syscall
 
 ; Write out arg
-push r0
-push r4
+push8 r0
+push8 r4
 mov r0 buf
 call puts0
-pop r4
-pop r0
+pop8 r4
+pop8 r0
 
 ; Move onto next argument
 inc r4
