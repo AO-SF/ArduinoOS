@@ -1,0 +1,10 @@
+HASH(1) - User Commands
+
+NAME
+      hash - print hash of file contents
+
+SYNOPSIS
+      hash [FILE1 [FILE2 ...]]
+
+DESCRIPTION
+      For each file given, print a 4-digit hex hash of the file's contents.
