@@ -8,6 +8,7 @@
 #ifdef ARDUINO
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>
+#include <avr/pgmspace.h>
 #include <util/atomic.h>
 #include "circbuf.h"
 #include "uart.h"
@@ -356,78 +357,85 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, "formatted volume representing /tmp\n");
 
 	// Init file system and add virtual devices
+#ifdef ARDUINO
+	char tempBuf[KernelFsPathMax];
+	#define KSTR(str) ({static const char tempBufProgMem[KernelFsPathMax] PROGMEM = (str); strcpy_P(tempBuf, tempBufProgMem); tempBuf;})
+#else
+	#define KSTR(str) (str)
+#endif
+
 	kernelFsInit();
 	bool error;
 
 	// ... base directories
 	error=false;
-	error|=!kernelFsAddDirectoryDeviceFile("/");
-	error|=!kernelFsAddDirectoryDeviceFile("/dev");
-	error|=!kernelFsAddDirectoryDeviceFile("/media");
-	error|=!kernelFsAddDirectoryDeviceFile("/usr");
+	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/"));
+	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/dev"));
+	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/media"));
+	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/usr"));
 	#ifndef ARDUINO
-	error|=!kernelFsAddDirectoryDeviceFile("/lib");
-	error|=!kernelFsAddDirectoryDeviceFile("/lib/std");
-	error|=!kernelFsAddDirectoryDeviceFile("/usr/man");
+	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/lib"));
+	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/lib/std"));
+	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/usr/man"));
 	#endif
 	if (error)
 		kernelFatalError("fs init failure: base directories\n");
 
 	// ... essential: tmp directory used for ram
-	if (!kernelFsAddBlockDeviceFile("/tmp", KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL))
+	if (!kernelFsAddBlockDeviceFile(KSTR("/tmp"), KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL))
 		kernelFatalError("fs init failure: /tmp\n");
 
 	// ... essential: RO volume /bin
-	if (!kernelFsAddBlockDeviceFile("/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelBinSize, &kernelBinReadFunctor, NULL, NULL))
+	if (!kernelFsAddBlockDeviceFile(KSTR("/bin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelBinSize, &kernelBinReadFunctor, NULL, NULL))
 		kernelFatalError("fs init failure: /bin\n");
 
 	// ... non-essential RO volumes
 	error=false;
-	error|=!kernelFsAddBlockDeviceFile("/usr/bin", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/bin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
 	#ifndef ARDUINO
-	error|=!kernelFsAddBlockDeviceFile("/usr/games", KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/curses", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/pin", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/sys", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibSysSize, &kernelLibSysReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/io", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdIoSize, &kernelLibStdIoReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/math", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMathSize, &kernelLibStdMathReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/proc", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdProcSize, &kernelLibStdProcReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/mem", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMemSize, &kernelLibStdMemReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/str", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/lib/std/time", KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/usr/man/1", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan1Size, &kernelMan1ReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/usr/man/2", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan2Size, &kernelMan2ReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/usr/man/3", KernelFsBlockDeviceFormatCustomMiniFs, KernelMan3Size, &kernelMan3ReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/games"), KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/curses"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/pin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/sys"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibSysSize, &kernelLibSysReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/io"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdIoSize, &kernelLibStdIoReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/math"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMathSize, &kernelLibStdMathReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/proc"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdProcSize, &kernelLibStdProcReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/mem"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMemSize, &kernelLibStdMemReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/str"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/time"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/man/1"), KernelFsBlockDeviceFormatCustomMiniFs, KernelMan1Size, &kernelMan1ReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/man/2"), KernelFsBlockDeviceFormatCustomMiniFs, KernelMan2Size, &kernelMan2ReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/man/3"), KernelFsBlockDeviceFormatCustomMiniFs, KernelMan3Size, &kernelMan3ReadFunctor, NULL, NULL);
 	#endif
 	if (error)
 		kernelLog(LogTypeWarning, "fs init failure: /lib and /usr\n");
 
 	// ... optional EEPROM volumes
 	error=false;
-	error|=!kernelFsAddBlockDeviceFile("/etc", KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEtcReadFunctor, kernelEtcWriteFunctor, NULL);
-	error|=!kernelFsAddBlockDeviceFile("/dev/eeprom", KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelDevEepromReadFunctor, kernelDevEepromWriteFunctor, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/etc"), KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEtcReadFunctor, kernelEtcWriteFunctor, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/dev/eeprom"), KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelDevEepromReadFunctor, kernelDevEepromWriteFunctor, NULL);
 	if (error)
 		kernelLog(LogTypeWarning, "fs init failure: /etc and /home\n");
 
 	// ... optional device files
 	error=false;
-	error|=!kernelFsAddCharacterDeviceFile("/dev/ttyS0", &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(KSTR("/dev/ttyS0"), &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
 
-	error|=!kernelFsAddCharacterDeviceFile("/dev/zero", &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/full", &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/null", &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile("/dev/urandom", &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(KSTR("/dev/zero"), &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(KSTR("/dev/full"), &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(KSTR("/dev/null"), &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(KSTR("/dev/urandom"), &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, NULL);
 
 	for(uint8_t pinNum=0; pinNum<KernelPinNumMax; ++pinNum) {
-		char pinDevicePath[KernelFsPathMax];
-		sprintf(pinDevicePath, "/dev/pin%u", pinNum);
-		error|=!kernelFsAddCharacterDeviceFile(pinDevicePath, &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)pinNum);
+		sprintf(tempBuf, "/dev/pin%u", pinNum);
+		error|=!kernelFsAddCharacterDeviceFile(tempBuf, &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)pinNum);
 	}
 
 	if (error)
 		kernelLog(LogTypeWarning, "fs init failure: /dev\n");
 
 	kernelLog(LogTypeInfo, "initialised filesystem\n");
+	#undef KSTR
 
 	// Initialise process manager and start init process
 	procManInit();
