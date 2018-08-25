@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define CircBufSize 256
+#define CircBufSize 128
 
 typedef struct {
 	volatile uint8_t buffer[CircBufSize];
