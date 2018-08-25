@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define _unused(x) ((void)(x))
+
 extern uint32_t kernelBootTime; // Initially set to 0
 
 uint32_t millisRaw(void);

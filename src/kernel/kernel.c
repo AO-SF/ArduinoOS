@@ -689,6 +689,7 @@ uint8_t kernelEtcMiniFsReadFunctor(uint16_t addr, void *userData) {
 void kernelEtcMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
 	bool result=kernelEtcWriteFunctor(addr, value, userData);
 	assert(result);
+	_unused(result);
 }
 
 int kernelTmpReadFunctor(KernelFsFileOffset addr, void *userData) {
@@ -709,6 +710,7 @@ uint8_t kernelTmpMiniFsReadFunctor(uint16_t addr, void *userData) {
 void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
 	bool result=kernelTmpWriteFunctor(addr, value, userData);
 	assert(result);
+	_unused(result);
 }
 
 int kernelDevZeroReadFunctor(void *userData) {
