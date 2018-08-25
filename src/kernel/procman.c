@@ -1571,6 +1571,12 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	for(uint16_t i=0; i<ByteCodeSignalIdNB; ++i)
 		procData->signalHandlers[i]=ProcManSignalHandlerInvalid;
 
+	// Save proc data
+	if (!procManProcessStoreProcData(process, procData)) {
+		kernelLog(LogTypeWarning, "exec in %u failed - could not store procdata\n", procManGetPidFromProcess(process));
+		return false;
+	}
+
 	kernelLog(LogTypeInfo, "exec in %u succeeded\n", procManGetPidFromProcess(process));
 
 	return true;
