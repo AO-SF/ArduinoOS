@@ -5,12 +5,13 @@
 #include <stdint.h>
 
 typedef uint16_t ByteCodeWord;
+typedef uint32_t ByteCodeDoubleWord;
 
-#define ByteCodeMemoryTotalSize ((ByteCodeWord)0xFFFF) // 64kb
-#define ByteCodeMemoryProgmemAddr ((ByteCodeWord)0x0000) // progmem in lower 32kb
-#define ByteCodeMemoryProgmemSize ((ByteCodeWord)0x8000)
-#define ByteCodeMemoryRamAddr (ByteCodeMemoryProgmemAddr+ByteCodeMemoryProgmemSize) // ram in upper 32kb
-#define ByteCodeMemoryRamSize (ByteCodeMemoryTotalSize-ByteCodeMemoryProgmemSize)
+#define ByteCodeMemoryTotalSize ((ByteCodeDoubleWord)0xFFFFu) // 64kb
+#define ByteCodeMemoryProgmemAddr ((ByteCodeWord)0x0000u) // progmem in lower 32kb
+#define ByteCodeMemoryProgmemSize ((ByteCodeWord)0x8000u)
+#define ByteCodeMemoryRamAddr ((ByteCodeWord)(ByteCodeMemoryProgmemAddr+ByteCodeMemoryProgmemSize)) // ram in upper 32kb
+#define ByteCodeMemoryRamSize ((ByteCodeWord)(ByteCodeMemoryTotalSize-ByteCodeMemoryProgmemSize))
 
 typedef enum {
 	ByteCodeSignalIdInterrupt,
