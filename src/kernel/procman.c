@@ -23,6 +23,8 @@
 
 #define ProcManSignalHandlerInvalid 0
 
+#define ProcManArgLenMax 64
+
 typedef enum {
 	ProcManProcessStateUnused,
 	ProcManProcessStateActive,
@@ -88,7 +90,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, ByteCodeWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, const char *str);
 
-bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[64]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.  TODO: Avoid hardcoded limit
+bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.  TODO: Avoid hardcoded limit
 
 bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong *instruction);
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManExitStatus *exitStatus);
@@ -96,7 +98,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 void procManProcessFork(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData); // Returns false only on critical error (e.g. segfault), i.e. may return true even though exec operation itself failed
 
-KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGVMAX][64]); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsInvalid on failure)
+KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGVMAX][ProcManArgLenMax]); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsInvalid on failure)
 
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData);
 
@@ -166,7 +168,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	sprintf(ramPath, "/tmp/ram%u", pid);
 
 	// Load program (handling magic bytes)
-	char args[ARGVMAX][64];
+	char args[ARGVMAX][ProcManArgLenMax];
 	strcpy(args[0], programPath);
 	for(uint8_t i=1; i<ARGVMAX; ++i)
 		strcpy(args[i], "");
@@ -717,7 +719,7 @@ bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcDat
 	return true;
 }
 
-bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[64]) {
+bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]) {
 	char *dest=str;
 
 	// Check n is sensible
@@ -890,7 +892,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdGetArgC: {
 							procData->regs[0]=0;
 							for(unsigned i=0; i<ARGVMAX; ++i) {
-								char arg[64]; // TODO: Avoid hardcoded limit
+								char arg[ProcManArgLenMax];
 								if (!procManProcessGetArgvN(process, procData, i, arg)) {
 									kernelLog(LogTypeWarning, "failed during getargc syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
@@ -906,7 +908,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							if (n>ARGVMAX)
 								procData->regs[0]=0;
 							else {
-								char arg[64]; // TODO: Avoid hardcoded limit
+								char arg[ProcManArgLenMax];
 								if (!procManProcessGetArgvN(process, procData, n, arg)) {
 									kernelLog(LogTypeWarning, "failed during getargvn syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
@@ -1461,7 +1463,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	kernelLog(LogTypeInfo, "exec in %u\n", procManGetPidFromProcess(process));
 
 	// Grab path and args (if any)
-	char args[ARGVMAX][64]; // TODO: Avoid hardcoded 64
+	char args[ARGVMAX][ProcManArgLenMax];
 	for(unsigned i=0; i<ARGVMAX; ++i)
 		args[i][0]='\0';
 
@@ -1573,7 +1575,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	return true;
 }
 
-KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGVMAX][64]) {
+KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGVMAX][ProcManArgLenMax]) {
 	assert(process!=NULL);
 
 	// Normalise path and then check if valid
