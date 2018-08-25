@@ -1,8 +1,10 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/proc/getpwd.s
 requireend lib/std/proc/exit.s
 
-ab pwdBuf 64
+ab pwdBuf PathMax
 
 ; Grab pwd
 mov r0 pwdBuf

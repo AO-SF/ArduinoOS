@@ -1,14 +1,16 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/str/strcpy.s
 
 db standardMsg 'y', 0
-ab argBuf 64
+ab argBuf ArgLenMax
 
 ; Grab argument
 mov r0 3
 mov r1 1
 mov r2 argBuf
-mov r3 64
+mov r3 ArgLenMax
 syscall
 
 ; If no argument, copy standard one into buffer instead

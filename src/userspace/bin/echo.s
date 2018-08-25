@@ -1,7 +1,9 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 
-ab buf 64
+ab buf ArgLenMax
 
 ; Get argc
 mov r0 2 ; getargc
@@ -39,7 +41,7 @@ label skipspace
 mov r0 3 ; getargvn
 mov r1 r4
 mov r2 buf
-mov r3 64
+mov r3 ArgLenMax
 syscall
 
 ; Write out arg

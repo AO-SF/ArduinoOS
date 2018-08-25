@@ -1,17 +1,19 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strtoint.s
 
 db usageStr 'usage: signal pid signalid',0
 
-ab pidArgBuf 64
-ab signalIdArgBuf 64
+ab pidArgBuf ArgLenMax
+ab signalIdArgBuf ArgLenMax
 
 ; Grab pid from first argument
 mov r0 3
 mov r1 1
 mov r2 pidArgBuf
-mov r3 64
+mov r3 ArgLenMax
 syscall
 cmp r1 r0 r0
 skipneqz r1
@@ -20,7 +22,7 @@ jmp usage
 mov r0 3
 mov r1 2
 mov r2 signalIdArgBuf
-mov r3 64
+mov r3 ArgLenMax
 syscall
 cmp r1 r0 r0
 skipneqz r1

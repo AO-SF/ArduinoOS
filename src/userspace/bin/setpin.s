@@ -1,3 +1,5 @@
+require lib/sys/sys.s
+
 requireend lib/pin/pinset.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
@@ -5,8 +7,8 @@ requireend lib/std/str/strtoint.s
 
 db usageStr 'usage: setpin pinnum state\n',0
 
-ab pinNumArgBuf 64
-ab stateArgBuf 64
+ab pinNumArgBuf ArgLenMax
+ab stateArgBuf ArgLenMax
 
 ; Grab args
 mov r0 3

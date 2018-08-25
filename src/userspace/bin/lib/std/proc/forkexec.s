@@ -1,4 +1,4 @@
-require ../../sys/proc.s
+require ../../sys/sys.s
 
 label forkexec ; takes path in r0 to exec in a forked process, with arguments in r1-r3, and returns childs PID in r0 (in the parent), or 0 on failure
 ; save path and arguments

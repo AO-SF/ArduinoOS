@@ -1,3 +1,5 @@
+require lib/sys/sys.s
+
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
@@ -8,18 +10,18 @@ db usageStr 'usage: cp SOURCE DEST\n', 0
 db errorStrBadSource 'could not open source\n', 0
 db errorStrBadDest 'could not create/open dest\n', 0
 
-ab sourceArg 64
-ab destArg 64
+ab sourceArg PathMax
+ab destArg PathMax
 ab sourceFd 1
 ab destFd 1
 
-ab cpScratchBuf 64
+ab cpScratchBuf PathMax
 
 ; Get source and dest arguments
 mov r0 3
 mov r1 1
 mov r2 sourceArg
-mov r3 64
+mov r3 PathMax
 syscall
 cmp r0 r0 r0
 skipneqz r0
@@ -27,7 +29,7 @@ jmp showUsage
 mov r0 3
 mov r1 2
 mov r2 destArg
-mov r3 64
+mov r3 PathMax
 syscall
 cmp r0 r0 r0
 skipneqz r0

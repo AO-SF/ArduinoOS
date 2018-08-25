@@ -1,3 +1,5 @@
+require lib/sys/sys.s
+
 requireend lib/curses/curses.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
@@ -20,14 +22,14 @@ ab levelArray 256 ; maxW*maxH
 ab playerX 1
 ab playerY 1
 
-ab pathBuf 64
+ab pathBuf PathMax
 ab scratchByte 1
 
 ; Grab level path from arg
 mov r0 3
 mov r1 1
 mov r2 pathBuf
-mov r3 64
+mov r3 PathMax
 syscall
 
 cmp r0 r0 r0

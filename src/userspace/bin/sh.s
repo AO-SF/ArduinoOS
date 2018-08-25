@@ -1,3 +1,5 @@
+require lib/sys/sys.s
+
 db stdioPath '/dev/ttyS0', 0
 db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
@@ -9,9 +11,9 @@ db emptyStr 0
 db homeDir '/home', 0
 
 ab handlingStdio 1
-ab inputBuf 64
-ab absBuf 64
-ab pwdBuf 64
+ab inputBuf PathMax
+ab absBuf PathMax
+ab pwdBuf PathMax
 aw arg1Ptr 1
 aw arg2Ptr 1
 aw arg3Ptr 1
@@ -24,7 +26,7 @@ ab runInBackground 1
 
 ab childPid 1
 
-require lib/sys/proc.s
+require lib/sys/sys.s
 
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
@@ -50,7 +52,7 @@ jmp interruptHandler
 ; Clear child PID
 label start
 mov r0 childPid
-mov r1 64
+mov r1 PathMax
 store8 r0 r1
 
 ; Register suicide signal handler
@@ -210,7 +212,7 @@ load8 r0 r0
 mov r1 readOffset
 load16 r1 r1
 mov r2 inputBuf
-mov r3 64
+mov r3 PathMax
 call fgets
 
 ; Update read offset for next time

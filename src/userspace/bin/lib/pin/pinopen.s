@@ -1,9 +1,11 @@
+require ../sys/sys.s
+
 requireend ../std/str/inttostr.s
 requireend ../std/str/strcpy.s
 
 db pinopenPrefix '/dev/pin',0
 const pinopenPrefixLen 8
-ab pinopenPathBuf 64
+ab pinopenPathBuf PathMax
 
 label pinopen ; num=r0, returns fd in r0 (or 0 on failure)
 ; Copy prefix into path buf

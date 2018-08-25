@@ -1,4 +1,4 @@
-require lib/sys/proc.s
+require lib/sys/sys.s
 
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputdec.s
@@ -11,8 +11,8 @@ aw cpuCounts PidMax
 aw cpuTotal 1
 
 ab psPidPid 1
-ab psPidStateBuf 64
-ab psPidScratchBuf 64
+ab psPidStateBuf PathMax ; PathMax due to also using scratch buf with it, which is itself used for a path
+ab psPidScratchBuf PathMax
 
 ab psPidInt32 4
 
