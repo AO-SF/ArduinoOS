@@ -971,8 +971,6 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 										str="active";
 									break;
 									case ProcManProcessStateWaitingWaitpid:
-										str="waiting";
-									break;
 									case ProcManProcessStateWaitingRead:
 										str="waiting";
 									break;
