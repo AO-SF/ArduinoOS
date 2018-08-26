@@ -1,21 +1,28 @@
 #ifdef ARDUINO
 
 #include <avr/io.h>
+#include <stdlib.h>
 
 #include "pins.h"
 
+#define PinsGroupMax 12
+volatile uint8_t *pinsArrayDdr[PinsGroupMax]={&DDRA, &DDRB, &DDRC, &DDRD, &DDRE, &DDRF, &DDRG, &DDRH, NULL, &DDRJ, &DDRK, &DDRL};
+volatile uint8_t *pinsArrayPort[PinsGroupMax]={&PORTA, &PORTB, &PORTC, &PORTD, &PORTE, &PORTF, &PORTG, &PORTH, NULL, &PORTJ, &PORTK, &PORTL};
+
+#define PinNumGetGroup(pinNum) ((pinNum)>>3)
+#define PinNumGetShift(pinNum) ((pinNum)&7)
+
 bool pinRead(uint8_t pinNum) {
 	// TODO: this
-	return 0;
+	return false;
 }
 
 void pinWrite(uint8_t pinNum, bool value) {
-	// TODO: Support pins other than 13 for the LED
-	DDRB|=(1<<PB7);
+	*pinsArrayDdr[PinNumGetGroup(pinNum)]|=(1u<<PinNumGetShift(pinNum));
 	if (value!=0)
-		PORTB|=(1<<PB7);
+		*pinsArrayPort[PinNumGetGroup(pinNum)]|=(1u<<PinNumGetShift(pinNum));
 	else
-		PORTB&=~(1<<PB7);
+		*pinsArrayPort[PinNumGetGroup(pinNum)]&=~(1u<<PinNumGetShift(pinNum));
 }
 
 #endif
