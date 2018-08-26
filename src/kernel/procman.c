@@ -71,6 +71,7 @@ ProcMan procManData;
 char procManScratchBufPath0[KernelFsPathMax];
 char procManScratchBufPath1[KernelFsPathMax];
 char procManScratchBufPath2[KernelFsPathMax];
+char procManScratchBuf256[256];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -157,6 +158,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 #define procPath procManScratchBufPath0
 #define ramPath procManScratchBufPath1
 #define tempPath procManScratchBufPath2
+#define envVarData procManScratchBuf256 // TODO: Should be larger for worst-case (roughly (argvmax+2)*pathmax~=380)
 	KernelFsFd ramFd=KernelFsFdInvalid;
 	ProcManProcessProcData procData;
 
@@ -187,7 +189,6 @@ ProcManPid procManProcessNew(const char *programPath) {
 	}
 
 	// Create env vars data
-	char envVarData[256]; // TODO: Should be larger for worst-case (roughly (argvmax+2)*pathmax~=380)
 	uint8_t envVarDataLen=0;
 
 	char tempPwd[KernelFsPathMax];
@@ -277,6 +278,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 #undef procPath
 #undef ramPath
 #undef tempPath
+#undef envVarData
 }
 
 void procManKillAll(void) {
@@ -1479,11 +1481,11 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 #define tempPwd procManScratchBufPath0
 #define tempPath procManScratchBufPath1
 #define ramPath procManScratchBufPath2
+#define args ((char (*)[ProcManArgLenMax])procManScratchBuf256)
+
 	kernelLog(LogTypeInfo, "exec in %u\n", procManGetPidFromProcess(process));
 
 	// Grab path and args (if any)
-	char args[ARGVMAX][ProcManArgLenMax];
-
 	for(uint8_t i=0; i<ARGVMAX; ++i)
 		args[i][0]='\0';
 
@@ -1599,6 +1601,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 #undef tempPwd
 #undef tempPath
 #undef ramPath
+#undef args
 }
 
 KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGVMAX][ProcManArgLenMax]) {
