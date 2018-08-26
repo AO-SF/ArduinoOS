@@ -2,34 +2,34 @@
 #include <string.h>
 
 #include "kstr.h"
-#include "wrapper.h"
 
-KStr kstrallocStatic(char *staticBuffer) {
 #ifdef ARDUINO
-	return staticBuffer;
-#else
-	// On PC just use malloc - we have plenty of space, and saves kstrfree having to determine if heap or not
-	return kstrallocCopy(staticBuffer);
+KStr kstrAllocProgmemRaw(uint_farptr_t progmemAddr) {
+	KStr kstr={.type=KStrTypeProgmem, .ptr=progmemAddr};
+	return kstr;
+}
 #endif
+
+KStr kstrAllocStatic(char *staticBuffer) {
+	KStr kstr={.type=KStrTypeStatic, .ptr=(uintptr_t)staticBuffer};
+	return kstr;
 }
 
-KStr kstrallocCopy(const char *src) {
+KStr kstrAllocCopy(const char *src) {
 	char *dest=malloc(strlen(src)+1);
-	if (dest==NULL)
-		return NULL;
+	if (dest==NULL) {
+		KStr kstr={.type=KStrTypeInvalid, .ptr=(uintptr_t)NULL};
+		return kstr;
+	}
 	strcpy(dest, src);
-	return dest;
+	KStr kstr={.type=KStrTypeHeap, .ptr=(uintptr_t)dest};
+	return kstr;
 }
 
-void kstrfree(KStr str) {
-#ifdef ARDUINO
-	if (pointerIsHeap(str))
-		free(str);
-#else
-	free(str);
-#endif
-}
-
-char *kstrGetC(KStr str) {
-	return (char *)str;
+void kstrFree(KStr *str) {
+	if (str->type==KStrTypeHeap) {
+		free((void *)(uintptr_t)str->ptr);
+		str->type=KStrTypeInvalid;
+		str->ptr=(uintptr_t)0;
+	}
 }
