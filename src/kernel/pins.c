@@ -33,7 +33,7 @@ bool pinStates[PinNB]={0};
 
 bool pinRead(uint8_t pinNum) {
 	if (pinNum>=PinNB) {
-		kernelLog(LogTypeWarning, "bad pin %u in read\n", pinNum);
+		kernelLog(LogTypeWarning, kstrP("bad pin %u in read\n"), pinNum);
 		return false;
 	}
 #ifdef ARDUINO
@@ -46,7 +46,7 @@ bool pinRead(uint8_t pinNum) {
 
 bool pinWrite(uint8_t pinNum, bool value) {
 	if (pinNum>=PinNB) {
-		kernelLog(LogTypeWarning, "bad pin %u in write\n", pinNum);
+		kernelLog(LogTypeWarning, kstrP("bad pin %u in write\n"), pinNum);
 		return false;
 	}
 #ifdef ARDUINO

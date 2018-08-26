@@ -229,7 +229,7 @@ void kernelShutdownBegin(void) {
 
 	// Send suicide signals to all process except init
 	kernelSetState(KernelStateShuttingDownWaitAll);
-	kernelLog(LogTypeInfo, "shutdown request, sending suicide signal to all processes except init\n");
+	kernelLog(LogTypeInfo, kstrP("shutdown request, sending suicide signal to all processes except init\n"));
 
 	for(ProcManPid pid=1; pid<ProcManPidMax; ++pid) {
 		if (!procManProcessExists(pid))
@@ -258,7 +258,7 @@ void kernelShutdownNext(void) {
 	assert(kernelGetState()==KernelStateShuttingDownWaitAll);
 
 	// Forcibly kill any processes who did not commit suicide in time
-	kernelLog(LogTypeInfo, "shutdown request, killing any processes (except init) which did not commit suicide soon enough\n");
+	kernelLog(LogTypeInfo, kstrP("shutdown request, killing any processes (except init) which did not commit suicide soon enough\n"));
 	for(ProcManPid pid=1; pid<ProcManPidMax; ++pid) {
 		if (!procManProcessExists(pid))
 			continue;
@@ -268,7 +268,7 @@ void kernelShutdownNext(void) {
 
 	// Send suicide signal to init
 	kernelSetState(KernelStateShuttingDownWaitInit);
-	kernelLog(LogTypeInfo, "shutdown request, sending suicide signal to init\n");
+	kernelLog(LogTypeInfo, kstrP("shutdown request, sending suicide signal to init\n"));
 	procManProcessSendSignal(0, ByteCodeSignalIdSuicide);
 }
 
@@ -290,12 +290,12 @@ void kernelBoot(void) {
 	set_sleep_mode(SLEEP_MODE_IDLE);
 	sei();
 
-	kernelLog(LogTypeInfo, "initialised uart (serial)\n");
+	kernelLog(LogTypeInfo, kstrP("initialised uart (serial)\n"));
 #endif
 
 	// Enter booting state
 	kernelSetState(KernelStateBooting);
-	kernelLog(LogTypeInfo, "booting\n");
+	kernelLog(LogTypeInfo, kstrP("booting\n"));
 
 	millisInit();
 
@@ -308,12 +308,12 @@ void kernelBoot(void) {
 #ifndef ARDUINO
 	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "a+");
 	if (kernelFakeEepromFile==NULL)
-		kernelFatalError("could not open/create pseudo EEPROM storage file at '%s' (PC wrapper)\n", kernelFakeEepromPath);
+		kernelFatalError(kstrP("could not open/create pseudo EEPROM storage file at '%s' (PC wrapper)\n"), kernelFakeEepromPath);
 	fclose(kernelFakeEepromFile);
 
 	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "r+");
 	if (kernelFakeEepromFile==NULL)
-		kernelFatalError("could not open pseudo EEPROM storage file at '%s' for reading and writing (PC wrapper)\n", kernelFakeEepromPath);
+		kernelFatalError(kstrP("could not open pseudo EEPROM storage file at '%s' for reading and writing (PC wrapper)\n"), kernelFakeEepromPath);
 	fseek(kernelFakeEepromFile, 0L, SEEK_END);
 	KernelFsFileOffset eepromInitialSize=ftell(kernelFakeEepromFile);
 
@@ -322,13 +322,13 @@ void kernelBoot(void) {
 		++eepromInitialSize;
 	}
 
-	kernelLog(LogTypeInfo, "openned pseudo EEPROM storage file (PC wrapper)\n");
+	kernelLog(LogTypeInfo, kstrP("openned pseudo EEPROM storage file (PC wrapper)\n"));
 #endif
 
 	// Format RAM used for /tmp
 	if (!miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize))
-		kernelFatalError("could not format /tmp volume\n");
-	kernelLog(LogTypeInfo, "formatted volume representing /tmp (size %u)\n", KernelTmpDataPoolSize);
+		kernelFatalError(kstrP("could not format /tmp volume\n"));
+	kernelLog(LogTypeInfo, kstrP("formatted volume representing /tmp (size %u)\n"), KernelTmpDataPoolSize);
 
 	// Init file system and add virtual devices
 	char tempBuf[KernelFsPathMax];
@@ -351,15 +351,15 @@ void kernelBoot(void) {
 	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/lib"));
 	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/lib/std"));
 	if (error)
-		kernelFatalError("fs init failure: base directories\n");
+		kernelFatalError(kstrP("fs init failure: base directories\n"));
 
 	// ... essential: tmp directory used for ram
 	if (!kernelFsAddBlockDeviceFile(KSTR("/tmp"), KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL))
-		kernelFatalError("fs init failure: /tmp\n");
+		kernelFatalError(kstrP("fs init failure: /tmp\n"));
 
 	// ... essential: RO volume /bin
 	if (!kernelFsAddBlockDeviceFile(KSTR("/bin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelBinSize, &kernelBinReadFunctor, NULL, NULL))
-		kernelFatalError("fs init failure: /bin\n");
+		kernelFatalError(kstrP("fs init failure: /bin\n"));
 
 	// ... non-essential RO volumes
 	error=false;
@@ -378,14 +378,14 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/str"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/time"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL, NULL);
 	if (error)
-		kernelLog(LogTypeWarning, "fs init failure: /lib and /usr\n");
+		kernelLog(LogTypeWarning, kstrP("fs init failure: /lib and /usr\n"));
 
 	// ... optional EEPROM volumes
 	error=false;
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/etc"), KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEtcReadFunctor, kernelEtcWriteFunctor, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/dev/eeprom"), KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelDevEepromReadFunctor, kernelDevEepromWriteFunctor, NULL);
 	if (error)
-		kernelLog(LogTypeWarning, "fs init failure: /etc and /home\n");
+		kernelLog(LogTypeWarning, kstrP("fs init failure: /etc and /home\n"));
 
 	// ... optional device files
 	error=false;
@@ -403,37 +403,37 @@ void kernelBoot(void) {
 	}
 
 	if (error)
-		kernelLog(LogTypeWarning, "fs init failure: /dev\n");
+		kernelLog(LogTypeWarning, kstrP("fs init failure: /dev\n"));
 
-	kernelLog(LogTypeInfo, "initialised filesystem\n");
+	kernelLog(LogTypeInfo, kstrP("initialised filesystem\n"));
 	#undef KSTR
 
 	// Initialise process manager and start init process
 	procManInit();
-	kernelLog(LogTypeInfo, "initialised process manager\n");
+	kernelLog(LogTypeInfo, kstrP("initialised process manager\n"));
 
-	kernelLog(LogTypeInfo, "starting init\n");
+	kernelLog(LogTypeInfo, kstrP("starting init\n"));
 	if (procManProcessNew("/bin/init")==ProcManPidMax)
-		kernelFatalError("could not start init at '%s'\n", "/bin/init");
+		kernelFatalError(kstrP("could not start init at '%s'\n"), "/bin/init");
 
-	kernelLog(LogTypeInfo, "booting complete\n");
+	kernelLog(LogTypeInfo, kstrP("booting complete\n"));
 }
 
 void kernelShutdownFinal(void) {
 	kernelSetState(KernelStateShuttingDownFinal);
-	kernelLog(LogTypeInfo, "shutting down final\n");
+	kernelLog(LogTypeInfo, kstrP("shutting down final\n"));
 
 	// Quit process manager
-	kernelLog(LogTypeInfo, "killing process manager\n");
+	kernelLog(LogTypeInfo, kstrP("killing process manager\n"));
 	procManQuit();
 
 	// Quit file system
-	kernelLog(LogTypeInfo, "unmounting filesystem\n");
+	kernelLog(LogTypeInfo, kstrP("unmounting filesystem\n"));
 	kernelFsQuit();
 
 	// Non-arduino-only: close pretend EEPROM storage file
 #ifndef ARDUINO
-	kernelLog(LogTypeInfo, "closing pseudo EEPROM storage file (PC wrapper)\n");
+	kernelLog(LogTypeInfo, kstrP("closing pseudo EEPROM storage file (PC wrapper)\n"));
 	fclose(kernelFakeEepromFile); // TODO: Check return
 #endif
 
@@ -445,11 +445,11 @@ void kernelHalt(void) {
 	kernelSetState(KernelStateShutdown);
 
 #ifdef ARDUINO
-	kernelLog(LogTypeInfo, "halting\n");
+	kernelLog(LogTypeInfo, kstrP("halting\n"));
 	while(1)
 		;
 #else
-	kernelLog(LogTypeInfo, "exiting (PC wrapper)\n");
+	kernelLog(LogTypeInfo, kstrP("exiting (PC wrapper)\n"));
 	exit(0);
 #endif
 }
@@ -577,12 +577,12 @@ int16_t kernelDevEepromReadFunctor(KernelFsFileOffset addr, void *userData) {
 	return eeprom_read_byte((void *)addr);
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, "could not seek to addr %u in /dev/eeprom read functor\n", addr);
+		kernelLog(LogTypeWarning, kstrP("could not seek to addr %u in /dev/eeprom read functor\n"), addr);
 		return -1;
 	}
 	int c=fgetc(kernelFakeEepromFile);
 	if (c==EOF) {
-		kernelLog(LogTypeWarning, "could not read at addr %u in /dev/eeprom read functor\n", addr);
+		kernelLog(LogTypeWarning, kstrP("could not read at addr %u in /dev/eeprom read functor\n"), addr);
 		return -1;
 	}
 	return c;
@@ -596,11 +596,11 @@ bool kernelDevEepromWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *u
 	return true;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, "could not seek to addr %u in /dev/eeprom write functor\n", addr);
+		kernelLog(LogTypeWarning, kstrP("could not seek to addr %u in /dev/eeprom write functor\n"), addr);
 		return false;
 	}
 	if (fputc(value, kernelFakeEepromFile)==EOF) {
-		kernelLog(LogTypeWarning, "could not write to addr %u in /dev/eeprom write functor\n", addr);
+		kernelLog(LogTypeWarning, kstrP("could not write to addr %u in /dev/eeprom write functor\n"), addr);
 		return false;
 	}
 
@@ -614,12 +614,12 @@ int16_t kernelEtcReadFunctor(KernelFsFileOffset addr, void *userData) {
 	return eeprom_read_byte((void *)addr);
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, "could not seek to addr %u in etc read functor\n", addr);
+		kernelLog(LogTypeWarning, kstrP("could not seek to addr %u in etc read functor\n"), addr);
 		return -1;
 	}
 	int c=fgetc(kernelFakeEepromFile);
 	if (c==EOF) {
-		kernelLog(LogTypeWarning, "could not read at addr %u in etc read functor\n", addr);
+		kernelLog(LogTypeWarning, kstrP("could not read at addr %u in etc read functor\n"), addr);
 		return -1;
 	}
 	return c;
@@ -633,11 +633,11 @@ bool kernelEtcWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userDat
 	return true;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, "could not seek to addr %u in etc write functor\n", addr);
+		kernelLog(LogTypeWarning, kstrP("could not seek to addr %u in etc write functor\n"), addr);
 		return false;
 	}
 	if (fputc(value, kernelFakeEepromFile)==EOF) {
-		kernelLog(LogTypeWarning, "could not write to addr %u in etc write functor\n", addr);
+		kernelLog(LogTypeWarning, kstrP("could not write to addr %u in etc write functor\n"), addr);
 		return false;
 	}
 
@@ -744,7 +744,7 @@ int16_t kernelDevTtyS0ReadFunctor(void *userData) {
 	return ret;
 #else
 	if (kernelTtyS0BytesAvailable==0)
-		kernelLog(LogTypeWarning, "kernelTtyS0BytesAvailable=0 going into kernelDevTtyS0ReadFunctor\n");
+		kernelLog(LogTypeWarning, kstrP("kernelTtyS0BytesAvailable=0 going into kernelDevTtyS0ReadFunctor\n"));
 	int c=getchar();
 	if (c==EOF)
 		return -1;
