@@ -38,9 +38,7 @@ void kstrStrcpy(char *buf, KStr kstr) {
 		break;
 		case KStrTypeProgmem:
 			#ifdef ARDUINO
-			return strcpy_PF(buf, (uint_farptr_t)kstr.ptr);
-			#else
-			return; // Shouldn't really happen
+			strcpy_PF(buf, (uint_farptr_t)kstr.ptr);
 			#endif
 		break;
 		case KStrTypeStatic:
