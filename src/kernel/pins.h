@@ -1,7 +1,10 @@
-#ifndef ARDUINO
+#ifdef ARDUINO
 
 #ifndef PINS_H
 #define PINS_H
+
+#include <stdbool.h>
+#include <stdint.h>
 
 #define PinD0 0
 #define PinD1 1
@@ -75,6 +78,8 @@
 #define PinA14 69
 #define PinA15 70
 
-#endif
+bool pinRead(uint8_t pinNum);
+void pinWrite(uint8_t pinNum, bool value);
 
+#endif
 #endif
