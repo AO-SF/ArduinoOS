@@ -649,8 +649,9 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		return true;
 	} else {
 		// Close ram file
-		char ramFdPath[KernelFsPathMax];
-		strcpy(ramFdPath, kernelFsGetFilePath(procData->ramFd));
+		const char *srcPath=kernelFsGetFilePath(procData->ramFd);
+		char *ramFdPath=alloca(strlen(srcPath)+1);
+		strcpy(ramFdPath, srcPath);
 		kernelFsFileClose(procData->ramFd);
 		procData->ramFd=KernelFsFdInvalid;
 
