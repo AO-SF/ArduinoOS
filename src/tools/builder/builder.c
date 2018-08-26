@@ -110,16 +110,19 @@ bool buildVolume(const char *name, const char *srcDir) {
 			if (!builderCompact)
 				return true;
 
-			// Otherwise try to shrink
-			// TODO: Use a binary search or similar, rather than linear
-			uint16_t compactSize;
-			for(compactSize=size-MINIFSFACTOR; compactSize>=MINIFSMINSIZE; compactSize-=MINIFSFACTOR) {
-				if (!buildVolumeTrySize(name, compactSize, srcDir, false))
-					break;
+			// Otherwise try to shrink with a binary search
+			uint16_t minGoodSize=size;
+			uint16_t maxBadSize=(size>MINIFSMINSIZE ? size/2 : MINIFSMINSIZE);
+			while(minGoodSize-MINIFSFACTOR>maxBadSize) {
+				uint16_t trialSize=(maxBadSize+minGoodSize)/2;
+				if (buildVolumeTrySize(name, trialSize, srcDir, false))
+					minGoodSize=trialSize;
+				else
+					maxBadSize=trialSize;
 			}
 
-			// Fall back on last size found
-			if (buildVolumeTrySize(name, compactSize+MINIFSFACTOR, srcDir, false))
+			// Use minimum size found
+			if (buildVolumeTrySize(name, minGoodSize, srcDir, false))
 				return true;
 		}
 	}
