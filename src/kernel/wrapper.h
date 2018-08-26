@@ -12,6 +12,7 @@ extern void *pointerIsHeapBase; // should be set on startup
 
 extern uint32_t kernelBootTime; // Initially set to 0
 
+void millisInit(void);
 uint32_t millisRaw(void);
 uint32_t millis(void);
 

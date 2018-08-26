@@ -16,9 +16,19 @@ char vfprintf_PFFormatStr[8];
 #include <unistd.h>
 #endif
 
+#include "log.h"
 #include "wrapper.h"
 
 uint32_t kernelBootTime=0;
+
+void millisInit(void) {
+#ifdef ARDUINO
+#else
+	// On the Arduino we can leave this at 0 but otherwise we have to save offset
+	kernelBootTime=millisRaw();
+	kernelLog(LogTypeInfo, "set kernel boot time to %lu (PC wrapper)\n", kernelBootTime);
+#endif
+}
 
 uint32_t millisRaw(void) {
 	#ifdef ARDUINO
