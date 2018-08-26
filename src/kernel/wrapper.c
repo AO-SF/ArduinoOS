@@ -9,6 +9,7 @@ uint32_t tempTime=0;
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 void *pointerIsHeapBase;
+char vfprintf_PFFormatStr[8];
 #else
 #include <stdlib.h>
 #include <sys/time.h>
@@ -90,24 +91,22 @@ int16_t vfprintf_PF(FILE *stream, uint_farptr_t format, va_list ap) {
 			}
 
 			if (byte=='u') {
-				char formatStr[8];
 				if (padZero)
-					sprintf(formatStr, "%%0%uu", padLen);
+					sprintf(vfprintf_PFFormatStr, "%%0%uu", padLen);
 				else
-					sprintf(formatStr, "%%%uu", padLen);
+					sprintf(vfprintf_PFFormatStr, "%%%uu", padLen);
 				uint16_t val=va_arg(ap, uint16_t);
-				int16_t subRes=fprintf(stream, formatStr, val);
+				int16_t subRes=fprintf(stream, vfprintf_PFFormatStr, val);
 				if (subRes<0)
 					break;
 				written+=subRes;
 			} else if (byte=='i') {
-				char formatStr[8];
 				if (padZero)
-					sprintf(formatStr, "%%0%ui", padLen);
+					sprintf(vfprintf_PFFormatStr, "%%0%ui", padLen);
 				else
-					sprintf(formatStr, "%%%ui", padLen);
+					sprintf(vfprintf_PFFormatStr, "%%%ui", padLen);
 				uint16_t val=va_arg(ap, uint16_t);
-				int16_t subRes=fprintf(stream, formatStr, val);
+				int16_t subRes=fprintf(stream, vfprintf_PFFormatStr, val);
 				if (subRes<0)
 					break;
 				written+=subRes;
