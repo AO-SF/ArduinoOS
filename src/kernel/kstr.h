@@ -37,6 +37,9 @@ KStr kstrAllocCopy(const char *src);
 #define kstrP(s) kstrAllocProgmem(s)
 #define kstrS(s) kstrAllocStatic(s)
 #define kstrC(s) kstrAllocCopy(s)
+
+void kstrStrcpy(char *buf, KStr kstr);
+
 void kstrFree(KStr *str);
 
 bool kstrIsNull(KStr str);

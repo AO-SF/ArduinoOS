@@ -32,6 +32,24 @@ KStr kstrAllocCopy(const char *src) {
 	return kstr;
 }
 
+void kstrStrcpy(char *buf, KStr kstr) {
+	switch(kstr.type) {
+		case KStrTypeNull:
+		break;
+		case KStrTypeProgmem:
+			#ifdef ARDUINO
+			return strcpy_PF(buf, (uint_farptr_t)kstr.ptr);
+			#else
+			return; // Shouldn't really happen
+			#endif
+		break;
+		case KStrTypeStatic:
+		case KStrTypeHeap:
+			strcpy(buf, (const char *)(uintptr_t)kstr.ptr);
+		break;
+	}
+}
+
 void kstrFree(KStr *str) {
 	if (str->type==KStrTypeHeap) {
 		free((void *)(uintptr_t)str->ptr);
