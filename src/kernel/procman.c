@@ -170,12 +170,12 @@ ProcManPid procManProcessNew(const char *programPath) {
 	KernelFsFd ramFd=KernelFsFdInvalid;
 	ProcManProcessProcData procData;
 
-	kernelLog(LogTypeInfo, "attempting to create new process at '%s'\n", programPath);
+	kernelLog(LogTypeInfo, kstrP("attempting to create new process at '%s'\n"), programPath);
 
 	// Find a PID for the new process
 	ProcManPid pid=procManFindUnusedPid();
 	if (pid==ProcManPidMax) {
-		kernelLog(LogTypeWarning, "could not create new process - no spare PIDs\n");
+		kernelLog(LogTypeWarning, kstrP("could not create new process - no spare PIDs\n"));
 		return ProcManPidMax;
 	}
 
@@ -192,7 +192,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 	procManData.processes[pid].progmemFd=procManProcessLoadProgmemFile(&procManData.processes[pid], args);
 	if (procManData.processes[pid].progmemFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, "could not create new process - could not open progmem file ('%s')\n", args[0]);
+		kernelLog(LogTypeWarning, kstrP("could not create new process - could not open progmem file ('%s')\n"), args[0]);
 		goto error;
 	}
 
@@ -221,24 +221,24 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(procPath, sizeof(ProcManProcessProcData))) {
-		kernelLog(LogTypeWarning, "could not create new process - could not create process data file at '%s' of size %u\n", procPath, sizeof(ProcManProcessProcData));
+		kernelLog(LogTypeWarning, kstrP("could not create new process - could not create process data file at '%s' of size %u\n"), procPath, sizeof(ProcManProcessProcData));
 		goto error;
 	}
 	if (!kernelFsFileCreateWithSize(ramPath, envVarDataLen)) {
-		kernelLog(LogTypeWarning, "could not create new process - could not create ram data file at '%s' of size %u\n", ramPath, envVarDataLen);
+		kernelLog(LogTypeWarning, kstrP("could not create new process - could not create ram data file at '%s' of size %u\n"), ramPath, envVarDataLen);
 		goto error;
 	}
 
 	// Attempt to open proc and ram files
 	procManData.processes[pid].procFd=kernelFsFileOpen(procPath);
 	if (procManData.processes[pid].procFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, "could not create new process - could not open process data file at '%s'\n", procPath);
+		kernelLog(LogTypeWarning, kstrP("could not create new process - could not open process data file at '%s'\n"), procPath);
 		goto error;
 	}
 
 	ramFd=kernelFsFileOpen(ramPath);
 	if (ramFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, "could not create new process - could not open ram data file at '%s'\n", ramPath);
+		kernelLog(LogTypeWarning, kstrP("could not create new process - could not open ram data file at '%s'\n"), ramPath);
 		goto error;
 	}
 
@@ -256,16 +256,16 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procData.ramFd=ramFd;
 
 	if (kernelFsFileWriteOffset(ramFd, 0, (uint8_t *)envVarData, envVarDataLen)!=envVarDataLen) {
-		kernelLog(LogTypeWarning, "could not create new process - could not write env var data into ram file '%s', fd %u (tried %u bytes)\n", ramPath, ramFd, envVarDataLen);
+		kernelLog(LogTypeWarning, kstrP("could not create new process - could not write env var data into ram file '%s', fd %u (tried %u bytes)\n"), ramPath, ramFd, envVarDataLen);
 		goto error;
 	}
 
 	if (!procManProcessStoreProcData(&procManData.processes[pid], &procData)) {
-		kernelLog(LogTypeWarning, "could not create new process - could not save process data file\n");
+		kernelLog(LogTypeWarning, kstrP("could not create new process - could not save process data file\n"));
 		goto error;
 	}
 
-	kernelLog(LogTypeInfo, "created new process '%s' with PID %u\n", programPath, pid);
+	kernelLog(LogTypeInfo, kstrP("created new process '%s' with PID %u\n"), programPath, pid);
 
 	return pid;
 
@@ -296,12 +296,12 @@ void procManKillAll(void) {
 }
 
 void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
-	kernelLog(LogTypeInfo, "attempting to kill process %u with exit status %u\n", pid, exitStatus);
+	kernelLog(LogTypeInfo, kstrP("attempting to kill process %u with exit status %u\n"), pid, exitStatus);
 
 	// Not even open?
 	ProcManProcess *process=procManGetProcessByPid(pid);
 	if (process==NULL) {
-		kernelLog(LogTypeWarning, "could not kill process %u - no such process\n", pid);
+		kernelLog(LogTypeWarning, kstrP("could not kill process %u - no such process\n"), pid);
 		return;
 	}
 
@@ -344,7 +344,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 	process->state=ProcManProcessStateUnused;
 	process->instructionCounter=0;
 
-	kernelLog(LogTypeInfo, "killed process %u\n", pid);
+	kernelLog(LogTypeInfo, kstrP("killed process %u\n"), pid);
 
 	// Check if any processes are waiting due to waitpid syscall
 	for(ProcManPid waiterPid=0; waiterPid<ProcManPidMax; ++waiterPid) {
@@ -353,9 +353,9 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 			// Bring this process back to life, storing the exit status into r0
 			ByteCodeWord r0Value=exitStatus;
 			if (!procManProcessSaveProcDataReg(waiterProcess, 0, r0Value)) {
-				kernelLog(LogTypeWarning, "process %u died - could not wake process %u from waitpid syscall (could not save r0 proc data)\n", pid, waiterPid);
+				kernelLog(LogTypeWarning, kstrP("process %u died - could not wake process %u from waitpid syscall (could not save r0 proc data)\n"), pid, waiterPid);
 			} else {
-				kernelLog(LogTypeInfo, "process %u died - woke process %u from waitpid syscall\n", pid, waiterPid);
+				kernelLog(LogTypeInfo, kstrP("process %u died - woke process %u from waitpid syscall\n"), pid, waiterPid);
 				waiterProcess->state=ProcManProcessStateActive;
 			}
 		}
@@ -380,7 +380,7 @@ void procManProcessTick(ProcManPid pid) {
 		case ProcManProcessStateActive: {
 			// Process is active, load process data ready to run next instruction
 			if (!procManProcessLoadProcData(process, &procData)) {
-				kernelLog(LogTypeWarning, "process %u tick (active) - could not load proc data, killing\n", pid);
+				kernelLog(LogTypeWarning, kstrP("process %u tick (active) - could not load proc data, killing\n"), pid);
 				goto kill;
 			}
 		} break;
@@ -389,7 +389,7 @@ void procManProcessTick(ProcManPid pid) {
 			if (process->waitingData16>0 && millis()/1000>=process->waitingData16) {
 				// It has - load process data so we can update the state and set r0 to indicate a timeout occured
 				if (!procManProcessLoadProcData(process, &procData)) {
-					kernelLog(LogTypeWarning, "process %u tick (waitpid timeout) - could not load proc data, killing\n", pid);
+					kernelLog(LogTypeWarning, kstrP("process %u tick (waitpid timeout) - could not load proc data, killing\n"), pid);
 					goto kill;
 				}
 
@@ -405,7 +405,7 @@ void procManProcessTick(ProcManPid pid) {
 			if (kernelFsFileCanRead(process->waitingData8)) {
 				// It is - load process data so we can update the state and read the data
 				if (!procManProcessLoadProcData(process, &procData)) {
-					kernelLog(LogTypeWarning, "process %u tick (read available) - could not load proc data, killing\n", pid);
+					kernelLog(LogTypeWarning, kstrP("process %u tick (read available) - could not load proc data, killing\n"), pid);
 					goto kill;
 				}
 
@@ -419,7 +419,7 @@ void procManProcessTick(ProcManPid pid) {
 		case ProcManProcessStateExiting:
 			// This shouldn't happen as exiting processes are removed as soon as the syscall runs.
 			// But to be safe, kill
-			kernelLog(LogTypeWarning, "process %u tick - internal error: state is exiting at tick init, killing\n", pid);
+			kernelLog(LogTypeWarning, kstrP("process %u tick - internal error: state is exiting at tick init, killing\n"), pid);
 			goto kill;
 		break;
 	}
@@ -429,14 +429,14 @@ void procManProcessTick(ProcManPid pid) {
 		// Run a single instruction
 		BytecodeInstructionLong instruction;
 		if (!procManProcessGetInstruction(process, &procData, &instruction)) {
-			kernelLog(LogTypeWarning, "process %u tick - could not get instruction, killing\n", pid);
+			kernelLog(LogTypeWarning, kstrP("process %u tick - could not get instruction, killing\n"), pid);
 			goto kill;
 		}
 
 		// Execute instruction
 		if (!procManProcessExecInstruction(process, &procData, instruction, &exitStatus)) {
 			if (process->state!=ProcManProcessStateExiting)
-				kernelLog(LogTypeWarning, "process %u tick - could not exec instruction or returned false, killing\n", pid);
+				kernelLog(LogTypeWarning, kstrP("process %u tick - could not exec instruction or returned false, killing\n"), pid);
 			goto kill;
 		}
 
@@ -451,7 +451,7 @@ void procManProcessTick(ProcManPid pid) {
 
 	// Save tmp data
 	if (!procManProcessStoreProcData(process, &procData)) {
-		kernelLog(LogTypeWarning, "process %u tick - could not store proc data post tick, killing\n", pid);
+		kernelLog(LogTypeWarning, kstrP("process %u tick - could not store proc data post tick, killing\n"), pid);
 		goto kill;
 	}
 
@@ -464,28 +464,28 @@ void procManProcessTick(ProcManPid pid) {
 void procManProcessSendSignal(ProcManPid pid, ByteCodeSignalId signalId) {
 	// Check signal id
 	if (signalId>ByteCodeSignalIdNB) {
-		kernelLog(LogTypeWarning, "could not send signal %u to process %u, bad signal id\n", signalId, pid);
+		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, bad signal id\n"), signalId, pid);
 		return;
 	}
 
 	// Find process
 	ProcManProcess *process=procManGetProcessByPid(pid);
 	if (process==NULL) {
-		kernelLog(LogTypeWarning, "could not send signal %u to process %u, no such process\n", signalId, pid);
+		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, no such process\n"), signalId, pid);
 		return;
 	}
 
 	// Load process' data.
 	ProcManProcessProcData procData;
 	if (!procManProcessLoadProcData(process, &procData)) {
-		kernelLog(LogTypeWarning, "could not send signal %u to process %u, could not load process ddata\n", signalId, pid);
+		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, could not load process ddata\n"), signalId, pid);
 		return;
 	}
 
 	// Look for a registered handler.
 	uint16_t handlerAddr=procData.signalHandlers[signalId];
 	if (handlerAddr==0) {
-		kernelLog(LogTypeInfo, "sent signal %u to process %u, but no handler registered so ignoring\n", signalId, pid);
+		kernelLog(LogTypeInfo, kstrP("sent signal %u to process %u, but no handler registered so ignoring\n"), signalId, pid);
 		return;
 	}
 
@@ -509,7 +509,7 @@ void procManProcessSendSignal(ProcManPid pid, ByteCodeSignalId signalId) {
 		break;
 		case ProcManProcessStateExiting:
 			// Shouldn't really happen, log
-			kernelLog(LogTypeWarning, "sent signal %u to process %u, but its state is exiting (internal error), ignoring\n", signalId, pid);
+			kernelLog(LogTypeWarning, kstrP("sent signal %u to process %u, but its state is exiting (internal error), ignoring\n"), signalId, pid);
 			return;
 		break;
 	}
@@ -523,11 +523,11 @@ void procManProcessSendSignal(ProcManPid pid, ByteCodeSignalId signalId) {
 
 	// Save process' data.
 	if (!procManProcessStoreProcData(process, &procData)) {
-		kernelLog(LogTypeInfo, "could not send signal %u to process %u, could not store process ddata\n", signalId, pid);
+		kernelLog(LogTypeInfo, kstrP("could not send signal %u to process %u, could not store process ddata\n"), signalId, pid);
 		return;
 	}
 
-	kernelLog(LogTypeInfo, "sent signal %u to process %u, calling registered handler at %u\n", signalId, pid, handlerAddr);
+	kernelLog(LogTypeInfo, kstrP("sent signal %u to process %u, calling registered handler at %u\n"), signalId, pid, handlerAddr);
 }
 
 bool procManProcessExists(ProcManPid pid) {
@@ -594,7 +594,7 @@ bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcDat
 		if (kernelFsFileReadOffset(process->progmemFd, addr, value, 1, false)==1)
 			return true;
 		else {
-			kernelLog(LogTypeWarning, "process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr);
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr);
 			return false;
 		}
 	} else {
@@ -632,12 +632,12 @@ bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcMa
 	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
 	if (offset<ramTotalSize) {
 		if (!kernelFsFileReadOffset(procData->ramFd, offset, value, 1, false)) {
-			kernelLog(LogTypeWarning, "process %u (%s) tried to read valid address (RAM file offset %u) but failed, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset);
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset);
 			return false;
 		}
 		return true;
 	} else {
-		kernelLog(LogTypeWarning, "process %u (%s) tried to read invalid address (RAM file offset %u, but size is only %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, ramTotalSize);
+		kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (RAM file offset %u, but size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, ramTotalSize);
 		return false;
 	}
 }
@@ -668,7 +668,7 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t value) {
 	// Is this addr in read-only progmem section?
 	if (addr<ByteCodeMemoryRamAddr) {
-		kernelLog(LogTypeWarning, "process %u (%s) tried to write to read-only address (0x%04X), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
+		kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to read-only address (0x%04X), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
 		return false;
 	}
 
@@ -676,7 +676,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 	ByteCodeWord ramIndex=(addr-ByteCodeMemoryRamAddr);
 	if (ramIndex<procData->ramLen) {
 		if (!kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, &value, 1)) {
-			kernelLog(LogTypeWarning, "process %u (%s) tried to write to valid RAM address (0x%04X, ram offset %u), but failed, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to valid RAM address (0x%04X, ram offset %u), but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
 			return false;
 		}
 		return true;
@@ -706,7 +706,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 
 			// Unable to allocate even 1 extra byte?
 			if (extra<=1) {
-				kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not allocate new size (%u vs %u), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
+				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not allocate new size (%u vs %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
 				kernelFsFileDelete(ramFdPath);
 				goto error;
 			}
@@ -715,7 +715,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		// Re-open ram file
 		procData->ramFd=kernelFsFileOpen(ramFdPath);
 		if (procData->ramFd==KernelFsFdInvalid) {
-			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not reopen file after resizing, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not reopen file after resizing, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
 			kernelFsFileDelete(ramFdPath);
 			goto error;
 		}
@@ -723,7 +723,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		// Update stored ram len and write byte
 		procData->ramLen=newRamLen;
 		if (!kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, &value, 1)) {
-			kernelLog(LogTypeWarning, "process %u (%s) tried to write to RAM (0x%04X, offset %u) had to resize (%u vs %u), but could not write, killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u) had to resize (%u vs %u), but could not write, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
 			goto error;
 		}
 
@@ -768,7 +768,7 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 	while(1) {
 		uint8_t c;
 		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1, false)!=1) {
-			kernelLog(LogTypeWarning, "corrupt argvdata or ram file more generally? Process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			kernelLog(LogTypeWarning, kstrP("corrupt argvdata or ram file more generally? Process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			return false;
 		}
 		*dest++=c;
@@ -797,7 +797,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 	// Parse instruction
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
-		kernelLog(LogTypeWarning, "could not parse instruction 0x%02X%02X%02X, process %u (%s), killing\n", instruction[0], instruction[1], instruction[2], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		kernelLog(LogTypeWarning, kstrP("could not parse instruction 0x%02X%02X%02X, process %u (%s), killing\n"), instruction[0], instruction[1], instruction[2], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 		return false;
 	}
 
@@ -807,20 +807,20 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 			switch(info.d.memory.type) {
 				case BytecodeInstructionMemoryTypeStore8:
 					if (!procManProcessMemoryWriteByte(process, procData, procData->regs[info.d.memory.destReg], procData->regs[info.d.memory.srcReg])) {
-						kernelLog(LogTypeWarning, "failed during store8 instruction execution, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						kernelLog(LogTypeWarning, kstrP("failed during store8 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
 				break;
 				case BytecodeInstructionMemoryTypeLoad8: {
 					uint8_t value;
 					if (!procManProcessMemoryReadByte(process, procData, procData->regs[info.d.memory.srcReg], &value)) {
-						kernelLog(LogTypeWarning, "failed during load8 instruction execution, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						kernelLog(LogTypeWarning, kstrP("failed during load8 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
 					procData->regs[info.d.memory.destReg]=value;
 				} break;
 				case BytecodeInstructionMemoryTypeReserved: {
-					kernelLog(LogTypeWarning, "reserved instrution, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					kernelLog(LogTypeWarning, kstrP("reserved instrution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 					return false;
 				}
 				break;
@@ -847,7 +847,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 				break;
 				case BytecodeInstructionAluTypeDiv:
 					if (opB==0) {
-						kernelLog(LogTypeWarning, "division by zero, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						kernelLog(LogTypeWarning, kstrP("division by zero, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
 					procData->regs[info.d.alu.destReg]=opA/opB;
@@ -887,7 +887,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						// Skip next instruction
 						BytecodeInstructionLong nextInstruction;
 						if (!procManProcessGetInstruction(process, procData, &nextInstruction)) {
-							kernelLog(LogTypeWarning, "could not skip next instruction, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							kernelLog(LogTypeWarning, kstrP("could not skip next instruction, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							return false;
 						}
 					}
@@ -895,14 +895,14 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 				case BytecodeInstructionAluTypeStore16: {
 					ByteCodeWord destAddr=procData->regs[info.d.alu.destReg];
 					if (!procManProcessMemoryWriteWord(process, procData, destAddr, opA)) {
-						kernelLog(LogTypeWarning, "failed during store16 instruction execution, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						kernelLog(LogTypeWarning, kstrP("failed during store16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
 				} break;
 				case BytecodeInstructionAluTypeLoad16: {
 					ByteCodeWord srcAddr=procData->regs[info.d.alu.opAReg];
 					if (!procManProcessMemoryReadWord(process, procData, srcAddr, &procData->regs[info.d.alu.destReg])) {
-						kernelLog(LogTypeWarning, "failed during load16 instruction execution, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						kernelLog(LogTypeWarning, kstrP("failed during load16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
 				} break;
@@ -917,7 +917,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 					switch(syscallId) {
 						case ByteCodeSyscallIdExit:
 							*exitStatus=procData->regs[1];
-							kernelLog(LogTypeInfo, "exit syscall from process %u (%s), status %u, updating state\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), *exitStatus);
+							kernelLog(LogTypeInfo, kstrP("exit syscall from process %u (%s), status %u, updating state\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), *exitStatus);
 							process->state=ProcManProcessStateExiting;
 							return false;
 						break;
@@ -929,7 +929,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							for(uint8_t i=0; i<ARGVMAX; ++i) {
 								char arg[ProcManArgLenMax];
 								if (!procManProcessGetArgvN(process, procData, i, arg)) {
-									kernelLog(LogTypeWarning, "failed during getargc syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during getargc syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 								procData->regs[0]+=(strlen(arg)>0);
@@ -945,11 +945,11 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							else {
 								char arg[ProcManArgLenMax];
 								if (!procManProcessGetArgvN(process, procData, n, arg)) {
-									kernelLog(LogTypeWarning, "failed during getargvn syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during getargvn syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, arg)) {
-									kernelLog(LogTypeWarning, "failed during getargvn syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during getargvn syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 								procData->regs[0]=strlen(arg);
@@ -960,7 +960,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						break;
 						case ByteCodeSyscallIdExec:
 							if (!procManProcessExec(process, procData)) {
-								kernelLog(LogTypeWarning, "failed during exec syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during exec syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 						break;
@@ -986,7 +986,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							if (qProcess!=NULL) {
 								const char *execPath=procManGetExecPathFromProcess(qProcess);
 								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, execPath)) {
-									kernelLog(LogTypeWarning, "failed during getpidpath syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during getpidpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 								procData->regs[0]=1;
@@ -1016,7 +1016,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 									break;
 								}
 								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, str)) {
-									kernelLog(LogTypeWarning, "failed during getpidstate syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during getpidstate syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 								procData->regs[0]=1;
@@ -1033,7 +1033,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								else
 									value=0;
 								if (!procManProcessMemoryWriteWord(process, procData, bufAddr, value)) {
-									kernelLog(LogTypeWarning, "failed during getallcpucounts syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during getallcpucounts syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 								bufAddr+=2;
@@ -1049,11 +1049,11 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							ByteCodeSignalId signalId=procData->regs[2];
 							if (signalId<ByteCodeSignalIdNB) {
 								if (targetPid==0 && signalId==ByteCodeSignalIdSuicide)
-									kernelLog(LogTypeWarning, "process %u - warning cannot send signal 'suicide' to init (target pid=%u)\n", procManGetPidFromProcess(process), targetPid);
+									kernelLog(LogTypeWarning, kstrP("process %u - warning cannot send signal 'suicide' to init (target pid=%u)\n"), procManGetPidFromProcess(process), targetPid);
 								else
 									procManProcessSendSignal(targetPid, signalId);
 							} else
-								kernelLog(LogTypeWarning, "process %u - warning bad signalId %u in signal syscall (target pid=%u)\n", procManGetPidFromProcess(process), signalId, targetPid);
+								kernelLog(LogTypeWarning, kstrP("process %u - warning bad signalId %u in signal syscall (target pid=%u)\n"), procManGetPidFromProcess(process), signalId, targetPid);
 						} break;
 						case ByteCodeSyscallIdGetPidRam: {
 							ByteCodeWord pid=procData->regs[1];
@@ -1063,7 +1063,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								uint16_t qRamLen;
 								if (!procManProcessLoadProcDataEnvVarDataLen(qProcess, &qEnvVarDataLen) ||
 								    !procManProcessLoadProcDataRamLen(qProcess, &qRamLen)) {
-									kernelLog(LogTypeWarning, "process %u getpid %u - could not load q proc fields\n", pid, procManGetPidFromProcess(qProcess));
+									kernelLog(LogTypeWarning, kstrP("process %u getpid %u - could not load q proc fields\n"), pid, procManGetPidFromProcess(qProcess));
 									procData->regs[0]=0;
 								} else
 									procData->regs[0]=sizeof(ProcManProcessProcData)+qEnvVarDataLen+qRamLen;
@@ -1080,7 +1080,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							} else {
 								// Otherwise read as normal (stopping before we would block)
 								if (!procManProcessRead(process, procData)) {
-									kernelLog(LogTypeWarning, "failed during read syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during read syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 							}
@@ -1095,7 +1095,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							for(i=0; i<len; ++i) {
 								uint8_t value;
 								if (!procManProcessMemoryReadByte(process, procData, bufAddr+i, &value)) {
-									kernelLog(LogTypeWarning, "failed during write syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 								if (kernelFsFileWriteOffset(fd, offset+i, &value, 1)!=1)
@@ -1106,7 +1106,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdOpen: {
 							char path[KernelFsPathMax];
 							if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], path, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during open syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during open syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							kernelFsPathNormalise(path);
@@ -1134,7 +1134,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							if (result) {
 								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, childPath)) {
-									kernelLog(LogTypeWarning, "failed during dirgetchildn syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during dirgetchildn syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 								procData->regs[0]=1;
@@ -1151,7 +1151,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								procData->regs[0]=0;
 							else {
 								if (!procManProcessMemoryWriteStr(process, procData, bufAddr, srcPath)) {
-									kernelLog(LogTypeWarning, "failed during getpath syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during getpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
 								procData->regs[0]=1;
@@ -1164,7 +1164,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							char path[KernelFsPathMax];
 							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
-									kernelLog(LogTypeWarning, "failed during resizefile syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									kernelLog(LogTypeWarning, kstrP("failed during resizefile syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							kernelFsPathNormalise(path);
@@ -1180,7 +1180,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							char path[KernelFsPathMax];
 							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during filegetlen syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during filegetlen syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							kernelFsPathNormalise(path);
@@ -1224,7 +1224,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							char path[KernelFsPathMax];
 							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during isdir syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during isdir syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							kernelFsPathNormalise(path);
@@ -1235,7 +1235,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							char path[KernelFsPathMax];
 							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during fileexists syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during fileexists syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							kernelFsPathNormalise(path);
@@ -1246,7 +1246,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							char path[KernelFsPathMax];
 							if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during delete syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during delete syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							kernelFsPathNormalise(path);
@@ -1261,20 +1261,20 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdEnvGetPwd: {
 							char pwd[KernelFsPathMax];
 							if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, pwd, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during envgetpwd syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during envgetpwd syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							kernelFsPathNormalise(pwd);
 
 							if (!procManProcessMemoryWriteStr(process, procData, procData->regs[1], pwd)) {
-								kernelLog(LogTypeWarning, "failed during envgetpwd syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during envgetpwd syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 						} break;
 						case ByteCodeSyscallIdEnvSetPwd: {
 							ByteCodeWord addr=procData->regs[1];
 							if (addr<ByteCodeMemoryRamAddr) {
-								kernelLog(LogTypeWarning, "failed during envsetpwd syscall - addr 0x%04X does not point to RW region, process %u (%s), killing\n", addr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during envsetpwd syscall - addr 0x%04X does not point to RW region, process %u (%s), killing\n"), addr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 
@@ -1284,19 +1284,19 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdEnvGetPath: {
 							char path[ProcManEnvVarPathMax];
 							if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->path, path, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during envgetpath syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during envgetpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 
 							if (!procManProcessMemoryWriteStr(process, procData, procData->regs[1], path)) {
-								kernelLog(LogTypeWarning, "failed during envgetpath syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during envgetpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 						} break;
 						case ByteCodeSyscallIdEnvSetPath: {
 							ByteCodeWord addr=procData->regs[1];
 							if (addr<ByteCodeMemoryRamAddr) {
-								kernelLog(LogTypeWarning, "failed during envsetpath syscall - addr 0x%04X does not point to RW region, process %u (%s), killing\n", addr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during envsetpath syscall - addr 0x%04X does not point to RW region, process %u (%s), killing\n"), addr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 
@@ -1311,16 +1311,16 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							uint16_t handlerAddr=procData->regs[2];
 
 							if (signalId>=ByteCodeSignalIdNB) {
-								kernelLog(LogTypeWarning, "process %u (%s), tried to register handler for invalid signal %u\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), signalId);
+								kernelLog(LogTypeWarning, kstrP("process %u (%s), tried to register handler for invalid signal %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), signalId);
 							} else if (handlerAddr>=256) {
-								kernelLog(LogTypeWarning, "process %u (%s), tried to register handler for signal %u, but handler addr %u is out of range (must be less than 256)\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), signalId, handlerAddr);
+								kernelLog(LogTypeWarning, kstrP("process %u (%s), tried to register handler for signal %u, but handler addr %u is out of range (must be less than 256)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), signalId, handlerAddr);
 							} else
 								procData->signalHandlers[signalId]=handlerAddr;
 
 						} break;
 						case ByteCodeSyscallIdShutdown:
 							// Kill all processes, causing kernel to return/halt
-							kernelLog(LogTypeInfo, "process %u (%s) initiated shutdown via syscall\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							kernelLog(LogTypeInfo, kstrP("process %u (%s) initiated shutdown via syscall\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							kernelShutdownBegin();
 						break;
 						case ByteCodeSyscallIdMount: {
@@ -1331,11 +1331,11 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							char devicePath[KernelFsPathMax], dirPath[KernelFsPathMax];
 							if (!procManProcessMemoryReadStr(process, procData, devicePathAddr, devicePath, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during mount syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during mount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							if (!procManProcessMemoryReadStr(process, procData, dirPathAddr, dirPath, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during mount syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during mount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							kernelFsPathNormalise(devicePath);
@@ -1350,7 +1350,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 
 							char devicePath[KernelFsPathMax];
 							if (!procManProcessMemoryReadStr(process, procData, devicePathAddr, devicePath, KernelFsPathMax)) {
-								kernelLog(LogTypeWarning, "failed during mount syscall, process %u (%s), killing\n", procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								kernelLog(LogTypeWarning, kstrP("failed during mount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								return false;
 							}
 							kernelFsPathNormalise(devicePath);
@@ -1382,13 +1382,13 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 										#endif
 									} break;
 									default:
-										kernelLog(LogTypeWarning, "invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n", command, fd, kernelFsGetFilePath(fd), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+										kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, kernelFsGetFilePath(fd), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									break;
 								}
 							}
 						} break;
 						default:
-							kernelLog(LogTypeWarning, "invalid syscall id=%i, process %u (%s), killing\n", syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							kernelLog(LogTypeWarning, kstrP("invalid syscall id=%i, process %u (%s), killing\n"), syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							return false;
 						break;
 					}
@@ -1412,12 +1412,12 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	KernelFsFd childRamFd=KernelFsFdInvalid;
 	ProcManPid parentPid=procManGetPidFromProcess(parent);
 
-	kernelLog(LogTypeInfo, "fork request from process %u\n", parentPid);
+	kernelLog(LogTypeInfo, kstrP("fork request from process %u\n"), parentPid);
 
 	// Find a PID for the new process
 	ProcManPid childPid=procManFindUnusedPid();
 	if (childPid==ProcManPidMax) {
-		kernelLog(LogTypeWarning, "could not fork from %u - no spare PIDs\n", parentPid);
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - no spare PIDs\n"), parentPid);
 		goto error;
 	}
 	ProcManProcess *child=&(procManData.processes[childPid]);
@@ -1429,25 +1429,25 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(childProcPath, sizeof(ProcManProcessProcData))) {
-		kernelLog(LogTypeWarning, "could not fork from %u - could not create child process data file at '%s' of size %u\n", parentPid, childProcPath, sizeof(procManProcessLoadProcData));
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child process data file at '%s' of size %u\n"), parentPid, childProcPath, sizeof(procManProcessLoadProcData));
 		goto error;
 	}
 	uint16_t ramTotalSize=procData->envVarDataLen+procData->ramLen;
 	if (!kernelFsFileCreateWithSize(childRamPath, ramTotalSize)) {
-		kernelLog(LogTypeWarning, "could not fork from %u - could not create child ram data file at '%s' of size %u\n", parentPid, childRamPath, ramTotalSize);
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child ram data file at '%s' of size %u\n"), parentPid, childRamPath, ramTotalSize);
 		goto error;
 	}
 
 	// Attempt to open proc and ram files
 	child->procFd=kernelFsFileOpen(childProcPath);
 	if (child->procFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, "could not fork from %u - could not open child process data file at '%s'\n", parentPid, childProcPath);
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child process data file at '%s'\n"), parentPid, childProcPath);
 		goto error;
 	}
 
 	childRamFd=kernelFsFileOpen(childRamPath);
 	if (childRamFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, "could not fork from %u - could not open child ram data file at '%s'\n", parentPid, childRamPath);
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child ram data file at '%s'\n"), parentPid, childRamPath);
 		goto error;
 	}
 
@@ -1465,7 +1465,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	procData->ramFd=savedFd;
 	procData->regs[0]=savedR0;
 	if (!storeRes) {
-		kernelLog(LogTypeWarning, "could not fork from %u - could not save child process data file to '%s'\n", parentPid, childProcPath);
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not save child process data file to '%s'\n"), parentPid, childProcPath);
 		goto error;
 	}
 
@@ -1476,7 +1476,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 		res&=(kernelFsFileReadOffset(procData->ramFd, i, &value, 1, false)==1);
 		res&=(kernelFsFileWriteOffset(childRamFd, i, &value, 1)==1);
 		if (!res) {
-			kernelLog(LogTypeWarning, "could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n", parentPid, i, ramTotalSize);
+			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n"), parentPid, i, ramTotalSize);
 			goto error;
 		}
 	}
@@ -1484,7 +1484,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	// Update parent return value with child's PID
 	procData->regs[0]=childPid;
 
-	kernelLog(LogTypeInfo, "forked from %u, creating child %u\n", parentPid, childPid);
+	kernelLog(LogTypeInfo, kstrP("forked from %u, creating child %u\n"), parentPid, childPid);
 
 	return;
 
@@ -1512,35 +1512,35 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 #define ramPath procManScratchBufPath2
 #define args ((char (*)[ProcManArgLenMax])procManScratchBuf256)
 
-	kernelLog(LogTypeInfo, "exec in %u\n", procManGetPidFromProcess(process));
+	kernelLog(LogTypeInfo, kstrP("exec in %u\n"), procManGetPidFromProcess(process));
 
 	// Grab path and args (if any)
 	for(uint8_t i=0; i<ARGVMAX; ++i)
 		args[i][0]='\0';
 
 	if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], args[0], KernelFsPathMax)) {
-		kernelLog(LogTypeWarning, "exec in %u failed - could not read path argument\n", procManGetPidFromProcess(process));
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read path argument\n"), procManGetPidFromProcess(process));
 		return false;
 	}
 
 	for(uint8_t i=1; i<ARGVMAX; ++i)
 		if (procData->regs[i+1]!=0)
 			if (!procManProcessMemoryReadStr(process, procData, procData->regs[i+1], args[i], KernelFsPathMax)) {
-				kernelLog(LogTypeWarning, "exec in %u failed - could not read argument %u\n", procManGetPidFromProcess(process), i);
+				kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read argument %u\n"), procManGetPidFromProcess(process), i);
 				return false;
 			}
 
-	kernelLog(LogTypeInfo, "exec in %u - raw path '%s', arg1='%s', arg2='%s', arg3='%s'\n", procManGetPidFromProcess(process), args[0], args[1], args[2], args[3]); // TODO: Avoid hardcoded number of arguments
+	kernelLog(LogTypeInfo, kstrP("exec in %u - raw path '%s', arg1='%s', arg2='%s', arg3='%s'\n"), procManGetPidFromProcess(process), args[0], args[1], args[2], args[3]); // TODO: Avoid hardcoded number of arguments
 
 	// Grab pwd and path env vars as these may now point into general ram, which is about to be cleared when we resize
 	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, tempPwd, KernelFsPathMax)) {
-		kernelLog(LogTypeWarning, "exec in %u failed - could not read env var pwd at offset %u\n", procManGetPidFromProcess(process), procData->pwd);
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read env var pwd at offset %u\n"), procManGetPidFromProcess(process), procData->pwd);
 		return false;
 	}
 	kernelFsPathNormalise(tempPwd);
 
 	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->path, tempPath, KernelFsPathMax)) {
-		kernelLog(LogTypeWarning, "exec in %u failed - could not read env var path at offset %u\n", procManGetPidFromProcess(process), procData->path);
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read env var path at offset %u\n"), procManGetPidFromProcess(process), procData->path);
 		return false;
 	}
 	kernelFsPathNormalise(tempPath);
@@ -1548,7 +1548,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	// Load program (handling magic bytes)
 	KernelFsFd newProgmemFd=procManProcessLoadProgmemFile(process, args);
 	if (newProgmemFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, "exec in %u failed - could not open progmem file ('%s')\n", procManGetPidFromProcess(process), args[0]);
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not open progmem file ('%s')\n"), procManGetPidFromProcess(process), args[0]);
 		return true;
 	}
 
@@ -1589,7 +1589,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 
 	kernelFsFileClose(procData->ramFd);
 	if (!kernelFsFileResize(ramPath, newRamTotalSize)) {
-		kernelLog(LogTypeWarning, "exec in %u failed - could not resize new processes RAM file at '%s' to %u\n", procManGetPidFromProcess(process), ramPath, newRamTotalSize);
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not resize new processes RAM file at '%s' to %u\n"), procManGetPidFromProcess(process), ramPath, newRamTotalSize);
 		return false;
 	}
 	procData->ramFd=kernelFsFileOpen(ramPath);
@@ -1597,19 +1597,19 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 
 	// Write env vars into ram file
 	if (kernelFsFileWriteOffset(procData->ramFd, procData->pwd, (const uint8_t *)(tempPwd), strlen(tempPwd)+1)!=strlen(tempPwd)+1) {
-		kernelLog(LogTypeWarning, "exec in %u failed - could not write env var pwd into new processes memory\n", procManGetPidFromProcess(process));
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not write env var pwd into new processes memory\n"), procManGetPidFromProcess(process));
 		return false;
 	}
 
 	if (kernelFsFileWriteOffset(procData->ramFd, procData->path, (const uint8_t *)(tempPath), strlen(tempPath)+1)!=strlen(tempPath)+1) {
-		kernelLog(LogTypeWarning, "exec in %u failed - could not write env var path into new processes memory\n", procManGetPidFromProcess(process));
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not write env var path into new processes memory\n"), procManGetPidFromProcess(process));
 		return false;
 	}
 
 	for(uint8_t i=0; i<ARGVMAX; ++i) {
 		uint16_t argSize=strlen(args[i])+1;
 		if (kernelFsFileWriteOffset(procData->ramFd, procData->argv[i], (const uint8_t *)(args[i]), argSize)!=argSize) {
-			kernelLog(LogTypeWarning, "exec in %u failed - could not write args into new processes memory\n", procManGetPidFromProcess(process));
+			kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not write args into new processes memory\n"), procManGetPidFromProcess(process));
 			return false;
 		}
 	}
@@ -1620,11 +1620,11 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 
 	// Save proc data
 	if (!procManProcessStoreProcData(process, procData)) {
-		kernelLog(LogTypeWarning, "exec in %u failed - could not store procdata\n", procManGetPidFromProcess(process));
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not store procdata\n"), procManGetPidFromProcess(process));
 		return false;
 	}
 
-	kernelLog(LogTypeInfo, "exec in %u succeeded\n", procManGetPidFromProcess(process));
+	kernelLog(LogTypeInfo, kstrP("exec in %u succeeded\n"), procManGetPidFromProcess(process));
 
 	return true;
 #undef tempPwd
@@ -1640,12 +1640,12 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 	kernelFsPathNormalise(args[0]);
 
 	if (!kernelFsPathIsValid(args[0])) {
-		kernelLog(LogTypeWarning, "loading executable in %u failed - path '%s' not valid\n", procManGetPidFromProcess(process), args[0]);
+		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' not valid\n"), procManGetPidFromProcess(process), args[0]);
 		return KernelFsFdInvalid;
 	}
 
 	if (kernelFsFileIsDir(args[0])) {
-		kernelLog(LogTypeWarning, "loading executable in %u failed - path '%s' is a directory\n", procManGetPidFromProcess(process), args[0]);
+		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' is a directory\n"), procManGetPidFromProcess(process), args[0]);
 		return KernelFsFdInvalid;
 	}
 
@@ -1656,14 +1656,14 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 		// Attempt to open program file
 		newProgmemFd=kernelFsFileOpen(args[0]);
 		if (newProgmemFd==KernelFsFdInvalid) {
-			kernelLog(LogTypeWarning, "loading executable in %u failed - could not open program at '%s'\n", procManGetPidFromProcess(process), args[0]);
+			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not open program at '%s'\n"), procManGetPidFromProcess(process), args[0]);
 			return KernelFsFdInvalid;
 		}
 
 		// Read first two bytes to decide how to execute
 		uint8_t magicBytes[2];
 		if (kernelFsFileRead(newProgmemFd, magicBytes, 2)!=2) {
-			kernelLog(LogTypeWarning, "loading executable in %u failed - could not read 2 magic bytes at start of '%s', fd %u\n", procManGetPidFromProcess(process), args[0], newProgmemFd);
+			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not read 2 magic bytes at start of '%s', fd %u\n"), procManGetPidFromProcess(process), args[0], newProgmemFd);
 			kernelFsFileClose(newProgmemFd);
 			return KernelFsFdInvalid;
 		}
@@ -1682,7 +1682,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 			// Look for newline and if found terminate string here
 			char *newlinePtr=strchr(interpreterPath, '\n');
 			if (newlinePtr==NULL) {
-				kernelLog(LogTypeWarning, "loading executable in %u failed - '#!' not followed by interpreter path (original exec path '%s', fd %u)\n", procManGetPidFromProcess(process), args[0], newProgmemFd);
+				kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - '#!' not followed by interpreter path (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), args[0], newProgmemFd);
 				kernelFsFileClose(newProgmemFd);
 				return KernelFsFdInvalid;
 			}
@@ -1690,7 +1690,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 
 			// Write to log
 			kernelFsPathNormalise(interpreterPath);
-			kernelLog(LogTypeInfo, "loading exeutable in %u - magic bytes '#!' detected, using interpreter '%s' (original exec path '%s', fd %u)\n", procManGetPidFromProcess(process), interpreterPath, args[0], newProgmemFd);
+			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '#!' detected, using interpreter '%s' (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), interpreterPath, args[0], newProgmemFd);
 
 			// Close the original progmem file
 			kernelFsFileClose(newProgmemFd);
@@ -1703,14 +1703,14 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 
 			// Loop again in an attempt to load interpreter
 		} else {
-			kernelLog(LogTypeWarning, "loading executable in %u failed - unknown magic byte sequence 0x%02X%02X at start of '%s', fd %u\n", procManGetPidFromProcess(process), magicBytes[0], magicBytes[1], args[0], newProgmemFd);
+			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - unknown magic byte sequence 0x%02X%02X at start of '%s', fd %u\n"), procManGetPidFromProcess(process), magicBytes[0], magicBytes[1], args[0], newProgmemFd);
 			kernelFsFileClose(newProgmemFd);
 			return KernelFsFdInvalid;
 		}
 	}
 
 	if (newProgmemFd==KernelFsFdInvalid || magicByteRecursionCount==magicByteRecursionCountMax) {
-		kernelLog(LogTypeWarning, "loading executable in %u failed - could not open progmem file (shebang infinite recursion perhaps?) ('%s', fd %u)\n", procManGetPidFromProcess(process), args[0], newProgmemFd);
+		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not open progmem file (shebang infinite recursion perhaps?) ('%s', fd %u)\n"), procManGetPidFromProcess(process), args[0], newProgmemFd);
 		return KernelFsFdInvalid;
 	}
 

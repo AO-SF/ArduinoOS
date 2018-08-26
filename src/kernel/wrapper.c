@@ -58,7 +58,7 @@ void millisInit(void) {
 #else
 	// On the Arduino we can leave this at 0 but otherwise we have to save offset
 	kernelBootTime=millisRaw();
-	kernelLog(LogTypeInfo, "set kernel boot time to %lu (PC wrapper)\n", kernelBootTime);
+	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %lu (PC wrapper)\n"), kernelBootTime);
 #endif
 }
 

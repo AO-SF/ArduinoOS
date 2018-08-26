@@ -14,27 +14,27 @@ bool kernelMountWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userD
 bool kernelMount(KernelFsBlockDeviceFormat format, const char *devicePath, const char *dirPath) {
 	// Check paths are valid
 	if (!kernelFsPathIsValid(devicePath) || !kernelFsPathIsValid(dirPath)) {
-		kernelLog(LogTypeWarning, "could not mount - bad path(s) (format=%u, devicePath='%s', dirPath='%s')\n", format, devicePath, dirPath);
+		kernelLog(LogTypeWarning, kstrP("could not mount - bad path(s) (format=%u, devicePath='%s', dirPath='%s')\n"), format, devicePath, dirPath);
 		return false;
 	}
 
 	// Check we have space to mount another device
 	if (kernelMountedDeviceFdsNext>=kernelMountedDeviceFdsMax) {
-		kernelLog(LogTypeWarning, "could not mount - already have maximum number of devices mounted (%u) (format=%u, devicePath='%s', dirPath='%s')\n", kernelMountedDeviceFdsMax, format, devicePath, dirPath);
+		kernelLog(LogTypeWarning, kstrP("could not mount - already have maximum number of devices mounted (%u) (format=%u, devicePath='%s', dirPath='%s')\n"), kernelMountedDeviceFdsMax, format, devicePath, dirPath);
 		return false;
 	}
 
 	// Open device file
 	KernelFsFd deviceFd=kernelFsFileOpen(devicePath);
 	if (deviceFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, "could not mount - could not open device file (format=%u, devicePath='%s', dirPath='%s')\n", format, devicePath, dirPath);
+		kernelLog(LogTypeWarning, kstrP("could not mount - could not open device file (format=%u, devicePath='%s', dirPath='%s')\n"), format, devicePath, dirPath);
 		return false;
 	}
 
 	// Add virtual block device to virtual file system
 	KernelFsFileOffset size=kernelFsFileGetLen(devicePath);
 	if (!kernelFsAddBlockDeviceFile(dirPath, format, size, &kernelMountReadFunctor, &kernelMountWriteFunctor, (void *)(uintptr_t)(deviceFd))) {
-		kernelLog(LogTypeWarning, "could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n", format, devicePath, dirPath, deviceFd);
+		kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
 		return false;
 	}
 
@@ -43,14 +43,14 @@ bool kernelMount(KernelFsBlockDeviceFormat format, const char *devicePath, const
 	++kernelMountedDeviceFdsNext;
 
 	// Success
-	kernelLog(LogTypeInfo, "mount successful (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n", format, devicePath, dirPath, deviceFd);
+	kernelLog(LogTypeInfo, kstrP("mount successful (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
 	return true;
 }
 
 void kernelUnmount(const char *devicePath) {
 	// Check path is valid
 	if (!kernelFsPathIsValid(devicePath)) {
-		kernelLog(LogTypeWarning, "could not unmount - bad path (devicePath='%s')\n", devicePath);
+		kernelLog(LogTypeWarning, kstrP("could not unmount - bad path (devicePath='%s')\n"), devicePath);
 		return;
 	}
 
@@ -71,12 +71,12 @@ void kernelUnmount(const char *devicePath) {
 			kernelMountedDeviceFds[i]=kernelMountedDeviceFds[--kernelMountedDeviceFdsNext];
 
 			// Success
-			kernelLog(LogTypeInfo, "unmounted (devicePath='%s')\n", devicePath);
+			kernelLog(LogTypeInfo, kstrP("unmounted (devicePath='%s')\n"), devicePath);
 			return;
 		}
 	}
 
-	kernelLog(LogTypeWarning, "could not unmount - no such device mounted (devicePath='%s')\n", devicePath);
+	kernelLog(LogTypeWarning, kstrP("could not unmount - no such device mounted (devicePath='%s')\n"), devicePath);
 }
 
 int16_t kernelMountReadFunctor(KernelFsFileOffset addr, void *userData) {

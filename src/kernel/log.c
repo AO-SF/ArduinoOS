@@ -12,64 +12,46 @@
 #include "log.h"
 #include "wrapper.h"
 
-#ifdef ARDUINO
-void kernelLogRaw(LogType type, uint_farptr_t format, ...) {
-	va_list ap;
-	va_start(ap, format);
-	kernelLogRawV(type, format, ap);
-	va_end(ap);
-}
-
-void kernelLogRawV(LogType type, uint_farptr_t format, va_list ap) {
-	// Print time
-	uint32_t t=millis();
-	uint32_t h=t/(60u*60u*1000u);
-	t-=h*(60u*60u*1000u);
-	uint32_t m=t/(60u*1000u);
-	t-=m*(60u*1000u);
-	uint32_t s=t/1000u;
-	uint32_t ms=t-s*1000u;
-	printf("%3lu:%02lu:%02lu:%03lu ", h, m, s, ms);
-
-	// Print log type
-	printf("%7s ", logTypeToString(type));
-
-	// Print user string
-	vfprintf_PF(stdout, format, ap);
-}
-#else
-void kernelLog(LogType type, const char *format, ...) {
+void kernelLog(LogType type, KStr format, ...) {
 	va_list ap;
 	va_start(ap, format);
 	kernelLogV(type, format, ap);
 	va_end(ap);
 }
 
-void kernelLogV(LogType type, const char *format, va_list ap) {
-	// Open file
+void kernelLogV(LogType type, KStr format, va_list ap) {
+	// Open file if needed
+	#ifdef ARDUINO
+	FILE *file=stdout;
+	#else
 	FILE *file=fopen("kernel.log", "a");
+	#endif
+
 	if (file!=NULL) {
 		// Print time
 		uint32_t t=millis();
-		uint32_t h=t/(60u*60u*1000u);
+		unsigned h=t/(60u*60u*1000u);
 		t-=h*(60u*60u*1000u);
-		uint32_t m=t/(60u*1000u);
+		unsigned m=t/(60u*1000u);
 		t-=m*(60u*1000u);
-		uint32_t s=t/1000u;
-		uint32_t ms=t-s*1000u;
+		unsigned s=t/1000u;
+		unsigned ms=t-s*1000u;
 		fprintf(file, "%3u:%02u:%02u:%03u ", h, m, s, ms);
 
 		// Print log type
 		fprintf(file, "%7s ", logTypeToString(type));
 
 		// Print user string
-		vfprintf(file, format, ap);
+		kstr_vfprintf(file, format, ap);
 
-		// Close file
+		// Close file if needed
+		#ifndef ARDUINO
 		fclose(file);
+		#endif
 	}
+
+	kstrFree(&format);
 }
-#endif
 
 static const char *logTypeToStringArray[]={
 	[LogTypeInfo]="INFO",
