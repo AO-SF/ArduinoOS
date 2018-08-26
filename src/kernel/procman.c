@@ -90,6 +90,8 @@ bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData
 
 bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd);
 bool procManProcessLoadProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord *value);
+bool procManProcessLoadProcDataRamLen(const ProcManProcess *process, uint16_t *value);
+bool procManProcessLoadProcDataEnvVarDataLen(const ProcManProcess *process, uint8_t *value);
 bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord value);
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t *value);
@@ -574,6 +576,14 @@ bool procManProcessLoadProcDataReg(const ProcManProcess *process, BytecodeRegist
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,regs)+sizeof(ByteCodeWord)*reg, (uint8_t *)value, sizeof(ByteCodeWord), false)==sizeof(ByteCodeWord));
 }
 
+bool procManProcessLoadProcDataRamLen(const ProcManProcess *process, uint16_t *value) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramLen), (uint8_t *)value, sizeof(uint16_t), false)==sizeof(uint16_t));
+}
+
+bool procManProcessLoadProcDataEnvVarDataLen(const ProcManProcess *process, uint8_t *value) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,envVarDataLen), value, sizeof(uint8_t), false)==sizeof(uint8_t));
+}
+
 bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord value) {
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileWriteOffset(process->procFd, offsetof(ProcManProcessProcData,regs)+sizeof(ByteCodeWord)*reg, (uint8_t *)&value, sizeof(ByteCodeWord))==sizeof(ByteCodeWord));
 }
@@ -1049,12 +1059,14 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							ByteCodeWord pid=procData->regs[1];
 							ProcManProcess *qProcess=procManGetProcessByPid(pid);
 							if (qProcess!=NULL) {
-								ProcManProcessProcData qProcData;
-								if (!procManProcessLoadProcData(qProcess, &qProcData)) {
-									kernelLog(LogTypeWarning, "process %u getpid %u - could not load q proc data\n", pid, procManGetPidFromProcess(qProcess));
+								uint8_t qEnvVarDataLen;
+								uint16_t qRamLen;
+								if (!procManProcessLoadProcDataEnvVarDataLen(qProcess, &qEnvVarDataLen) ||
+								    !procManProcessLoadProcDataRamLen(qProcess, &qRamLen)) {
+									kernelLog(LogTypeWarning, "process %u getpid %u - could not load q proc fields\n", pid, procManGetPidFromProcess(qProcess));
 									procData->regs[0]=0;
 								} else
-									procData->regs[0]=sizeof(ProcManProcessProcData)+qProcData.envVarDataLen+qProcData.ramLen;
+									procData->regs[0]=sizeof(ProcManProcessProcData)+qEnvVarDataLen+qRamLen;
 							} else
 								procData->regs[0]=0;
 						} break;
