@@ -4,6 +4,11 @@
 #include "kstr.h"
 #include "wrapper.h"
 
+KStr kstrNull(void) {
+	KStr kstr={.type=KStrTypeNull, .ptr=(uintptr_t)NULL};
+	return kstr;
+}
+
 #ifdef ARDUINO
 KStr kstrAllocProgmemRaw(uint_farptr_t progmemAddr) {
 	KStr kstr={.type=KStrTypeProgmem, .ptr=progmemAddr};
@@ -19,7 +24,7 @@ KStr kstrAllocStatic(char *staticBuffer) {
 KStr kstrAllocCopy(const char *src) {
 	char *dest=malloc(strlen(src)+1);
 	if (dest==NULL) {
-		KStr kstr={.type=KStrTypeInvalid, .ptr=(uintptr_t)NULL};
+		KStr kstr={.type=KStrTypeNull, .ptr=(uintptr_t)NULL};
 		return kstr;
 	}
 	strcpy(dest, src);
@@ -30,14 +35,18 @@ KStr kstrAllocCopy(const char *src) {
 void kstrFree(KStr *str) {
 	if (str->type==KStrTypeHeap) {
 		free((void *)(uintptr_t)str->ptr);
-		str->type=KStrTypeInvalid;
+		str->type=KStrTypeNull;
 		str->ptr=(uintptr_t)0;
 	}
 }
 
+bool kstrIsNull(KStr str) {
+	return (str.type==KStrTypeNull);
+}
+
 int16_t kstr_vfprintf(FILE *file, KStr format, va_list ap) {
 	switch(format.type) {
-		case KStrTypeInvalid:
+		case KStrTypeNull:
 			return -1;
 		break;
 		case KStrTypeProgmem:

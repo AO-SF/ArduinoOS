@@ -8,7 +8,7 @@
 #include <avr/pgmspace.h>
 #endif
 
-#define KStrTypeInvalid 0
+#define KStrTypeNull 0
 #define KStrTypeProgmem 1
 #define KStrTypeStatic 2
 #define KStrTypeHeap 3
@@ -23,6 +23,7 @@ typedef struct {
 #endif
 } KStr;
 
+KStr kstrNull(void);
 #ifdef ARDUINO
 #define kstrAllocProgmem(str) ({static const char _kstrAllocProgmemStr[] PROGMEM = (str); kstrAllocProgmemRaw(pgm_get_far_address(_kstrAllocProgmemStr)); })
 KStr kstrAllocProgmemRaw(uint_farptr_t progmemAddr);
@@ -35,6 +36,8 @@ KStr kstrAllocStatic(char *staticBuffer);
 KStr kstrAllocCopy(const char *src);
 
 void kstrFree(KStr *str);
+
+bool kstrIsNull(KStr str);
 
 int16_t kstr_vfprintf(FILE *file, KStr format, va_list ap);
 
