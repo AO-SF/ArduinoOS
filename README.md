@@ -27,11 +27,7 @@ All compiled tools and the kernel are placed in the ``bin`` directory after comp
 Note: Currently only the Arduino Mega 2560 is supported.
 
 ## Uploading
-After running ``make arduino``, the hex file ``./bin/kernel.hex`` is produced, which needs flashing to the Arduino with something like:
-```
-avrdude -v -patmega2560 -cwiring -P/dev/ttyACM0 -b115200 -D -Uflash:w:./bin/kernel.hex
-```
-TODO: Add our own conf file to this to make it actually work (as a work around for now, use the Arduino IDE in verbose mode to see what conf file it uses, and just use that).
+After running ``make arduino``, the hex file ``./bin/kernel.hex`` is produced, which needs flashing to the Arduino with ``make install``. Note: if your device is not at ``/dev/ttyS0`` then the root makefile will need modifying.
 
 ## Interfacing
 Kernel logging and std/stout uses the Mega's USB serial, baud rate 115200 and a carriage return plus newline ``'\r\n'`` pair for line endings. It accepts either ``\r`` OR ``\n``, but both will result in a double 'return'.
