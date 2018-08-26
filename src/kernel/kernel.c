@@ -48,7 +48,7 @@
 #define KernelPinNumMax 20
 
 #define KernelTmpDataPoolSize (2*1024) // 2kb - used as ram
-uint8_t *kernelTmpDataPool=NULL;
+uint8_t kernelTmpDataPool[KernelTmpDataPoolSize];
 
 #define KernelBinSize PROGMEMbinDATASIZE
 #ifndef ARDUINO
@@ -320,12 +320,6 @@ void kernelBoot(void) {
     signal(SIGINT, kernelSigIntHandler); // TODO: Check return.
 #endif
 
-	// Allocate space for /tmp
-	kernelTmpDataPool=malloc(KernelTmpDataPoolSize);
-	if (kernelTmpDataPool==NULL)
-		kernelFatalError("could not allocate /tmp data pool (size %u)\n", KernelTmpDataPoolSize);
-	kernelLog(LogTypeInfo, "allocated /tmp space (size %u)\n", KernelTmpDataPoolSize);
-
 	// Non-arduino-only: create pretend EEPROM storage in a local file
 #ifndef ARDUINO
 	kernelFakeEepromFile=fopen(kernelFakeEepromPath, "a+");
@@ -350,7 +344,7 @@ void kernelBoot(void) {
 	// Format RAM used for /tmp
 	if (!miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize))
 		kernelFatalError("could not format /tmp volume\n");
-	kernelLog(LogTypeInfo, "formatted volume representing /tmp\n");
+	kernelLog(LogTypeInfo, "formatted volume representing /tmp (size %u)\n", KernelTmpDataPoolSize);
 
 	// Init file system and add virtual devices
 	char tempBuf[KernelFsPathMax];
@@ -455,10 +449,6 @@ void kernelShutdownFinal(void) {
 	// Quit file system
 	kernelLog(LogTypeInfo, "unmounting filesystem\n");
 	kernelFsQuit();
-
-	// Free /tmp memory pool
-	kernelLog(LogTypeInfo, "freeing /tmp space\n");
-	free(kernelTmpDataPool);
 
 	// Non-arduino-only: close pretend EEPROM storage file
 #ifndef ARDUINO
