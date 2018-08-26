@@ -354,7 +354,7 @@ void kernelBoot(void) {
 	// Init file system and add virtual devices
 	char tempBuf[KernelFsPathMax];
 #ifdef ARDUINO
-	#define KSTR(str) ({static const char tempBufProgMem[KernelFsPathMax] PROGMEM = (str); strcpy_P(tempBuf, tempBufProgMem); tempBuf;})
+	#define KSTR(str) ({static const char tempBufProgMem[KernelFsPathMax] PROGMEM = (str); strcpy_PF(tempBuf, pgm_get_far_address(tempBufProgMem)); tempBuf;})
 #else
 	#define KSTR(str) (str)
 #endif
