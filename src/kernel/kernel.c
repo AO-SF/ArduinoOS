@@ -306,11 +306,7 @@ void kernelBoot(void) {
 	kernelSetState(KernelStateBooting);
 	kernelLog(LogTypeInfo, "booting\n");
 
-#ifndef ARDUINO
-	// ON the Arduino we can leave this at 0 but otherwise we have to save offset
-	kernelBootTime=millisRaw();
-	kernelLog(LogTypeInfo, "set kernel boot time to %lu (PC wrapper)\n", kernelBootTime);
-#endif
+	millisInit();
 
 	// PC only - set pinStates array to all off
 #ifndef ARDUINO
