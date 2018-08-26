@@ -853,7 +853,7 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 		return false;
 	}
 #ifdef ARDUINO
-	pinWrite(pinNum, (value!=0));
+	return pinWrite(pinNum, (value!=0));
 #else
 	pinStates[pinNum]=(value!=0);
 #endif
