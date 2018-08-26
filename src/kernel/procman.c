@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -86,6 +87,10 @@ ProcManPid procManFindUnusedPid(void);
 
 bool procManProcessLoadProcData(const ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData *procData);
+
+bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd);
+bool procManProcessLoadProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord *value);
+bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord value);
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t *value);
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, ByteCodeWord *value);
@@ -315,11 +320,11 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 
 	if (process->procFd!=KernelFsFdInvalid) {
 		// Close and delete ram file
-		ProcManProcessProcData procData;
-		if (procManProcessLoadProcData(process, &procData) && procData.ramFd!=KernelFsFdInvalid) {
+		KernelFsFd ramFd;
+		if (procManProcessLoadProcDataRamFd(process, &ramFd) && ramFd!=KernelFsFdInvalid) {
 			char ramPath[KernelFsPathMax];
-			strcpy(ramPath, kernelFsGetFilePath(procData.ramFd));
-			kernelFsFileClose(procData.ramFd);
+			strcpy(ramPath, kernelFsGetFilePath(ramFd));
+			kernelFsFileClose(ramFd);
 			kernelFsFileDelete(ramPath);
 		}
 
@@ -344,17 +349,12 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 		ProcManProcess *waiterProcess=procManGetProcessByPid(waiterPid);
 		if (waiterProcess!=NULL && waiterProcess->state==ProcManProcessStateWaitingWaitpid && waiterProcess->waitingData8==pid) {
 			// Bring this process back to life, storing the exit status into r0
-			ProcManProcessProcData waiterProcData;
-			if (!procManProcessLoadProcData(waiterProcess, &waiterProcData)) {
-				kernelLog(LogTypeWarning, "process %u died - could not wake process %u from waitpid syscall (could not load proc data)\n", pid, waiterPid);
+			ByteCodeWord r0Value=exitStatus;
+			if (!procManProcessSaveProcDataReg(waiterProcess, 0, r0Value)) {
+				kernelLog(LogTypeWarning, "process %u died - could not wake process %u from waitpid syscall (could not save r0 proc data)\n", pid, waiterPid);
 			} else {
-				waiterProcData.regs[0]=exitStatus;
-				if (!procManProcessStoreProcData(waiterProcess, &waiterProcData)) {
-					kernelLog(LogTypeWarning, "process %u died - could not wake process %u from waitpid syscall (could not save proc data)\n", pid, waiterPid);
-				} else {
-					kernelLog(LogTypeInfo, "process %u died - woke process %u from waitpid syscall\n", pid, waiterPid);
-					waiterProcess->state=ProcManProcessStateActive;
-				}
+				kernelLog(LogTypeInfo, "process %u died - woke process %u from waitpid syscall\n", pid, waiterPid);
+				waiterProcess->state=ProcManProcessStateActive;
 			}
 		}
 	}
@@ -564,6 +564,18 @@ bool procManProcessLoadProcData(const ProcManProcess *process, ProcManProcessPro
 
 bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData *procData) {
 	return (kernelFsFileWriteOffset(process->procFd, 0, (const uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
+}
+
+bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramFd), (uint8_t *)ramFd, sizeof(KernelFsFd), false)==sizeof(KernelFsFd));
+}
+
+bool procManProcessLoadProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord *value) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,regs)+sizeof(ByteCodeWord)*reg, (uint8_t *)value, sizeof(ByteCodeWord), false)==sizeof(ByteCodeWord));
+}
+
+bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord value) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileWriteOffset(process->procFd, offsetof(ProcManProcessProcData,regs)+sizeof(ByteCodeWord)*reg, (uint8_t *)&value, sizeof(ByteCodeWord))==sizeof(ByteCodeWord));
 }
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t *value) {
