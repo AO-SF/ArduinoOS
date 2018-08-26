@@ -68,6 +68,10 @@ typedef struct {
 } ProcMan;
 ProcMan procManData;
 
+char procManScratchBufPath0[KernelFsPathMax];
+char procManScratchBufPath1[KernelFsPathMax];
+char procManScratchBufPath2[KernelFsPathMax];
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -150,6 +154,9 @@ ProcManPid procManGetProcessCount(void) {
 }
 
 ProcManPid procManProcessNew(const char *programPath) {
+#define procPath procManScratchBufPath0
+#define ramPath procManScratchBufPath1
+#define tempPath procManScratchBufPath2
 	KernelFsFd ramFd=KernelFsFdInvalid;
 	ProcManProcessProcData procData;
 
@@ -164,7 +171,6 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 	// Construct tmp paths
 	// TODO: Try others if exist
-	char procPath[KernelFsPathMax], ramPath[KernelFsPathMax];
 	sprintf(procPath, "/tmp/proc%u", pid);
 	sprintf(ramPath, "/tmp/ram%u", pid);
 
@@ -193,7 +199,6 @@ ProcManPid procManProcessNew(const char *programPath) {
 	strcpy(envVarData+envVarDataLen, tempPwd);
 	envVarDataLen+=strlen(tempPwd)+1;
 
-	char tempPath[ProcManEnvVarPathMax];
 	strcpy(tempPath, "/usr/bin:/bin:");
 	procData.path=envVarDataLen;
 	strcpy(envVarData+envVarDataLen, tempPath);
@@ -269,6 +274,9 @@ ProcManPid procManProcessNew(const char *programPath) {
 	}
 
 	return ProcManPidMax;
+#undef procPath
+#undef ramPath
+#undef tempPath
 }
 
 void procManKillAll(void) {
@@ -1368,6 +1376,8 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 }
 
 void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData) {
+#define childProcPath procManScratchBufPath0
+#define childRamPath procManScratchBufPath1
 	KernelFsFd childRamFd=KernelFsFdInvalid;
 	ProcManPid parentPid=procManGetPidFromProcess(parent);
 
@@ -1383,7 +1393,6 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 	// Construct proc file path
 	// TODO: Try others if exists
-	char childProcPath[KernelFsPathMax], childRamPath[KernelFsPathMax];
 	sprintf(childProcPath, "/tmp/proc%u", childPid);
 	sprintf(childRamPath, "/tmp/ram%u", childPid);
 
@@ -1462,9 +1471,14 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 	// Indicate error
 	procData->regs[0]=ProcManPidMax;
+#undef childProcPath
+#undef childRamPath
 }
 
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData) {
+#define tempPwd procManScratchBufPath0
+#define tempPath procManScratchBufPath1
+#define ramPath procManScratchBufPath2
 	kernelLog(LogTypeInfo, "exec in %u\n", procManGetPidFromProcess(process));
 
 	// Grab path and args (if any)
@@ -1488,14 +1502,12 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	kernelLog(LogTypeInfo, "exec in %u - raw path '%s', arg1='%s', arg2='%s', arg3='%s'\n", procManGetPidFromProcess(process), args[0], args[1], args[2], args[3]); // TODO: Avoid hardcoded number of arguments
 
 	// Grab pwd and path env vars as these may now point into general ram, which is about to be cleared when we resize
-	char tempPwd[KernelFsPathMax];
 	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, tempPwd, KernelFsPathMax)) {
 		kernelLog(LogTypeWarning, "exec in %u failed - could not read env var pwd at offset %u\n", procManGetPidFromProcess(process), procData->pwd);
 		return false;
 	}
 	kernelFsPathNormalise(tempPwd);
 
-	char tempPath[ProcManEnvVarPathMax];
 	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->path, tempPath, KernelFsPathMax)) {
 		kernelLog(LogTypeWarning, "exec in %u failed - could not read env var path at offset %u\n", procManGetPidFromProcess(process), procData->path);
 		return false;
@@ -1542,7 +1554,6 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	procData->ramLen=0; // no ram needed initially
 	uint16_t newRamTotalSize=procData->envVarDataLen+procData->ramLen;
 
-	char ramPath[KernelFsPathMax];
 	sprintf(ramPath, "/tmp/ram%u", pid);
 
 	kernelFsFileClose(procData->ramFd);
@@ -1585,6 +1596,9 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	kernelLog(LogTypeInfo, "exec in %u succeeded\n", procManGetPidFromProcess(process));
 
 	return true;
+#undef tempPwd
+#undef tempPath
+#undef ramPath
 }
 
 KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGVMAX][ProcManArgLenMax]) {
