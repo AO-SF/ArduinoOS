@@ -1,5 +1,3 @@
-#ifdef ARDUINO
-
 #ifndef PINS_H
 #define PINS_H
 
@@ -83,5 +81,4 @@
 bool pinRead(uint8_t pinNum);
 bool pinWrite(uint8_t pinNum, bool value);
 
-#endif
 #endif

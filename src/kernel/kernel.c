@@ -11,7 +11,6 @@
 #include <avr/pgmspace.h>
 #include <util/atomic.h>
 #include "circbuf.h"
-#include "pins.h"
 #include "uart.h"
 #else
 #include <poll.h>
@@ -25,6 +24,7 @@
 #include "kernelfs.h"
 #include "log.h"
 #include "minifs.h"
+#include "pins.h"
 #include "procman.h"
 #include "wrapper.h"
 
@@ -43,8 +43,6 @@
 #include "progmemman3.h"
 #include "progmemusrgames.h"
 #include "progmemusrbin.h"
-
-#define KernelPinNumMax 20
 
 #define KernelTmpDataPoolSize (2*1024) // 2kb - used as ram
 uint8_t kernelTmpDataPool[KernelTmpDataPoolSize];
@@ -81,8 +79,6 @@ const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
 
 int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too often causing us to think no data is waiting
-
-bool pinStates[KernelPinNumMax];
 
 #endif
 
@@ -308,11 +304,6 @@ void kernelBoot(void) {
 
 	millisInit();
 
-	// PC only - set pinStates array to all off
-#ifndef ARDUINO
-	memset(pinStates, 0, sizeof(pinStates));
-#endif
-
 	// PC only - register sigint handler so we can pass this signal onto e.g. the shell
 #ifndef ARDUINO
     signal(SIGINT, kernelSigIntHandler); // TODO: Check return.
@@ -410,7 +401,8 @@ void kernelBoot(void) {
 	error|=!kernelFsAddCharacterDeviceFile(KSTR("/dev/null"), &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, NULL);
 	error|=!kernelFsAddCharacterDeviceFile(KSTR("/dev/urandom"), &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, NULL);
 
-	for(uint8_t pinNum=0; pinNum<KernelPinNumMax; ++pinNum) {
+	for(uint8_t pinNum=0; pinNum<20; ++pinNum) {
+		// TODO: Add genuine pins rather than first 20 (but need to sort other things first to be able to add this many)
 		sprintf(tempBuf, "/dev/pin%u", pinNum);
 		error|=!kernelFsAddCharacterDeviceFile(tempBuf, &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)pinNum);
 	}
@@ -830,16 +822,7 @@ int16_t kernelUsrGamesReadFunctor(KernelFsFileOffset addr, void *userData) {
 
 int16_t kernelDevPinReadFunctor(void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
-	if (pinNum>=KernelPinNumMax) {
-		kernelLog(LogTypeWarning, "bad pin %u in read\n", pinNum);
-		return -1;
-	}
-#ifdef ARDUINO
 	return pinRead(pinNum);
-#else
-	kernelLog(LogTypeInfo, "pin %u read - value %u\n", pinNum, pinStates[pinNum]);
-	return pinStates[pinNum];
-#endif
 }
 
 bool kernelDevPinCanReadFunctor(void *userData) {
@@ -848,16 +831,7 @@ bool kernelDevPinCanReadFunctor(void *userData) {
 
 bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
-	if (pinNum>=KernelPinNumMax) {
-		kernelLog(LogTypeWarning, "bad pin %u in write\n", pinNum);
-		return false;
-	}
-#ifdef ARDUINO
 	return pinWrite(pinNum, (value!=0));
-#else
-	pinStates[pinNum]=(value!=0);
-#endif
-	return true;
 }
 
 #ifndef ARDUINO
