@@ -81,7 +81,7 @@
 #define PinLed PinD13
 
 bool pinRead(uint8_t pinNum);
-void pinWrite(uint8_t pinNum, bool value);
+bool pinWrite(uint8_t pinNum, bool value);
 
 #endif
 #endif
