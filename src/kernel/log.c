@@ -13,14 +13,14 @@
 #include "wrapper.h"
 
 #ifdef ARDUINO
-void kernelLogRaw(LogType type, const char *format, ...) {
+void kernelLogRaw(LogType type, uint_farptr_t format, ...) {
 	va_list ap;
 	va_start(ap, format);
 	kernelLogRawV(type, format, ap);
 	va_end(ap);
 }
 
-void kernelLogRawV(LogType type, const char *format, va_list ap) {
+void kernelLogRawV(LogType type, uint_farptr_t format, va_list ap) {
 	// Print time
 	uint32_t t=millis();
 	uint32_t h=t/(60u*60u*1000u);
@@ -35,8 +35,7 @@ void kernelLogRawV(LogType type, const char *format, va_list ap) {
 	printf("%7s ", logTypeToString(type));
 
 	// Print user string
-	// TODO: Use vfprintf_PF if it existed (and update format type to uint_ptr_far or w/e), otherwise consider rolling our own PF version. For now this seems to work anyway as log strings are put early (by chance).
-	vfprintf_P(stdout, format, ap);
+	vfprintf_PF(stdout, format, ap);
 }
 #else
 void kernelLog(LogType type, const char *format, ...) {
