@@ -1091,8 +1091,8 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				return false;
 			}
 
-			char *value=strtok_r(NULL, " ", &savePtr);
-			if (value==NULL) {
+			char *valueStr=strtok_r(NULL, " ", &savePtr);
+			if (valueStr==NULL) {
 				printf("error - expected value name after '%s' (%s:%u '%s')\n", symbol, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 				return false;
 			}
@@ -1100,12 +1100,16 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			// TODO: Support single character constants
 			// TODO: Better error checking for bad constant (currently just defaults to 0)
 
+			int constValue;
+			if ((constValue=assemblerGetConstSymbolValue(program, valueStr))==-1)
+				constValue=atoi(valueStr);
+
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeConst;
 			instruction->d.constSymbol.symbol=symbol;
-			instruction->d.constSymbol.value=atoi(value);
+			instruction->d.constSymbol.value=constValue;
 		} else {
 			// Check for an ALU operation
 			unsigned j;
