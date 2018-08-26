@@ -12,6 +12,7 @@
 #include <util/atomic.h>
 #include "circbuf.h"
 #include "uart.h"
+#include "pins.h"
 #else
 #include <poll.h>
 #include <signal.h>
