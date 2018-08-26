@@ -38,11 +38,11 @@
 #include "progmemlibstdmem.h"
 #include "progmemlibstdstr.h"
 #include "progmemlibstdtime.h"
+#endif
 #include "progmemman1.h"
 #include "progmemman2.h"
 #include "progmemman3.h"
 #include "progmemusrgames.h"
-#endif
 #include "progmemusrbin.h"
 
 #define KernelPinNumMax 20
@@ -61,11 +61,11 @@ uint8_t kernelTmpDataPool[KernelTmpDataPoolSize];
 #define KernelLibStdMemSize PROGMEMlibstdmemDATASIZE
 #define KernelLibStdStrSize PROGMEMlibstdstrDATASIZE
 #define KernelLibStdTimeSize PROGMEMlibstdtimeDATASIZE
+#endif
 #define KernelMan1Size PROGMEMman1DATASIZE
 #define KernelMan2Size PROGMEMman2DATASIZE
 #define KernelMan3Size PROGMEMman3DATASIZE
 #define KernelUsrGamesSize PROGMEMusrgamesDATASIZE
-#endif
 #define KernelUsrBinSize PROGMEMusrbinDATASIZE
 
 #define KernelEepromTotalSize (4*1024) // Mega has 4kb for example
@@ -109,6 +109,9 @@ void kernelShutdownFinal(void);
 void kernelHalt(void);
 
 int16_t kernelBinReadFunctor(KernelFsFileOffset addr, void *userData);
+int16_t kernelMan1ReadFunctor(KernelFsFileOffset addr, void *userData);
+int16_t kernelMan2ReadFunctor(KernelFsFileOffset addr, void *userData);
+int16_t kernelMan3ReadFunctor(KernelFsFileOffset addr, void *userData);
 #ifndef ARDUINO
 int16_t kernelLibCursesReadFunctor(KernelFsFileOffset addr, void *userData);
 int16_t kernelLibPinReadFunctor(KernelFsFileOffset addr, void *userData);
@@ -119,9 +122,6 @@ int16_t kernelLibStdProcReadFunctor(KernelFsFileOffset addr, void *userData);
 int16_t kernelLibStdMemReadFunctor(KernelFsFileOffset addr, void *userData);
 int16_t kernelLibStdStrReadFunctor(KernelFsFileOffset addr, void *userData);
 int16_t kernelLibStdTimeReadFunctor(KernelFsFileOffset addr, void *userData);
-int16_t kernelMan1ReadFunctor(KernelFsFileOffset addr, void *userData);
-int16_t kernelMan2ReadFunctor(KernelFsFileOffset addr, void *userData);
-int16_t kernelMan3ReadFunctor(KernelFsFileOffset addr, void *userData);
 #endif
 int16_t kernelDevEepromReadFunctor(KernelFsFileOffset addr, void *userData);
 bool kernelDevEepromWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
@@ -368,10 +368,10 @@ void kernelBoot(void) {
 	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/dev"));
 	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/media"));
 	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/usr"));
+	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/usr/man"));
 	#ifndef ARDUINO
 	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/lib"));
 	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/lib/std"));
-	error|=!kernelFsAddDirectoryDeviceFile(KSTR("/usr/man"));
 	#endif
 	if (error)
 		kernelFatalError("fs init failure: base directories\n");
@@ -387,8 +387,11 @@ void kernelBoot(void) {
 	// ... non-essential RO volumes
 	error=false;
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/bin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
-	#ifndef ARDUINO
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/games"), KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/man/1"), KernelFsBlockDeviceFormatCustomMiniFs, KernelMan1Size, &kernelMan1ReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/man/2"), KernelFsBlockDeviceFormatCustomMiniFs, KernelMan2Size, &kernelMan2ReadFunctor, NULL, NULL);
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/man/3"), KernelFsBlockDeviceFormatCustomMiniFs, KernelMan3Size, &kernelMan3ReadFunctor, NULL, NULL);
+	#ifndef ARDUINO
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/curses"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/pin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/sys"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibSysSize, &kernelLibSysReadFunctor, NULL, NULL);
@@ -398,9 +401,6 @@ void kernelBoot(void) {
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/mem"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdMemSize, &kernelLibStdMemReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/str"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdStrSize, &kernelLibStdStrReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/std/time"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibStdTimeSize, &kernelLibStdTimeReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/man/1"), KernelFsBlockDeviceFormatCustomMiniFs, KernelMan1Size, &kernelMan1ReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/man/2"), KernelFsBlockDeviceFormatCustomMiniFs, KernelMan2Size, &kernelMan2ReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/man/3"), KernelFsBlockDeviceFormatCustomMiniFs, KernelMan3Size, &kernelMan3ReadFunctor, NULL, NULL);
 	#endif
 	if (error)
 		kernelLog(LogTypeWarning, "fs init failure: /lib and /usr\n");
@@ -568,6 +568,7 @@ int16_t kernelLibStdTimeReadFunctor(KernelFsFileOffset addr, void *userData) {
 	return progmemlibstdtimeData[addr];
 	#endif
 }
+#endif
 
 int16_t kernelMan1ReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelMan1Size);
@@ -595,7 +596,6 @@ int16_t kernelMan3ReadFunctor(KernelFsFileOffset addr, void *userData) {
 	return progmemman3Data[addr];
 	#endif
 }
-#endif
 
 int16_t kernelDevEepromReadFunctor(KernelFsFileOffset addr, void *userData) {
 	addr+=KernelEepromDevEepromOffset;
@@ -828,7 +828,6 @@ int16_t kernelUsrBinReadFunctor(KernelFsFileOffset addr, void *userData) {
 	#endif
 }
 
-#ifndef ARDUINO
 int16_t kernelUsrGamesReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelUsrGamesSize);
 	#ifdef ARDUINO
@@ -837,7 +836,6 @@ int16_t kernelUsrGamesReadFunctor(KernelFsFileOffset addr, void *userData) {
 	return progmemusrgamesData[addr];
 	#endif
 }
-#endif
 
 int16_t kernelDevPinReadFunctor(void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
