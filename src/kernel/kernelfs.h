@@ -80,5 +80,6 @@ bool kernelFsPathIsValid(const char *path); // All paths are absolute so must st
 void kernelFsPathNormalise(char *path); // Simplifies a path in-place by substitutions such as '//'->'/'.
 
 void kernelFsPathSplit(char *path, char **dirnamePtr, char **basenamePtr); // Modifies given path, which must be kept around as long as dirname and basename are needed
+void kernelFsPathSplitStatic(const char *path, char **dirnamePtr, char **basenamePtr); // like kernelFsPathSplit but makes a copy of the given path (to a global buffer, and thus not re-entrant)
 
 #endif

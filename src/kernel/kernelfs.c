@@ -62,6 +62,8 @@ typedef struct {
 
 KernelFsData kernelFsData;
 
+char kernelFsPathSplitStaticBuf[KernelFsPathMax];
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -181,10 +183,8 @@ bool kernelFsFileExists(const char *path) {
 		return true;
 
 	// Find dirname and basename
-	char modPath[KernelFsPathMax];
-	strcpy(modPath, path);
 	char *dirname, *basename;
-	kernelFsPathSplit(modPath, &dirname, &basename);
+	kernelFsPathSplitStatic(path, &dirname, &basename);
 
 	// Check for node at dirname
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(dirname);
@@ -354,10 +354,8 @@ KernelFsFileOffset kernelFsFileGetLen(const char *path) {
 	}
 
 	// Check for being a child of a virtual block device
-	char modPath[KernelFsPathMax];
-	strcpy(modPath, path);
 	char *dirname, *basename;
-	kernelFsPathSplit(modPath, &dirname, &basename);
+	kernelFsPathSplitStatic(path, &dirname, &basename);
 
 	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
 	if (parentDevice!=NULL) {
@@ -400,10 +398,8 @@ bool kernelFsFileCreate(const char *path) {
 
 bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size) {
 	// Find dirname and basename
-	char modPath[KernelFsPathMax];
-	strcpy(modPath, path);
 	char *dirname, *basename;
-	kernelFsPathSplit(modPath, &dirname, &basename);
+	kernelFsPathSplitStatic(path, &dirname, &basename);
 
 	// Check for node at dirname
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(dirname);
@@ -491,10 +487,8 @@ bool kernelFsFileDelete(const char *path) {
 	}
 
 	// Check for being a child of a virtual block device
-	char modPath[KernelFsPathMax];
-	strcpy(modPath, path);
 	char *dirname, *basename;
-	kernelFsPathSplit(modPath, &dirname, &basename);
+	kernelFsPathSplitStatic(path, &dirname, &basename);
 
 	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
 	if (parentDevice!=NULL) {
@@ -548,10 +542,8 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
 	}
 
 	// Check for being a child of a virtual block device
-	char modPath[KernelFsPathMax];
-	strcpy(modPath, path);
 	char *dirname, *basename;
-	kernelFsPathSplit(modPath, &dirname, &basename);
+	kernelFsPathSplitStatic(path, &dirname, &basename);
 
 	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
 	if (parentDevice!=NULL) {
@@ -688,11 +680,8 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 
 	// Check for being a child of a virtual block device
 	const char *path=kernelFsGetFilePath(fd);
-
-	char modPath[KernelFsPathMax];
-	strcpy(modPath, path);
 	char *dirname, *basename;
-	kernelFsPathSplit(modPath, &dirname, &basename);
+	kernelFsPathSplitStatic(path, &dirname, &basename);
 
 	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
 	if (parentDevice!=NULL) {
@@ -803,11 +792,8 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 
 	// Check for being a child of a virtual block device
 	const char *path=kernelFsGetFilePath(fd);
-
-	char modPath[KernelFsPathMax];
-	strcpy(modPath, path);
 	char *dirname, *basename;
-	kernelFsPathSplit(modPath, &dirname, &basename);
+	kernelFsPathSplitStatic(path, &dirname, &basename);
 
 	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
 	if (parentDevice!=NULL) {
@@ -984,6 +970,11 @@ void kernelFsPathSplit(char *path, char **dirnamePtr, char **basenamePtr) {
 	*dirnamePtr=path;
 }
 
+void kernelFsPathSplitStatic(const char *path, char **dirnamePtr, char **basenamePtr) {
+	strcpy(kernelFsPathSplitStaticBuf, path);
+	kernelFsPathSplit(kernelFsPathSplitStaticBuf, dirnamePtr, basenamePtr);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -1023,10 +1014,8 @@ bool kernelFsFileCanOpenMany(const char *path) {
 	}
 
 	// Check for being a child of a virtual block device
-	char modPath[KernelFsPathMax];
-	strcpy(modPath, path);
 	char *dirname, *basename;
-	kernelFsPathSplit(modPath, &dirname, &basename);
+	kernelFsPathSplitStatic(path, &dirname, &basename);
 
 	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
 	if (parentDevice!=NULL) {
@@ -1080,10 +1069,8 @@ KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType
 
 	// Ensure the parent directory exists (skipped for root)
 	if (strcmp(mountPoint, "/")!=0) {
-		char mountPointMod[KernelFsPathMax];
-		strcpy(mountPointMod, mountPoint);
 		char *dirname, *basename;
-		kernelFsPathSplit(mountPointMod, &dirname, &basename);
+		kernelFsPathSplitStatic(mountPoint, &dirname, &basename);
 
 		if (strlen(dirname)==0) {
 			// Special case for files in root directory
@@ -1124,11 +1111,8 @@ bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir) 
 		return false;
 
 	// Compute dirname for this device's mount point
-	char mountPointCopy[KernelFsPathMax];
-	strcpy(mountPointCopy, device->mountPoint);
-
 	char *dirname, *basename;
-	kernelFsPathSplit(mountPointCopy, &dirname, &basename);
+	kernelFsPathSplitStatic(device->mountPoint, &dirname, &basename);
 
 	// Special case for root as parentDir
 	if (strcmp(parentDir, "/")==0)
