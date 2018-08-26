@@ -4,6 +4,7 @@
 #include <string.h>
 
 #ifdef ARDUINO
+#include <alloca.h>
 #else
 #include <termios.h>
 #include <unistd.h>
