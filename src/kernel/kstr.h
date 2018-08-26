@@ -30,11 +30,12 @@ KStr kstrAllocProgmemRaw(uint_farptr_t progmemAddr);
 #else
 #define kstrAllocProgmem(src) kstrAllocCopy(src)
 #endif
-#define kstrP(s) kstrAllocProgmem(s)
 KStr kstrAllocStatic(char *staticBuffer);
-#define kstrS(s) kstrAllocStatic(s)
 KStr kstrAllocCopy(const char *src);
 
+#define kstrP(s) kstrAllocProgmem(s)
+#define kstrS(s) kstrAllocStatic(s)
+#define kstrC(s) kstrAllocCopy(s)
 void kstrFree(KStr *str);
 
 bool kstrIsNull(KStr str);
