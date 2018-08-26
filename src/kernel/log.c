@@ -35,6 +35,7 @@ void kernelLogRawV(LogType type, const char *format, va_list ap) {
 	printf("%7s ", logTypeToString(type));
 
 	// Print user string
+	// TODO: Use vfprintf_PF if it existed (and update format type to uint_ptr_far or w/e), otherwise consider rolling our own PF version. For now this seems to work anyway as log strings are put early (by chance).
 	vfprintf_P(stdout, format, ap);
 }
 #else
