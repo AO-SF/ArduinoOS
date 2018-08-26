@@ -53,7 +53,7 @@ typedef struct {
 	// The arguments are fixed, but pwd and path may be updated later by the process itself to point to new strings, beyond the initial read-only section (and so need a full 16 bit offset).
 	uint8_t argv[ARGVMAX];
 	uint16_t pwd; // set to '/' when init is called
-	uint16_t path; // set to '/usr/bin:/bin:' when init is called
+	uint16_t path; // set to '/usr/games:/usr/bin:/bin:' when init is called
 } ProcManProcessProcData;
 
 typedef struct {
@@ -208,7 +208,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	strcpy(envVarData+envVarDataLen, tempPwd);
 	envVarDataLen+=strlen(tempPwd)+1;
 
-	strcpy(tempPath, "/usr/bin:/bin:");
+	strcpy(tempPath, "/usr/games:/usr/bin:/bin:");
 	procData.path=envVarDataLen;
 	strcpy(envVarData+envVarDataLen, tempPath);
 	envVarDataLen+=strlen(tempPath)+1;
