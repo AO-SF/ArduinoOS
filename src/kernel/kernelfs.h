@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "kstr.h"
+
 typedef uint16_t KernelFsFileOffset;
 
 typedef uint8_t KernelFsFd; // file-descriptor
@@ -36,9 +38,9 @@ void kernelFsQuit(void);
 // Virtual device functions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, void *functorUserData);
-bool kernelFsAddDirectoryDeviceFile(const char *mountPoint);
-bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData);
+bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, void *functorUserData);
+bool kernelFsAddDirectoryDeviceFile(KStr mountPoint);
+bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // File functions -including directories (all paths are expected to be valid and normalised)
@@ -81,5 +83,6 @@ void kernelFsPathNormalise(char *path); // Simplifies a path in-place by substit
 
 void kernelFsPathSplit(char *path, char **dirnamePtr, char **basenamePtr); // Modifies given path, which must be kept around as long as dirname and basename are needed
 void kernelFsPathSplitStatic(const char *path, char **dirnamePtr, char **basenamePtr); // like kernelFsPathSplit but makes a copy of the given path (to a global buffer, and thus not re-entrant)
+void kernelFsPathSplitStaticKStr(KStr kstr, char **dirnamePtr, char **basenamePtr);
 
 #endif

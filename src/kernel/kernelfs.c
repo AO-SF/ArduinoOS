@@ -47,7 +47,7 @@ typedef struct {
 
 typedef struct {
 	KernelFsDeviceType type;
-	char *mountPoint;
+	KStr mountPoint;
 	union {
 		KernelFsDeviceBlock block;
 		KernelFsDeviceCharacter character;
@@ -72,7 +72,7 @@ bool kernelFsPathIsDevice(const char *path);
 bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 
-KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType type);
+KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceType type);
 
 bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
 
@@ -105,13 +105,13 @@ void kernelFsQuit(void) {
 		KernelFsDevice *device=&kernelFsData.devices[i];
 		if (device->type==KernelFsDeviceTypeNB)
 			continue;
-		free(device->mountPoint);
+		kstrFree(&device->mountPoint);
 		device->type=KernelFsDeviceTypeNB;
 	}
 }
 
-bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, void *functorUserData) {
-	assert(mountPoint!=NULL);
+bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, void *functorUserData) {
+	assert(!kstrIsNull(mountPoint));
 	assert(readFunctor!=NULL);
 	assert(canReadFunctor!=NULL);
 	assert(writeFunctor!=NULL);
@@ -130,8 +130,8 @@ bool kernelFsAddCharacterDeviceFile(const char *mountPoint, KernelFsCharacterDev
 	return true;
 }
 
-bool kernelFsAddDirectoryDeviceFile(const char *mountPoint) {
-	assert(mountPoint!=NULL);
+bool kernelFsAddDirectoryDeviceFile(KStr mountPoint) {
+	assert(!kstrIsNull(mountPoint));
 
 	// Check mountPoint and attempt to add to device table.
 	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, KernelFsDeviceTypeDirectory);
@@ -141,8 +141,8 @@ bool kernelFsAddDirectoryDeviceFile(const char *mountPoint) {
 	return true;
 }
 
-bool kernelFsAddBlockDeviceFile(const char *mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData) {
-	assert(mountPoint!=NULL);
+bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData) {
+	assert(!kstrIsNull(mountPoint));
 	assert(readFunctor!=NULL);
 
 	// Check mountPoint and attempt to add to device table.
@@ -479,8 +479,8 @@ bool kernelFsFileDelete(const char *path) {
 		assert(&kernelFsData.devices[slot]==device);
 		_unused(slot);
 
-		free(device->mountPoint);
-		device->mountPoint=NULL;
+		kstrFree(&device->mountPoint);
+		device->mountPoint=kstrNull();
 		device->type=KernelFsDeviceTypeNB;
 
 		return true;
@@ -883,7 +883,7 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 
 					if (kernelFsDeviceIsChildOfPath(childDevice, parentPath)) {
 						if (foundCount==childNum) {
-							strcpy(childPath, childDevice->mountPoint);
+							kstrStrcpy(childPath, childDevice->mountPoint);
 							return true;
 						}
 						++foundCount;
@@ -975,6 +975,11 @@ void kernelFsPathSplitStatic(const char *path, char **dirnamePtr, char **basenam
 	kernelFsPathSplit(kernelFsPathSplitStaticBuf, dirnamePtr, basenamePtr);
 }
 
+void kernelFsPathSplitStaticKStr(KStr kstr, char **dirnamePtr, char **basenamePtr) {
+	kstrStrcpy(kernelFsPathSplitStaticBuf, kstr);
+	kernelFsPathSplit(kernelFsPathSplitStaticBuf, dirnamePtr, basenamePtr);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -1053,24 +1058,27 @@ bool kernelFsFileCanOpenMany(const char *path) {
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path) {
 	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
 		KernelFsDevice *device=&kernelFsData.devices[i];
-		if (device->type!=KernelFsDeviceTypeNB && strcmp(path, device->mountPoint)==0)
+		if (device->type!=KernelFsDeviceTypeNB && kstrStrcmp(path, device->mountPoint)==0)
 			return device;
 	}
 	return NULL;
 }
 
-KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType type) {
-	assert(mountPoint!=NULL);
+KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceType type) {
+	assert(!kstrIsNull(mountPoint));
 	assert(type<KernelFsDeviceTypeNB);
 
+	// HACK: use kernelFsPathSplitStaticBuf here as we end up using it later anyway
+	kstrStrcpy(kernelFsPathSplitStaticBuf, mountPoint);
+
 	// Ensure this file does not already exist
-	if (kernelFsFileExists(mountPoint))
+	if (kernelFsFileExists(kernelFsPathSplitStaticBuf))
 		return NULL;
 
 	// Ensure the parent directory exists (skipped for root)
-	if (strcmp(mountPoint, "/")!=0) {
+	if (kstrStrcmp("/", mountPoint)!=0) {
 		char *dirname, *basename;
-		kernelFsPathSplitStatic(mountPoint, &dirname, &basename);
+		kernelFsPathSplitStaticKStr(mountPoint, &dirname, &basename);
 
 		if (strlen(dirname)==0) {
 			// Special case for files in root directory
@@ -1086,10 +1094,7 @@ KernelFsDevice *kernelFsAddDeviceFile(const char *mountPoint, KernelFsDeviceType
 		if (device->type!=KernelFsDeviceTypeNB)
 			continue;
 
-		device->mountPoint=malloc(strlen(mountPoint)+1);
-		if (device->mountPoint==NULL)
-			return NULL;
-		strcpy(device->mountPoint, mountPoint);
+		device->mountPoint=mountPoint;
 		device->type=type;
 
 		return device;
@@ -1107,12 +1112,12 @@ bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir) 
 		return false;
 
 	// Special case for root 'child' device (root has no parent dir)
-	if (strcmp(device->mountPoint, "/")==0)
+	if (kstrStrcmp("/", device->mountPoint)==0)
 		return false;
 
 	// Compute dirname for this device's mount point
 	char *dirname, *basename;
-	kernelFsPathSplitStatic(device->mountPoint, &dirname, &basename);
+	kernelFsPathSplitStaticKStr(device->mountPoint, &dirname, &basename);
 
 	// Special case for root as parentDir
 	if (strcmp(parentDir, "/")==0)
