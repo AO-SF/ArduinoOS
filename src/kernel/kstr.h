@@ -2,6 +2,7 @@
 #define KSTR_H
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #ifdef ARDUINO
