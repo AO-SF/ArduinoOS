@@ -8,6 +8,7 @@ arduino:
 	./bin/builder --compact
 	cd src/kernel && make clean # HACK as builder and others make pc versions of some of the objects
 	cd src/kernel && make arduino
+	avr-size -C --mcu=atmega2560 ./bin/kernel
 	avr-objcopy -O ihex ./bin/kernel ./bin/kernel.hex
 
 pc:
