@@ -35,4 +35,6 @@ KStr kstrAllocCopy(const char *src);
 
 void kstrFree(KStr *str);
 
+int16_t kstr_vfprintf(FILE *file, KStr format, va_list ap);
+
 #endif

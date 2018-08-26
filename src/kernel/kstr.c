@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "kstr.h"
+#include "wrapper.h"
 
 #ifdef ARDUINO
 KStr kstrAllocProgmemRaw(uint_farptr_t progmemAddr) {
@@ -32,4 +33,24 @@ void kstrFree(KStr *str) {
 		str->type=KStrTypeInvalid;
 		str->ptr=(uintptr_t)0;
 	}
+}
+
+int16_t kstr_vfprintf(FILE *file, KStr format, va_list ap) {
+	switch(format.type) {
+		case KStrTypeInvalid:
+			return -1;
+		break;
+		case KStrTypeProgmem:
+			#ifdef ARDUINO
+			return vfprintf_PF(file, (uint_farptr_t)format.ptr, ap);
+			#else
+			return -1; // Shouldn't really happen
+			#endif
+		break;
+		case KStrTypeStatic:
+		case KStrTypeHeap:
+			return vfprintf(file, (const char *)(uintptr_t)format.ptr, ap);
+		break;
+	}
+	return 0;
 }
