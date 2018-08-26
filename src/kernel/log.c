@@ -71,11 +71,11 @@ void kernelLogV(LogType type, const char *format, va_list ap) {
 }
 #endif
 
+static const char *logTypeToStringArray[]={
+	[LogTypeInfo]="INFO",
+	[LogTypeWarning]="WARNING",
+	[LogTypeError]="ERROR",
+};
 const char *logTypeToString(LogType type) {
-	static const char *logTypeToStringArray[]={
-		[LogTypeInfo]="INFO",
-		[LogTypeWarning]="WARNING",
-		[LogTypeError]="ERROR",
-	};
 	return logTypeToStringArray[type];
 }
