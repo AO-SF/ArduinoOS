@@ -44,7 +44,7 @@ bool kstrIsNull(KStr str) {
 	return (str.type==KStrTypeNull);
 }
 
-int16_t kstr_vfprintf(FILE *file, KStr format, va_list ap) {
+int16_t kstrVfprintf(FILE *file, KStr format, va_list ap) {
 	switch(format.type) {
 		case KStrTypeNull:
 			return -1;
