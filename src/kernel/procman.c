@@ -1164,12 +1164,14 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 						case ByteCodeSyscallIdTryReadByte: {
 							KernelFsFd fd=procData->regs[1];
 
-							#ifndef ARDUINO
-							// save terminal settings
+							// save terminal settings and change to avoid waiting for newline
+							#ifdef ARDUINO
+							bool oldBlocking=kernelDevTtyS0BlockingFlag;
+							kernelDevTtyS0BlockingFlag=false;
+							#else
 							static struct termios termOld, termNew;
 							tcgetattr(STDIN_FILENO, &termOld);
 
-							// change terminal settings to avoid waiting for a newline before getting data
 							termNew=termOld;
 							termNew.c_lflag&=~ICANON;
 							tcsetattr(STDIN_FILENO, TCSANOW, &termNew);
@@ -1179,8 +1181,10 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							uint8_t value;
 							KernelFsFileOffset readResult=kernelFsFileReadOffset(fd, 0, &value, 1, false);
 
-							#ifndef ARDUINO
 							// restore terminal settings
+							#ifdef ARDUINO
+							kernelDevTtyS0BlockingFlag=oldBlocking;
+							#else
 							tcsetattr(STDIN_FILENO, TCSANOW, &termOld);
 							#endif
 

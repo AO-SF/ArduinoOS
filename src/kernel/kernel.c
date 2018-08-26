@@ -76,6 +76,7 @@ uint8_t kernelTmpDataPool[KernelTmpDataPoolSize];
 
 #ifdef ARDUINO
 volatile bool kernelDevTtyS0EchoFlag;
+volatile bool kernelDevTtyS0BlockingFlag;
 volatile CircBuf kernelDevTtyS0CircBuf;
 volatile uint8_t kernelDevTtyS0CircBufNewlineCount;
 #else
@@ -290,6 +291,7 @@ void kernelBoot(void) {
 #ifdef ARDUINO
 	kernelDevTtyS0EchoFlag=true;
 	kernelDevTtyS0CircBufNewlineCount=0;
+	kernelDevTtyS0BlockingFlag=false;
 	circBufInit(&kernelDevTtyS0CircBuf);
 	uart_init();
 
@@ -756,7 +758,7 @@ int16_t kernelDevTtyS0ReadFunctor(void *userData) {
 #ifdef ARDUINO
 	int16_t ret=-1;
 
-	if (kernelDevTtyS0CircBufNewlineCount>0) {
+	if (kernelDevTtyS0CanReadFunctor(userData)) {
 		uint8_t value;
 		ATOMIC_BLOCK(ATOMIC_FORCEON) {
 			if (circBufPop(&kernelDevTtyS0CircBuf, &value)) {
@@ -782,7 +784,11 @@ int16_t kernelDevTtyS0ReadFunctor(void *userData) {
 
 bool kernelDevTtyS0CanReadFunctor(void *userData) {
 #ifdef ARDUINO
-	return (kernelDevTtyS0CircBufNewlineCount>0);
+	if (kernelDevTtyS0CircBufNewlineCount>0)
+		return true;
+	if (kernelDevTtyS0BlockingFlag)
+		return false;
+	return !circBufIsEmpty(&kernelDevTtyS0CircBuf);
 #else
 	// If we still think there are bytes waiting to be read, return true immediately
 	if (kernelTtyS0BytesAvailable>0)
