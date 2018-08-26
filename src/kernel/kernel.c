@@ -11,8 +11,8 @@
 #include <avr/pgmspace.h>
 #include <util/atomic.h>
 #include "circbuf.h"
-#include "uart.h"
 #include "pins.h"
+#include "uart.h"
 #else
 #include <poll.h>
 #include <signal.h>
@@ -839,9 +839,7 @@ int16_t kernelDevPinReadFunctor(void *userData) {
 		return -1;
 	}
 #ifdef ARDUINO
-	// TODO: this pinRead() essentially
-	kernelLog(LogTypeWarning, "pin %u read - not implemented\n", pinNum);
-	return -1;
+	return pinRead(pinNum);
 #else
 	kernelLog(LogTypeInfo, "pin %u read - value %u\n", pinNum, pinStates[pinNum]);
 	return pinStates[pinNum];
@@ -859,12 +857,7 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 		return false;
 	}
 #ifdef ARDUINO
-	// TODO: Support pins other than 13 for the LED
-	DDRB|=(1<<PB7);
-	if (value!=0)
-		PORTB|=(1<<PB7);
-	else
-		PORTB&=~(1<<PB7);
+	pinWrite(pinNum, (value!=0));
 #else
 	pinStates[pinNum]=(value!=0);
 #endif
