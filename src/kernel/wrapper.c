@@ -1,4 +1,4 @@
-// TODO: arduino stuff here is a horrible hack
+// TODO: arduino time stuff here is a horrible hack
 // avr-libc requires init, maintaining and only gives 1s res, need something better
 
 #ifdef ARDUINO
@@ -6,6 +6,8 @@
 #include <stdint.h>
 uint32_t tempTime=0;
 #include <util/delay.h>
+#include <avr/io.h>
+void *pointerIsHeapBase;
 #else
 #include <stdlib.h>
 #include <sys/time.h>
@@ -39,3 +41,10 @@ void delay(uint32_t ms) {
 	#endif
 }
 
+#ifdef ARDUINO
+bool pointerIsHeap(const void *ptr) {
+	// To be in the heap the ptr must be at least the first malloc allocation,
+	// but not exceed the stack pointer.
+	return (ptr>=pointerIsHeapBase && ptr<=(void *)SP);
+}
+#endif

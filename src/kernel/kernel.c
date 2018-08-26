@@ -281,6 +281,11 @@ void kernelShutdownNext(void) {
 }
 
 void kernelBoot(void) {
+	// Arduino-only: make tiny malloc allocation to find start of heap (heap_start seems to give wrong values)
+#ifdef ARDUINO
+	pointerIsHeapBase=malloc(1);
+#endif
+
 	// Arduino-only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
 #ifdef ARDUINO
 	kernelDevTtyS0EchoFlag=true;
