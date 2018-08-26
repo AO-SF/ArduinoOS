@@ -7,6 +7,7 @@
 uint32_t tempTime=0;
 #include <util/delay.h>
 #include <avr/io.h>
+#include <avr/pgmspace.h>
 void *pointerIsHeapBase;
 #else
 #include <stdlib.h>
@@ -46,5 +47,86 @@ bool pointerIsHeap(const void *ptr) {
 	// To be in the heap the ptr must be at least the first malloc allocation,
 	// but not exceed the stack pointer.
 	return (ptr>=pointerIsHeapBase && ptr<=(void *)SP);
+}
+
+int16_t fprintf_PF(FILE *stream, uint_farptr_t format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	int16_t res=vfprintf_PF(stream, format, ap);
+	va_end(ap);
+	return res;
+}
+
+
+int16_t vfprintf_PF(FILE *stream, uint_farptr_t format, va_list ap) {
+	int16_t written=0;
+	uint8_t byte;
+	for(; (byte=pgm_read_byte_far(format))!='\0'; ++format) {
+		if (byte=='\\') {
+			// TODO: Support more, e.g. \t
+			byte=pgm_read_byte_far(++format);
+			if (byte=='\0')
+				break;
+			if (byte=='n')
+				written+=(fputc('\n', stream)!=EOF);
+		} else if (byte=='%') {
+			// TODO: Support more than single-digit length strings
+			byte=pgm_read_byte_far(++format);
+			if (byte=='\0')
+				break;
+			bool padZero=false;
+			if (byte=='0') {
+				padZero=true;
+				byte=pgm_read_byte_far(++format);
+				if (byte=='\0')
+					break;
+			}
+			uint8_t padLen=0;
+			if (byte>='0' && byte<='9') {
+				padLen=byte-'0';
+				byte=pgm_read_byte_far(++format);
+				if (byte=='\0')
+					break;
+			}
+
+			if (byte=='u') {
+				char formatStr[8];
+				if (padZero)
+					sprintf(formatStr, "%%0%uu", padLen);
+				else
+					sprintf(formatStr, "%%%uu", padLen);
+				uint16_t val=va_arg(ap, uint16_t);
+				int16_t subRes=fprintf(stream, formatStr, val);
+				if (subRes<0)
+					break;
+				written+=subRes;
+			} else if (byte=='i') {
+				char formatStr[8];
+				if (padZero)
+					sprintf(formatStr, "%%0%ui", padLen);
+				else
+					sprintf(formatStr, "%%%ui", padLen);
+				uint16_t val=va_arg(ap, uint16_t);
+				int16_t subRes=fprintf(stream, formatStr, val);
+				if (subRes<0)
+					break;
+				written+=subRes;
+			} else if (byte=='s') {
+				const char *str=va_arg(ap, const char *);
+				int16_t subRes=fprintf(stream, "%s", str);
+				if (subRes<0)
+					break;
+				written+=subRes;
+			} else if (byte=='p') {
+				void *ptr=va_arg(ap, void *);
+				int16_t subRes=fprintf(stream, "%p", ptr);
+				if (subRes<0)
+					break;
+				written+=subRes;
+			}
+		} else
+			written+=(fputc(byte, stream)!=EOF);
+	}
+	return written;
 }
 #endif
