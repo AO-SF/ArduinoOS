@@ -41,9 +41,9 @@
 #include "progmemman1.h"
 #include "progmemman2.h"
 #include "progmemman3.h"
+#include "progmemusrgames.h"
 #endif
 #include "progmemusrbin.h"
-#include "progmemusrgames.h"
 
 #define KernelPinNumMax 20
 
@@ -64,9 +64,9 @@ uint8_t *kernelTmpDataPool=NULL;
 #define KernelMan1Size PROGMEMman1DATASIZE
 #define KernelMan2Size PROGMEMman2DATASIZE
 #define KernelMan3Size PROGMEMman3DATASIZE
+#define KernelUsrGamesSize PROGMEMusrgamesDATASIZE
 #endif
 #define KernelUsrBinSize PROGMEMusrbinDATASIZE
-#define KernelUsrGamesSize PROGMEMusrgamesDATASIZE
 
 #define KernelEepromTotalSize (4*1024) // Mega has 4kb for example
 #define KernelEepromEtcOffset (0)
@@ -388,8 +388,8 @@ void kernelBoot(void) {
 	// ... non-essential RO volumes
 	error=false;
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/bin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrBinSize, &kernelUsrBinReadFunctor, NULL, NULL);
-	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/games"), KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
 	#ifndef ARDUINO
+	error|=!kernelFsAddBlockDeviceFile(KSTR("/usr/games"), KernelFsBlockDeviceFormatCustomMiniFs, KernelUsrGamesSize, &kernelUsrGamesReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/curses"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibCursesSize, &kernelLibCursesReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/pin"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibPinSize, &kernelLibPinReadFunctor, NULL, NULL);
 	error|=!kernelFsAddBlockDeviceFile(KSTR("/lib/sys"), KernelFsBlockDeviceFormatCustomMiniFs, KernelLibSysSize, &kernelLibSysReadFunctor, NULL, NULL);
@@ -833,6 +833,7 @@ int16_t kernelUsrBinReadFunctor(KernelFsFileOffset addr, void *userData) {
 	#endif
 }
 
+#ifndef ARDUINO
 int16_t kernelUsrGamesReadFunctor(KernelFsFileOffset addr, void *userData) {
 	assert(addr<KernelUsrGamesSize);
 	#ifdef ARDUINO
@@ -841,6 +842,7 @@ int16_t kernelUsrGamesReadFunctor(KernelFsFileOffset addr, void *userData) {
 	return progmemusrgamesData[addr];
 	#endif
 }
+#endif
 
 int16_t kernelDevPinReadFunctor(void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
