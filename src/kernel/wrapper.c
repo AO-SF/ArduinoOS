@@ -4,7 +4,6 @@
 #include <avr/pgmspace.h>
 #include <stdint.h>
 #include <util/delay.h>
-void *pointerIsHeapBase;
 char vfprintf_PFFormatStr[8];
 #else
 #include <stdlib.h>
@@ -91,12 +90,6 @@ void delay(uint32_t ms) {
 }
 
 #ifdef ARDUINO
-bool pointerIsHeap(const void *ptr) {
-	// To be in the heap the ptr must be at least the first malloc allocation,
-	// but not exceed the stack pointer.
-	return (ptr>=pointerIsHeapBase && ptr<=(void *)SP);
-}
-
 int16_t fprintf_PF(FILE *stream, uint_farptr_t format, ...) {
 	va_list ap;
 	va_start(ap, format);
