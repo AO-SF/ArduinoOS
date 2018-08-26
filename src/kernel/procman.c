@@ -1629,8 +1629,8 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 			// An interpreter (with path following after '#!') should be used instead to run this file.
 
 			// Read interpreter path string
-			char interpreterPath[KernelFsPathMax+2];
-			KernelFsFileOffset readCount=kernelFsFileReadOffset(newProgmemFd, 2, (uint8_t *)interpreterPath, KernelFsPathMax+2, false);
+			char interpreterPath[KernelFsPathMax];
+			KernelFsFileOffset readCount=kernelFsFileReadOffset(newProgmemFd, 2, (uint8_t *)interpreterPath, KernelFsPathMax, false);
 			interpreterPath[readCount-1]='\0';
 
 			// Look for newline and if found terminate string here
