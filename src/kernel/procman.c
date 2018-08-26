@@ -1367,7 +1367,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 }
 
 void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData) {
-	KernelFsFd ramFd=KernelFsFdInvalid;
+	KernelFsFd childRamFd=KernelFsFdInvalid;
 	ProcManPid parentPid=procManGetPidFromProcess(parent);
 
 	kernelLog(LogTypeInfo, "fork request from process %u\n", parentPid);
@@ -1404,8 +1404,8 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 		goto error;
 	}
 
-	ramFd=kernelFsFileOpen(childRamPath);
-	if (ramFd==KernelFsFdInvalid) {
+	childRamFd=kernelFsFileOpen(childRamPath);
+	if (childRamFd==KernelFsFdInvalid) {
 		kernelLog(LogTypeWarning, "could not fork from %u - could not open child ram data file at '%s'\n", parentPid, childRamPath);
 		goto error;
 	}
@@ -1416,11 +1416,14 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	child->instructionCounter=0;
 
 	// Initialise proc file
-	ProcManProcessProcData childProcData=*procData;
-	childProcData.ramFd=ramFd;
-	childProcData.regs[0]=0; // indicate success in the child
-
-	if (!procManProcessStoreProcData(child, &childProcData)) {
+	KernelFsFd savedFd=procData->ramFd;
+	ByteCodeWord savedR0=procData->regs[0];
+	procData->ramFd=childRamFd;
+	procData->regs[0]=0; // indicate success in the child
+	bool storeRes=procManProcessStoreProcData(child, procData);
+	procData->ramFd=savedFd;
+	procData->regs[0]=savedR0;
+	if (!storeRes) {
 		kernelLog(LogTypeWarning, "could not fork from %u - could not save child process data file to '%s'\n", parentPid, childProcPath);
 		goto error;
 	}
@@ -1430,7 +1433,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 		bool res=true;
 		uint8_t value;
 		res&=(kernelFsFileReadOffset(procData->ramFd, i, &value, 1, false)==1);
-		res&=(kernelFsFileWriteOffset(childProcData.ramFd, i, &value, 1)==1);
+		res&=(kernelFsFileWriteOffset(childRamFd, i, &value, 1)==1);
 		if (!res) {
 			kernelLog(LogTypeWarning, "could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n", parentPid, i, ramTotalSize);
 			goto error;
@@ -1450,7 +1453,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 		kernelFsFileClose(procManData.processes[childPid].procFd);
 		procManData.processes[childPid].procFd=KernelFsFdInvalid;
 		kernelFsFileDelete(childProcPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
-		kernelFsFileClose(ramFd);
+		kernelFsFileClose(childRamFd);
 		kernelFsFileDelete(childRamPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
 		procManData.processes[childPid].state=ProcManProcessStateUnused;
 		procManData.processes[childPid].instructionCounter=0;
