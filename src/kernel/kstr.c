@@ -44,6 +44,25 @@ bool kstrIsNull(KStr str) {
 	return (str.type==KStrTypeNull);
 }
 
+int kstrStrcmp(const char *a, KStr b) {
+	switch(b.type) {
+		case KStrTypeNull:
+		break;
+		case KStrTypeProgmem:
+			#ifdef ARDUINO
+			return strcmp_PF(a, (uint_farptr_t)b.ptr);
+			#else
+			return 0; // Shouldn't really happen
+			#endif
+		break;
+		case KStrTypeStatic:
+		case KStrTypeHeap:
+			return strcmp(a, (const char *)(uintptr_t)b.ptr);
+		break;
+	}
+	return 0;
+}
+
 int16_t kstrVfprintf(FILE *file, KStr format, va_list ap) {
 	switch(format.type) {
 		case KStrTypeNull:
