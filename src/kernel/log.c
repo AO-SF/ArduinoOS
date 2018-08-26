@@ -42,7 +42,7 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 		fprintf(file, "%7s ", logTypeToString(type));
 
 		// Print user string
-		kstr_vfprintf(file, format, ap);
+		kstrVfprintf(file, format, ap);
 
 		// Close file if needed
 		#ifndef ARDUINO

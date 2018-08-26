@@ -39,6 +39,6 @@ void kstrFree(KStr *str);
 
 bool kstrIsNull(KStr str);
 
-int16_t kstr_vfprintf(FILE *file, KStr format, va_list ap);
+int16_t kstrVfprintf(FILE *file, KStr format, va_list ap);
 
 #endif
