@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "avrlib.h"
 #include "kstr.h"
 #include "wrapper.h"
 
