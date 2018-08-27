@@ -152,6 +152,8 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData);
 void kernelSigIntHandler(int sig);
 #endif
 
+void kernelSendCtrlC(void);
+
 #ifdef ARDUINO
 #include <avr/io.h>
 #include <avr/sleep.h>
@@ -160,8 +162,7 @@ ISR(USART0_RX_vect) {
 		uint8_t value=UDR0;
 		if (value==3) {
 			// Ctrl+c
-			if (kernelReaderPid!=ProcManPidMax)
-				procManProcessSendSignal(kernelReaderPid, ByteCodeSignalIdInterrupt);
+			kernelSendCtrlC();
 		} else if (value==127) {
 			// Backspace - try to remove last char from buffer, unless it is a newline
 			uint8_t tailValue;
@@ -866,9 +867,13 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 
 #ifndef ARDUINO
 void kernelSigIntHandler(int sig) {
+	kernelSendCtrlC();
+}
+#endif
+
+void kernelSendCtrlC(void) {
 	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i) {
 		if (kernelReaderPidArray[i]!=ProcManPidMax)
 			procManProcessSendSignal(kernelReaderPidArray[i], ByteCodeSignalIdInterrupt);
 	}
 }
-#endif
