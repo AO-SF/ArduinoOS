@@ -74,7 +74,7 @@ call strlen
 mov r4 r0 ; r4 contains length
 
 ; Attempt to open file (so if it is a dir we can read the children)
-mov r0 258
+mov r0 SyscallIdOpen
 mov r1 pathBuf
 syscall
 
@@ -115,7 +115,7 @@ jmp printDirChildLoopStart
 label printDirChildLoopEnd
 
 ; Close file
-mov r0 259
+mov r0 SyscallIdClose
 syscall
 
 ; Done

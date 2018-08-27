@@ -11,7 +11,7 @@ cmp r5 r1 r1
 skipneqz r5
 jmp loadLevelError
 ; read level
-mov r0 256
+mov r0 SyscallIdRead
 mov r2 0
 mov r3 levelArray
 mov r4 levelWH
@@ -20,7 +20,7 @@ syscall
 mov r4 levelWH
 cmp r4 r0 r4
 ; close file
-mov r0 256
+mov r0 SyscallIdClose
 syscall
 ; return success/failure
 mov r0 0

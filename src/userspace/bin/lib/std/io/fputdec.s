@@ -8,14 +8,14 @@ mov r2 fputdecPadFlag
 mov r3 1
 store8 r2 r3
 mov r1 r0
-mov r0 512
+mov r0 SyscallIdEnvGetStdoutFd
 syscall
 jmp fputdeccommon
 
 ; putdec(x=r0)
 label putdec
 mov r1 r0
-mov r0 512
+mov r0 SyscallIdEnvGetStdoutFd
 syscall
 jmp fputdec
 

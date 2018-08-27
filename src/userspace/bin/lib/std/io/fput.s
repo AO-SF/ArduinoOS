@@ -10,7 +10,7 @@ jmp puts
 label puts
 mov r2 r1
 mov r1 r0
-mov r0 512 ; Grab stdio fd and put it in r0
+mov r0 SyscallIdEnvGetStdoutFd ; Grab stdout fd and put it in r0
 syscall
 jmp fputs
 
@@ -60,7 +60,7 @@ jmp putc
 label putc
 mov r2 r1
 mov r1 r0
-mov r0 512
+mov r0 SyscallIdEnvGetStdoutFd
 syscall
 jmp fputc
 
@@ -80,7 +80,7 @@ store8 r3 r2
 ; syscall write
 mov r2 r1
 mov r1 r0
-mov r0 257
+mov r0 SyscallIdWrite
 mov r3 libiofputScratchByte
 mov r4 1
 syscall

@@ -3,7 +3,7 @@ require fput.s
 ; puthex(x=r0) - takes 16 bit unsigned int and prints as 4 hex digits to stdout
 label puthex
 mov r1 r0
-mov r0 512
+mov r0 SyscallIdEnvGetStdoutFd
 syscall
 jmp fputhex
 

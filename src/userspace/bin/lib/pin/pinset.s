@@ -10,12 +10,12 @@ store8 r2 r1
 call pinopen
 mov r1 r0
 ; write byte
-mov r0 257
+mov r0 SyscallIdWrite
 mov r2 0
 mov r3 pinsetScratchByte
 mov r4 1
 syscall
 ; close pin device file
-mov r0 259
+mov r0 SyscallIdClose
 syscall
 ret

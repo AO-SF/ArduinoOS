@@ -46,7 +46,7 @@ mov r1 argBuf
 call getabspath
 
 ; Open file
-mov r0 258
+mov r0 SyscallIdOpen
 mov r1 pathBuf
 syscall
 
@@ -86,7 +86,7 @@ jmp catArgNLoopStart
 label catArgNLoopEnd
 
 ; Close file
-mov r0 259
+mov r0 SyscallIdClose
 mov r1 fd
 load8 r1 r1
 syscall

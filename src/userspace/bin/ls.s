@@ -32,7 +32,7 @@ call getpwd
 label gotArg
 
 ; Attempt to open queryDir
-mov r0 258
+mov r0 SyscallIdOpen
 mov r1 queryDir
 syscall
 
@@ -104,7 +104,7 @@ mov r0 '\n'
 call putc0
 
 ; Close queryDir
-mov r0 259
+mov r0 SyscallIdClose
 mov r1 queryDirFd
 load8 r1 r1
 syscall

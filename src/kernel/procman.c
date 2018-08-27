@@ -47,7 +47,8 @@ typedef struct {
 	uint8_t ramFd;
 
 	// Environment variables
-	KernelFsFd stdioFd; // set to KernelFsFdInvalid when init is called
+	KernelFsFd stdinFd; // set to KernelFsFdInvalid when init is called
+	KernelFsFd stdoutFd; // set to KernelFsFdInvalid when init is called
 
 	// The following fields are pointers into the start of the ramFd file.
 	// The arguments are fixed, but pwd and path may be updated later by the process itself to point to new strings, beyond the initial read-only section (and so need a full 16 bit offset).
@@ -250,7 +251,8 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procData.regs[ByteCodeRegisterIP]=0;
 	for(uint16_t i=0; i<ByteCodeSignalIdNB; ++i)
 		procData.signalHandlers[i]=ProcManSignalHandlerInvalid;
-	procData.stdioFd=KernelFsFdInvalid;
+	procData.stdinFd=KernelFsFdInvalid;
+	procData.stdoutFd=KernelFsFdInvalid;
 	procData.envVarDataLen=envVarDataLen;
 	procData.ramLen=0;
 	procData.ramFd=ramFd;
@@ -1258,11 +1260,17 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							kernelFsPathNormalise(path);
 							procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileDelete(path) : false);
 						} break;
-						case ByteCodeSyscallIdEnvGetStdioFd:
-							procData->regs[0]=procData->stdioFd;
+						case ByteCodeSyscallIdEnvGetStdinFd:
+							procData->regs[0]=procData->stdinFd;
 						break;
-						case ByteCodeSyscallIdEnvSetStdioFd:
-							procData->stdioFd=procData->regs[1];
+						case ByteCodeSyscallIdEnvSetStdinFd:
+							procData->stdinFd=procData->regs[1];
+						break;
+						case ByteCodeSyscallIdEnvGetStdoutFd:
+							procData->regs[0]=procData->stdoutFd;
+						break;
+						case ByteCodeSyscallIdEnvSetStdoutFd:
+							procData->stdoutFd=procData->regs[1];
 						break;
 						case ByteCodeSyscallIdEnvGetPwd: {
 							char pwd[KernelFsPathMax];

@@ -50,9 +50,9 @@ ret
 ; cursesSetEcho(value=r0) - turns terminal echo on/off
 label cursesSetEcho
 mov r3 r0 ; on/off value
-mov r0 512
+mov r0 SyscallIdEnvGetStdoutFd
 syscall
-mov r1 r0 ; fd for stdio
+mov r1 r0 ; fd for stdout
 mov r0 1283 ; ioctl syscall id
 mov r2 0 ; set echo command
 syscall
@@ -102,7 +102,7 @@ ret
 ; cursesGetChar() - puts single byte into r0, or 256 if no data to read
 label cursesGetChar
 ; grab stdio fd
-mov r0 512
+mov r0 SyscallIdEnvGetStdinFd
 syscall
 ; call tryreadbyte syscall
 mov r1 r0
