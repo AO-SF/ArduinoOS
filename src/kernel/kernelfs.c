@@ -12,6 +12,7 @@
 #include "log.h"
 #include "minifs.h"
 #include "wrapper.h"
+#include "util.h"
 
 #define KernelFsDevicesMax 96
 typedef uint8_t KernelFsDeviceIndex;

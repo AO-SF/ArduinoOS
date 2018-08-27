@@ -27,6 +27,7 @@
 #include "pins.h"
 #include "procman.h"
 #include "wrapper.h"
+#include "util.h"
 
 #include "progmembin.h"
 #include "progmemlibcurses.h"
