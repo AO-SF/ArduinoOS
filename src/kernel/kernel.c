@@ -382,12 +382,12 @@ void kernelBoot(void) {
 
 	// ... optional device files
 	error=false;
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/ttyS0"), &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/ttyS0"), &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, true, NULL);
 
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/zero"), &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/full"), &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/null"), &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, NULL);
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/urandom"), &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/zero"), &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/full"), &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/null"), &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/urandom"), &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, true, NULL);
 
 	if (error)
 		kernelLog(LogTypeWarning, kstrP("fs init failure: /dev\n"));
@@ -396,18 +396,18 @@ void kernelBoot(void) {
 	// TODO: include all once we figure out how to fit into ram
 	// For now just include digital pins 2 through 13 (avoiding serial pins 0 & 1, and including led pin at 13)
 	uint8_t pinsAdded=0;
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin36"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD2);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin37"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD3);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin53"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD4);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin35"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD5);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin59"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD6);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin60"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD7);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin61"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD8);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin62"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD9);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin12"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD10);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin13"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD11);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin14"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD12);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin15"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, (void *)(uintptr_t)PinD13);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin36"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD2);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin37"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD3);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin53"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD4);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin35"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD5);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin59"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD6);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin60"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD7);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin61"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD8);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin62"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD9);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin12"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD10);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin13"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD11);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin14"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD12);
+	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin15"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD13);
 
 	const uint8_t pinsTarget=13-2+1;
 	kernelLog((pinsAdded==pinsTarget ? LogTypeInfo : LogTypeWarning), kstrP("added %u/%u pin devices\n"), pinsAdded, pinsTarget);
