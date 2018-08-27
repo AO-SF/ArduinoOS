@@ -24,10 +24,8 @@ KStr kstrAllocStatic(char *staticBuffer) {
 
 KStr kstrAllocCopy(const char *src) {
 	char *dest=malloc(strlen(src)+1);
-	if (dest==NULL) {
-		KStr kstr={.type=KStrTypeNull, .ptr=(uintptr_t)NULL};
-		return kstr;
-	}
+	if (dest==NULL)
+		return kstrNull();
 	strcpy(dest, src);
 	KStr kstr={.type=KStrTypeHeap, .ptr=(uintptr_t)dest};
 	return kstr;
@@ -50,11 +48,9 @@ void kstrStrcpy(char *buf, KStr kstr) {
 }
 
 void kstrFree(KStr *str) {
-	if (str->type==KStrTypeHeap) {
+	if (str->type==KStrTypeHeap)
 		free((void *)(uintptr_t)str->ptr);
-		str->type=KStrTypeNull;
-		str->ptr=(uintptr_t)0;
-	}
+	*str=kstrNull();
 }
 
 bool kstrIsNull(KStr str) {
