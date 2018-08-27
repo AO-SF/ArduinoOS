@@ -9,9 +9,11 @@
 #endif
 
 #include "log.h"
-#include "wrapper.h"
+#include "ktime.h"
 
-uint32_t kernelBootTime=0;
+uint32_t ktimeBootTime=0;
+
+uint32_t ktimeGetMsRaw(void);
 
 #ifdef ARDUINO
 #define clockCyclesPerMicrosecond (F_CPU/1000000L)
@@ -46,20 +48,31 @@ ISR(TIMER0_OVF_vect) {
 
 #endif
 
-void millisInit(void) {
+void ktimeInit(void) {
 #ifdef ARDUINO
 	// Set timer 0 prescale factor to 64 and enable overflow interrupt
 	TCCR0B|=(1u<<CS01);
 	TCCR0B|=(1u<<CS00);
 	TIMSK0|=(1u<<TOIE0);
-#else
-	// On the Arduino we can leave this at 0 but otherwise we have to save offset
-	kernelBootTime=millisRaw();
-	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %lu (PC wrapper)\n"), kernelBootTime);
 #endif
+
+	ktimeBootTime=ktimeGetMsRaw();
+	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %lu\n"), ktimeBootTime);
 }
 
-uint32_t millisRaw(void) {
+uint32_t ktimeGetMs(void) {
+	return ktimeGetMsRaw()-ktimeBootTime;
+}
+
+void ktimeDelayMs(uint32_t ms) {
+	#ifdef ARDUINO
+	_delay_ms(ms);
+	#else
+	usleep(ms*1000llu);
+	#endif
+}
+
+uint32_t ktimeGetMsRaw(void) {
 	#ifdef ARDUINO
 	uint32_t ms;
 	uint8_t oldSReg=SREG;
@@ -71,17 +84,5 @@ uint32_t millisRaw(void) {
 	struct timeval tv;
 	gettimeofday(&tv, NULL); // TODO: Check return value.
 	return tv.tv_sec*1000llu+tv.tv_usec/1000llu;
-	#endif
-}
-
-uint32_t millis(void) {
-	return millisRaw()-kernelBootTime;
-}
-
-void delay(uint32_t ms) {
-	#ifdef ARDUINO
-	_delay_ms(ms);
-	#else
-	usleep(ms*1000llu);
 	#endif
 }
