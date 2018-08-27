@@ -7,12 +7,10 @@
 #include "minifs.h"
 #include "minifsextra.h"
 
-bool builderCompact=false;
-
 uint8_t dataArray[MINIFSMAXSIZE];
 
-bool buildVolume(const char *name, const char *srcDir, const char *destDir);
-bool buildVolumeTrySize(const char *name, uint16_t size, const char *srcDir, const char *destDir, bool verbose);
+bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir);
+bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, bool verbose);
 
 uint8_t readFunctor(uint16_t addr, void *userData);
 void writeFunctor(uint16_t addr, uint8_t value, void *userData);
@@ -38,44 +36,40 @@ int main(int argc, char **argv) {
 
 	// Build volue
 	if (maxSize==0)
-		buildVolume(volumeName, srcDir, destDir);
+		buildVolumeMin(volumeName, srcDir, destDir);
 	else
-		buildVolumeTrySize(volumeName, maxSize, srcDir, destDir, true);
+		buildVolumeExact(volumeName, maxSize, srcDir, destDir, true);
 
 	return 0;
 }
 
-bool buildVolume(const char *name, const char *srcDir, const char *destDir) {
+bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir) {
 	// Loop, trying increasing powers of 2 for max volume size until we succeed (if we do at all).
 	uint16_t size;
 	for(size=MINIFSMINSIZE; size<=MINIFSMAXSIZE; size*=2) {
-		if (buildVolumeTrySize(name, size, srcDir, destDir, false)) {
-			// Not in compact mode? If so, done
-			if (!builderCompact)
-				return true;
-
+		if (buildVolumeExact(name, size, srcDir, destDir, false)) {
 			// Otherwise try to shrink with a binary search
 			uint16_t minGoodSize=size;
 			uint16_t maxBadSize=(size>MINIFSMINSIZE ? size/2 : MINIFSMINSIZE);
 			while(minGoodSize-MINIFSFACTOR>maxBadSize) {
 				uint16_t trialSize=(maxBadSize+minGoodSize)/2;
-				if (buildVolumeTrySize(name, trialSize, srcDir, destDir, false))
+				if (buildVolumeExact(name, trialSize, srcDir, destDir, false))
 					minGoodSize=trialSize;
 				else
 					maxBadSize=trialSize;
 			}
 
 			// Use minimum size found
-			if (buildVolumeTrySize(name, minGoodSize, srcDir, destDir, false))
+			if (buildVolumeExact(name, minGoodSize, srcDir, destDir, false))
 				return true;
 		}
 	}
 
 	// We have failed - run final size again but with logging turned on.
-	return buildVolumeTrySize(name, MINIFSMAXSIZE, srcDir, destDir, true);
+	return buildVolumeExact(name, MINIFSMAXSIZE, srcDir, destDir, true);
 }
 
-bool buildVolumeTrySize(const char *name, uint16_t size, const char *srcDir, const char *destDir, bool verbose) {
+bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, bool verbose) {
 	MiniFs miniFs;
 
 	// clear data arary (not strictly necessary but might avoid confusion in the future when e.g. stdio functions are in unused part of the stdmath volume)
