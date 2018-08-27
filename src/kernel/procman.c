@@ -1112,18 +1112,18 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								return false;
 							}
 							kernelFsPathNormalise(path);
-							procData->regs[0]=kernelFsFileOpen(path);
 
-							if (procData->regs[0]!=KernelFsFdInvalid && strcmp(path, "/dev/ttyS0")==0) {
-								assert(kernelReaderPid==ProcManPidMax);
-								kernelReaderPid=procManGetPidFromProcess(process);
-							}
+							if (strcmp(path, "/dev/ttyS0")==0 && !kernelReaderPidCanAdd())
+								procData->regs[0]=KernelFsFdInvalid;
+							else
+								procData->regs[0]=kernelFsFileOpen(path);
+
+							if (procData->regs[0]!=KernelFsFdInvalid && strcmp(path, "/dev/ttyS0")==0)
+								kernelReaderPidAdd(procManGetPidFromProcess(process));
 						} break;
 						case ByteCodeSyscallIdClose:
-							if (kstrStrcmp("/dev/ttyS0", kernelFsGetFilePath(procData->regs[1]))==0) {
-								assert(kernelReaderPid==procManGetPidFromProcess(process));
-								kernelReaderPid=ProcManPidMax;
-							}
+							if (kstrStrcmp("/dev/ttyS0", kernelFsGetFilePath(procData->regs[1]))==0)
+								kernelReaderPidRemove(procManGetPidFromProcess(process));
 							kernelFsFileClose(procData->regs[1]);
 						break;
 						case ByteCodeSyscallIdDirGetChildN: {
