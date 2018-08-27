@@ -325,14 +325,14 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 		KernelFsFd ramFd;
 		if (procManProcessLoadProcDataRamFd(process, &ramFd) && ramFd!=KernelFsFdInvalid) {
 			char ramPath[KernelFsPathMax];
-			strcpy(ramPath, kernelFsGetFilePath(ramFd));
+			kstrStrcpy(ramPath, kernelFsGetFilePath(ramFd));
 			kernelFsFileClose(ramFd);
 			kernelFsFileDelete(ramPath);
 		}
 
 		// Close and delete proc file
 		char procPath[KernelFsPathMax];
-		strcpy(procPath, kernelFsGetFilePath(process->procFd));
+		kstrStrcpy(procPath, kernelFsGetFilePath(process->procFd));
 
 		kernelFsFileClose(process->procFd);
 		process->procFd=KernelFsFdInvalid;
@@ -549,7 +549,10 @@ ProcManPid procManGetPidFromProcess(const ProcManProcess *process) {
 }
 
 const char *procManGetExecPathFromProcess(const ProcManProcess *process) {
-	return kernelFsGetFilePath(process->progmemFd);
+	if (kstrIsNull(kernelFsGetFilePath(process->progmemFd)))
+		return NULL;
+	kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(process->progmemFd));
+	return procManScratchBufPath2;
 }
 
 ProcManPid procManFindUnusedPid(void) {
@@ -682,9 +685,8 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		return true;
 	} else {
 		// Close ram file
-		const char *srcPath=kernelFsGetFilePath(procData->ramFd);
-		char *ramFdPath=alloca(strlen(srcPath)+1);
-		strcpy(ramFdPath, srcPath);
+		char *ramFdPath=alloca(kstrStrlen(kernelFsGetFilePath(procData->ramFd))+1);
+		kstrStrcpy(ramFdPath, kernelFsGetFilePath(procData->ramFd));
 		kernelFsFileClose(procData->ramFd);
 		procData->ramFd=KernelFsFdInvalid;
 
@@ -1118,7 +1120,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							}
 						} break;
 						case ByteCodeSyscallIdClose:
-							if (strcmp(kernelFsGetFilePath(procData->regs[1]), "/dev/ttyS0")==0) {
+							if (kstrStrcmp("/dev/ttyS0", kernelFsGetFilePath(procData->regs[1]))==0) {
 								assert(kernelReaderPid==procManGetPidFromProcess(process));
 								kernelReaderPid=ProcManPidMax;
 							}
@@ -1146,7 +1148,11 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							KernelFsFd fd=procData->regs[1];
 							uint16_t bufAddr=procData->regs[2];
 
-							const char *srcPath=kernelFsGetFilePath(fd);
+							const char *srcPath=NULL;
+							if (!kstrIsNull(kernelFsGetFilePath(fd))) {
+								kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(fd));
+								srcPath=procManScratchBufPath2;
+							}
 							if (srcPath==NULL)
 								procData->regs[0]=0;
 							else {
@@ -1365,7 +1371,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							uint16_t data=procData->regs[3];
 
 							// We currently only support ioctl on /dev/ttyS0
-							if (strcmp(kernelFsGetFilePath(fd), "/dev/ttyS0")==0) {
+							if (kstrStrcmp("/dev/ttyS0", kernelFsGetFilePath(fd))==0) {
 								switch(command) {
 									case ByteCodeSyscallIdIoctlCommandSetEcho: {
 										#ifdef ARDUINO

@@ -55,7 +55,7 @@ typedef struct {
 } KernelFsDevice;
 
 typedef struct {
-	char *fdt[KernelFsFdMax];
+	KStr fdt[KernelFsFdMax];
 
 	KernelFsDevice devices[KernelFsDevicesMax];
 } KernelFsData;
@@ -71,6 +71,7 @@ char kernelFsPathSplitStaticBuf[KernelFsPathMax];
 bool kernelFsPathIsDevice(const char *path);
 bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
+KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceType type);
 
@@ -86,7 +87,7 @@ void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData);
 void kernelFsInit(void) {
 	// Clear file descriptor table
 	for(KernelFsFd i=0; i<KernelFsFdMax; ++i)
-		kernelFsData.fdt[i]=NULL;
+		kernelFsData.fdt[i]=kstrNull();
 
 	// Clear virtual device array
 	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i)
@@ -95,10 +96,8 @@ void kernelFsInit(void) {
 
 void kernelFsQuit(void) {
 	// Free memory used in file descriptor table.
-	for(KernelFsFd i=0; i<KernelFsFdMax; ++i) {
-		free(kernelFsData.fdt[i]);
-		kernelFsData.fdt[i]=NULL;
-	}
+	for(KernelFsFd i=0; i<KernelFsFdMax; ++i)
+		kstrFree(&kernelFsData.fdt[i]);
 
 	// Free virtual device array
 	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
@@ -228,7 +227,7 @@ bool kernelFsFileIsOpen(const char *path) {
 		if (i==KernelFsFdInvalid)
 			continue;
 
-		if (kernelFsData.fdt[i]!=NULL && strcmp(path, kernelFsData.fdt[i])==0)
+		if (!kstrIsNull(kernelFsData.fdt[i]) && kstrStrcmp(path, kernelFsData.fdt[i])==0)
 			return true;
 	}
 	return false;
@@ -592,9 +591,9 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 		if (i==KernelFsFdInvalid)
 			continue;
 
-		if (kernelFsData.fdt[i]==NULL)
+		if (kstrIsNull(kernelFsData.fdt[i]))
 			newFd=i; // If we suceed we can use this slot
-		else if (strcmp(path, kernelFsData.fdt[i])==0)
+		else if (kstrStrcmp(path, kernelFsData.fdt[i])==0)
 			alreadyOpen=true;
 	}
 
@@ -603,22 +602,19 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 		return KernelFsFdInvalid;
 
 	// Update file descriptor table.
-	kernelFsData.fdt[newFd]=malloc(strlen(path)+1);
-	if (kernelFsData.fdt[newFd]==NULL)
+	kernelFsData.fdt[newFd]=kstrC(path);
+	if (kstrIsNull(kernelFsData.fdt[newFd]))
 		return KernelFsFdInvalid; // Out of memory
-
-	strcpy(kernelFsData.fdt[newFd], path);
 
 	return newFd;
 }
 
 void kernelFsFileClose(KernelFsFd fd) {
 	// Clear from file descriptor table.
-	free(kernelFsData.fdt[fd]);
-	kernelFsData.fdt[fd]=NULL;
+	kstrFree(&kernelFsData.fdt[fd]);
 }
 
-const char *kernelFsGetFilePath(KernelFsFd fd) {
+KStr kernelFsGetFilePath(KernelFsFd fd) {
 	return kernelFsData.fdt[fd];
 }
 
@@ -628,11 +624,11 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 
 KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen, bool block) {
 	// Invalid fd?
-	if (kernelFsData.fdt[fd]==NULL)
+	if (kstrIsNull(kernelFsData.fdt[fd]))
 		return 0;
 
 	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(kernelFsData.fdt[fd]);
+	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd]);
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
@@ -679,9 +675,8 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 	}
 
 	// Check for being a child of a virtual block device
-	const char *path=kernelFsGetFilePath(fd);
 	char *dirname, *basename;
-	kernelFsPathSplitStatic(path, &dirname, &basename);
+	kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
 
 	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
 	if (parentDevice!=NULL) {
@@ -727,11 +722,11 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 
 bool kernelFsFileCanRead(KernelFsFd fd) {
 	// Invalid fd?
-	if (kernelFsData.fdt[fd]==NULL)
+	if (kstrIsNull(kernelFsData.fdt[fd]))
 		return false;
 
 	// Is this a virtual character device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(kernelFsData.fdt[fd]);
+	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd]);
 	if (device!=NULL && device->type==KernelFsDeviceTypeCharacter)
 		return device->d.character.canReadFunctor(device->d.character.functorUserData);
 
@@ -745,11 +740,11 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 
 KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset offset, const uint8_t *data, KernelFsFileOffset dataLen) {
 	// Invalid fd?
-	if (kernelFsData.fdt[fd]==NULL)
+	if (kstrIsNull(kernelFsData.fdt[fd]))
 		return 0;
 
 	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(kernelFsData.fdt[fd]);
+	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd]);
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
@@ -791,9 +786,8 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 	}
 
 	// Check for being a child of a virtual block device
-	const char *path=kernelFsGetFilePath(fd);
 	char *dirname, *basename;
-	kernelFsPathSplitStatic(path, &dirname, &basename);
+	kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
 
 	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
 	if (parentDevice!=NULL) {
@@ -837,12 +831,11 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 
 bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelFsPathMax]) {
 	// Invalid fd?
-	const char *parentPath=kernelFsData.fdt[fd];
-	if (parentPath==NULL)
+	if (kstrIsNull(kernelFsData.fdt[fd]))
 		return false;
 
 	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(parentPath);
+	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd]);
 	if (device!=NULL) {
 		switch(device->type) {
 			case KernelFsDeviceTypeBlock:
@@ -850,7 +843,8 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						KernelFsFd j=0;
 						for(KernelFsFd i=0; i<MINIFSMAXFILES; ++i) {
-							sprintf(childPath, "%s/", parentPath);
+							kstrStrcpy(childPath, kernelFsData.fdt[fd]);
+							strcat(childPath, "/");
 							if (!miniFsGetChildN(&device->d.block.d.customMiniFs.miniFs, i, childPath+strlen(childPath)))
 								continue;
 							if (j==childNum)
@@ -881,7 +875,8 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 					if (childDevice->type==KernelFsDeviceTypeNB)
 						continue;
 
-					if (kernelFsDeviceIsChildOfPath(childDevice, parentPath)) {
+					kstrStrcpy(childPath, kernelFsData.fdt[fd]); // Borrow childPath as a generic buffer temporarily
+					if (kernelFsDeviceIsChildOfPath(childDevice, childPath)) {
 						if (foundCount==childNum) {
 							kstrStrcpy(childPath, childDevice->mountPoint);
 							return true;
@@ -1059,6 +1054,15 @@ KernelFsDevice *kernelFsGetDeviceFromPath(const char *path) {
 	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
 		KernelFsDevice *device=&kernelFsData.devices[i];
 		if (device->type!=KernelFsDeviceTypeNB && kstrStrcmp(path, device->mountPoint)==0)
+			return device;
+	}
+	return NULL;
+}
+
+KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path) {
+	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
+		KernelFsDevice *device=&kernelFsData.devices[i];
+		if (device->type!=KernelFsDeviceTypeNB && kstrDoubleStrcmp(path, device->mountPoint)==0)
 			return device;
 	}
 	return NULL;
