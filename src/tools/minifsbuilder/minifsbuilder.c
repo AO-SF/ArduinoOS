@@ -15,7 +15,7 @@ typedef enum {
 
 const char *miniFsBuilderFormatOptionStrs[MiniFsBuilderFormatNB]={
 	[MiniFsBuilderFormatCHeader]="-fcheader",
-	[MiniFsBuilderFormatFlatFile]="-flatfile",
+	[MiniFsBuilderFormatFlatFile]="-fflatfile",
 };
 
 bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir, MiniFsBuilderFormat format);
@@ -196,8 +196,8 @@ bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, ui
 
 bool miniFsWriteFlatFile(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose) {
 	char outPath[1024]; // TODO: better
-	sprintf(outPath, "%s/%s\n", destDir, name);
-	FILE *outFile=fopen(outPath, "r+");
+	sprintf(outPath, "%s/%s", destDir, name);
+	FILE *outFile=fopen(outPath, "w");
 
 	// Open file
 	if (outFile==NULL) {
@@ -207,7 +207,7 @@ bool miniFsWriteFlatFile(const char *name, uint16_t size, const char *destDir, u
 	}
 
 	// Write data
-	if (fwrite(dataArray, size, 1, outFile)!=size) {
+	if (fwrite(dataArray, 1, size, outFile)!=size) {
 		if (verbose)
 			printf("could not write full data to '%s'\n", outPath);
 		return false;
