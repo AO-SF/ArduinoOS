@@ -1,3 +1,5 @@
+requireend ../str/strlen.s
+
 ab libiofputScratchByte 1
 
 ; puts0(strAddr=r0)=puts(0, strAddr)
@@ -15,39 +17,20 @@ syscall
 jmp fputs
 
 ; fputs(fd=r0, offset=r1, strAddr=r2)
+; uses strlen so we can do actual write loop in kernel space (via write syscall),
+; rather than writing a byte at a time
 label fputs
-
-mov r4 0 ; loop index
-mov r5 r2 ; copy str base addr into r5
-
-label fputsLoopStart
-
-; load character
-mov r2 r5
-add r2 r2 r4
-load8 r2 r2
-
-; reached null terminator?
-cmp r3 r2 r2
-skipneqz r3
-jmp fputsDone
-
-; print character
 push8 r0
 push16 r1
-push16 r4
-push16 r5
-call fputc
-pop16 r5
-pop16 r4
-pop16 r1
-pop8 r0
-
-inc r1
-inc r4
-jmp fputsLoopStart
-
-label fputsDone
+push16 r2
+mov r0 r2
+call strlen
+mov r4 r0 ; string len
+mov r0 SyscallIdWrite
+pop16 r3 ; str
+pop16 r2 ; offset
+pop8 r1 ; fd
+syscall
 ret
 
 ; putc0(c=r0)=putc(0, c)
