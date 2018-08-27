@@ -7,9 +7,17 @@
 #include "minifs.h"
 #include "minifsextra.h"
 
+typedef enum {
+	MiniFsBuilderFormatCHeader,
+	MiniFsBuilderFormatNB,
+} MiniFsBuilderFormat;
 
-bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir);
-bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, bool verbose);
+const char *miniFsBuilderFormatOptionStrs[MiniFsBuilderFormatNB]={
+	[MiniFsBuilderFormatCHeader]="-fcheader",
+};
+
+bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir, MiniFsBuilderFormat format);
+bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, MiniFsBuilderFormat format, bool verbose);
 
 bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose);
 
@@ -19,16 +27,26 @@ void writeFunctor(uint16_t addr, uint8_t value, void *userData);
 int main(int argc, char **argv) {
 	// Parse arguments
 	if (argc<4) {
-		printf("usage: %s [--size=SIZE] srcdir volumename destdir\n", argv[0]);
+		printf("usage: %s [--size=SIZE] [-fOUTPUTFORMAT] srcdir volumename destdir\n", argv[0]);
 		return 0;
 	}
 
+	MiniFsBuilderFormat outputFormat=MiniFsBuilderFormatCHeader;
 	uint16_t maxSize=0; // 0 means use minimum required
 	for(int i=1; i<argc-3; ++i) {
 		if (strncmp(argv[i], "--size=", strlen("--size="))==0) {
 			maxSize=atoi(argv[i]+strlen("--size="));
 		} else {
-			printf("warning: unknown option '%s'\n", argv[i]);
+			bool found=false;
+			for(unsigned i=0; i<MiniFsBuilderFormatNB; ++i) {
+				if (strcmp(argv[i], miniFsBuilderFormatOptionStrs[i])==0) {
+					outputFormat=i;
+					found=true;
+				}
+			}
+
+			if (!found)
+				printf("warning: unknown option '%s'\n", argv[i]);
 		}
 	}
 	const char *srcDir=argv[argc-3];
@@ -37,40 +55,40 @@ int main(int argc, char **argv) {
 
 	// Build volue
 	if (maxSize==0)
-		buildVolumeMin(volumeName, srcDir, destDir);
+		buildVolumeMin(volumeName, srcDir, destDir, outputFormat);
 	else
-		buildVolumeExact(volumeName, maxSize, srcDir, destDir, true);
+		buildVolumeExact(volumeName, maxSize, srcDir, destDir, outputFormat, true);
 
 	return 0;
 }
 
-bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir) {
+bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir, MiniFsBuilderFormat format) {
 	// Loop, trying increasing powers of 2 for max volume size until we succeed (if we do at all).
 	uint16_t size;
 	for(size=MINIFSMINSIZE; size<=MINIFSMAXSIZE; size*=2) {
-		if (buildVolumeExact(name, size, srcDir, destDir, false)) {
+		if (buildVolumeExact(name, size, srcDir, destDir, false, format)) {
 			// Otherwise try to shrink with a binary search
 			uint16_t minGoodSize=size;
 			uint16_t maxBadSize=(size>MINIFSMINSIZE ? size/2 : MINIFSMINSIZE);
 			while(minGoodSize-MINIFSFACTOR>maxBadSize) {
 				uint16_t trialSize=(maxBadSize+minGoodSize)/2;
-				if (buildVolumeExact(name, trialSize, srcDir, destDir, false))
+				if (buildVolumeExact(name, trialSize, srcDir, destDir, false, format))
 					minGoodSize=trialSize;
 				else
 					maxBadSize=trialSize;
 			}
 
 			// Use minimum size found
-			if (buildVolumeExact(name, minGoodSize, srcDir, destDir, false))
+			if (buildVolumeExact(name, minGoodSize, srcDir, destDir, false, format))
 				return true;
 		}
 	}
 
 	// We have failed - run final size again but with logging turned on.
-	return buildVolumeExact(name, MINIFSMAXSIZE, srcDir, destDir, true);
+	return buildVolumeExact(name, MINIFSMAXSIZE, srcDir, destDir, true, format);
 }
 
-bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, bool verbose) {
+bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, MiniFsBuilderFormat format, bool verbose) {
 	MiniFs miniFs;
 	uint8_t dataArray[MINIFSMAXSIZE];
 
@@ -102,11 +120,18 @@ bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const
 	// unmount to save any changes
 	miniFsUnmount(&miniFs);
 
-	// create .h file
-	if (!miniFsWriteCHeader(name, size, destDir, dataArray, verbose))
-		return false;
+	// create output
+	switch(format) {
+		case MiniFsBuilderFormatCHeader:
+			if (miniFsWriteCHeader(name, size, destDir, dataArray, verbose))
+				return true;
+		break;
+		case MiniFsBuilderFormatNB:
+			assert(false);
+		break;
+	}
 
-	return true;
+	return false;
 }
 
 bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose) {
