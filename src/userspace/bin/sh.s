@@ -1,6 +1,7 @@
 require lib/sys/sys.s
 
-db stdioPath '/dev/ttyS0', 0
+db stdinPath '/dev/ttyS0', 0
+db stdoutPath '/dev/ttyS0', 0
 db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
@@ -68,34 +69,41 @@ mov r1 0 ; interrupt signal id
 mov r2 interruptHandlerTrampoline
 syscall
 
-; Is stdiofd already sensible?
+; Is stdinfd already sensible?
+; TODO: We should probably check both stdin and stdout
 mov r0 handlingStdio
 mov r1 0
 store8 r0 r1
 
-mov r0 512
+mov r0 SyscallIdEnvGetStdinFd
 syscall
 cmp r0 r0 r0
 skipeqz r0
 jmp startDone
 
-; No - open it
+; No - open stdin and stdout, storing fds into environment variables
 mov r0 handlingStdio
 mov r1 1
 store8 r0 r1
 
-mov r0 258
-mov r1 stdioPath
+mov r0 SyscallIdOpen
+mov r1 stdinPath
 syscall
-
-; Check for bad file-descriptor
 cmp r1 r0 r0
 skipneqz r1
 jmp exiterror
-
-; Save stdio fd to environment variables
 mov r1 r0
-mov r0 513
+mov r0 SyscallIdEnvSetStdinFd
+syscall
+
+mov r0 SyscallIdOpen
+mov r1 stdoutPath
+syscall
+cmp r1 r0 r0
+skipneqz r1
+jmp exiterror
+mov r1 r0
+mov r0 SyscallIdEnvSetStdoutFd
 syscall
 
 label startDone
@@ -129,7 +137,7 @@ call shellRunFd
 push8 r0 ; save return value
 
 ; Close file
-mov r0 259
+mov r0 SyscallIdClose
 mov r1 inputFd
 load8 r1 r1
 syscall
@@ -147,8 +155,8 @@ jmp argLoopStart
 label argLoopEnd
 pop8 r1
 
-; Call shellRunFd on stdio fd
-mov r0 512
+; Call shellRunFd on stdin fd
+mov r0 SyscallIdEnvGetStdinFd
 syscall
 mov r1 inputFd
 store8 r1 r0
@@ -167,10 +175,16 @@ cmp r0 r0 r0
 skipneqz r0
 jmp exitsuccess
 
-mov r0 512
+mov r0 SyscallIdEnvGetStdinFd
 syscall
 mov r1 r0
-mov r0 259
+mov r0 SyscallIdClose
+syscall
+
+mov r0 SyscallIdEnvGetStdoutFd
+syscall
+mov r1 r0
+mov r0 SyscallIdClose
 syscall
 
 ; Exit (success)

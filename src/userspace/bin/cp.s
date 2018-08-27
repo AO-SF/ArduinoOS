@@ -82,7 +82,7 @@ store8 r1 r0
 mov r2 0 ; loop index and read/write offset
 label cpCopyLoopStart
 ; Read a byte from source
-mov r0 256
+mov r0 SyscallIdRead
 mov r1 sourceFd
 load8 r1 r1
 mov r3 cpScratchBuf
@@ -92,7 +92,7 @@ cmp r0 r0 r0
 skipneqz r0
 jmp cpCopyLoopEnd
 ; Write byte
-mov r0 257
+mov r0 SyscallIdWrite
 mov r1 destFd
 load8 r1 r1
 mov r3 cpScratchBuf
@@ -107,13 +107,13 @@ jmp cpCopyLoopStart
 label cpCopyLoopEnd
 
 ; Close dest file
-mov r0 259
+mov r0 SyscallIdClose
 mov r1 destFd
 load8 r1 r1
 syscall
 
 ; Close source file
-mov r0 259
+mov r0 SyscallIdClose
 mov r1 sourceFd
 load8 r1 r1
 syscall

@@ -73,7 +73,7 @@ label fgetc
 ; read single character into libiofgetScratchByte
 mov r2 r1
 mov r1 r0
-mov r0 256
+mov r0 SyscallIdRead
 mov r3 libiofgetScratchByte
 mov r4 1
 syscall

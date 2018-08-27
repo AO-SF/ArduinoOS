@@ -11,7 +11,7 @@ mov r1 r0
 mov r0 openpathScratchBuf
 call getpath
 ; Try to open
-mov r0 258
+mov r0 SyscallIdOpen
 mov r1 openpathScratchBuf
 syscall
 ret

@@ -20,7 +20,7 @@ mov r2 pinopenPrefixLen
 add r0 r0 r2
 call inttostr
 ; open file at calculated path
-mov r0 258
+mov r0 SyscallIdOpen
 mov r1 pinopenPathBuf
 syscall
 ret

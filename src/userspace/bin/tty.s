@@ -5,8 +5,9 @@ requireend lib/std/proc/exit.s
 
 ab pathBuf PathMax
 
-; Grab stdio fd
-mov r0 512
+; Grab stdout fd
+; TODO: What about stdin?
+mov r0 SyscallIdEnvGetStdoutFd
 syscall
 
 ; Grab path

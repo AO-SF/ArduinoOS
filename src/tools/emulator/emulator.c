@@ -11,7 +11,8 @@
 
 #define PathMax 64 // TODO: use KernelFsPathMax
 #define InitPid 0
-#define StdioFd 1
+#define StdinFd 1
+#define StdoutFd 1
 
 typedef struct {
 	int argc;
@@ -19,7 +20,8 @@ typedef struct {
 
 	char pwd[PathMax];
 	char path[PathMax];
-	uint8_t stdioFd;
+	uint8_t stdinFd;
+	uint8_t stdoutFd;
 } ProcessEnvVars;
 
 typedef struct {
@@ -93,7 +95,8 @@ int main(int argc, char **argv) {
 	process->envVars.argv=argv+inputArgBaseIndex;
 	strcpy(process->envVars.pwd, "/bin");
 	strcpy(process->envVars.path, "/bin");
-	process->envVars.stdioFd=StdioFd;
+	process->envVars.stdinFd=StdinFd;
+	process->envVars.stdoutFd=StdoutFd;
 
 	// Read-in input file
 	const char *inputPath=argv[inputArgBaseIndex];
@@ -419,7 +422,7 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [signal] (unimplemented)\n", syscallId);
 						break;
 						case ByteCodeSyscallIdRead:
-							if (process->regs[1]==process->envVars.stdioFd) {
+							if (process->regs[1]==process->envVars.stdinFd) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
 								if (result>=0)
 									process->regs[0]=result;
@@ -441,7 +444,7 @@ bool processRunNextInstruction(Process *process) {
 							uint16_t bufAddr=process->regs[3];
 							uint16_t bufLen=process->regs[4];
 
-							if (fd==process->envVars.stdioFd) {
+							if (fd==process->envVars.stdoutFd) {
 								for(int i=0; i<bufLen; ++i)
 									printf("%c", process->memory[bufAddr+i]);
 								process->regs[0]=bufLen;
@@ -515,15 +518,15 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [delete] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdEnvGetStdioFd:
-							process->regs[0]=process->envVars.stdioFd;
+						case ByteCodeSyscallIdEnvGetStdinFd:
+							process->regs[0]=process->envVars.stdinFd;
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envgetstiofd] (return fd = %u)\n", syscallId, process->regs[0]);
+								printf("Info: syscall(id=%i [envgetstinfd] (return fd = %u)\n", syscallId, process->regs[0]);
 						break;
-						case ByteCodeSyscallIdEnvSetStdioFd:
-							process->envVars.stdioFd=process->regs[0];
+						case ByteCodeSyscallIdEnvSetStdinFd:
+							process->envVars.stdinFd=process->regs[0];
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetstdiofd], new fd %u\n", syscallId, process->envVars.stdioFd);
+								printf("Info: syscall(id=%i [envsetstdinfd], new fd %u\n", syscallId, process->envVars.stdinFd);
 						break;
 						case ByteCodeSyscallIdEnvGetPwd:
 							// TODO: this
@@ -544,6 +547,16 @@ bool processRunNextInstruction(Process *process) {
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
+						break;
+						case ByteCodeSyscallIdEnvGetStdoutFd:
+							process->regs[0]=process->envVars.stdoutFd;
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [envgetstoutfd] (return fd = %u)\n", syscallId, process->regs[0]);
+						break;
+						case ByteCodeSyscallIdEnvSetStdoutFd:
+							process->envVars.stdoutFd=process->regs[0];
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [envsetstdoutfd], new fd %u\n", syscallId, process->envVars.stdoutFd);
 						break;
 						case ByteCodeSyscallIdTimeMonotonic:
 							// TODO: this

@@ -134,7 +134,7 @@ label levelReadLoopStart
 push8 r0
 push8 r4
 mov r1 r0
-mov r0 256
+mov r0 SyscallIdRead
 mov r3 scratchByte
 mov r4 1
 syscall
@@ -210,7 +210,7 @@ label levelReadLoopEnd
 
 ; Close file
 mov r1 r0
-mov r0 259
+mov r0 SyscallIdClose
 syscall
 
 ; Success
