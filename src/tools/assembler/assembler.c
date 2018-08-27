@@ -263,14 +263,12 @@ int main(int argc, char **argv) {
 
 	// Parse arguments
 	if (argc<3) {
-		printf("Usage: %s inputfile outputfile [--verbose] [-Iincludepath]\n", argv[0]);
+		printf("Usage: %s [--verbose] [-Iincludepath] inputfile outputfile\n", argv[0]);
 		goto done;
 	}
 
-	const char *inputPath=argv[1];
-	const char *outputPath=argv[2];
 	bool verbose=false;
-	for(int i=3; i<argc; ++i) {
+	for(int i=1; i<argc-2; ++i) {
 		if (strcmp(argv[i], "--verbose")==0)
 			verbose=true;
 		else if (strncmp(argv[i], "-I", 2)==0) {
@@ -287,6 +285,8 @@ int main(int argc, char **argv) {
 		} else
 			printf("warning: unknown option '%s'\n", argv[i]);
 	}
+	const char *inputPath=argv[argc-2];
+	const char *outputPath=argv[argc-1];
 
 	// Read input file line-by-line
 	char tempPath[1024]={0}; // TODO: better
