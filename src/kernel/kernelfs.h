@@ -61,7 +61,7 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize); // path m
 KernelFsFd kernelFsFileOpen(const char *path); // File/directory must exist. Returns KernelFsFdInvalid on failure to open.
 void kernelFsFileClose(KernelFsFd fd); // Accepts KernelFsFdInvalid (doing nothing).
 
-const char *kernelFsGetFilePath(KernelFsFd fd);
+KStr kernelFsGetFilePath(KernelFsFd fd);
 
 // The following functions are for non-directory files only.
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes read

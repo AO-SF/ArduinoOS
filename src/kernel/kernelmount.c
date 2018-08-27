@@ -57,7 +57,7 @@ void kernelUnmount(const char *devicePath) {
 	// Look through device fd array for a one representing the given path
 	for(uint8_t i=0; i<kernelMountedDeviceFdsNext; ++i) {
 		KernelFsFd fd=kernelMountedDeviceFds[i];
-		if (strcmp(devicePath, kernelFsGetFilePath(fd))==0) {
+		if (kstrStrcmp(devicePath, kernelFsGetFilePath(fd))==0) {
 			// Match found
 
 			// Delete/unmount virtual block device file
