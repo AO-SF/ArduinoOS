@@ -11,7 +11,7 @@
 #include "kernelfs.h"
 #include "log.h"
 #include "minifs.h"
-#include "wrapper.h"
+#include "ktime.h"
 #include "util.h"
 
 #define KernelFsDevicesMax 96

@@ -10,7 +10,7 @@
 #endif
 
 #include "log.h"
-#include "wrapper.h"
+#include "ktime.h"
 
 void kernelLog(LogType type, KStr format, ...) {
 	va_list ap;
@@ -29,7 +29,7 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 
 	if (file!=NULL) {
 		// Print time
-		uint32_t t=millis();
+		uint32_t t=ktimeGetMs();
 		unsigned h=t/(60u*60u*1000u);
 		t-=h*(60u*60u*1000u);
 		unsigned m=t/(60u*1000u);

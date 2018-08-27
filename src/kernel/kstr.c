@@ -4,7 +4,7 @@
 
 #include "avrlib.h"
 #include "kstr.h"
-#include "wrapper.h"
+#include "ktime.h"
 
 KStr kstrNull(void) {
 	KStr kstr={.type=KStrTypeNull, .ptr=(uintptr_t)NULL};

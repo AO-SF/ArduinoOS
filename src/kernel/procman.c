@@ -16,7 +16,7 @@
 #include "kernelmount.h"
 #include "log.h"
 #include "procman.h"
-#include "wrapper.h"
+#include "ktime.h"
 
 #define procManProcessInstructionCounterMax (65536llu) // TODO: On arduino this needs 32 bit
 #define procManProcessInstructionCounterMaxMinusOne (65535lu)
@@ -388,7 +388,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingWaitpid: {
 			// Is this process waiting for a timeout, and that time has been reached?
-			if (process->waitingData16>0 && millis()/1000>=process->waitingData16) {
+			if (process->waitingData16>0 && ktimeGetMs()/1000>=process->waitingData16) {
 				// It has - load process data so we can update the state and set r0 to indicate a timeout occured
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (waitpid timeout) - could not load proc data, killing\n"), pid);
@@ -979,7 +979,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								// Otherwise indicate process is waiting for this pid to die
 								process->state=ProcManProcessStateWaitingWaitpid;
 								process->waitingData8=waitPid;
-								process->waitingData16=(timeout>0 ? (millis()+999)/1000+timeout : 0); // +999 is to make sure we do not sleep for less than the given number of seconds (as we would if we round the result of millis down)
+								process->waitingData16=(timeout>0 ? (ktimeGetMs()+999)/1000+timeout : 0); // +999 is to make sure we do not sleep for less than the given number of seconds (as we would if we round the result of millis down)
 							}
 						} break;
 						case ByteCodeSyscallIdGetPidPath: {
@@ -1318,7 +1318,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							procData->path=ramIndex+procData->envVarDataLen;
 						} break;
 						case ByteCodeSyscallIdTimeMonotonic:
-							procData->regs[0]=(millis()/1000);
+							procData->regs[0]=(ktimeGetMs()/1000);
 						break;
 						case ByteCodeSyscallIdRegisterSignalHandler: {
 							uint16_t signalId=procData->regs[1];

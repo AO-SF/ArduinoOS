@@ -26,7 +26,7 @@
 #include "minifs.h"
 #include "pins.h"
 #include "procman.h"
-#include "wrapper.h"
+#include "ktime.h"
 #include "util.h"
 
 #include "progmembin.h"
@@ -202,21 +202,21 @@ int main(void) {
 	while(procManGetProcessCount()>0) {
 		// If we are shutting down, check for all relevant processes dead or a timeout
 		if (kernelGetState()==KernelStateShuttingDownWaitAll &&
-			(procManGetProcessCount()==1 || millis()-kernelStateTime>=3000)) // 3s timeout
+			(procManGetProcessCount()==1 || ktimeGetMs()-kernelStateTime>=3000)) // 3s timeout
 			kernelShutdownNext();
 
-		if (kernelGetState()==KernelStateShuttingDownWaitInit && millis()-kernelStateTime>=3000) // 3s timeout
+		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMs()-kernelStateTime>=3000) // 3s timeout
 			break; // break to call shutdown final
 
 		// Run each process for 1 tick, and delay if we have spare time (PC wrapper only - pointless on Arduino)
 		#ifndef ARDUINO
-		uint32_t t=millis();
+		uint32_t t=ktimeGetMs();
 		#endif
 		procManTickAll();
 		#ifndef ARDUINO
-		t=millis()-t;
+		t=ktimeGetMs()-t;
 		if (t<kernelTickMinTimeMs)
-			delay(kernelTickMinTimeMs-t);
+			ktimeDelayMs(kernelTickMinTimeMs-t);
 		#endif
 	}
 
@@ -279,7 +279,7 @@ bool kernelReaderPidRemove(ProcManPid pid) {
 
 void kernelSetState(KernelState newState) {
 	kernelState=newState;
-	kernelStateTime=millis();
+	kernelStateTime=ktimeGetMs();
 }
 
 void kernelShutdownNext(void) {
@@ -328,7 +328,7 @@ void kernelBoot(void) {
 	kernelSetState(KernelStateBooting);
 	kernelLog(LogTypeInfo, kstrP("booting\n"));
 
-	millisInit();
+	ktimeInit();
 
 	// PC only - register sigint handler so we can pass this signal onto e.g. the shell
 #ifndef ARDUINO
