@@ -13,11 +13,11 @@ See the wiki Documentation page for more information.
 Run either ``make arduino`` or ``make pc`` from the root directory.
 This will:
 
-* compile initial tools - the assembler, disassembler and emulator
-* run the builder makefile, which will:
-	* compile the builder
+* compile initial tools - the assembler, disassembler, emulator and a minifs volume creator
+* run the builder script, which will:
 	* create all mockup directories by copying files and assembling all userspace programs
-	* generate C source files for the kenrel, with data representing read-only volumes containing said mockup files
+	* generate C source files for the kernel, with data representing read-only volumes containing said mockup files
+	* generate EEPROM file with ``/etc`` and ``/home`` in it
 * compiles the kernel (which requies the the generated progmem* files from the builder)
 
 # Running (tools and kernel PC wrapper)
