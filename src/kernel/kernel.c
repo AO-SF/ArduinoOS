@@ -45,7 +45,11 @@
 #include "progmemusrgames.h"
 #include "progmemusrbin.h"
 
+#ifdef KERNELCUSTOMRAMSIZE
+#define KernelTmpDataPoolSize KERNELCUSTOMRAMSIZE
+#else
 #define KernelTmpDataPoolSize (2*1024) // 2kb - used as ram
+#endif
 uint8_t kernelTmpDataPool[KernelTmpDataPoolSize];
 
 #define KernelBinSize PROGMEMbinDATASIZE
