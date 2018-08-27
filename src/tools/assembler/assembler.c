@@ -215,6 +215,7 @@ bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *path, i
 void assemblerRemoveLine(AssemblerProgram *program, int offset);
 
 bool assemblerProgramPreprocess(AssemblerProgram *program); // strips comments, whitespace etc. returns true if any changes made
+bool assemblerProgramLocateInclude(const AssemblerProgram *program, char *destPath, const char *callerPath, const char *srcPath);
 bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change); // returns false on failure
 bool assemblerProgramHandleNextOption(AssemblerProgram *program, bool *change); // returns false on failure
 
@@ -584,6 +585,20 @@ bool assemblerProgramPreprocess(AssemblerProgram *program) {
 	return change;
 }
 
+bool assemblerProgramLocateInclude(const AssemblerProgram *program, char *destPath, const char *callerPath, const char *srcPath) {
+	assert(program!=NULL);
+	assert(callerPath!=NULL);
+
+	// Try relative to directory include/require statement was in
+	strcpy(destPath, callerPath);
+	char *lastSlash=strrchr(destPath, '/');
+	if (lastSlash!=NULL)
+		lastSlash[1]='\0';
+	else
+		destPath[0]='\0';
+	strcat(destPath, srcPath);
+	pathNormalise(destPath);
+	return true;
 bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) {
 	assert(program!=NULL);
 
@@ -603,18 +618,9 @@ bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) 
 
 		// Extract path
 		char newPath[1024]; // TODO: Avoid hardcoded size
-		strcpy(newPath, assemblerLine->file);
-
-		char *lastSlash=strrchr(newPath, '/');
-		if (lastSlash!=NULL)
-			lastSlash[1]='\0';
-		else
-			newPath[0]='\0';
-
-		const char *relPath=strchr(assemblerLine->modified, ' ')+1; // No need to check return as we proved there was a space above
-		strcat(newPath, relPath);
-
-		pathNormalise(newPath);
+		bool located=assemblerProgramLocateInclude(program, newPath, assemblerLine->file, strchr(assemblerLine->modified, ' ')+1);
+		if (!located)
+			printf("warning - could not find file to include (%s:%u '%s')\n", assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
 
 		// Remove this line
 		assemblerRemoveLine(program, line);
@@ -622,6 +628,9 @@ bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) 
 		// Indicate a change has occured
 		if (change!=NULL)
 			*change=true;
+
+		if (!located)
+			continue;
 
 		// If using require rather than include, and this file has already been included/required, then skip
 		if (isRequire || isRequireEnd) {
