@@ -1117,9 +1117,9 @@ KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceType type) 
 
 		if (strlen(dirname)==0) {
 			// Special case for files in root directory
-			if (!kernelFsFileExists("/"))
+			if (!kernelFsFileExists("/") || !kernelFsFileIsDir("/"))
 				return NULL;
-		} else if (!kernelFsFileExists(dirname))
+		} else if (!kernelFsFileExists(dirname) || !kernelFsFileIsDir(dirname))
 			return NULL;
 	}
 
