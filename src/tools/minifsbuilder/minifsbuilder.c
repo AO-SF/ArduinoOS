@@ -7,10 +7,11 @@
 #include "minifs.h"
 #include "minifsextra.h"
 
-uint8_t dataArray[MINIFSMAXSIZE];
 
 bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir);
 bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, bool verbose);
+
+bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose);
 
 uint8_t readFunctor(uint16_t addr, void *userData);
 void writeFunctor(uint16_t addr, uint8_t value, void *userData);
@@ -71,20 +72,21 @@ bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir) {
 
 bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, bool verbose) {
 	MiniFs miniFs;
+	uint8_t dataArray[MINIFSMAXSIZE];
 
 	// clear data arary (not strictly necessary but might avoid confusion in the future when e.g. stdio functions are in unused part of the stdmath volume)
 	// setting to 0xFF also matches value stored in uninitialised Arduino EEPROM
 	memset(dataArray, 0xFF, sizeof(dataArray));
 
 	// format
-	if (!miniFsFormat(&writeFunctor, NULL, size)) {
+	if (!miniFsFormat(&writeFunctor, dataArray, size)) {
 		if (verbose)
 			printf("could not format\n");
 		return false;
 	}
 
 	// mount
-	if (!miniFsMountSafe(&miniFs, &readFunctor, &writeFunctor, NULL)) {
+	if (!miniFsMountSafe(&miniFs, &readFunctor, &writeFunctor, dataArray)) {
 		if (verbose)
 			printf("could not mount\n");
 		return false;
@@ -97,13 +99,17 @@ bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const
 		return false;
 	}
 
-	// Debug fs
-	//miniFsDebug(&miniFs);
-
 	// unmount to save any changes
 	miniFsUnmount(&miniFs);
 
 	// create .h file
+	if (!miniFsWriteCHeader(name, size, destDir, dataArray, verbose))
+		return false;
+
+	return true;
+}
+
+bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose) {
 	char hFilePath[1024]; // TODO: better
 	sprintf(hFilePath, "%s/progmem%s.h", destDir, name);
 
@@ -153,9 +159,9 @@ bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const
 }
 
 uint8_t readFunctor(uint16_t addr, void *userData) {
-	return dataArray[addr];
+	return ((uint8_t *)userData)[addr];
 }
 
 void writeFunctor(uint16_t addr, uint8_t value, void *userData) {
-	dataArray[addr]=value;
+	((uint8_t *)userData)[addr]=value;
 }
