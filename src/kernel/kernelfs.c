@@ -13,7 +13,7 @@
 #include "minifs.h"
 #include "wrapper.h"
 
-#define KernelFsDevicesMax 64
+#define KernelFsDevicesMax 96
 typedef uint8_t KernelFsDeviceIndex;
 
 typedef uint8_t KernelFsDeviceType;
