@@ -9,17 +9,20 @@
 
 typedef enum {
 	MiniFsBuilderFormatCHeader,
+	MiniFsBuilderFormatFlatFile,
 	MiniFsBuilderFormatNB,
 } MiniFsBuilderFormat;
 
 const char *miniFsBuilderFormatOptionStrs[MiniFsBuilderFormatNB]={
 	[MiniFsBuilderFormatCHeader]="-fcheader",
+	[MiniFsBuilderFormatFlatFile]="-flatfile",
 };
 
 bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir, MiniFsBuilderFormat format);
 bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, MiniFsBuilderFormat format, bool verbose);
 
 bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose);
+bool miniFsWriteFlatFile(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose);
 
 uint8_t readFunctor(uint16_t addr, void *userData);
 void writeFunctor(uint16_t addr, uint8_t value, void *userData);
@@ -27,20 +30,20 @@ void writeFunctor(uint16_t addr, uint8_t value, void *userData);
 int main(int argc, char **argv) {
 	// Parse arguments
 	if (argc<4) {
-		printf("usage: %s [--size=SIZE] [-fOUTPUTFORMAT] srcdir volumename destdir\n", argv[0]);
+		printf("usage: %s [--size=SIZE] -fOUTPUTFORMAT srcdir volumename destdir\n", argv[0]);
 		return 0;
 	}
 
-	MiniFsBuilderFormat outputFormat=MiniFsBuilderFormatCHeader;
+	MiniFsBuilderFormat outputFormat=MiniFsBuilderFormatNB;
 	uint16_t maxSize=0; // 0 means use minimum required
 	for(int i=1; i<argc-3; ++i) {
 		if (strncmp(argv[i], "--size=", strlen("--size="))==0) {
 			maxSize=atoi(argv[i]+strlen("--size="));
 		} else {
 			bool found=false;
-			for(unsigned i=0; i<MiniFsBuilderFormatNB; ++i) {
-				if (strcmp(argv[i], miniFsBuilderFormatOptionStrs[i])==0) {
-					outputFormat=i;
+			for(unsigned j=0; j<MiniFsBuilderFormatNB; ++j) {
+				if (strcmp(argv[i], miniFsBuilderFormatOptionStrs[j])==0) {
+					outputFormat=j;
 					found=true;
 				}
 			}
@@ -48,6 +51,10 @@ int main(int argc, char **argv) {
 			if (!found)
 				printf("warning: unknown option '%s'\n", argv[i]);
 		}
+	}
+	if (outputFormat==MiniFsBuilderFormatNB) {
+		printf("unknown missing format argument\n");
+		return 1;
 	}
 	const char *srcDir=argv[argc-3];
 	const char *volumeName=argv[argc-2];
@@ -126,6 +133,10 @@ bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const
 			if (miniFsWriteCHeader(name, size, destDir, dataArray, verbose))
 				return true;
 		break;
+		case MiniFsBuilderFormatFlatFile:
+			if (miniFsWriteFlatFile(name, size, destDir, dataArray, verbose))
+				return true;
+		break;
 		case MiniFsBuilderFormatNB:
 			assert(false);
 		break;
@@ -145,7 +156,7 @@ bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, ui
 		return false;
 	}
 
-	fprintf(hFile, "// NOTE: File auto-generated (see builder)\n\n");
+	fprintf(hFile, "// NOTE: File auto-generated (see minifsbuilder)\n\n");
 	fprintf(hFile, "#ifndef PROGMEM%s_H\n", name);
 	fprintf(hFile, "#define PROGMEM%s_H\n\n", name);
 	fprintf(hFile, "#include <stdint.h>\n\n");
@@ -179,6 +190,31 @@ bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, ui
 	fprintf(hFile, "#endif\n");
 
 	fclose(hFile);
+
+	return true;
+}
+
+bool miniFsWriteFlatFile(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose) {
+	char outPath[1024]; // TODO: better
+	sprintf(outPath, "%s/%s\n", destDir, name);
+	FILE *outFile=fopen(outPath, "r+");
+
+	// Open file
+	if (outFile==NULL) {
+		if (verbose)
+			printf("could not open '%s' for writing\n", outPath);
+		return false;
+	}
+
+	// Write data
+	if (fwrite(dataArray, size, 1, outFile)!=size) {
+		if (verbose)
+			printf("could not write full data to '%s'\n", outPath);
+		return false;
+	}
+
+	// Close file
+	fclose(outFile);
 
 	return true;
 }
