@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -76,6 +77,32 @@ int kstrStrcmp(const char *a, KStr b) {
 			return strcmp(a, (const char *)(uintptr_t)b.ptr);
 		break;
 	}
+	return 0;
+}
+
+int kstrDoubleStrcmp(KStr a, KStr b) {
+	// Simply cases
+	if (a.type==KStrTypeNull || b.type==KStrTypeNull)
+		return 0;
+	if (a.type==KStrTypeStatic || a.type==KStrTypeHeap)
+		return kstrStrcmp((const char *)(uintptr_t)a.ptr, b);
+	if (b.type==KStrTypeStatic || b.type==KStrTypeHeap)
+		return kstrStrcmp((const char *)(uintptr_t)b.ptr, a);
+
+	// Otherwise both are in progmem
+#ifdef ARDUINO
+	assert(a.type==KStrTypeProgmem && b.type==KStrTypeProgmem);
+	for(uintptr_t i=0; ; ++i) {
+		uint8_t aByte=pgm_read_byte_far(a.ptr+i);
+		uint8_t bByte=pgm_read_byte_far(b.ptr+i);
+		if (aByte<bByte)
+			return -1;
+		else if (aByte>bByte)
+			return 1;
+		else if (aByte=='\0')
+			break;
+	}
+#endif
 	return 0;
 }
 
