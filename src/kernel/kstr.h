@@ -38,6 +38,8 @@ KStr kstrAllocCopy(const char *src);
 #define kstrS(s) kstrAllocStatic(s)
 #define kstrC(s) kstrAllocCopy(s)
 
+uint16_t kstrStrlen(KStr kstr);
+
 void kstrStrcpy(char *buf, KStr kstr);
 
 void kstrFree(KStr *str);

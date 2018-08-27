@@ -31,6 +31,23 @@ KStr kstrAllocCopy(const char *src) {
 	return kstr;
 }
 
+uint16_t kstrStrlen(KStr kstr) {
+	switch(kstr.type) {
+		case KStrTypeNull:
+		break;
+		case KStrTypeProgmem:
+			#ifdef ARDUINO
+			return strlen_PF((uint_farptr_t)kstr.ptr);
+			#endif
+		break;
+		case KStrTypeStatic:
+		case KStrTypeHeap:
+			return strlen((const char *)(uintptr_t)kstr.ptr);
+		break;
+	}
+	return 0;
+}
+
 void kstrStrcpy(char *buf, KStr kstr) {
 	switch(kstr.type) {
 		case KStrTypeNull:
