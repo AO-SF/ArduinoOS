@@ -99,6 +99,9 @@ typedef struct {
 	uint16_t membSize, len, totalSize; // for membSize: 1=byte, 2=word
 	const char *symbol;
 	uint8_t data[1024]; // TODO: this is pretty wasteful...
+
+	uint16_t pointerLineIndex; // pointer to instruction actually containing data. set to self initially and if not pointing into another define's data
+	uint16_t pointerOffset; // how far into pointed-to-data is our data?
 } AssemblerInstructionDefine;
 
 typedef struct {
@@ -218,6 +221,7 @@ bool assemblerProgramHandleNextOption(AssemblerProgram *program, bool *change); 
 bool assemblerProgramParseLines(AssemblerProgram *program); // converts lines to initial instructions, returns false on error
 
 bool assemblerProgramShiftDefines(AssemblerProgram *program); // moves defines to the end to avoid getting in the way of code, returns true if any changes made
+bool assemblerProgramShrinkDefines(AssemblerProgram *program); // checks if some defines are subsets of others, returns true if any changes made
 
 bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program); // returns false on failure
 void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program);
@@ -345,6 +349,10 @@ int main(int argc, char **argv) {
 
 	// Move defines to be after everything else
 	while(assemblerProgramShiftDefines(program))
+		;
+
+	// Shrink defines if possible
+	while(assemblerProgramShrinkDefines(program))
 		;
 
 	// Generate machine code for each instruction
@@ -881,6 +889,8 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			}
 
 			instruction->d.define.totalSize=instruction->d.define.membSize*instruction->d.define.len;
+			instruction->d.define.pointerLineIndex=instruction->lineIndex;
+			instruction->d.define.pointerOffset=0;
 			instruction->d.define.symbol=symbol;
 		} else if (strcmp(first, "mov")==0) {
 			char *dest=strtok_r(NULL, " ", &savePtr);
@@ -1191,6 +1201,53 @@ bool assemblerProgramShiftDefines(AssemblerProgram *program) {
 	return anyChange;
 }
 
+bool assemblerProgramShrinkDefines(AssemblerProgram *program) {
+	assert(program!=NULL);
+
+	// Look for defines whoose data is completely found within another
+	bool anyChange=false;
+	bool change;
+	do {
+		change=false;
+		for(unsigned i=0; i<program->instructionsNext-1; ++i) {
+			AssemblerInstruction *instruction=&program->instructions[i];
+			if (instruction->type!=AssemblerInstructionTypeDefine)
+				continue;
+			if (instruction->d.define.pointerLineIndex!=instruction->lineIndex)
+				continue; // already handled
+
+			for(unsigned j=0; j<program->instructionsNext-1; ++j) {
+				if (i==j)
+					continue;
+				AssemblerInstruction *loopInstruction=&program->instructions[j];
+				if (loopInstruction->type!=AssemblerInstructionTypeDefine)
+					continue;
+				if (loopInstruction->d.define.pointerLineIndex!=loopInstruction->lineIndex)
+					continue; // no point using this instruction as if we are a subset of it, we are also a subset of whatever this points to currently
+
+				// We have found a pair of defines
+				// Check if the main define's data exists within the loop define's data
+				for(uint16_t loopDataI=0; loopDataI<=loopInstruction->d.define.totalSize-instruction->d.define.totalSize; ++loopDataI) {
+					if (memcmp(instruction->d.define.data, loopInstruction->d.define.data+loopDataI, instruction->d.define.totalSize)==0) {
+						// Match found - update this instruction to simply point into loop instruction
+						instruction->d.define.pointerLineIndex=loopInstruction->lineIndex;
+						instruction->d.define.pointerOffset=loopDataI;
+
+						change=true;
+
+						break;
+					}
+				}
+
+				if (instruction->d.define.pointerLineIndex!=instruction->lineIndex)
+					break; // found match
+			}
+		}
+		anyChange|=change;
+	} while(change);
+	return anyChange;
+}
+
 bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 	assert(program!=NULL);
 
@@ -1203,9 +1260,10 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeLen=0; // These are reserved in RAM not program memory
 			break;
 			case AssemblerInstructionTypeDefine:
-				// Simply copy data into program memory directly
-				for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
-					instruction->machineCode[instruction->machineCodeLen++]=instruction->d.define.data[j];
+				// If we are not pointing into some other define's space, simply copy data into program memory directly
+				if (instruction->d.define.pointerLineIndex==instruction->lineIndex)
+					for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
+						instruction->machineCode[instruction->machineCodeLen++]=instruction->d.define.data[j];
 			break;
 			case AssemblerInstructionTypeMov: {
 				// Check src and determine type
@@ -1840,7 +1898,18 @@ int assemblerGetDefineSymbolAddr(const AssemblerProgram *program, const char *sy
 	if (index==-1)
 		return -1;
 
-	return program->instructions[index].machineCodeOffset;
+	// If we are not pointing into another define's data, then return our own address
+	if (program->instructions[index].d.define.pointerLineIndex==program->instructions[index].lineIndex)
+		return program->instructions[index].machineCodeOffset;
+
+	// However if we are pointing into another define, return its address instead (with an offset)
+	for(unsigned i=0; i<program->instructionsNext; ++i) {
+		const AssemblerInstruction *loopInstruction=&program->instructions[i];
+		if (loopInstruction->lineIndex==program->instructions[index].d.define.pointerLineIndex) {
+			return loopInstruction->machineCodeOffset+program->instructions[index].d.define.pointerOffset;
+		}
+	}
+	return -1; // bad pointer
 }
 
 int assemblerGetLabelSymbolInstructionIndex(const AssemblerProgram *program, const char *symbol) {
