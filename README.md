@@ -5,7 +5,7 @@ The kernel provides a basic virtual filesystem, with directories such as ``/bin`
 
 The userspace environment consists of various utilities, such as: ``sh`` - with builtins such as ``exit`` and ``cd``, ``mount``, ``kill`` and ``cat``, along with a startup script in ``/etc/startup`` mounting an example home directory (stored in EEPROM). The example home directory contains a few extra example programs, in particular a 2D game ``sokoban``. In addition, if there is space (so in the PC wrapper and on the Mega usually), other read-only directories exist, such as ``/lib`` with assembly source files, and ``/man`` with man-pages split into sections
 
-There are also a few tools (which run on a standard PC, not the Arduino) such as an assembler, a disassembler and an emulator. A compiler is also being developed at [AOSCompiler](https://github.com/DanielWhite94/AOSCompiler).
+There are also a few tools (which run on a standard PC, not the Arduino) such as an assembler, a disassembler and an emulator. A compiler is also being developed at [AOSCompiler](https://github.com/AO-SF/AOSCompiler).
 
 See the wiki Documentation page for more information.
 
