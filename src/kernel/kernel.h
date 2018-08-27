@@ -21,10 +21,12 @@ extern volatile bool kernelDevTtyS0BlockingFlag;
 #else
 #endif
 
-extern ProcManPid kernelReaderPid; // set to whoever has /dev/ttyS0 open, used for ctrl+c propagation from host
-
 void kernelShutdownBegin(void);
 
 KernelState kernelGetState(void);
+
+bool kernelReaderPidCanAdd(void);
+bool kernelReaderPidAdd(ProcManPid pid);
+bool kernelReaderPidRemove(ProcManPid pid);
 
 #endif

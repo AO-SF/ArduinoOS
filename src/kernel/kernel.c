@@ -82,7 +82,9 @@ int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too o
 
 #endif
 
-ProcManPid kernelReaderPid=ProcManPidMax;
+// reader pid array stores pid of processes with /dev/ttyS0 open, used for ctrl+c propagation from host
+#define kernelReaderPidArrayMax 4
+ProcManPid kernelReaderPidArray[kernelReaderPidArrayMax];
 
 KernelState kernelState=KernelStateInvalid;
 uint32_t kernelStateTime=0;
@@ -245,6 +247,30 @@ KernelState kernelGetState(void) {
 	return kernelState;
 }
 
+bool kernelReaderPidCanAdd(void) {
+	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
+		if (kernelReaderPidArray[i]==ProcManPidMax)
+			return true;
+	return false;
+}
+bool kernelReaderPidAdd(ProcManPid pid) {
+	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
+		if (kernelReaderPidArray[i]==ProcManPidMax) {
+			kernelReaderPidArray[i]=pid;
+			return true;
+		}
+	return false;
+}
+
+bool kernelReaderPidRemove(ProcManPid pid) {
+	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
+		if (kernelReaderPidArray[i]==pid) {
+			kernelReaderPidArray[i]=ProcManPidMax;
+			return true;
+		}
+	return false;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -273,6 +299,9 @@ void kernelShutdownNext(void) {
 }
 
 void kernelBoot(void) {
+	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
+		kernelReaderPidArray[i]=ProcManPidMax;
+
 	// Arduino-only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
 #ifdef ARDUINO
 	kernelDevTtyS0EchoFlag=true;
@@ -837,7 +866,9 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 
 #ifndef ARDUINO
 void kernelSigIntHandler(int sig) {
-	if (kernelReaderPid!=ProcManPidMax)
-		procManProcessSendSignal(kernelReaderPid, ByteCodeSignalIdInterrupt);
+	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i) {
+		if (kernelReaderPidArray[i]!=ProcManPidMax)
+			procManProcessSendSignal(kernelReaderPidArray[i], ByteCodeSignalIdInterrupt);
+	}
 }
 #endif
