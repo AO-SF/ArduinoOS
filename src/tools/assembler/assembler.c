@@ -192,6 +192,10 @@ typedef struct {
 	char *modified;
 } AssemblerLine;
 
+// TODO: avoid hardcoded limits
+#define AssemblerIncludeDirMax 32
+#define AssemblerIncludeDirLenMax 1024
+
 typedef struct {
 	AssemblerLine *lines[AssemblerLinesMax];
 	size_t linesNext;
@@ -205,6 +209,9 @@ typedef struct {
 	size_t includePathsNext;
 
 	bool noStack, noScratch;
+
+	char assemblerIncludeDirs[AssemblerIncludeDirMax][AssemblerIncludeDirLenMax];
+	size_t assemblerIncludeDirsNext;
 } AssemblerProgram;
 
 AssemblerProgram *assemblerProgramNew(void);
@@ -246,24 +253,50 @@ int assemblerGetConstSymbolValue(const AssemblerProgram *program, const char *sy
 
 BytecodeRegister assemblerRegisterFromStr(const char *str); // Returns BytecodeRegisterNB on failure
 
+bool assemblerProgramAddIncludeDir(AssemblerProgram *program, const char *dir);
+
 int main(int argc, char **argv) {
-	// Parse arguments
-	if (argc!=3 && argc!=4) {
-		printf("Usage: %s inputfile outputfile [--verbose]\n", argv[0]);
-		return 1;
-	}
-
-	const char *inputPath=argv[1];
-	const char *outputPath=argv[2];
-	bool verbose=(argc==4 && strcmp(argv[3], "--verbose")==0);
-
 	// Create program struct
 	AssemblerProgram *program=assemblerProgramNew();
 	if (program==NULL)
 		goto done;
 
+	// Parse arguments
+	if (argc<3) {
+		printf("Usage: %s inputfile outputfile [--verbose] [-Iincludepath]\n", argv[0]);
+		goto done;
+	}
+
+	const char *inputPath=argv[1];
+	const char *outputPath=argv[2];
+	bool verbose=false;
+	for(int i=3; i<argc; ++i) {
+		if (strcmp(argv[i], "--verbose")==0)
+			verbose=true;
+		else if (strncmp(argv[i], "-I", 2)==0) {
+			char *spacePtr=strchr(argv[i]+2, ' '); // TODO: Support quotes/escape character or similar to allow spaces in names
+			char newDir[AssemblerIncludeDirLenMax];
+			if (spacePtr==NULL)
+				strcpy(newDir, argv[i]+2);
+			else {
+				size_t dirLen=spacePtr-(argv[i]+2);
+				strncpy(newDir, argv[i]+2, dirLen);
+				newDir[dirLen]='\0';
+			}
+			assemblerProgramAddIncludeDir(program, newDir); // TODO: Check return
+		} else
+			printf("warning: unknown option '%s'\n", argv[i]);
+	}
+
 	// Read input file line-by-line
-	if (!assemblerInsertLinesFromFile(program, inputPath, 0))
+	char tempPath[1024]={0}; // TODO: better
+	if (inputPath[0]!='/') {
+		getcwd(tempPath, 1024);
+		strcat(tempPath, "/");
+	}
+	strcat(tempPath, inputPath);
+	pathNormalise(tempPath);
+	if (!assemblerInsertLinesFromFile(program, tempPath, 0))
 		goto done;
 
 	// Preprocess (handle whitespace, includes etc)
@@ -407,6 +440,7 @@ AssemblerProgram *assemblerProgramNew(void) {
 	program->includePathsNext=0;
 	program->noStack=false;
 	program->noScratch=false;
+	program->assemblerIncludeDirsNext=0;
 
 	return program;
 }
@@ -445,18 +479,9 @@ void assemblerInsertLine(AssemblerProgram *program, AssemblerLine *line, int off
 	program->linesNext++;
 }
 
-bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *gPath, int offset) {
+bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *path, int offset) {
 	assert(program!=NULL);
-	assert(gPath!=NULL);
-
-	// Normalise path
-	char path[1024]={0}; // TODO: better
-	if (gPath[0]!='/') {
-		getcwd(path, 1024);
-		strcat(path, "/");
-	}
-	strcat(path, gPath);
-	pathNormalise(path);
+	assert(path!=NULL);
 
 	// Open input file
 	FILE *file=fopen(path, "r");
@@ -589,6 +614,8 @@ bool assemblerProgramLocateInclude(const AssemblerProgram *program, char *destPa
 	assert(program!=NULL);
 	assert(callerPath!=NULL);
 
+	char tempPath[1024]={0}; // TODO: better
+
 	// Try relative to directory include/require statement was in
 	strcpy(destPath, callerPath);
 	char *lastSlash=strrchr(destPath, '/');
@@ -598,7 +625,36 @@ bool assemblerProgramLocateInclude(const AssemblerProgram *program, char *destPa
 		destPath[0]='\0';
 	strcat(destPath, srcPath);
 	pathNormalise(destPath);
+	if (pathExists(destPath))
+		goto done;
+
+	// Try include dirs
+	for(size_t i=0; i<program->assemblerIncludeDirsNext; ++i) {
+		// Try relative to this dir
+		const char *includeDirPath=program->assemblerIncludeDirs[i];
+		strcpy(destPath, includeDirPath);
+		strcat(destPath, "/");
+		strcat(destPath, srcPath);
+		pathNormalise(destPath);
+		if (pathExists(destPath))
+			goto done;
+	}
+
+	return false;
+
+	done:
+	// Normalise path
+	if (destPath[0]!='/') {
+		getcwd(tempPath, 1024);
+		strcat(tempPath, "/");
+	}
+	strcat(tempPath, destPath);
+	pathNormalise(tempPath);
+	strcpy(destPath, tempPath);
+
 	return true;
+}
+
 bool assemblerProgramHandleNextInclude(AssemblerProgram *program, bool *change) {
 	assert(program!=NULL);
 
@@ -1976,4 +2032,11 @@ BytecodeRegister assemblerRegisterFromStr(const char *str) {
 		return BytecodeRegisterNB;
 	else
 		return str[1]-'0';
+}
+
+bool assemblerProgramAddIncludeDir(AssemblerProgram *program, const char *dir) {
+	if (program->assemblerIncludeDirsNext>=AssemblerIncludeDirMax)
+		return false;
+	strcpy(program->assemblerIncludeDirs[program->assemblerIncludeDirsNext++], dir);
+	return true;
 }

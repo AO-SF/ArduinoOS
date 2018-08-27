@@ -1,6 +1,7 @@
-#include <stdbool.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "util.h"
 
@@ -50,4 +51,10 @@ void pathNormalise(char *path) {
 	// Trim trailing slash (except for root)
 	if (strcmp(path, "/")!=0 && path[strlen(path)-1]=='/')
 		path[strlen(path)-1]='\0';
+}
+
+bool pathExists(const char *path) {
+	assert(path!=NULL);
+
+	return (access(path, F_OK)==0);
 }
