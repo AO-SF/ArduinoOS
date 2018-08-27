@@ -5,9 +5,8 @@ arduino:
 	cd src/tools/disassembler && make
 	cd src/tools/emulator && make
 	cd src/tools/minifsbuilder && make
-	cd src/tools/builder && make
-	./bin/builder --compact
-	cd src/kernel && make clean # HACK as builder and others make pc versions of some of the objects
+	./builder
+	cd src/kernel && make clean # HACK as minifsbuilder and others make pc versions of some of the objects
 	cd src/kernel && make arduino
 	avr-size -C --mcu=atmega2560 ./bin/kernel
 	avr-objcopy -O ihex ./bin/kernel ./bin/kernel.hex
@@ -18,8 +17,7 @@ pc:
 	cd src/tools/disassembler && make
 	cd src/tools/emulator && make
 	cd src/tools/minifsbuilder && make
-	cd src/tools/builder && make
-	./bin/builder --compact
+	./builder
 	cd src/kernel && make pc
 
 install:
@@ -28,7 +26,6 @@ install:
 clean:
 	cd src/tools/assembler && make clean
 	cd src/tools/minifsbuilder && make clean
-	cd src/tools/builder && make clean
 	cd src/tools/disassembler && make clean
 	cd src/tools/emulator && make clean
 	cd src/kernel && make clean
