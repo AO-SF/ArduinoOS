@@ -16,12 +16,11 @@
 #define KernelFsDevicesMax 64
 typedef uint8_t KernelFsDeviceIndex;
 
-typedef enum {
-	KernelFsDeviceTypeBlock,
-	KernelFsDeviceTypeCharacter,
-	KernelFsDeviceTypeDirectory,
-	KernelFsDeviceTypeNB,
-} KernelFsDeviceType;
+typedef uint8_t KernelFsDeviceType;
+#define KernelFsDeviceTypeBlock 0
+#define KernelFsDeviceTypeCharacter 1
+#define KernelFsDeviceTypeDirectory 2
+#define KernelFsDeviceTypeNB 3
 
 typedef struct {
 	KernelFsCharacterDeviceReadFunctor *readFunctor;
@@ -35,7 +34,6 @@ typedef struct {
 } KernelFsDeviceBlockCustomMiniFs;
 
 typedef struct {
-	KernelFsBlockDeviceFormat format;
 	KernelFsFileOffset size;
 	KernelFsBlockDeviceReadFunctor *readFunctor;
 	KernelFsBlockDeviceWriteFunctor *writeFunctor;
@@ -43,15 +41,16 @@ typedef struct {
 	union {
 		KernelFsDeviceBlockCustomMiniFs customMiniFs;
 	} d;
+	KernelFsBlockDeviceFormat format;
 } KernelFsDeviceBlock;
 
 typedef struct {
-	KernelFsDeviceType type;
 	KStr mountPoint;
 	union {
 		KernelFsDeviceBlock block;
 		KernelFsDeviceCharacter character;
 	} d;
+	KernelFsDeviceType type;
 } KernelFsDevice;
 
 typedef struct {
