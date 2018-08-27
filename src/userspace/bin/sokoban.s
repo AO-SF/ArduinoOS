@@ -9,7 +9,6 @@ db infoStr '\n\nwasd move/push, r redraw, q quit\n',27,'[30;1m#'27,'[0m wall, '2
 db errorStrNoArg 'usage: sokoban LEVELPATH\n', 0
 db errorStrBadLevel 'error: could not load given level\n', 0
 
-db cellColourStrDefault 27,'[0m',0
 db cellColourStrYellow 27,'[33;1m',0
 db cellColourStrGrey 27,'[30;1m',0
 db cellColourStrBrown 27,'[38;5;130m',0
@@ -346,31 +345,19 @@ ret
 ; levelDrawUpdateCellRawPrint(cell=r0) - takes cell and prints
 label levelDrawUpdateCellRawPrint
 mov r2 r0
-mov r0 cellColourStrDefault
-mov r1 '.'
-cmp r1 r1 r2
-skipneq r1
-mov r0 cellColourStrYellow
-mov r1 '@'
-cmp r1 r1 r2
-skipneq r1
-mov r0 cellColourStrYellow
-mov r1 '+'
-cmp r1 r1 r2
-skipneq r1
-mov r0 cellColourStrYellow
-mov r1 '#'
-cmp r1 r1 r2
-skipneq r1
 mov r0 cellColourStrGrey
-mov r1 '$'
-cmp r1 r1 r2
-skipneq r1
-mov r0 cellColourStrBrown
+mov r1 '+'
+cmp r1 r2 r1
+skiplt r1
+mov r0 cellColourStrYellow
 mov r1 '*'
 cmp r1 r1 r2
 skipneq r1
 mov r0 cellColourStrGreen
+mov r1 '$'
+cmp r1 r1 r2
+skipneq r1
+mov r0 cellColourStrBrown
 push8 r2
 call puts0
 pop8 r0
