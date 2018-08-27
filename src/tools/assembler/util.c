@@ -17,7 +17,7 @@ void pathNormalise(char *path) {
 		char *c;
 		change=false;
 
-		// Replace '/x/../' with '/'
+		// Replace '/x/../' with '/', unless x is also ..
 		c=path;
 		while((c=strstr(c, "/../"))!=NULL) {
 			// Look for last slash before this
@@ -26,9 +26,10 @@ void pathNormalise(char *path) {
 				if (*d=='/')
 					break;
 			}
-
-			change=true;
-			memmove(d, c+3, strlen(c+3)+1);
+			if (d>=path && strncmp(d, "/../", 4)!=0) {
+				change=true;
+				memmove(d, c+3, strlen(c+3)+1);
+			}
 
 			++c;
 		}
