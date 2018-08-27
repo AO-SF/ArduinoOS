@@ -4,6 +4,7 @@ arduino:
 	cd src/tools/assembler && make
 	cd src/tools/disassembler && make
 	cd src/tools/emulator && make
+	cd src/tools/minifsbuilder && make
 	cd src/tools/builder && make
 	./bin/builder --compact
 	cd src/kernel && make clean # HACK as builder and others make pc versions of some of the objects
@@ -16,6 +17,7 @@ pc:
 	cd src/tools/assembler && make
 	cd src/tools/disassembler && make
 	cd src/tools/emulator && make
+	cd src/tools/minifsbuilder && make
 	cd src/tools/builder && make
 	./bin/builder --compact
 	cd src/kernel && make pc
@@ -25,6 +27,7 @@ install:
 
 clean:
 	cd src/tools/assembler && make clean
+	cd src/tools/minifsbuilder && make clean
 	cd src/tools/builder && make clean
 	cd src/tools/disassembler && make clean
 	cd src/tools/emulator && make clean
