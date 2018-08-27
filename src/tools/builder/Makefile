@@ -24,6 +24,7 @@ ALL: $(OBJS)
 	../../../bin/assembler ../../userspace/bin/tree.s mockups/homemockup/tree
 	../../../bin/assembler ../../userspace/bin/bomb.s mockups/homemockup/bomb
 	../../../bin/assembler ../../userspace/bin/blink.s mockups/homemockup/blink
+	../../../bin/assembler ../../userspace/bin/blinkfast.s mockups/homemockup/blinkfast
 
 	cp usrgamesexample/* mockups/usrgamesmockup
 	../../../bin/assembler ../../userspace/bin/sokoban.s mockups/usrgamesmockup/sokoban
