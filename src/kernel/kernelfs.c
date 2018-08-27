@@ -27,6 +27,7 @@ typedef struct {
 	KernelFsCharacterDeviceCanReadFunctor *canReadFunctor;
 	KernelFsCharacterDeviceWriteFunctor *writeFunctor;
 	void *functorUserData;
+	bool canOpenMany;
 } KernelFsDeviceCharacter;
 
 typedef struct {
@@ -103,7 +104,7 @@ void kernelFsQuit(void) {
 	}
 }
 
-bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, void *functorUserData) {
+bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, bool canOpenMany, void *functorUserData) {
 	assert(!kstrIsNull(mountPoint));
 	assert(readFunctor!=NULL);
 	assert(canReadFunctor!=NULL);
@@ -119,6 +120,7 @@ bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsCharacterDeviceRead
 	device->d.character.canReadFunctor=canReadFunctor;
 	device->d.character.writeFunctor=writeFunctor;
 	device->d.character.functorUserData=functorUserData;
+	device->d.character.canOpenMany=(canOpenMany || writeFunctor==NULL);
 
 	return true;
 }
@@ -1026,8 +1028,7 @@ bool kernelFsFileCanOpenMany(const char *path) {
 				}
 			break;
 			case KernelFsDeviceTypeCharacter:
-				// TODO: Most should allow this (except e.g. /dev/ttyS0)
-				return false;
+				return device->d.character.canOpenMany;
 			break;
 			case KernelFsDeviceTypeDirectory:
 				return true;
