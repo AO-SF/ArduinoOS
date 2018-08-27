@@ -89,10 +89,17 @@ ProcManPid procManFindUnusedPid(void);
 bool procManProcessLoadProcData(const ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData *procData);
 
-bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd);
 bool procManProcessLoadProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord *value);
+bool procManProcessLoadProcDataSignalHandler(const ProcManProcess *process, ByteCodeSignalId signalId, uint8_t *shortAddr);
 bool procManProcessLoadProcDataRamLen(const ProcManProcess *process, uint16_t *value);
 bool procManProcessLoadProcDataEnvVarDataLen(const ProcManProcess *process, uint8_t *value);
+bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd);
+bool procManProcessLoadProcDataStdinFd(const ProcManProcess *process, KernelFsFd *fd);
+bool procManProcessLoadProcDataStdoutFd(const ProcManProcess *process, KernelFsFd *fd);
+bool procManProcessLoadProcDataArgvNPtr(const ProcManProcess *process, uint8_t n, uint8_t *shortAddr);
+bool procManProcessLoadProcDataPwdPtr(const ProcManProcess *process, uint8_t n, ByteCodeWord *addr);
+bool procManProcessLoadProcDataPathPtr(const ProcManProcess *process, uint8_t n, ByteCodeWord *addr);
+
 bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord value);
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, ByteCodeWord addr, uint8_t *value);
@@ -573,12 +580,12 @@ bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData
 	return (kernelFsFileWriteOffset(process->procFd, 0, (const uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
 }
 
-bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd) {
-	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramFd), (uint8_t *)ramFd, sizeof(KernelFsFd), false)==sizeof(KernelFsFd));
-}
-
 bool procManProcessLoadProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord *value) {
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,regs)+sizeof(ByteCodeWord)*reg, (uint8_t *)value, sizeof(ByteCodeWord), false)==sizeof(ByteCodeWord));
+}
+
+bool procManProcessLoadProcDataSignalHandler(const ProcManProcess *process, ByteCodeSignalId signalId, uint8_t *shortAddr) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,signalHandlers)+sizeof(uint8_t)*signalId, (uint8_t *)shortAddr, sizeof(uint8_t), false)==sizeof(uint8_t));
 }
 
 bool procManProcessLoadProcDataRamLen(const ProcManProcess *process, uint16_t *value) {
@@ -587,6 +594,30 @@ bool procManProcessLoadProcDataRamLen(const ProcManProcess *process, uint16_t *v
 
 bool procManProcessLoadProcDataEnvVarDataLen(const ProcManProcess *process, uint8_t *value) {
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,envVarDataLen), value, sizeof(uint8_t), false)==sizeof(uint8_t));
+}
+
+bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramFd), (uint8_t *)ramFd, sizeof(KernelFsFd), false)==sizeof(KernelFsFd));
+}
+
+bool procManProcessLoadProcDataStdinFd(const ProcManProcess *process, KernelFsFd *fd) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,stdinFd), (uint8_t *)fd, sizeof(KernelFsFd), false)==sizeof(KernelFsFd));
+}
+
+bool procManProcessLoadProcDataStdoutFd(const ProcManProcess *process, KernelFsFd *fd) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,stdoutFd), (uint8_t *)fd, sizeof(KernelFsFd), false)==sizeof(KernelFsFd));
+}
+
+bool procManProcessLoadProcDataArgvNPtr(const ProcManProcess *process, uint8_t n, uint8_t *shortAddr) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,argv)+sizeof(uint8_t)*n, (uint8_t *)shortAddr, sizeof(uint8_t), false)==sizeof(uint8_t));
+}
+
+bool procManProcessLoadProcDataPwdPtr(const ProcManProcess *process, uint8_t n, ByteCodeWord *addr) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,pwd), (uint8_t *)addr, sizeof(uint16_t), false)==sizeof(uint16_t));
+}
+
+bool procManProcessLoadProcDataPathPtr(const ProcManProcess *process, uint8_t n, ByteCodeWord *addr) {
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,path), (uint8_t *)addr, sizeof(uint16_t), false)==sizeof(uint16_t));
 }
 
 bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegister reg, ByteCodeWord value) {
