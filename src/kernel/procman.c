@@ -221,8 +221,8 @@ ProcManPid procManProcessNew(const char *programPath) {
 	kernelFsPathSplit(tempPwd, &dirname, &basename);
 	assert(dirname==tempPwd);
 	procData.pwd=envVarDataLen;
-	strcpy(envVarData+envVarDataLen, tempPwd);
-	envVarDataLen+=strlen(tempPwd)+1;
+	strcpy(envVarData+envVarDataLen, dirname);
+	envVarDataLen+=strlen(dirname)+1;
 
 	strcpy(tempPath, "/usr/games:/usr/bin:/bin:");
 	procData.path=envVarDataLen;
