@@ -57,7 +57,11 @@ void ktimeInit(void) {
 #endif
 
 	ktimeBootTime=ktimeGetMsRaw();
+	#ifdef ARDUINO
+	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %u\n"), ktimeBootTime);
+	#else
 	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %lu\n"), ktimeBootTime);
+	#endif
 }
 
 uint32_t ktimeGetMs(void) {
