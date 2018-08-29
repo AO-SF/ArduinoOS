@@ -264,7 +264,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 
 	// Initialise proc file (and env var data in ram file)
 	procData.regs[ByteCodeRegisterIP]=0;
-	for(uint16_t i=0; i<ByteCodeSignalIdNB; ++i)
+	for(ByteCodeSignalId i=0; i<ByteCodeSignalIdNB; ++i)
 		procData.signalHandlers[i]=ProcManSignalHandlerInvalid;
 	procData.stdinFd=KernelFsFdInvalid;
 	procData.stdoutFd=KernelFsFdInvalid;
