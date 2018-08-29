@@ -30,12 +30,12 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 	if (file!=NULL) {
 		// Print time
 		uint32_t t=ktimeGetMs();
-		unsigned h=t/(60u*60u*1000u);
-		t-=h*(60u*60u*1000u);
-		unsigned m=t/(60u*1000u);
-		t-=m*(60u*1000u);
-		unsigned s=t/1000u;
-		unsigned ms=t-s*1000u;
+		uint16_t h=t/(60lu*60lu*1000lu);
+		t-=h*(60lu*60lu*1000lu);
+		uint16_t m=t/(60lu*1000lu);
+		t-=m*(60lu*1000lu);
+		uint16_t s=t/1000lu;
+		uint16_t ms=t-s*1000lu;
 		fprintf(file, "%3u:%02u:%02u:%03u ", h, m, s, ms);
 
 		// Print log type
