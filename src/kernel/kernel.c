@@ -826,8 +826,8 @@ bool kernelDevTtyS0CanReadFunctor(void *userData) {
 
 bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData) {
 #ifdef ARDUINO
-	if (putchar(value)!=value)
-		return false;
+	// putchar seems to always return EOF so just ignore return value
+	putchar(value);
 	fflush(stdout);
 	return true;
 #else
