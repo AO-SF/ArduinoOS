@@ -878,7 +878,14 @@ void kernelSigIntHandler(int sig) {
 
 void kernelSendCtrlC(void) {
 	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i) {
-		if (kernelReaderPidArray[i]!=ProcManPidMax)
-			procManProcessSendSignal(kernelReaderPidArray[i], ByteCodeSignalIdInterrupt);
+		if (kernelReaderPidArray[i]!=ProcManPidMax) {
+			// Avoid double-caling for a single process
+			uint8_t j;
+			for(j=0; j<i; ++j)
+				if (kernelReaderPidArray[j]==kernelReaderPidArray[i])
+					break;
+			if (j==i)
+				procManProcessSendSignal(kernelReaderPidArray[i], ByteCodeSignalIdInterrupt);
+		}
 	}
 }
