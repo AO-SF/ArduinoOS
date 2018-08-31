@@ -70,8 +70,8 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionMemoryTypeLoad8:
 							disassemblerPrint(addr, instruction, "r%u=*r%u", info.d.memory.destReg, info.d.memory.srcReg);
 						break;
-						case BytecodeInstructionMemoryTypeReserved:
-							disassemblerPrint(addr, instruction, "invalid (reserved) instruction");
+						case BytecodeInstructionMemoryTypeXchg8:
+							disassemblerPrint(addr, instruction, "xchg8 *r%u r%u", info.d.memory.destReg, info.d.memory.srcReg);
 						break;
 					}
 				break;

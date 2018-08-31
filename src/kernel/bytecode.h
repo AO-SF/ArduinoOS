@@ -56,7 +56,7 @@ typedef uint8_t BytecodeInstructionLong[3];
 typedef enum {
 	BytecodeInstructionMemoryTypeStore8,
 	BytecodeInstructionMemoryTypeLoad8,
-	BytecodeInstructionMemoryTypeReserved,
+	BytecodeInstructionMemoryTypeXchg8,
 } BytecodeInstructionMemoryType;
 
 typedef struct {
@@ -202,7 +202,7 @@ typedef struct {
 BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstructionLong instruction); // Returns instruction's length by looking at the upper bits (without fully verifying the instruction is valid)
 bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstructionLong instruction);
 
-BytecodeInstructionShort bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg);
+BytecodeInstructionShort bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg); // for Xchg8 the addr is put in destReg, then the src/dest reg is put into srcReg
 BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);
 BytecodeInstructionStandard bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue);
 BytecodeInstructionShort bytecodeInstructionCreateMiscNop(void);

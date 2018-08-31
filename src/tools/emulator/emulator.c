@@ -184,10 +184,15 @@ bool processRunNextInstruction(Process *process) {
 					if (infoInstructions)
 						printf("Info: r%i=*r%i (=*%i=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, srcAddr, process->regs[info.d.memory.destReg]);
 				} break;
-				case BytecodeInstructionMemoryTypeReserved:
-					printf("Error: Invalid instruction (reserved bit sequence)\n");
-					return false;
-				break;
+				case BytecodeInstructionMemoryTypeXchg8: {
+					ByteCodeWord addr=process->regs[info.d.memory.destReg];
+					BytecodeRegister srcDestReg=info.d.memory.srcReg;
+					uint8_t memValue=process->memory[addr];
+					process->memory[addr]=(process->regs[srcDestReg] & 0xFF);
+					process->regs[srcDestReg]=memValue;
+					if (infoInstructions)
+						printf("Info: xchg *r%i r%i\n", info.d.memory.destReg, srcDestReg);
+				} break;
 			}
 		break;
 		case BytecodeInstructionTypeAlu: {

@@ -85,6 +85,7 @@ typedef enum {
 	AssemblerInstructionTypeRet,
 	AssemblerInstructionTypeStore8,
 	AssemblerInstructionTypeLoad8,
+	AssemblerInstructionTypeXchg8,
 	AssemblerInstructionTypeConst,
 } AssemblerInstructionType;
 
@@ -155,6 +156,10 @@ typedef struct {
 } AssemblerInstructionLoad8;
 
 typedef struct {
+	const char *addrReg, *srcDestReg;
+} AssemblerInstructionXchg8;
+
+typedef struct {
 	const char *symbol;
 	ByteCodeWord value;
 } AssemblerInstructionConst;
@@ -177,6 +182,7 @@ typedef struct {
 		AssemblerInstructionCall call;
 		AssemblerInstructionStore8 store8;
 		AssemblerInstructionLoad8 load8;
+		AssemblerInstructionXchg8 xchg8;
 		AssemblerInstructionConst constSymbol;
 	} d;
 
@@ -1134,6 +1140,25 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->type=AssemblerInstructionTypeLoad8;
 			instruction->d.load8.dest=dest;
 			instruction->d.load8.src=src;
+		} else if (strcmp(first, "xchg8")==0) {
+			char *addrReg=strtok_r(NULL, " ", &savePtr);
+			if (addrReg==NULL) {
+				printf("error - expected addr register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			char *srcDestReg=strtok_r(NULL, " ", &savePtr);
+			if (srcDestReg==NULL) {
+				printf("error - expected src/dest register after '%s' (%s:%u '%s')\n", addrReg, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeXchg8;
+			instruction->d.xchg8.addrReg=addrReg;
+			instruction->d.xchg8.srcDestReg=srcDestReg;
 		} else if (strcmp(first, "const")==0) {
 			char *symbol=strtok_r(NULL, " ", &savePtr);
 			if (symbol==NULL) {
@@ -1415,6 +1440,9 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeLen=1;
 			break;
 			case AssemblerInstructionTypeLoad8:
+				instruction->machineCodeLen=1;
+			break;
+			case AssemblerInstructionTypeXchg8:
 				instruction->machineCodeLen=1;
 			break;
 			case AssemblerInstructionTypeConst:
@@ -1744,6 +1772,23 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				// Create instruction
 				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeLoad8, destReg, srcReg);
 			} break;
+			case AssemblerInstructionTypeXchg8: {
+				// Verify dest and src are valid registers
+				BytecodeRegister addrReg=assemblerRegisterFromStr(instruction->d.xchg8.addrReg);
+				if (addrReg==BytecodeRegisterNB) {
+					printf("error - expected register (r0-r7) as addr reg, instead got '%s' (%s:%u '%s')\n", instruction->d.xchg8.addrReg, line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				BytecodeRegister srcDestReg=assemblerRegisterFromStr(instruction->d.xchg8.srcDestReg);
+				if (srcDestReg==BytecodeRegisterNB) {
+					printf("error - expected register (r0-r7) as src/dest reg, instead got '%s' (%s:%u '%s')\n", instruction->d.xchg8.srcDestReg, line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				// Create instruction
+				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeLoad8, addrReg, srcDestReg);
+			} break;
 			case AssemblerInstructionTypeConst:
 			break;
 		}
@@ -1883,6 +1928,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			break;
 			case AssemblerInstructionTypeLoad8:
 				printf("%s=[%s] (8 bit) (%s:%u '%s')\n", instruction->d.load8.dest, instruction->d.load8.src, line->file, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeXchg8:
+				printf("xchg8 *%s %s (%s:%u '%s')\n", instruction->d.xchg8.addrReg, instruction->d.xchg8.srcDestReg, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeConst:
 				printf("const %s=%u (%s:%u '%s')\n", instruction->d.constSymbol.symbol, instruction->d.constSymbol.value, line->file, line->lineNum, line->original);
