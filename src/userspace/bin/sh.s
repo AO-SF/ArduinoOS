@@ -28,7 +28,8 @@ ab runInBackground 1
 
 ab childPid 1
 
-require lib/sys/sys.s
+ab suicideHandlerLock 1
+ab interruptHandlerLock 1
 
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
@@ -43,16 +44,22 @@ requireend lib/std/str/strrchr.s
 requireend lib/std/str/strequal.s
 requireend lib/std/str/strtrimlast.s
 
-jmp start
-
 ; signal handler labels must be within first 256 bytes of executable, so put these 'trampoline' functions first
+jmp start
 label suicideHandlerTrampoline
 jmp suicideHandler
 label interruptHandlerTrampoline
 jmp interruptHandler
+label start
+
+; Setup signal handler locks
+mov r1 0
+mov r0 suicideHandlerLock
+store8 r0 r1
+mov r0 interruptHandlerLock
+store8 r0 r1
 
 ; Clear child PID
-label start
 mov r0 childPid
 mov r1 PathMax
 store8 r0 r1
@@ -439,6 +446,10 @@ mov r0 PidMax
 mov r1 childPid
 store8 r1 r0
 
+; release interrupt lock (if set)
+mov r0 interruptHandlerLock
+call lockpost
+
 label shellRunFdRet
 ret
 
@@ -503,19 +514,56 @@ syscall
 ret
 
 label suicideHandler
+; TODO: Fix hack - we assume lock functions only modify r0 and r1 (and call modifies r5)
+push16 r0
+push16 r1
+push16 r5
+; already doing this? Note: we never release this lock as we exit during anyways
+mov r0 suicideHandlerLock
+call lockwaittry
+cmp r0 r0 r0
+skipneqz r0
+jmp suicideHandlerRet
 ; Simulate an interrupt to kill child (if any)
 call interruptHandler
 ; Jump to finish label which calls exit, so we do not need to return from this handler
 jmp finish
+label suicideHandlerRet
+pop16 r5
+pop16 r1
+pop16 r0
+ret
 
 label interruptHandler
-; kill child (if any)
+; TODO: Fix hack - we assume lock functions only modify r0 and r1 (and call modifies r5)
 push16 r0
 push16 r1
-mov r0 10
+push16 r5
+; are we already doing this?
+mov r0 interruptHandlerLock
+call lockwaittry
+cmp r0 r0 r0
+skipneqz r0
+jmp interruptHandlerRet
+; do we not even have a child?
 mov r1 childPid
 load8 r1 r1
+mov r0 PidMax
+cmp r0 r1 r0
+skipneq r0
+jmp interruptHandlerReleaseLock
+; kill child
+mov r0 10
 syscall
+; note: in this case lock is released when we return from waitpid
+jmp interruptHandlerRet
+; release lock
+label interruptHandlerReleaseLock
+mov r0 interruptHandlerLock
+call lockpost
+; done
+label interruptHandlerRet
+pop16 r5
 pop16 r1
 pop16 r0
 ret
