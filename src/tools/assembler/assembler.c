@@ -1787,7 +1787,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create instruction
-				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeLoad8, addrReg, srcDestReg);
+				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeXchg8, addrReg, srcDestReg);
 			} break;
 			case AssemblerInstructionTypeConst:
 			break;
