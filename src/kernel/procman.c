@@ -1131,6 +1131,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							ProcManPid pid=procData->regs[1];
 							if (pid!=0) // do not allow killing init
 								procManProcessKill(pid, ProcManExitStatusKilled);
+							kernelLog(LogTypeInfo, kstrP("process %u - kill syscall directed at %u\n"), procManGetPidFromProcess(process), pid);
 						} break;
 						case ByteCodeSyscallIdSignal: {
 							ProcManPid targetPid=procData->regs[1];
