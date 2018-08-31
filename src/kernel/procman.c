@@ -899,11 +899,19 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 					}
 					procData->regs[info.d.memory.destReg]=value;
 				} break;
-				case BytecodeInstructionMemoryTypeReserved: {
-					kernelLog(LogTypeWarning, kstrP("reserved instrution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
-				break;
+				case BytecodeInstructionMemoryTypeXchg8: {
+					uint8_t memValue;
+					if (!procManProcessMemoryReadByte(process, procData, procData->regs[info.d.memory.destReg], &memValue)) {
+						kernelLog(LogTypeWarning, kstrP("failed during xchg8 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+					uint8_t regValue=(procData->regs[info.d.memory.srcReg] & 0xFF);
+					if (!procManProcessMemoryWriteByte(process, procData, procData->regs[info.d.memory.destReg], regValue)) {
+						kernelLog(LogTypeWarning, kstrP("failed during xchg8 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+					procData->regs[info.d.memory.srcReg]=memValue;
+				} break;
 			}
 		break;
 		case BytecodeInstructionTypeAlu: {
