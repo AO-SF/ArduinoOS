@@ -290,13 +290,19 @@ void kernelShutdownNext(void) {
 	assert(kernelGetState()==KernelStateShuttingDownWaitAll);
 
 	// Forcibly kill any processes who did not commit suicide in time
-	kernelLog(LogTypeInfo, kstrP("shutdown request, killing any processes (except init) which did not commit suicide soon enough\n"));
-	for(ProcManPid pid=1; pid<ProcManPidMax; ++pid) {
-		if (!procManProcessExists(pid))
-			continue;
-
-		procManProcessKill(pid, ProcManExitStatusKilled);
-	}
+	bool late=false;
+	for(ProcManPid pid=1; pid<ProcManPidMax; ++pid)
+		if (procManProcessExists(pid)) {
+			late=true;
+			break;
+		}
+	if (late) {
+		kernelLog(LogTypeInfo, kstrP("shutdown request, killing processes (except init) which did not commit suicide soon enough\n"));
+		for(ProcManPid pid=1; pid<ProcManPidMax; ++pid)
+			if (procManProcessExists(pid))
+				procManProcessKill(pid, ProcManExitStatusKilled);
+	} else
+		kernelLog(LogTypeInfo, kstrP("shutdown request, all processes (except init) committed suicide soon enough\n"));
 
 	// Send suicide signal to init
 	kernelSetState(KernelStateShuttingDownWaitInit);
