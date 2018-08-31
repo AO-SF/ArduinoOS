@@ -15,6 +15,7 @@
 #include "kernelfs.h"
 #include "kernelmount.h"
 #include "log.h"
+#include "pins.h"
 #include "procman.h"
 #include "ktime.h"
 
@@ -1453,26 +1454,48 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							uint16_t command=procData->regs[2];
 							uint16_t data=procData->regs[3];
 
-							// We currently only support ioctl on /dev/ttyS0
-							if (kstrStrcmp("/dev/ttyS0", kernelFsGetFilePath(fd))==0) {
-								switch(command) {
-									case ByteCodeSyscallIdIoctlCommandSetEcho: {
-										#ifdef ARDUINO
-										kernelDevTtyS0EchoFlag=data;
-										#else
-										// change terminal settings to add/remove echo
-										static struct termios termSettings;
-										tcgetattr(STDIN_FILENO, &termSettings);
-										if (data)
-											termSettings.c_lflag|=ECHO;
-										else
-											termSettings.c_lflag&=~ECHO;
-										tcsetattr(STDIN_FILENO, TCSANOW, &termSettings);
-										#endif
-									} break;
-									default:
-										kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, kernelFsGetFilePath(fd), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-									break;
+							// Invalid fd?
+							KStr kstrPath=kernelFsGetFilePath(fd);
+							if (kstrIsNull(kstrPath)) {
+								kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall fd %u, process %u (%s)\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							} else {
+								kstrStrcpy(procManScratchBufPath0, kstrPath);
+								// Check for stdin/stdout terminal
+								if (strcmp(procManScratchBufPath0, "/dev/ttyS0")==0) {
+									switch(command) {
+										case ByteCodeSyscallIdIoctlCommandDevTtyS0SetEcho: {
+											#ifdef ARDUINO
+											kernelDevTtyS0EchoFlag=data;
+											#else
+											// change terminal settings to add/remove echo
+											static struct termios termSettings;
+											tcgetattr(STDIN_FILENO, &termSettings);
+											if (data)
+												termSettings.c_lflag|=ECHO;
+											else
+												termSettings.c_lflag&=~ECHO;
+											tcsetattr(STDIN_FILENO, TCSANOW, &termSettings);
+											#endif
+										} break;
+										default:
+											kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+										break;
+									}
+								} else {
+									// Check for pin device file path
+									if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
+										uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
+										switch(command) {
+											case ByteCodeSyscallIdIoctlCommandDevPinSetMode:
+												pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
+											break;
+											default:
+												kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+											break;
+										}
+									} else {
+										kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall device (fd %u, device '%s'), process %u (%s)\n"), fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									}
 								}
 							}
 						} break;

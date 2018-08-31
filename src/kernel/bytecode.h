@@ -118,7 +118,8 @@ typedef struct {
 } BytecodeInstructionAluInfo;
 
 typedef enum {
-	ByteCodeSyscallIdIoctlCommandSetEcho,
+	ByteCodeSyscallIdIoctlCommandDevTtyS0SetEcho,
+	ByteCodeSyscallIdIoctlCommandDevPinSetMode,
 } ByteCodeSyscallIdIoctlCommand;
 
 typedef enum {

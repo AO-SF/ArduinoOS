@@ -1,4 +1,5 @@
 requireend pinopen.s
+requireend pinsetmode.s
 
 ab pinsetScratchByte 1
 
@@ -8,9 +9,13 @@ mov r2 pinsetScratchByte
 store8 r2 r1
 ; open pin device file
 call pinopen
-mov r1 r0
+push8 r0
+; set to output
+mov r1 PinModeOutput
+call pinsetmode
 ; write byte
 mov r0 SyscallIdWrite
+pop8 r1
 mov r2 0
 mov r3 pinsetScratchByte
 mov r4 1
