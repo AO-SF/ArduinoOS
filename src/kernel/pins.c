@@ -31,13 +31,30 @@ bool pinStates[PinNB]={0};
 
 #endif
 
+void pinSetMode(uint8_t pinNum, PinMode mode) {
+	if (pinNum>=PinNB) {
+		kernelLog(LogTypeWarning, kstrP("bad pin %u in setmode\n"), pinNum);
+		return;
+	}
+#ifdef ARDUINO
+	switch(mode) {
+		case PinModeInput:
+			*pinsArrayDdr[PinNumGetGroup(pinNum)]&=~(1u<<PinNumGetShift(pinNum));
+		break;
+		case PinModeOutput:
+			*pinsArrayDdr[PinNumGetGroup(pinNum)]|=(1u<<PinNumGetShift(pinNum));
+		break;
+	}
+#endif
+// Null-op on PC
+}
+
 bool pinRead(uint8_t pinNum) {
 	if (pinNum>=PinNB) {
 		kernelLog(LogTypeWarning, kstrP("bad pin %u in read\n"), pinNum);
 		return false;
 	}
 #ifdef ARDUINO
-	*pinsArrayDdr[PinNumGetGroup(pinNum)]&=~(1u<<PinNumGetShift(pinNum));
 	return ((*pinsArrayPin[PinNumGetGroup(pinNum)])&(1u<<PinNumGetShift(pinNum)))!=0;
 #else
 	return pinStates[pinNum];
@@ -50,7 +67,6 @@ bool pinWrite(uint8_t pinNum, bool value) {
 		return false;
 	}
 #ifdef ARDUINO
-	*pinsArrayDdr[PinNumGetGroup(pinNum)]|=(1u<<PinNumGetShift(pinNum));
 	if (value!=0)
 		*pinsArrayPort[PinNumGetGroup(pinNum)]|=(1u<<PinNumGetShift(pinNum));
 	else

@@ -78,6 +78,12 @@
 
 #define PinLed PinD13
 
+typedef enum {
+	PinModeInput=0,
+	PinModeOutput=1,
+} PinMode;
+
+void pinSetMode(uint8_t pinNum, PinMode mode);
 bool pinRead(uint8_t pinNum);
 bool pinWrite(uint8_t pinNum, bool value);
 

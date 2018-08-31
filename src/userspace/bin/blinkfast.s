@@ -1,4 +1,5 @@
 requireend lib/pin/pinopen.s
+requireend lib/pin/pinsetmode.s
 requireend lib/std/proc/exit.s
 
 db blinkFastOnByte 1
@@ -33,6 +34,12 @@ mov r0 1024
 mov r1 3 ; suicide signal id
 mov r2 suicideHandler
 syscall
+
+; set pin to output
+mov r0 blinkFastPinFd
+load8 r0 r0
+mov r1 PinModeOutput
+call pinsetmode
 
 ; prepare for loop
 mov r1 blinkFastPinFd
