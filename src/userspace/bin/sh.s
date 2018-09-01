@@ -558,6 +558,26 @@ mov r0 PidMax
 cmp r0 r1 r0
 skipneq r0
 jmp interruptHandlerReleaseLock
+; send child suicide signal
+mov r0 12
+mov r2 3 ; suicide
+syscall
+; call waitpid with a 5s timeout
+label interruptHandlerWaitPidLoopStart
+mov r0 6
+mov r2 5
+syscall
+; interrupted by another signal? if so, try again
+; TODO: if interrupted repeatedly we may never exit
+mov r2 65531
+cmp r2 r0 r2
+skipneq r2
+jmp interruptHandlerWaitPidLoopStart
+; if not timed out, no need to kill
+mov r2 65535
+cmp r2 r0 r2
+skipeq r2
+jmp interruptHandlerRet
 ; kill child
 mov r0 10
 syscall
