@@ -87,6 +87,8 @@ int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too o
 
 #endif
 
+volatile uint8_t kernelCtrlCWaiting=false;
+
 // reader pid array stores pid of processes with /dev/ttyS0 open, used for ctrl+c propagation from host
 #define kernelReaderPidArrayMax 4
 ProcManPid kernelReaderPidArray[kernelReaderPidArrayMax];
@@ -157,7 +159,8 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData);
 void kernelSigIntHandler(int sig);
 #endif
 
-void kernelSendCtrlC(void);
+void kernelCtrlCStart(void);
+void kernelCtrlCSend(void);
 
 #ifdef ARDUINO
 #include <avr/io.h>
@@ -167,7 +170,7 @@ ISR(USART0_RX_vect) {
 		uint8_t value=UDR0;
 		if (value==3) {
 			// Ctrl+c
-			kernelSendCtrlC();
+			kernelCtrlCStart();
 		} else if (value==127) {
 			// Backspace - try to remove last char from buffer, unless it is a newline
 			uint8_t tailValue;
@@ -211,6 +214,9 @@ int main(void) {
 
 		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMs()-kernelStateTime>=5000) // 5s timeout
 			break; // break to call shutdown final
+
+		// Check for ctrl+c to propagate
+		kernelCtrlCSend();
 
 		// Run each process for 1 tick, and delay if we have spare time (PC wrapper only - pointless on Arduino)
 		#ifndef ARDUINO
@@ -878,11 +884,18 @@ bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
 
 #ifndef ARDUINO
 void kernelSigIntHandler(int sig) {
-	kernelSendCtrlC();
+	kernelCtrlCStart();
 }
 #endif
 
-void kernelSendCtrlC(void) {
+void kernelCtrlCStart(void) {
+	kernelCtrlCWaiting=true;
+}
+
+void kernelCtrlCSend(void) {
+	if (!kernelCtrlCWaiting)
+		return;
+
 	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i) {
 		if (kernelReaderPidArray[i]!=ProcManPidMax) {
 			// Avoid double-caling for a single process
@@ -894,4 +907,6 @@ void kernelSendCtrlC(void) {
 				procManProcessSendSignal(kernelReaderPidArray[i], ByteCodeSignalIdInterrupt);
 		}
 	}
+
+	kernelCtrlCWaiting=false;
 }
