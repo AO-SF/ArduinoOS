@@ -1,7 +1,7 @@
 jmp libsysthreadend
 
 ; Locks are boolean 'taken' flags (stored in 8 bits), using the xchg8 instruction where necessary to be atomic.
-; To setup a lock reserve a byte in memory and set it to 0 to make it initially unlocked, for example,
+; To setup a lock, reserve a byte in memory and set it to 0 to make it initially unlocked, or to 1 to be initially locked,
 ; then pass its address to the functions below to use it.
 
 label lockwait ; r0=lock ptr, busy-waits trying to grab lock
