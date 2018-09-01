@@ -67,6 +67,16 @@ int16_t vfprintf_PF(FILE *stream, uint_farptr_t format, va_list ap) {
 				if (subRes<0)
 					break;
 				written+=subRes;
+			} else if (byte=='X') {
+				if (padZero)
+					sprintf(vfprintf_PFFormatStr, "%%0%uX", padLen);
+				else
+					sprintf(vfprintf_PFFormatStr, "%%%uX", padLen);
+				uint16_t val=va_arg(ap, uint16_t);
+				int16_t subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				if (subRes<0)
+					break;
+				written+=subRes;
 			} else if (byte=='s') {
 				const char *str=va_arg(ap, const char *);
 				int16_t subRes=fprintf(stream, "%s", str);
