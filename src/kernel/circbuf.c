@@ -3,6 +3,9 @@
 
 #include "circbuf.h"
 
+#define circBufIndexNext(i) (((i)==CircBufSizeMinusOne) ? 0 : ((i)+1))
+#define circBufIndexPrev(i) (((i)==0) ? CircBufSizeMinusOne : ((i)-1))
+
 void circBufInit(volatile CircBuf *cb) {
 	assert(cb!=NULL);
 
@@ -16,7 +19,7 @@ bool circBufIsEmpty(volatile CircBuf *cb) {
 bool circBufPush(volatile CircBuf *cb, uint8_t value) {
 	assert(cb!=NULL);
 
-	uint8_t newTail=(cb->tail==255 ? 0 : cb->tail+1);
+	uint8_t newTail=circBufIndexNext(cb->tail);
 
 	// full?
 	if (newTail==cb->head)
@@ -43,10 +46,7 @@ bool circBufPop(volatile CircBuf *cb, uint8_t *value) {
 	*value=cb->buffer[cb->head];
 
 	// pop value
-	if (cb->head==255)
-		cb->head=0;
-	else
-		cb->head++;
+	cb->head=circBufIndexNext(cb->head);
 
 	return true;
 }
@@ -59,7 +59,7 @@ bool circBufUnpush(volatile CircBuf *cb) {
 		return false;
 
 	// pop from tail
-	cb->tail=(cb->tail==0 ? 255 :cb->tail-1);
+	cb->tail=circBufIndexPrev(cb->tail);
 
 	return true;
 }
@@ -72,7 +72,7 @@ bool circBufTailPeek(volatile CircBuf *cb, uint8_t *value) {
 		return false;
 
 	// peek at tail
-	*value=cb->buffer[cb->tail==0 ? 255 : cb->tail-1];
+	*value=cb->buffer[circBufIndexPrev(cb->tail)];
 
 	return true;
 }
