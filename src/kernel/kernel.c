@@ -209,10 +209,10 @@ int main(void) {
 	while(procManGetProcessCount()>0) {
 		// If we are shutting down, check for all relevant processes dead or a timeout
 		if (kernelGetState()==KernelStateShuttingDownWaitAll &&
-			(procManGetProcessCount()==1 || ktimeGetMs()-kernelStateTime>=5000)) // 5s timeout
+			(procManGetProcessCount()==1 || ktimeGetMs()-kernelStateTime>=30000u)) // 30s timeout
 			kernelShutdownNext();
 
-		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMs()-kernelStateTime>=5000) // 5s timeout
+		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMs()-kernelStateTime>=30000u) // 30s timeout
 			break; // break to call shutdown final
 
 		// Check for ctrl+c to propagate
