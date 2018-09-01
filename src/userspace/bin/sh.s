@@ -438,9 +438,14 @@ skipeqz r1
 jmp shellRunFdRet
 
 mov r1 r0 ; childs PID
-mov r0 6 ; waitpid syscall
 mov r2 0 ; infinite timeout
+label shellForkExecForkParentWaitPidLoop
+mov r0 6 ; waitpid syscall
 syscall
+mov r3 65531
+cmp r3 r0 r3
+skipneq r3 ; interrupted?
+jmp shellForkExecForkParentWaitPidLoop
 
 mov r0 PidMax
 mov r1 childPid
