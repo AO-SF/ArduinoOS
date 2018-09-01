@@ -61,8 +61,8 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 
 # Build volumes
 ./bin/minifsbuilder -fcheader "./tmp/mockups/binmockup" "bin" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/tools/builder/mockups/usrbinmockup" "usrbin" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/tools/builder/mockups/usrgamesmockup" "usrgames" "./src/kernel"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "usrbin" "./src/kernel"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "usrgames" "./src/kernel"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/curses" "libcurses" "./src/kernel"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/pin" "libpin" "./src/kernel"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/io" "libstdio" "./src/kernel"
