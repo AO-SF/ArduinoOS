@@ -540,9 +540,10 @@ pop16 r0
 ret
 
 label interruptHandler
-; TODO: Fix hack - we assume lock functions only modify r0 and r1 (and call modifies r5)
+; TODO: Fix hack
 push16 r0
 push16 r1
+push16 r2
 push16 r5
 ; are we already doing this?
 mov r0 interruptHandlerLock
@@ -569,6 +570,7 @@ call lockpost
 ; done
 label interruptHandlerRet
 pop16 r5
+pop16 r2
 pop16 r1
 pop16 r0
 ret
