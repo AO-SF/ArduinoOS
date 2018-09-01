@@ -206,10 +206,10 @@ int main(void) {
 	while(procManGetProcessCount()>0) {
 		// If we are shutting down, check for all relevant processes dead or a timeout
 		if (kernelGetState()==KernelStateShuttingDownWaitAll &&
-			(procManGetProcessCount()==1 || ktimeGetMs()-kernelStateTime>=3000)) // 3s timeout
+			(procManGetProcessCount()==1 || ktimeGetMs()-kernelStateTime>=5000)) // 5s timeout
 			kernelShutdownNext();
 
-		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMs()-kernelStateTime>=3000) // 3s timeout
+		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMs()-kernelStateTime>=5000) // 5s timeout
 			break; // break to call shutdown final
 
 		// Run each process for 1 tick, and delay if we have spare time (PC wrapper only - pointless on Arduino)
