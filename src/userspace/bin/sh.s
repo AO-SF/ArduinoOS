@@ -551,9 +551,9 @@ call lockwaittry
 cmp r0 r0 r0
 skipneqz r0
 jmp interruptHandlerRet
-; do we not even have a child?
 mov r1 childPid
 load8 r1 r1
+; do we not even have a child?
 mov r0 PidMax
 cmp r0 r1 r0
 skipneq r0
