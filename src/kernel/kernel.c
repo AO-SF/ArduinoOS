@@ -324,7 +324,7 @@ void kernelBoot(void) {
 #ifdef ARDUINO
 	kernelDevTtyS0EchoFlag=true;
 	kernelDevTtyS0CircBufNewlineCount=0;
-	kernelDevTtyS0BlockingFlag=false;
+	kernelDevTtyS0BlockingFlag=true;
 	circBufInit(&kernelDevTtyS0CircBuf);
 	uart_init();
 
