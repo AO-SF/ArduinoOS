@@ -1263,7 +1263,9 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							kernelFsPathNormalise(path);
 
 							// Resize (or create if does not exist)
-							if (kernelFsFileExists(path))
+							if (!kernelFsPathIsValid(path))
+								procData->regs[0]=0;
+							else if (kernelFsFileExists(path))
 								procData->regs[0]=kernelFsFileResize(path, newSize);
 							else
 								procData->regs[0]=kernelFsFileCreateWithSize(path, newSize);
