@@ -47,6 +47,7 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/assembler ./src/userspace/bin/mount.s ./tmp/mockups/binmockup/mount
 ./bin/assembler ./src/userspace/bin/signal.s ./tmp/mockups/binmockup/signal
 ./bin/assembler ./src/userspace/bin/unmount.s ./tmp/mockups/binmockup/unmount
+./bin/assembler ./src/userspace/bin/truncate.s ./tmp/mockups/binmockup/truncate
 
 ./bin/assembler ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime

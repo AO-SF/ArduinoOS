@@ -1,0 +1,10 @@
+TRUNCATE(1) - User Commands
+
+NAME
+      truncate - truncate/extend files
+
+SYNOPSIS
+      truncate SIZE FILE
+
+DESCRIPTION
+      Resize the given file to the given size. Attempts to create the file if it does not exist already.
