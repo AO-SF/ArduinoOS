@@ -25,14 +25,14 @@ typedef struct {
 } ProcessEnvVars;
 
 typedef struct {
-	ByteCodeWord regs[8];
+	BytecodeWord regs[8];
 
-	uint8_t memory[ByteCodeMemoryTotalSize]; // combined progmem+ram
+	uint8_t memory[BytecodeMemoryTotalSize]; // combined progmem+ram
 
 	bool skipFlag; // skip next instruction?
 
 	unsigned instructionCount;
-	ByteCodeWord pid;
+	BytecodeWord pid;
 
 	ProcessEnvVars envVars;
 } Process;
@@ -84,8 +84,8 @@ int main(int argc, char **argv) {
 		goto done;
 	}
 
-	process->regs[ByteCodeRegisterSP]=0;
-	process->regs[ByteCodeRegisterIP]=0;
+	process->regs[BytecodeRegisterSP]=0;
+	process->regs[BytecodeRegisterIP]=0;
 	process->skipFlag=false;
 	process->instructionCount=0;
 	srand(time(NULL));
@@ -149,12 +149,12 @@ int main(int argc, char **argv) {
 
 bool processRunNextInstruction(Process *process) {
 	BytecodeInstructionLong instruction;
-	instruction[0]=process->memory[process->regs[ByteCodeRegisterIP]++];
+	instruction[0]=process->memory[process->regs[BytecodeRegisterIP]++];
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
 	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
-		instruction[1]=process->memory[process->regs[ByteCodeRegisterIP]++];
+		instruction[1]=process->memory[process->regs[BytecodeRegisterIP]++];
 	if (length==BytecodeInstructionLengthLong)
-		instruction[2]=process->memory[process->regs[ByteCodeRegisterIP]++];
+		instruction[2]=process->memory[process->regs[BytecodeRegisterIP]++];
 
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
@@ -179,13 +179,13 @@ bool processRunNextInstruction(Process *process) {
 						printf("Info: *r%i=r%i (*%u=%u)\n", info.d.memory.destReg, info.d.memory.srcReg, process->regs[info.d.memory.destReg], process->regs[info.d.memory.srcReg]);
 				break;
 				case BytecodeInstructionMemoryTypeLoad8: {
-					ByteCodeWord srcAddr=process->regs[info.d.memory.srcReg];
+					BytecodeWord srcAddr=process->regs[info.d.memory.srcReg];
 					process->regs[info.d.memory.destReg]=process->memory[srcAddr];
 					if (infoInstructions)
 						printf("Info: r%i=*r%i (=*%i=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, srcAddr, process->regs[info.d.memory.destReg]);
 				} break;
 				case BytecodeInstructionMemoryTypeXchg8: {
-					ByteCodeWord addr=process->regs[info.d.memory.destReg];
+					BytecodeWord addr=process->regs[info.d.memory.destReg];
 					BytecodeRegister srcDestReg=info.d.memory.srcReg;
 					uint8_t memValue=process->memory[addr];
 					process->memory[addr]=(process->regs[srcDestReg] & 0xFF);
@@ -262,7 +262,7 @@ bool processRunNextInstruction(Process *process) {
 						printf("Info: r%i=~r%i (=~%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, opA, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeCmp: {
-					ByteCodeWord *d=&process->regs[info.d.alu.destReg];
+					BytecodeWord *d=&process->regs[info.d.alu.destReg];
 					*d=0;
 					*d|=(opA==opB)<<BytecodeInstructionAluCmpBitEqual;
 					*d|=(opA==0)<<BytecodeInstructionAluCmpBitEqualZero;
@@ -299,7 +299,7 @@ bool processRunNextInstruction(Process *process) {
 						printf("Info: [r%i]=r%i (16 bit) ([%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.destReg], opA);
 				break;
 				case BytecodeInstructionAluTypeLoad16:
-					process->regs[info.d.alu.destReg]=(((ByteCodeWord)process->memory[process->regs[info.d.alu.opAReg]])<<8) |
+					process->regs[info.d.alu.destReg]=(((BytecodeWord)process->memory[process->regs[info.d.alu.opAReg]])<<8) |
 					                                   process->memory[process->regs[info.d.alu.opAReg]+1];
 					if (infoInstructions)
 						printf("Info: r%i=[r%i] (16 bit) (=[%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, opA, process->regs[info.d.alu.destReg]);
@@ -317,26 +317,26 @@ bool processRunNextInstruction(Process *process) {
 					if (infoInstructions)
 						printf("Info: syscall id=%i\n", syscallId);
 					switch(syscallId) {
-						case ByteCodeSyscallIdExit:
+						case BytecodeSyscallIdExit:
 							if (passOnExitStatus)
 								exitStatus=process->regs[1];
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [exit], status=%u)\n", syscallId, process->regs[1]);
 							return false;
 						break;
-						case ByteCodeSyscallIdGetPid: {
+						case BytecodeSyscallIdGetPid: {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpid], return=%u)\n", syscallId, process->pid);
 
 							process->regs[0]=process->pid;
 						} break;
-						case ByteCodeSyscallIdGetArgC: {
+						case BytecodeSyscallIdGetArgC: {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getargc], return=%u)\n", syscallId, process->envVars.argc);
 
 							process->regs[0]=process->envVars.argc;
 						} break;
-						case ByteCodeSyscallIdGetArgVN: {
+						case BytecodeSyscallIdGetArgVN: {
 							int n=process->regs[1];
 							int buf=process->regs[2];
 							int len=process->regs[3];
@@ -358,23 +358,23 @@ bool processRunNextInstruction(Process *process) {
 								process->regs[0]=trueLen;
 							}
 						} break;
-						case ByteCodeSyscallIdFork:
+						case BytecodeSyscallIdFork:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [fork] (unimplemented)\n", syscallId);
 
 							// This is not implemented - simply return error
 							process->regs[0]=ProcManPidMax;
 						break;
-						case ByteCodeSyscallIdExec:
+						case BytecodeSyscallIdExec:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [exec] (unimplemented)\n", syscallId);
 
 							// This is not implemented - simply return false
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdWaitPid: {
+						case BytecodeSyscallIdWaitPid: {
 							ProcManPid waitPid=process->regs[1];
-							ByteCodeWord timeout=process->regs[2];
+							BytecodeWord timeout=process->regs[2];
 
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [waitpid], pid=%u, timeout=%u\n", syscallId, waitPid, timeout);
@@ -389,25 +389,25 @@ bool processRunNextInstruction(Process *process) {
 								process->regs[0]=ProcManExitStatusNoProcess;
 							}
 						} break;
-						case ByteCodeSyscallIdGetPidPath:
+						case BytecodeSyscallIdGetPidPath:
 							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdGetPidState:
+						case BytecodeSyscallIdGetPidState:
 							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidstate] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdGetAllCpuCounts:
+						case BytecodeSyscallIdGetAllCpuCounts:
 							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getallcpucounts] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdKill: {
+						case BytecodeSyscallIdKill: {
 							ProcManPid pid=process->regs[1];
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [kill], pid=%u\n", syscallId, pid);
@@ -416,17 +416,17 @@ bool processRunNextInstruction(Process *process) {
 								return false;
 							}
 						} break;
-						case ByteCodeSyscallIdGetPidRam:
+						case BytecodeSyscallIdGetPidRam:
 							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidram] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdSignal:
+						case BytecodeSyscallIdSignal:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [signal] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdRead:
+						case BytecodeSyscallIdRead:
 							if (process->regs[1]==process->envVars.stdinFd) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
 								if (result>=0)
@@ -443,7 +443,7 @@ bool processRunNextInstruction(Process *process) {
 								printf("], len=%u, read=%u)\n", process->regs[3], process->regs[0]);
 							}
 						break;
-						case ByteCodeSyscallIdWrite: {
+						case BytecodeSyscallIdWrite: {
 							uint8_t fd=process->regs[1];
 							// uint16_t offset=process->regs[2]; // offset is ignored as we currently only allow writing to stdout
 							uint16_t bufAddr=process->regs[3];
@@ -463,7 +463,7 @@ bool processRunNextInstruction(Process *process) {
 								printf("], len=%u, written=%u)\n", bufLen, process->regs[0]);
 							}
 						} break;
-						case ByteCodeSyscallIdOpen:
+						case BytecodeSyscallIdOpen:
 							// TODO: file syscalls long term (handling fds etc)
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [open] (unimplemented)\n", syscallId);
@@ -471,126 +471,126 @@ bool processRunNextInstruction(Process *process) {
 							// This is not implemented - simply return invalid fd
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdClose:
+						case BytecodeSyscallIdClose:
 							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [close] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdDirGetChildN:
+						case BytecodeSyscallIdDirGetChildN:
 							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [dirgetchildn] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdGetPath: {
+						case BytecodeSyscallIdGetPath: {
 							// TODO: see open (we could technically support stdiofd, returning /dev/ttyS0)
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						} break;
-						case ByteCodeSyscallIdResizeFile:
+						case BytecodeSyscallIdResizeFile:
 							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [resizefile] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdFileGetLen:
+						case BytecodeSyscallIdFileGetLen:
 							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [filegetlen] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdTryReadByte:
+						case BytecodeSyscallIdTryReadByte:
 							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [tryreadbyte] (unimplemented)\n", syscallId);
 							process->regs[0]=256;
 						break;
-						case ByteCodeSyscallIdIsDir:
+						case BytecodeSyscallIdIsDir:
 							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [isdir] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdFileExists:
+						case BytecodeSyscallIdFileExists:
 							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [fileexists] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdDelete:
+						case BytecodeSyscallIdDelete:
 							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [delete] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdEnvGetStdinFd:
+						case BytecodeSyscallIdEnvGetStdinFd:
 							process->regs[0]=process->envVars.stdinFd;
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envgetstinfd] (return fd = %u)\n", syscallId, process->regs[0]);
 						break;
-						case ByteCodeSyscallIdEnvSetStdinFd:
+						case BytecodeSyscallIdEnvSetStdinFd:
 							process->envVars.stdinFd=process->regs[0];
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetstdinfd], new fd %u\n", syscallId, process->envVars.stdinFd);
 						break;
-						case ByteCodeSyscallIdEnvGetPwd:
+						case BytecodeSyscallIdEnvGetPwd:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdEnvSetPwd:
+						case BytecodeSyscallIdEnvSetPwd:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdEnvGetPath:
+						case BytecodeSyscallIdEnvGetPath:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdEnvSetPath:
+						case BytecodeSyscallIdEnvSetPath:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdEnvGetStdoutFd:
+						case BytecodeSyscallIdEnvGetStdoutFd:
 							process->regs[0]=process->envVars.stdoutFd;
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envgetstoutfd] (return fd = %u)\n", syscallId, process->regs[0]);
 						break;
-						case ByteCodeSyscallIdEnvSetStdoutFd:
+						case BytecodeSyscallIdEnvSetStdoutFd:
 							process->envVars.stdoutFd=process->regs[0];
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetstdoutfd], new fd %u\n", syscallId, process->envVars.stdoutFd);
 						break;
-						case ByteCodeSyscallIdTimeMonotonic:
+						case BytecodeSyscallIdTimeMonotonic:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [timemonotonic] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdRegisterSignalHandler:
+						case BytecodeSyscallIdRegisterSignalHandler:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [registersignalhandler] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdShutdown:
+						case BytecodeSyscallIdShutdown:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [shutdown] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdMount:
+						case BytecodeSyscallIdMount:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [mount] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case ByteCodeSyscallIdUnmount:
+						case BytecodeSyscallIdUnmount:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unmount] (unimplemented)\n", syscallId);
 						break;
-						case ByteCodeSyscallIdIoctl:
+						case BytecodeSyscallIdIoctl:
 							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [ioctl] (unimplemented)\n", syscallId);
@@ -625,8 +625,8 @@ bool processRunNextInstruction(Process *process) {
 void processDebug(const Process *process) {
 	printf("Info:\n");
 	printf("	PID: %u\n", process->pid);
-	printf("	IP: %u\n", process->regs[ByteCodeRegisterIP]);
-	printf("	SP: %u\n", process->regs[ByteCodeRegisterSP]);
+	printf("	IP: %u\n", process->regs[BytecodeRegisterIP]);
+	printf("	SP: %u\n", process->regs[BytecodeRegisterSP]);
 	printf("	Instruction count: %u\n", process->instructionCount);
 	printf("	Regs:");
 	for(int i=0; i<8; ++i)

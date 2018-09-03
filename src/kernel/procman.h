@@ -38,7 +38,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus);
 
 void procManProcessTick(ProcManPid pid);
 
-void procManProcessSendSignal(ProcManPid pid, ByteCodeSignalId signalId);
+void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId);
 
 bool procManProcessExists(ProcManPid pid);
 
