@@ -4,22 +4,22 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef uint16_t ByteCodeWord;
-typedef uint32_t ByteCodeDoubleWord;
+typedef uint16_t BytecodeWord;
+typedef uint32_t BytecodeDoubleWord;
 
-#define ByteCodeMemoryTotalSize ((ByteCodeDoubleWord)0xFFFFu) // 64kb
-#define ByteCodeMemoryProgmemAddr ((ByteCodeWord)0x0000u) // progmem in lower 32kb
-#define ByteCodeMemoryProgmemSize ((ByteCodeWord)0x8000u)
-#define ByteCodeMemoryRamAddr ((ByteCodeWord)(ByteCodeMemoryProgmemAddr+ByteCodeMemoryProgmemSize)) // ram in upper 32kb
-#define ByteCodeMemoryRamSize ((ByteCodeWord)(ByteCodeMemoryTotalSize-ByteCodeMemoryProgmemSize))
+#define BytecodeMemoryTotalSize ((BytecodeDoubleWord)0xFFFFu) // 64kb
+#define BytecodeMemoryProgmemAddr ((BytecodeWord)0x0000u) // progmem in lower 32kb
+#define BytecodeMemoryProgmemSize ((BytecodeWord)0x8000u)
+#define BytecodeMemoryRamAddr ((BytecodeWord)(BytecodeMemoryProgmemAddr+BytecodeMemoryProgmemSize)) // ram in upper 32kb
+#define BytecodeMemoryRamSize ((BytecodeWord)(BytecodeMemoryTotalSize-BytecodeMemoryProgmemSize))
 
 typedef enum {
-	ByteCodeSignalIdInterrupt,
-	ByteCodeSignalIdUser1,
-	ByteCodeSignalIdUser2,
-	ByteCodeSignalIdSuicide,
-	ByteCodeSignalIdNB,
-} ByteCodeSignalId;
+	BytecodeSignalIdInterrupt,
+	BytecodeSignalIdUser1,
+	BytecodeSignalIdUser2,
+	BytecodeSignalIdSuicide,
+	BytecodeSignalIdNB,
+} BytecodeSignalId;
 
 typedef enum {
 	BytecodeRegister0,
@@ -33,9 +33,9 @@ typedef enum {
 	BytecodeRegisterNB,
 } BytecodeRegister;
 
-#define ByteCodeRegisterS BytecodeRegister5
-#define ByteCodeRegisterSP BytecodeRegister6
-#define ByteCodeRegisterIP BytecodeRegister7
+#define BytecodeRegisterS BytecodeRegister5
+#define BytecodeRegisterSP BytecodeRegister6
+#define BytecodeRegisterIP BytecodeRegister7
 
 typedef enum {
 	BytecodeInstructionTypeMemory,
@@ -50,7 +50,7 @@ typedef enum {
 } BytecodeInstructionLength;
 
 typedef uint8_t BytecodeInstructionShort;
-typedef ByteCodeWord BytecodeInstructionStandard;
+typedef BytecodeWord BytecodeInstructionStandard;
 typedef uint8_t BytecodeInstructionLong[3];
 
 typedef enum {
@@ -118,51 +118,51 @@ typedef struct {
 } BytecodeInstructionAluInfo;
 
 typedef enum {
-	ByteCodeSyscallIdIoctlCommandDevTtyS0SetEcho,
-	ByteCodeSyscallIdIoctlCommandDevPinSetMode,
-} ByteCodeSyscallIdIoctlCommand;
+	BytecodeSyscallIdIoctlCommandDevTtyS0SetEcho,
+	BytecodeSyscallIdIoctlCommandDevPinSetMode,
+} BytecodeSyscallIdIoctlCommand;
 
 typedef enum {
-	ByteCodeSyscallIdExit=(0|0),
-	ByteCodeSyscallIdGetPid=(0|1),
-	ByteCodeSyscallIdGetArgC=(0|2),
-	ByteCodeSyscallIdGetArgVN=(0|3),
-	ByteCodeSyscallIdFork=(0|4),
-	ByteCodeSyscallIdExec=(0|5),
-	ByteCodeSyscallIdWaitPid=(0|6),
-	ByteCodeSyscallIdGetPidPath=(0|7),
-	ByteCodeSyscallIdGetPidState=(0|8),
-	ByteCodeSyscallIdGetAllCpuCounts=(0|9),
-	ByteCodeSyscallIdKill=(0|10),
-	ByteCodeSyscallIdGetPidRam=(0|11),
-	ByteCodeSyscallIdSignal=(0|12),
-	ByteCodeSyscallIdRead=(256|0),
-	ByteCodeSyscallIdWrite=(256|1),
-	ByteCodeSyscallIdOpen=(256|2),
-	ByteCodeSyscallIdClose=(256|3),
-	ByteCodeSyscallIdDirGetChildN=(256|4),
-	ByteCodeSyscallIdGetPath=(256|5),
-	ByteCodeSyscallIdResizeFile=(256|6),
-	ByteCodeSyscallIdFileGetLen=(256|7),
-	ByteCodeSyscallIdTryReadByte=(256|8),
-	ByteCodeSyscallIdIsDir=(256|9),
-	ByteCodeSyscallIdFileExists=(256|10),
-	ByteCodeSyscallIdDelete=(256|11),
-	ByteCodeSyscallIdEnvGetStdinFd=(512|0),
-	ByteCodeSyscallIdEnvSetStdinFd=(512|1),
-	ByteCodeSyscallIdEnvGetPwd=(512|2),
-	ByteCodeSyscallIdEnvSetPwd=(512|3),
-	ByteCodeSyscallIdEnvGetPath=(512|4),
-	ByteCodeSyscallIdEnvSetPath=(512|5),
-	ByteCodeSyscallIdEnvGetStdoutFd=(512|6),
-	ByteCodeSyscallIdEnvSetStdoutFd=(512|7),
-	ByteCodeSyscallIdTimeMonotonic=(768|0),
-	ByteCodeSyscallIdRegisterSignalHandler=(1024|0),
-	ByteCodeSyscallIdShutdown=(1280|0),
-	ByteCodeSyscallIdMount=(1280|1),
-	ByteCodeSyscallIdUnmount=(1280|2),
-	ByteCodeSyscallIdIoctl=(1280|3),
-} ByteCodeSyscallId;
+	BytecodeSyscallIdExit=(0|0),
+	BytecodeSyscallIdGetPid=(0|1),
+	BytecodeSyscallIdGetArgC=(0|2),
+	BytecodeSyscallIdGetArgVN=(0|3),
+	BytecodeSyscallIdFork=(0|4),
+	BytecodeSyscallIdExec=(0|5),
+	BytecodeSyscallIdWaitPid=(0|6),
+	BytecodeSyscallIdGetPidPath=(0|7),
+	BytecodeSyscallIdGetPidState=(0|8),
+	BytecodeSyscallIdGetAllCpuCounts=(0|9),
+	BytecodeSyscallIdKill=(0|10),
+	BytecodeSyscallIdGetPidRam=(0|11),
+	BytecodeSyscallIdSignal=(0|12),
+	BytecodeSyscallIdRead=(256|0),
+	BytecodeSyscallIdWrite=(256|1),
+	BytecodeSyscallIdOpen=(256|2),
+	BytecodeSyscallIdClose=(256|3),
+	BytecodeSyscallIdDirGetChildN=(256|4),
+	BytecodeSyscallIdGetPath=(256|5),
+	BytecodeSyscallIdResizeFile=(256|6),
+	BytecodeSyscallIdFileGetLen=(256|7),
+	BytecodeSyscallIdTryReadByte=(256|8),
+	BytecodeSyscallIdIsDir=(256|9),
+	BytecodeSyscallIdFileExists=(256|10),
+	BytecodeSyscallIdDelete=(256|11),
+	BytecodeSyscallIdEnvGetStdinFd=(512|0),
+	BytecodeSyscallIdEnvSetStdinFd=(512|1),
+	BytecodeSyscallIdEnvGetPwd=(512|2),
+	BytecodeSyscallIdEnvSetPwd=(512|3),
+	BytecodeSyscallIdEnvGetPath=(512|4),
+	BytecodeSyscallIdEnvSetPath=(512|5),
+	BytecodeSyscallIdEnvGetStdoutFd=(512|6),
+	BytecodeSyscallIdEnvSetStdoutFd=(512|7),
+	BytecodeSyscallIdTimeMonotonic=(768|0),
+	BytecodeSyscallIdRegisterSignalHandler=(1024|0),
+	BytecodeSyscallIdShutdown=(1280|0),
+	BytecodeSyscallIdMount=(1280|1),
+	BytecodeSyscallIdUnmount=(1280|2),
+	BytecodeSyscallIdIoctl=(1280|3),
+} BytecodeSyscallId;
 
 typedef enum {
 	BytecodeInstructionMiscTypeNop,

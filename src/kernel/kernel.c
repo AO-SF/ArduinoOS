@@ -249,7 +249,7 @@ void kernelShutdownBegin(void) {
 		if (!procManProcessExists(pid))
 			continue;
 
-		procManProcessSendSignal(pid, ByteCodeSignalIdSuicide);
+		procManProcessSendSignal(pid, BytecodeSignalIdSuicide);
 	}
 
 	// Return to let main loop wait for processes to die or a  timeout to occur
@@ -313,7 +313,7 @@ void kernelShutdownNext(void) {
 	// Send suicide signal to init
 	kernelSetState(KernelStateShuttingDownWaitInit);
 	kernelLog(LogTypeInfo, kstrP("shutdown request, sending suicide signal to init\n"));
-	procManProcessSendSignal(0, ByteCodeSignalIdSuicide);
+	procManProcessSendSignal(0, BytecodeSignalIdSuicide);
 }
 
 void kernelBoot(void) {
@@ -904,7 +904,7 @@ void kernelCtrlCSend(void) {
 				if (kernelReaderPidArray[j]==kernelReaderPidArray[i])
 					break;
 			if (j==i)
-				procManProcessSendSignal(kernelReaderPidArray[i], ByteCodeSignalIdInterrupt);
+				procManProcessSendSignal(kernelReaderPidArray[i], BytecodeSignalIdInterrupt);
 		}
 	}
 
