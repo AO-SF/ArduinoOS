@@ -416,9 +416,12 @@ bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size) {
 				switch(device->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						// In theory we can create files on a MiniFs if it is not mounted read only
-						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (device->d.block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), device);
-						bool res=miniFsFileCreate(&kernelFsScratchMiniFs, basename, size);
-						miniFsUnmount(&kernelFsScratchMiniFs);
+						bool res=false;
+						if (device->d.block.writeFunctor!=NULL) {
+							miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, &kernelFsMiniFsWriteWrapper, device);
+							res=miniFsFileCreate(&kernelFsScratchMiniFs, basename, size);
+							miniFsUnmount(&kernelFsScratchMiniFs);
+						}
 						return res;
 					} break;
 					case KernelFsBlockDeviceFormatFlatFile:
