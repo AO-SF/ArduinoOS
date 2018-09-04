@@ -92,7 +92,7 @@ int16_t kernelMountReadFunctor(KernelFsFileOffset addr, void *userData) {
 
 bool kernelMountWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData) {
 	assert(((uintptr_t)userData)<KernelFsFdMax);
-	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)addr;
+	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
 
 	// Simply write to device file directly
 	return (kernelFsFileWriteOffset(deviceFd, addr, &value, 1)==1);
