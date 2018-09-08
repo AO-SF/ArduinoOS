@@ -7,4 +7,19 @@ SYNOPSIS
       signal <pid> <signalid>
 
 DESCRIPTION
-      Send the given signal to the process represented by the given pid
+      Send the given signal to the process represented by the given pid.
+
+      The following signals are available:
+      Id | Name      | Description
+      ---|-----------|-------------
+       0 | Interrupt | Sent to all processes which have /dev/ttyS0 open
+         |           | (generally only the shell, which then kills the
+         |           | foreground process, if any) when the user presses
+         |           | Ctrl+C.
+       1 | User1     | User1 and User2 are signals not used by the system
+         |           | and instead are reserved for userspace signalling.
+       2 | User2     | See User1.
+       3 | Suicide   | The receiving process is to tidy up (close file
+         |           | descriptors, etc.) and call exit, as soon as possible
+         |           | (it will probably be forcefully killed a few seconds
+         |           | later anyway).
