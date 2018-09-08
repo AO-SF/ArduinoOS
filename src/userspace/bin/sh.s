@@ -1,5 +1,19 @@
 require lib/sys/sys.s
 
+requireend lib/std/io/fget.s
+requireend lib/std/io/fput.s
+requireend lib/std/io/fputdec.s
+requireend lib/std/proc/exit.s
+requireend lib/std/proc/getabspath.s
+requireend lib/std/proc/getpwd.s
+requireend lib/std/proc/openpath.s
+requireend lib/std/proc/runpath.s
+requireend lib/std/proc/waitpid.s
+requireend lib/std/str/strchr.s
+requireend lib/std/str/strrchr.s
+requireend lib/std/str/strequal.s
+requireend lib/std/str/strtrimlast.s
+
 db stdinPath '/dev/ttyS0', 0
 db stdoutPath '/dev/ttyS0', 0
 db prompt '$ ', 0
@@ -30,20 +44,6 @@ ab childPid 1
 
 ab suicideHandlerLock 1
 ab interruptHandlerLock 1
-
-requireend lib/std/io/fget.s
-requireend lib/std/io/fput.s
-requireend lib/std/io/fputdec.s
-requireend lib/std/proc/exit.s
-requireend lib/std/proc/getabspath.s
-requireend lib/std/proc/getpwd.s
-requireend lib/std/proc/openpath.s
-requireend lib/std/proc/runpath.s
-requireend lib/std/proc/waitpid.s
-requireend lib/std/str/strchr.s
-requireend lib/std/str/strrchr.s
-requireend lib/std/str/strequal.s
-requireend lib/std/str/strtrimlast.s
 
 ; signal handler labels must be within first 256 bytes of executable, so put these 'trampoline' functions first
 jmp start
