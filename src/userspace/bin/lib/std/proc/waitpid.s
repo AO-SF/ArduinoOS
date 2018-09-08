@@ -9,7 +9,7 @@ mov r3 SyscallWaitpidStatusInterrupted
 label waitpidLoop
 mov r0 SyscallIdWaitpid ; as the syscall returns the result in r0 also, we need to reset this each iteration
 syscall
-cmp r3 r0 r3
-skipneq r3 ; interrupted?
+cmp r4 r0 r4
+skipneq r4 ; interrupted?
 jmp waitpidLoop
 ret
