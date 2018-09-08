@@ -39,6 +39,7 @@ requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/getpwd.s
 requireend lib/std/proc/openpath.s
 requireend lib/std/proc/runpath.s
+requireend lib/std/proc/waitpid.s
 requireend lib/std/str/strchr.s
 requireend lib/std/str/strrchr.s
 requireend lib/std/str/strequal.s
@@ -437,15 +438,7 @@ cmp r1 r1 r1
 skipeqz r1
 jmp shellRunFdRet
 
-mov r1 r0 ; childs PID
-mov r2 0 ; infinite timeout
-label shellForkExecForkParentWaitPidLoop
-mov r0 6 ; waitpid syscall
-syscall
-mov r3 65531
-cmp r3 r0 r3
-skipneq r3 ; interrupted?
-jmp shellForkExecForkParentWaitPidLoop
+call waitpid ; childs PID in r0
 
 mov r0 PidMax
 mov r1 childPid

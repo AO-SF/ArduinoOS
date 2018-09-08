@@ -5,6 +5,7 @@ requireend lib/std/io/fputtime.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/runpath.s
+requireend lib/std/proc/waitpid.s
 requireend lib/std/time/timemonotonic.s
 
 db preMsg 'took: ', 0
@@ -72,11 +73,7 @@ jmp done
 
 label forkParent
 ; Wait for child to die
-mov r1 r0
-mov r0 6
-mov r2 0 ; infinite timeout
-syscall
-
+call waitpid ; childs PID is in r0 already
 jmp childFinished
 
 label forkError
