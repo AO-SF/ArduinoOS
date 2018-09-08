@@ -1,6 +1,10 @@
+require lib/sys/sys.s
+
+requireend lib/std/proc/exit.s
+
 ; Register suicide signal handler
-mov r0 1024
-mov r1 3 ; suicide signal id
+mov r0 SyscallIdRegisterSignalHandler
+mov r1 SignalIdSuicide
 mov r2 suicideHandler
 syscall
 
@@ -11,5 +15,4 @@ jmp loop
 ; Suicide handler to exit quickly
 label suicideHandler
 mov r0 0
-mov r1 0
-syscall
+call exit

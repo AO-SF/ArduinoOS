@@ -14,4 +14,6 @@ const SyscallIdEnvSetStdinFd 513
 const SyscallIdEnvGetStdoutFd 518
 const SyscallIdEnvSetStdoutFd 519
 
+const SyscallIdRegisterSignalHandler 1024
+
 const SyscallWaitpidStatusInterrupted 65531
