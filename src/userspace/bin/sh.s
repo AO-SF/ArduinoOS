@@ -331,7 +331,7 @@ inc r0
 mov r1 arg1Ptr
 store16 r1 r0
 
-; check another another arg (2nd after cmd)
+; check another arg (2nd after cmd)
 ; r0 already contains ptr to previous arg
 mov r1 ' '
 call strchr
@@ -347,7 +347,7 @@ inc r0
 mov r1 arg2Ptr
 store16 r1 r0
 
-; check another another arg (3rd after cmd)
+; check another arg (3rd after cmd)
 ; r0 already contains ptr to previous arg
 mov r1 ' '
 call strchr
