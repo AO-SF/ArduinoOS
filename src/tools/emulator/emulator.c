@@ -29,7 +29,7 @@ typedef struct {
 
 	uint8_t memory[BytecodeMemoryTotalSize]; // combined progmem+ram
 
-	bool skipFlag; // skip next instruction?
+	unsigned skipCounter; // skip next n instructions?
 
 	unsigned instructionCount;
 	BytecodeWord pid;
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
 
 	process->regs[BytecodeRegisterSP]=0;
 	process->regs[BytecodeRegisterIP]=0;
-	process->skipFlag=false;
+	process->skipCounter=0;
 	process->instructionCount=0;
 	srand(time(NULL));
 	process->pid=(rand()%(ProcManPidMax-1))+1; // +1 to avoid InitPid at 0
@@ -163,10 +163,10 @@ bool processRunNextInstruction(Process *process) {
 		return false;
 	}
 
-	if (process->skipFlag) {
+	if (process->skipCounter>0) {
 		if (infoInstructions)
 			printf("Info: Skipping instruction\n");
-		process->skipFlag=false;
+		--process->skipCounter;
 		return true;
 	}
 
@@ -286,12 +286,13 @@ bool processRunNextInstruction(Process *process) {
 					if (infoInstructions)
 						printf("Info: r%i=r%i>>r%i (=%i>>%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
-				case BytecodeInstructionAluTypeSkip:
-					process->skipFlag=(process->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg));
+				case BytecodeInstructionAluTypeSkip: {
+					unsigned skipDist=(info.d.alu.opBReg+1);
+					process->skipCounter=((process->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg)) ? skipDist : 0);
 
 					if (infoInstructions)
-						printf("Info: skip%u r%i (=%i, %s, skip=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, process->regs[info.d.alu.destReg], byteCodeInstructionAluCmpBitStrings[info.d.alu.opAReg], process->skipFlag);
-				break;
+						printf("Info: skip%u r%i (=%i, %s, skip=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, process->regs[info.d.alu.destReg], byteCodeInstructionAluCmpBitStrings[info.d.alu.opAReg], process->skipCounter);
+				} break;
 				case BytecodeInstructionAluTypeStore16:
 					process->memory[process->regs[info.d.alu.destReg]]=(process->regs[info.d.alu.opAReg]>>8);
 					process->memory[process->regs[info.d.alu.destReg]+1]=(process->regs[info.d.alu.opAReg]&0xFF);

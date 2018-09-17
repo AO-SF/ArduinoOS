@@ -189,6 +189,7 @@ typedef struct {
 	uint8_t machineCode[1024]; // TODO: this is pretty wasteful...
 	uint16_t machineCodeLen;
 	uint16_t machineCodeOffset;
+	uint8_t machineCodeInstructions;
 } AssemblerInstruction;
 
 typedef struct {
@@ -1347,13 +1348,16 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 
 		switch(instruction->type) {
 			case AssemblerInstructionTypeAllocation:
-				instruction->machineCodeLen=0; // These are reserved in RAM not program memory
+				// These are reserved in RAM not program memory
+				instruction->machineCodeLen=0;
+				instruction->machineCodeInstructions=0;
 			break;
 			case AssemblerInstructionTypeDefine:
 				// If we are not pointing into some other define's space, simply copy data into program memory directly
 				if (instruction->d.define.pointerLineIndex==instruction->lineIndex)
 					for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
 						instruction->machineCode[instruction->machineCodeLen++]=instruction->d.define.data[j];
+				instruction->machineCodeInstructions=0; // Doesn't really apply
 			break;
 			case AssemblerInstructionTypeMov: {
 				// Check src and determine type
@@ -1404,49 +1408,65 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 					return false;
 				}
+
+				instruction->machineCodeInstructions=1;
 			} break;
 			case AssemblerInstructionTypeLabel:
 				instruction->machineCodeLen=0;
+				instruction->machineCodeInstructions=0;
 			break;
 			case AssemblerInstructionTypeSyscall:
 				instruction->machineCode[0]=bytecodeInstructionCreateMiscSyscall();
 				instruction->machineCodeLen=1;
+				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeAlu:
 				instruction->machineCodeLen=2; // all ALU instructions take 2 bytes
+				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeJmp:
 				instruction->machineCodeLen=3; // Reserve three bytes for set16 instruction
+				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypePush8:
 				instruction->machineCodeLen=3; // Reserve three bytes (store8 + inc1)
+				instruction->machineCodeInstructions=2;
 			break;
 			case AssemblerInstructionTypePop8:
 				instruction->machineCodeLen=3; // Reserve three bytes (dec1 + load8)
+				instruction->machineCodeInstructions=2;
 			break;
 			case AssemblerInstructionTypePush16:
 				instruction->machineCodeLen=4; // Reserve four bytes (store16 + inc2)
+				instruction->machineCodeInstructions=2;
 			break;
 			case AssemblerInstructionTypePop16:
 				instruction->machineCodeLen=4; // Reserve four bytes (dec2 + load16)
+				instruction->machineCodeInstructions=2;
 			break;
 			case AssemblerInstructionTypeCall:
 				instruction->machineCodeLen=11;
+				instruction->machineCodeInstructions=4;
 			break;
 			case AssemblerInstructionTypeRet:
 				instruction->machineCodeLen=4;
+				instruction->machineCodeInstructions=2;
 			break;
 			case AssemblerInstructionTypeStore8:
 				instruction->machineCodeLen=1;
+				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeLoad8:
 				instruction->machineCodeLen=1;
+				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeXchg8:
 				instruction->machineCodeLen=1;
+				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeConst:
 				instruction->machineCodeLen=0;
+				instruction->machineCodeInstructions=0;
 			break;
 		}
 	}
@@ -1566,10 +1586,12 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					opBReg=0;
 
 				// Create instruction
-				if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip)
-					// Special case to encode literal bit index
+				if (instruction->d.alu.type==BytecodeInstructionAluTypeSkip) {
+					// Special case to encode literal bit index and skip distance
+					AssemblerInstruction *nextInstruction=&program->instructions[i+1];
 					opAReg=instruction->d.alu.skipBit;
-				if (instruction->d.alu.type==BytecodeInstructionAluTypeInc || instruction->d.alu.type==BytecodeInstructionAluTypeDec) {
+					opBReg=(nextInstruction!=NULL ? (nextInstruction->machineCodeInstructions)-1 : 0); // skip next pseudo instruction, which may be several raw instructions
+				} else if (instruction->d.alu.type==BytecodeInstructionAluTypeInc || instruction->d.alu.type==BytecodeInstructionAluTypeDec) {
 					// Special case to encode literal add/sub delta
 					opAReg=(instruction->d.alu.incDecValue-1)>>3;
 					opBReg=(instruction->d.alu.incDecValue-1)&7;

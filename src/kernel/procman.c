@@ -972,11 +972,14 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 				break;
 				case BytecodeInstructionAluTypeSkip: {
 					if (procData->regs[info.d.alu.destReg] & (1u<<info.d.alu.opAReg)) {
-						// Skip next instruction
-						BytecodeInstructionLong nextInstruction;
-						if (!procManProcessGetInstruction(process, procData, &nextInstruction)) {
-							kernelLog(LogTypeWarning, kstrP("could not skip next instruction, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-							return false;
+						// Skip next n instructions
+						uint8_t skipDist=info.d.alu.opBReg+1;
+						for(uint8_t i=0; i<skipDist; ++i) {
+							BytecodeInstructionLong skippedInstruction;
+							if (!procManProcessGetInstruction(process, procData, &skippedInstruction)) {
+								kernelLog(LogTypeWarning, kstrP("could not skip instruction (initial skip dist %u), process %u (%s), killing\n"), skipDist, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								return false;
+							}
 						}
 					}
 				} break;
