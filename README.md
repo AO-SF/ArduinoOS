@@ -34,6 +34,48 @@ Kernel logging and stdin/stout uses the Mega's USB serial, baud rate 9600 and a 
 
 Example: ``screen /dev/ttyACM0 9600``
 
+# Examples
+```
+/bin$ cd
+/home$ ls
+fib bomb tree blinkfast blink test.sh
+/home$ fib
+0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946, 17711, 28657, 46368
+/home$ cat test.sh
+#!/bin/sh
+echo moving to home...
+cd
+echo timing ls...
+time ls
+echo exiting...
+exit
+/home$ test.sh
+moving to home...
+timing ls...
+fib bomb tree blinkfast blink test.sh
+took: 0s
+exiting...
+/home$ ls /dev
+eeprom full null ttyS0 urandom zero pin12 pin13 pin14 pin15 pin35 pin36 pin37 pin53 pin59 pin60 pin61 pin62
+/home$
+/home$ sleep 100 &
+/home$ ps
+  PID  %CPU   RAM    STATE COMMAND
+00000 00000 00094  waiting /bin/init
+00001 00033 00462  waiting /bin/sh
+00002 00036 00130  waiting /bin/sleep
+00003 00030 00221   active /usr/bin/ps
+/home$ kill 2
+/home$ ps
+  PID  %CPU   RAM    STATE COMMAND
+00000 00000 00094  waiting /bin/init
+00001 00024 00462  waiting /bin/sh
+00002 00075 00221   active /usr/bin/ps
+/home$ shutdown
+```
+
+![Screenshot of Arduino Game](https://raw.githubusercontent.com/AO-SF/ArduinoOS/master/screenshots/game.png)
+
 # License
 Copyright (C) 2018-2019 Daniel White
 
