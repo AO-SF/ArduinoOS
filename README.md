@@ -35,7 +35,7 @@ Kernel logging and stdin/stout uses the Mega's USB serial, baud rate 9600 and a 
 Example: ``screen /dev/ttyACM0 9600``
 
 # License
-Copyright (C) 2018 Daniel White
+Copyright (C) 2018-2019 Daniel White
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
