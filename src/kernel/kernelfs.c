@@ -73,7 +73,7 @@ KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceType type);
 
 bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
 
-uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData);
+uint16_t kernelFsMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
 void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -698,15 +698,9 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 				switch(parentDevice->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (parentDevice->d.block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
-						KernelFsFileOffset i;
-						for(i=0; i<dataLen; ++i) {
-							int16_t res=miniFsFileRead(&kernelFsScratchMiniFs, basename, offset+i);
-							if (res==-1 || res>=256)
-								break;
-							data[i]=res;
-						}
+						uint16_t read=miniFsFileRead(&kernelFsScratchMiniFs, basename, offset, data, dataLen);
 						miniFsUnmount(&kernelFsScratchMiniFs);
-						return i;
+						return read;
 					} break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
@@ -1153,21 +1147,14 @@ bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir) 
 	return (strcmp(dirname, parentDir)==0);
 }
 
-uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData) {
+uint16_t kernelFsMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData) {
 	assert(userData!=NULL);
 
 	KernelFsDevice *device=(KernelFsDevice *)userData;
 	assert(device->type==KernelFsDeviceTypeBlock);
 	assert(device->d.block.format==KernelFsBlockDeviceFormatCustomMiniFs);
 
-	uint8_t c;
-	if (device->d.block.readFunctor(addr, &c, 1, device->d.block.functorUserData)!=1) {
-		// TODO: think about this
-		assert(false);
-		c=255;
-	}
-
-	return c;
+	return device->d.block.readFunctor(addr, data, len, device->d.block.functorUserData);
 }
 
 void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData) {

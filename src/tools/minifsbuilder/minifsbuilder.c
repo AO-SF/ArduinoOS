@@ -24,7 +24,7 @@ bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const
 bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose);
 bool miniFsWriteFlatFile(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose);
 
-uint8_t readFunctor(uint16_t addr, void *userData);
+uint16_t readFunctor(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
 void writeFunctor(uint16_t addr, uint8_t value, void *userData);
 
 int main(int argc, char **argv) {
@@ -219,8 +219,9 @@ bool miniFsWriteFlatFile(const char *name, uint16_t size, const char *destDir, u
 	return true;
 }
 
-uint8_t readFunctor(uint16_t addr, void *userData) {
-	return ((uint8_t *)userData)[addr];
+uint16_t readFunctor(uint16_t addr, uint8_t *data, uint16_t len, void *userData) {
+	memcpy(data, ((uint8_t *)userData)+addr, len);
+	return len;
 }
 
 void writeFunctor(uint16_t addr, uint8_t value, void *userData) {
