@@ -122,6 +122,7 @@ bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcM
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value);
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str);
+bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const uint8_t *data, uint16_t len); // ..... cannot split across boundary
 
 bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.  TODO: Avoid hardcoded limit
 
@@ -759,17 +760,29 @@ bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcM
 }
 
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value) {
+	return procManProcessMemoryWriteBlock(process, procData, addr, &value, 1);
+}
+
+bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str) {
+	return procManProcessMemoryWriteBlock(process, procData, addr, (const uint8_t *)str, strlen(str)+1);
+}
+
+bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const uint8_t *data, uint16_t len) {
+	// Is addr split across boundary?
+	if (addr<BytecodeMemoryRamAddr && addr+len>=BytecodeMemoryRamAddr)
+		return false;
+
 	// Is this addr in read-only progmem section?
-	if (addr<BytecodeMemoryRamAddr) {
-		kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to read-only address (0x%04X), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr);
+	if (addr+len<BytecodeMemoryRamAddr) {
+		kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to read-only address (0x%04X, len %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, len);
 		return false;
 	}
 
 	// addr is in RAM
 	BytecodeWord ramIndex=(addr-BytecodeMemoryRamAddr);
-	if (ramIndex<procData->ramLen) {
-		if (!kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, &value, 1)) {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to valid RAM address (0x%04X, ram offset %u), but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
+	if (ramIndex+len<procData->ramLen) {
+		if (kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, data, len)!=len) {
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to valid RAM address (0x%04X, ram offset %u, len %u), but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, len);
 			return false;
 		}
 		return true;
@@ -782,7 +795,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 
 		// Resize ram file (trying for up to 16 bytes extra, but falling back on minimum if fails)
 		KernelFsFileOffset oldRamLen=procData->ramLen;
-		uint16_t newRamLenMin=ramIndex+1;
+		uint16_t newRamLenMin=ramIndex+len;
 		uint16_t newRamTotalSizeMin=procData->envVarDataLen+newRamLenMin;
 
 		uint16_t extra;
@@ -798,7 +811,7 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 
 			// Unable to allocate even 1 extra byte?
 			if (extra<=1) {
-				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not allocate new size (%u vs %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
+				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u, len %u), beyond size, but could not allocate new size (%u vs %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, len, newRamLen, oldRamLen);
 				kernelFsFileDelete(ramFdPath);
 				goto error;
 			}
@@ -807,15 +820,15 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 		// Re-open ram file
 		procData->ramFd=kernelFsFileOpen(ramFdPath);
 		if (procData->ramFd==KernelFsFdInvalid) {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u), beyond size, but could not reopen file after resizing, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex);
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u, len %u), beyond size, but could not reopen file after resizing, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, len);
 			kernelFsFileDelete(ramFdPath);
 			goto error;
 		}
 
 		// Update stored ram len and write byte
 		procData->ramLen=newRamLen;
-		if (!kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, &value, 1)) {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u) had to resize (%u vs %u), but could not write, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, newRamLen, oldRamLen);
+		if (kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, data, len)!=len) {
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u, len %u) had to resize (%u vs %u), but could not write, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, len, newRamLen, oldRamLen);
 			goto error;
 		}
 
@@ -833,16 +846,6 @@ bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcDa
 		return false;
 	if (!procManProcessMemoryWriteByte(process, procData, addr+1, (value&0xFF)))
 		return false;
-	return true;
-}
-
-bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str) {
-	for(const char *c=str; ; ++c) {
-		if (!procManProcessMemoryWriteByte(process, procData, addr++, *c))
-			return false;
-		if (*c=='\0')
-			break;
-	}
 	return true;
 }
 
