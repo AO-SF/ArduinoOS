@@ -117,6 +117,7 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value);
 bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value);
 bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, char *str, uint16_t len);
+bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len);
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value);
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str);
@@ -709,18 +710,27 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 	return true;
 }
 
-bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value) {
-	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
-	if (offset<ramTotalSize) {
-		if (!kernelFsFileReadOffset(procData->ramFd, offset, value, 1, false)) {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset);
+bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len) {
+	if (addr+len<BytecodeMemoryRamAddr) {
+		// Addresss is in progmem data
+		if (kernelFsFileReadOffset(process->progmemFd, addr, data, len, false)==len)
+			return true;
+		else {
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u, len %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr, len);
 			return false;
 		}
-		return true;
-	} else {
-		kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (RAM file offset %u, but size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, ramTotalSize);
+	} else if (addr>=BytecodeMemoryRamAddr) {
+		// Address is in RAM
+		BytecodeWord ramIndex=(addr-BytecodeMemoryRamAddr);
+		KernelFsFileOffset ramOffset=ramIndex+procData->envVarDataLen;
+		return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, ramOffset, data, len);
+	} else
+		// Block spans both regions of memory, invalid call.
 		return false;
-	}
+}
+
+bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value) {
+	return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, value, 1);
 }
 
 bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value) {
@@ -744,6 +754,20 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 	}
 
 	return true;
+}
+
+bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len) {
+	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
+	if (offset+len<ramTotalSize) {
+		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len, false)!=len) {
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len);
+			return false;
+		}
+		return true;
+	} else {
+		kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (RAM file offset %u, len %u, but size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len, ramTotalSize);
+		return false;
+	}
 }
 
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value) {
