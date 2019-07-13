@@ -656,16 +656,9 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 					case KernelFsBlockDeviceFormatCustomMiniFs:
 						// These act as directories at the top level (we check below for child)
 					break;
-					case KernelFsBlockDeviceFormatFlatFile: {
-						KernelFsFileOffset read;
-						for(read=0; read<dataLen; ++read) {
-							int16_t c=device->d.block.readFunctor(offset+read, device->d.block.functorUserData);
-							if (c==-1)
-								break;
-							data[read]=c;
-						}
-						return read;
-					} break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						return device->d.block.readFunctor(offset, data, dataLen, device->d.block.functorUserData);
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 						return 0;
@@ -1171,8 +1164,8 @@ uint8_t kernelFsMiniFsReadWrapper(uint16_t addr, void *userData) {
 	assert(device->type==KernelFsDeviceTypeBlock);
 	assert(device->d.block.format==KernelFsBlockDeviceFormatCustomMiniFs);
 
-	int16_t c=device->d.block.readFunctor(addr, device->d.block.functorUserData);
-	if (c==-1) {
+	uint8_t c;
+	if (device->d.block.readFunctor(addr, &c, 1, device->d.block.functorUserData)!=1) {
 		// TODO: think about this
 		assert(false);
 		c=255;
