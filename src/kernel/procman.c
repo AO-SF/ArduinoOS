@@ -114,6 +114,7 @@ bool procManProcessSaveProcDataPathPtr(const ProcManProcess *process, BytecodeWo
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value);
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value);
 bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, char *str, uint16_t len);
+bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len); // block should not cross splut in memory between two types
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value);
 bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value);
 bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, char *str, uint16_t len);
@@ -671,20 +672,7 @@ bool procManProcessSaveProcDataPathPtr(const ProcManProcess *process, BytecodeWo
 }
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value) {
-	if (addr<BytecodeMemoryRamAddr) {
-		// Addresss is in progmem data
-		if (kernelFsFileReadOffset(process->progmemFd, addr, value, 1, false)==1)
-			return true;
-		else {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr);
-			return false;
-		}
-	} else {
-		// Address is in RAM
-		BytecodeWord ramIndex=(addr-BytecodeMemoryRamAddr);
-		KernelFsFileOffset ramOffset=ramIndex+procData->envVarDataLen;
-		return procManProcessMemoryReadByteAtRamfileOffset(process, procData, ramOffset, value);
-	}
+	return procManProcessMemoryReadBlock(process, procData, addr, value, 1);
 }
 
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value) {
