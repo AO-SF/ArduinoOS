@@ -771,11 +771,7 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 						if (device->d.block.writeFunctor==NULL)
 							return 0;
 
-						KernelFsFileOffset written;
-						for(written=0; written<dataLen; ++written)
-							if (!device->d.block.writeFunctor(offset+written, data[written], device->d.character.functorUserData))
-								break;
-						return written;
+						return device->d.block.writeFunctor(offset, data, dataLen, device->d.character.functorUserData);
 					} break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -1187,5 +1183,5 @@ void kernelFsMiniFsWriteWrapper(uint16_t addr, uint8_t value, void *userData) {
 		return;
 	}
 
-	device->d.block.writeFunctor(addr, value, device->d.block.functorUserData); // TODO: think about return
+	device->d.block.writeFunctor(addr, &value, 1, device->d.block.functorUserData); // TODO: think about return
 }

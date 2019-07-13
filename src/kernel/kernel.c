@@ -113,11 +113,9 @@ void kernelHalt(void);
 
 KernelFsFileOffset kernelProgmemGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
-bool kernelDevEepromWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
-bool kernelEtcWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
-void kernelEtcMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
+KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
-bool kernelTmpWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
+KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
 int16_t kernelDevZeroReadFunctor(void *userData);
 bool kernelDevZeroCanReadFunctor(void *userData);
@@ -405,8 +403,8 @@ void kernelBoot(void) {
 
 	// ... optional EEPROM volumes
 	error=false;
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/dev/eeprom"), KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelEepromGenericReadFunctor, kernelDevEepromWriteFunctor, (void *)(uintptr_t)KernelEepromDevEepromOffset);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/etc"), KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEepromGenericReadFunctor, kernelEtcWriteFunctor, (void *)(uintptr_t)KernelEepromEtcOffset);
+	error|=!kernelFsAddBlockDeviceFile(kstrP("/dev/eeprom"), KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelEepromGenericReadFunctor, &kernelEepromGenericWriteFunctor, (void *)(uintptr_t)KernelEepromDevEepromOffset);
+	error|=!kernelFsAddBlockDeviceFile(kstrP("/etc"), KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEepromGenericReadFunctor, &kernelEepromGenericWriteFunctor, (void *)(uintptr_t)KernelEepromEtcOffset);
 	if (error)
 		kernelLog(LogTypeWarning, kstrP("fs init failure: /etc and /home\n"));
 
@@ -523,48 +521,25 @@ KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8
 #endif
 }
 
-bool kernelDevEepromWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData) {
-	addr+=KernelEepromDevEepromOffset;
+KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	KernelFsFileOffset offset=(KernelFsFileOffset)(uintptr_t)userData;
+	addr+=offset;
+
 #ifdef ARDUINO
-	eeprom_update_byte((void *)addr, value);
-	return true;
+	KernelFsFileOffset i;
+	for(i=0; i<len; ++i)
+		eeprom_update_byte((void *)(addr+i), data[i]);
+	return len;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, kstrP("could not seek to addr %u in /dev/eeprom write functor\n"), addr);
-		return false;
+		kernelLog(LogTypeWarning, kstrP("could not seek to addr %u in /dev/eeprom write functor (offset=%i)\n"), addr, offset);
+		return 0;
 	}
-	if (fputc(value, kernelFakeEepromFile)==EOF) {
-		kernelLog(LogTypeWarning, kstrP("could not write to addr %u in /dev/eeprom write functor\n"), addr);
-		return false;
-	}
-
-	return true;
+	KernelFsFileOffset result=fwrite(data, 1, len, kernelFakeEepromFile);
+	if (result!=len)
+		kernelLog(LogTypeWarning, kstrP("could not write to addr %u in /dev/eeprom write functor (offset=%i,result=%i)\n"), addr, offset, result);
+	return result;
 #endif
-}
-
-bool kernelEtcWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData) {
-	addr+=KernelEepromEtcOffset;
-#ifdef ARDUINO
-	eeprom_update_byte((void *)addr, value);
-	return true;
-#else
-	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, kstrP("could not seek to addr %u in etc write functor\n"), addr);
-		return false;
-	}
-	if (fputc(value, kernelFakeEepromFile)==EOF) {
-		kernelLog(LogTypeWarning, kstrP("could not write to addr %u in etc write functor\n"), addr);
-		return false;
-	}
-
-	return true;
-#endif
-}
-
-void kernelEtcMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
-	bool result=kernelEtcWriteFunctor(addr, value, userData);
-	assert(result);
-	_unused(result);
 }
 
 KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
@@ -572,13 +547,14 @@ KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, 
 	return len;
 }
 
-bool kernelTmpWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData) {
-	kernelTmpDataPool[addr]=value;
-	return true;
+
+KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	memcpy(kernelTmpDataPool+addr, data, len);
+	return len;
 }
 
 void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
-	bool result=kernelTmpWriteFunctor(addr, value, userData);
+	bool result=(kernelTmpWriteFunctor(addr, &value, 1, userData)==1);
 	assert(result);
 	_unused(result);
 }

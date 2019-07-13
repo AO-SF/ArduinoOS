@@ -24,7 +24,7 @@ typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatNB 2
 
 typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData); // returns -1 on failure
-typedef bool (KernelFsBlockDeviceWriteFunctor)(KernelFsFileOffset addr, uint8_t value, void *userData);
+typedef KernelFsFileOffset (KernelFsBlockDeviceWriteFunctor)(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Initialisation etc
