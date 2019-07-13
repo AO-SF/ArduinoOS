@@ -763,6 +763,14 @@ bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcDa
 	return procManProcessMemoryWriteBlock(process, procData, addr, &value, 1);
 }
 
+bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value) {
+	if (!procManProcessMemoryWriteByte(process, procData, addr, (value>>8)))
+		return false;
+	if (!procManProcessMemoryWriteByte(process, procData, addr+1, (value&0xFF)))
+		return false;
+	return true;
+}
+
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str) {
 	return procManProcessMemoryWriteBlock(process, procData, addr, (const uint8_t *)str, strlen(str)+1);
 }
@@ -839,14 +847,6 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 		procManProcessStoreProcData(process, procData); // TODO: Check return
 		return false;
 	}
-}
-
-bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value) {
-	if (!procManProcessMemoryWriteByte(process, procData, addr, (value>>8)))
-		return false;
-	if (!procManProcessMemoryWriteByte(process, procData, addr+1, (value&0xFF)))
-		return false;
-	return true;
 }
 
 bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]) {
