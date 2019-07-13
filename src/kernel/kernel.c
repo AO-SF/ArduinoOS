@@ -252,7 +252,7 @@ void kernelShutdownBegin(void) {
 		procManProcessSendSignal(pid, BytecodeSignalIdSuicide);
 	}
 
-	// Return to let main loop wait for processes to die or a  timeout to occur
+	// Return to let main loop wait for processes to die or a timeout to occur
 }
 
 KernelState kernelGetState(void) {
