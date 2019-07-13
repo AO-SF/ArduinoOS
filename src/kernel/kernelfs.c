@@ -704,15 +704,15 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 			case KernelFsDeviceTypeBlock:
 				switch(parentDevice->d.block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (parentDevice->d.block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
 						KernelFsFileOffset i;
 						for(i=0; i<dataLen; ++i) {
-							miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (parentDevice->d.block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
 							int16_t res=miniFsFileRead(&kernelFsScratchMiniFs, basename, offset+i);
-							miniFsUnmount(&kernelFsScratchMiniFs);
 							if (res==-1 || res>=256)
 								break;
 							data[i]=res;
 						}
+						miniFsUnmount(&kernelFsScratchMiniFs);
 						return i;
 					} break;
 					case KernelFsBlockDeviceFormatFlatFile:
