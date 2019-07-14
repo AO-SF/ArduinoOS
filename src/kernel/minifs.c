@@ -30,7 +30,8 @@ uint8_t miniFsGetTotalSizeFactorMinusOne(const MiniFs *fs);
 
 uint16_t miniFsRead(const MiniFs *fs, uint16_t addr, uint8_t *data, uint16_t len);
 uint8_t miniFsReadByte(const MiniFs *fs, uint16_t addr);
-void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value);
+uint16_t miniFsWrite(MiniFs *fs, uint16_t addr, const uint8_t *data, uint16_t len);
+void miniFsWriteByte(MiniFs *fs, uint16_t addr, uint8_t value);
 
 bool miniFsGetFilenameFromIndex(const MiniFs *fs, uint8_t index, char filename[MiniFsPathMax]);
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename); // Returns MINIFSMAXFILES if no such file exists
@@ -69,6 +70,8 @@ void miniFsResortFileOffsets(MiniFs *fs);
 bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, void *functorUserData, uint16_t maxTotalSize) {
 	assert(writeFunctor!=NULL);
 
+	uint8_t temp;
+
 	// Compute actual total size, which is rounded down to the next multiple of MINIFSFACTOR
 	uint16_t totalSizeFactor=maxTotalSize/MINIFSFACTOR;
 	uint16_t totalSize=totalSizeFactor*MINIFSFACTOR;
@@ -78,14 +81,17 @@ bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, void *functorUserData, uint1
 		return false;
 
 	// Write magic number
-	writeFunctor(MINIFSHEADERMAGICBYTEADDR, MINIFSHEADERMAGICBYTEVALUE, functorUserData);
+	temp=MINIFSHEADERMAGICBYTEVALUE;
+	writeFunctor(MINIFSHEADERMAGICBYTEADDR, &temp, 1, functorUserData);
 
 	// Write total size
-	writeFunctor(MINIFSHEADERTOTALSIZEADDR, totalSizeFactor-1, functorUserData);
+	temp=totalSizeFactor-1;
+	writeFunctor(MINIFSHEADERTOTALSIZEADDR, &temp, 1, functorUserData);
 
 	// Clear file list
+	temp=MINIFSFILEOFFSETINVALID;
 	for(uint8_t i=0; i<MINIFSMAXFILES; ++i)
-		writeFunctor(MINIFSHEADERFILEBASEADDR+i, MINIFSFILEOFFSETINVALID, functorUserData);
+		writeFunctor(MINIFSHEADERFILEBASEADDR+i, &temp, 1, functorUserData);
 
 	return true;
 }
@@ -190,10 +196,9 @@ uint16_t miniFsFileGetSize(const MiniFs *fs, const char *filename) {
 }
 
 bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
-	uint8_t i;
-
 	// Is filename too long?
-	if (strlen(filename)>=MiniFsPathMax)
+	uint16_t filenameLen=strlen(filename);
+	if (filenameLen>=MiniFsPathMax)
 		return false;
 
 	// We cannot create a file if the FS is read-only
@@ -210,7 +215,7 @@ bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 		return false;
 
 	// Look for large enough region of free space to store the file
-	uint16_t fileTotalLength=3+strlen(filename)+1+contentSize;
+	uint16_t fileTotalLength=3+filenameLen+1+contentSize;
 	uint8_t fileSizeFactor=miniFsGetSizeFactorForTotalLength(fileTotalLength);
 
 	uint8_t fileOffsetFactor=miniFsFindFreeRegionFactor(fs, fileSizeFactor);
@@ -218,17 +223,16 @@ bool miniFsFileCreate(MiniFs *fs, const char *filename, uint16_t contentSize) {
 		return false;
 
 	// Insert file offset factor into header
-	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+freeIndex, fileOffsetFactor);
+	miniFsWriteByte(fs, MINIFSHEADERFILEBASEADDR+freeIndex, fileOffsetFactor);
 
 	// Write file length, size factor and filename to start of file data
 	uint16_t fileOffset=((uint16_t)fileOffsetFactor)*MINIFSFACTOR;
-	miniFsWrite(fs, fileOffset++, (fileTotalLength>>8));
-	miniFsWrite(fs, fileOffset++, (fileTotalLength&0xFF));
-	miniFsWrite(fs, fileOffset++, fileSizeFactor);
-	i=0;
-	do {
-		miniFsWrite(fs, fileOffset++, filename[i]);
-	} while(filename[i++]!='\0');
+	miniFsWriteByte(fs, fileOffset++, (fileTotalLength>>8));
+	miniFsWriteByte(fs, fileOffset++, (fileTotalLength&0xFF));
+	miniFsWriteByte(fs, fileOffset++, fileSizeFactor);
+
+	miniFsWrite(fs, fileOffset, (const uint8_t *)filename, filenameLen+1);
+	fileOffset+=filenameLen+1;
 
 	// Resort the offset list
 	miniFsResortFileOffsets(fs);
@@ -290,8 +294,8 @@ bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newContentLen) 
 	if (newTotalLen<=size) {
 		// Update stored length
 		uint16_t fileOffset=miniFsFileGetLengthOffsetFromIndex(fs, index);
-		miniFsWrite(fs, fileOffset++, (newTotalLen>>8));
-		miniFsWrite(fs, fileOffset++, (newTotalLen&0xFF));
+		miniFsWriteByte(fs, fileOffset++, (newTotalLen>>8));
+		miniFsWriteByte(fs, fileOffset++, (newTotalLen&0xFF));
 
 		assert(miniFsIsConsistent(fs));
 		return true;
@@ -318,10 +322,10 @@ bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newContentLen) 
 	if (newSizeFactor<=maxSizeIfDesiredFactor) {
 		// We can simply extend in place, update stored length and size
 		uint16_t fileLenOffset=miniFsFileGetLengthOffsetFromIndex(fs, index);
-		miniFsWrite(fs, fileLenOffset++, (newTotalLen>>8));
-		miniFsWrite(fs, fileLenOffset++, (newTotalLen&0xFF));
+		miniFsWriteByte(fs, fileLenOffset++, (newTotalLen>>8));
+		miniFsWriteByte(fs, fileLenOffset++, (newTotalLen&0xFF));
 		uint16_t fileSizeFactorOffset=miniFsFileGetSizeFactorOffsetFromIndex(fs, index);
-		miniFsWrite(fs, fileSizeFactorOffset++, newSizeFactor);
+		miniFsWriteByte(fs, fileSizeFactorOffset++, newSizeFactor);
 
 		assert(miniFsIsConsistent(fs));
 		return true;
@@ -334,22 +338,22 @@ bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newContentLen) 
 
 	// Write file length, size factor and filename to start of new region
 	uint16_t fileOffset=((uint16_t)newFileOffsetFactor)*MINIFSFACTOR;
-	miniFsWrite(fs, fileOffset++, (newTotalLen>>8));
-	miniFsWrite(fs, fileOffset++, (newTotalLen&0xFF));
-	miniFsWrite(fs, fileOffset++, newSizeFactor);
-	uint16_t i=0;
-	do {
-		miniFsWrite(fs, fileOffset++, filename[i]);
-	} while(filename[i++]!='\0');
+	miniFsWriteByte(fs, fileOffset++, (newTotalLen>>8));
+	miniFsWriteByte(fs, fileOffset++, (newTotalLen&0xFF));
+	miniFsWriteByte(fs, fileOffset++, newSizeFactor);
+
+	uint16_t filenameLen=strlen(filename);
+	miniFsWrite(fs, fileOffset, (const uint8_t *)filename, filenameLen+1);
+	fileOffset+=filenameLen+1;
 
 	// Copy file content to new region
 	uint16_t oldContentOffset=miniFsFileGetContentOffsetFromIndex(fs, index);
 	uint16_t oldContentLen=miniFsFileGetContentLenFromIndex(fs, index);
 	for(uint16_t i=0; i<oldContentLen; ++i)
-		miniFsWrite(fs, fileOffset++, miniFsReadByte(fs, oldContentOffset+i));
+		miniFsWriteByte(fs, fileOffset++, miniFsReadByte(fs, oldContentOffset+i));
 
 	// Update file offset factor in header
-	miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+index, newFileOffsetFactor);
+	miniFsWriteByte(fs, MINIFSHEADERFILEBASEADDR+index, newFileOffsetFactor);
 
 	// Resort the offset list
 	miniFsResortFileOffsets(fs);
@@ -380,27 +384,30 @@ uint16_t miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset,
 	return miniFsRead(fs, contentOffset+offset, data, len);
 }
 
-bool miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, uint8_t value) {
+uint16_t miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, const uint8_t *data, uint16_t len) {
 	// Is this file system read only?
 	if (miniFsGetReadOnly(fs))
-		return false;
+		return 0;
 
 	// Find index for this filename
 	uint8_t index=miniFsFilenameToIndex(fs, filename);
 	if (index==MINIFSMAXFILES)
-		return false;
+		return 0;
 
 	// Check offset against length
-	if (offset>=miniFsFileGetContentLenFromIndex(fs, index))
+	uint16_t fileLen=miniFsFileGetContentLenFromIndex(fs, index);
+	if (offset>=fileLen)
 		return false;
+	if (len>fileLen-offset)
+		len=fileLen-offset;
 
-	// Write byte
+	// Find content offset
 	uint16_t contentOffset=miniFsFileGetContentOffsetFromIndex(fs, index);
 	if (contentOffset==0)
-		return false;
-	miniFsWrite(fs, contentOffset+offset, value);
+		return 0;
 
-	return true;
+	// Write byte
+	return miniFsWrite(fs, contentOffset+offset, data, len);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -452,10 +459,12 @@ uint8_t miniFsReadByte(const MiniFs *fs, uint16_t addr) {
 	return value;
 }
 
-void miniFsWrite(MiniFs *fs, uint16_t addr, uint8_t value) {
-	uint8_t originalValue=miniFsReadByte(fs, addr);
-	if (value!=originalValue)
-		fs->writeFunctor(addr, value, fs->functorUserData);
+uint16_t miniFsWrite(MiniFs *fs, uint16_t addr, const uint8_t *data, uint16_t len) {
+	return fs->writeFunctor(addr, data, len, fs->functorUserData);
+}
+
+void miniFsWriteByte(MiniFs *fs, uint16_t addr, uint8_t value) {
+	miniFsWrite(fs, addr, &value, 1);
 }
 
 bool miniFsGetFilenameFromIndex(const MiniFs *fs, uint8_t index, char filename[MiniFsPathMax]) {
@@ -670,19 +679,19 @@ uint16_t miniFsGetFileTotalLengthFromIndex(const MiniFs *fs, uint8_t index) {
 void miniFsSetFileTotalLengthForIndex(MiniFs *fs, uint8_t index, uint16_t newTotalLen) {
 	uint16_t offset=miniFsFileGetLengthOffsetFromIndex(fs, index);
 	assert(offset!=0);
-	miniFsWrite(fs, offset+0, (newTotalLen>>8));
-	miniFsWrite(fs, offset+1, (newTotalLen&0xFF));
+	miniFsWriteByte(fs, offset+0, (newTotalLen>>8));
+	miniFsWriteByte(fs, offset+1, (newTotalLen&0xFF));
 }
 
 void miniFsSetFileSizeFactorForIndex(MiniFs *fs, uint8_t index, uint8_t newSizeFactor) {
 	uint16_t offset=miniFsFileGetSizeFactorOffsetFromIndex(fs, index);
 	assert(offset!=0);
-	miniFsWrite(fs, offset, newSizeFactor);
+	miniFsWriteByte(fs, offset, newSizeFactor);
 }
 
 void miniFsClearFileForIndex(MiniFs *fs, uint8_t index) {
 	// Clear all file offsets
-	fs->writeFunctor(MINIFSHEADERFILEBASEADDR+index, MINIFSFILEOFFSETINVALID, fs->functorUserData);
+	miniFsWriteByte(fs, MINIFSHEADERFILEBASEADDR+index, MINIFSFILEOFFSETINVALID);
 }
 
 uint8_t miniFsGetSizeFactorForTotalLength(uint16_t totalLen) {
@@ -704,8 +713,8 @@ void miniFsResortFileOffsets(MiniFs *fs) {
 			if (factorA>factorB) {
 				// Swap
 				change=true;
-				miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+i-1, factorB);
-				miniFsWrite(fs, MINIFSHEADERFILEBASEADDR+i, factorA);
+				miniFsWriteByte(fs, MINIFSHEADERFILEBASEADDR+i-1, factorB);
+				miniFsWriteByte(fs, MINIFSHEADERFILEBASEADDR+i, factorA);
 			}
 		}
 		--max;

@@ -25,7 +25,7 @@ bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, ui
 bool miniFsWriteFlatFile(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose);
 
 uint16_t readFunctor(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
-void writeFunctor(uint16_t addr, uint8_t value, void *userData);
+uint16_t writeFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
 
 int main(int argc, char **argv) {
 	// Parse arguments
@@ -224,6 +224,7 @@ uint16_t readFunctor(uint16_t addr, uint8_t *data, uint16_t len, void *userData)
 	return len;
 }
 
-void writeFunctor(uint16_t addr, uint8_t value, void *userData) {
-	((uint8_t *)userData)[addr]=value;
+uint16_t writeFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData) {
+	memcpy(((uint8_t *)userData)+addr, data, len);
+	return len;
 }

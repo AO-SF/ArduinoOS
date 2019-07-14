@@ -13,7 +13,7 @@
 #define MiniFsPathMax 63
 
 typedef uint16_t (MiniFsReadFunctor)(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
-typedef void (MiniFsWriteFunctor)(uint16_t addr, uint8_t value, void *userData);
+typedef uint16_t (MiniFsWriteFunctor)(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
 
 typedef struct {
 	// Members are to be considered private
@@ -55,6 +55,6 @@ bool miniFsFileDelete(MiniFs *fs, const char *filename);
 bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newSize);
 
 uint16_t miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset, uint8_t *data, uint16_t len); // Returns number of bytes read
-bool miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, uint8_t value);
+uint16_t miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, const uint8_t *data, uint16_t len);
 
 #endif

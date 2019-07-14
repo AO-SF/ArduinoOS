@@ -25,13 +25,15 @@ bool miniFsExtraAddFile(MiniFs *fs, const char *destPath, const char *srcPath, b
 	}
 
 	// Copy data from file to file
+	// TODO: speed up by reading and writing in chunks
 	fseek(file, 0L, SEEK_SET);
 	bool result=true;
 	for(uint16_t offset=0; 1; ++offset) {
 		int value=fgetc(file);
-		if (value==-1)
+		if (value==-1 || value>255)
 			break;
-		if (!miniFsFileWrite(fs, destPath, offset, value)) {
+		uint8_t value8=value;
+		if (miniFsFileWrite(fs, destPath, offset, &value8, 1)!=1) {
 			if (verbose)
 				printf("warning unable to write complete data for '%s' representing '%s' (managed %i/%i bytes)\n", destPath, srcPath, offset, fileSize);
 			result=false;

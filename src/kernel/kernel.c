@@ -116,7 +116,6 @@ KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8
 KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
-void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData);
 int16_t kernelDevZeroReadFunctor(void *userData);
 bool kernelDevZeroCanReadFunctor(void *userData);
 bool kernelDevZeroWriteFunctor(uint8_t value, void *userData);
@@ -354,7 +353,7 @@ void kernelBoot(void) {
 #endif
 
 	// Format RAM used for /tmp
-	if (!miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize))
+	if (!miniFsFormat(&kernelTmpWriteFunctor, NULL, KernelTmpDataPoolSize))
 		kernelFatalError(kstrP("could not format /tmp volume\n"));
 	kernelLog(LogTypeInfo, kstrP("formatted volume representing /tmp (size %u)\n"), KernelTmpDataPoolSize);
 
@@ -551,12 +550,6 @@ KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, 
 KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	memcpy(kernelTmpDataPool+addr, data, len);
 	return len;
-}
-
-void kernelTmpMiniFsWriteFunctor(uint16_t addr, uint8_t value, void *userData) {
-	bool result=(kernelTmpWriteFunctor(addr, &value, 1, userData)==1);
-	assert(result);
-	_unused(result);
 }
 
 int16_t kernelDevZeroReadFunctor(void *userData) {
