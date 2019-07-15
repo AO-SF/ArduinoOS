@@ -95,7 +95,7 @@ int kstrStrcmp(const char *a, KStr b) {
 }
 
 int kstrDoubleStrcmp(KStr a, KStr b) {
-	// Simply cases
+	// Simple cases
 	if (a.type==KStrTypeNull || b.type==KStrTypeNull)
 		return 0;
 	if (a.type==KStrTypeStatic || a.type==KStrTypeHeap)
