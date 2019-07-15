@@ -1611,12 +1611,19 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	}
 
 	// Copy parent's ram into child's
-	for(KernelFsFileOffset i=0; i<ramTotalSize; ++i) {
-		bool res=true;
+	// Use a scratch buffer to copy up to 256 bytes at a time.
+	KernelFsFileOffset i;
+	for(i=0; i+255<ramTotalSize; i+=256) {
+		if (kernelFsFileReadOffset(procData->ramFd, i, (uint8_t *)procManScratchBuf256, 256, false)!=256 ||
+		    kernelFsFileWriteOffset(childRamFd, i, (const uint8_t *)procManScratchBuf256, 256)!=256) {
+			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n"), parentPid, i, ramTotalSize);
+			goto error;
+		}
+	}
+	for(; i<ramTotalSize; i++) {
 		uint8_t value;
-		res&=(kernelFsFileReadOffset(procData->ramFd, i, &value, 1, false)==1);
-		res&=(kernelFsFileWriteOffset(childRamFd, i, &value, 1)==1);
-		if (!res) {
+		if (kernelFsFileReadOffset(procData->ramFd, i, &value, 1, false)!=1 ||
+		    kernelFsFileWriteOffset(childRamFd, i, &value, 1)!=1) {
 			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n"), parentPid, i, ramTotalSize);
 			goto error;
 		}
