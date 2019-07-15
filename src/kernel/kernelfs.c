@@ -1060,12 +1060,8 @@ bool kernelFsFileCanOpenMany(const char *path) {
 }
 
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path) {
-	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
-		KernelFsDevice *device=&kernelFsData.devices[i];
-		if (device->type!=KernelFsDeviceTypeNB && kstrStrcmp(path, device->mountPoint)==0)
-			return device;
-	}
-	return NULL;
+	KStr pathKStr=kstrAllocStatic((char *)path); // HACK: not const correct but kernelFsGetDeviceFromPathKStr doesn't modify its argument so this is safe
+	return kernelFsGetDeviceFromPathKStr(pathKStr);
 }
 
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path) {
