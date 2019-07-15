@@ -31,7 +31,7 @@ The kernel takes no arguments, and boots into a shell (sh.s) via init (init.s). 
 Note: Currently only the Arduino Mega 2560 is supported.
 
 ### Uploading
-After running ``make arduino``, the hex file ``./bin/kernel.hex`` is produced, which needs flashing to the Arduino with ``make install``. Note: if your device is not at ``/dev/ttyACM0`` then the root makefile will need modifying. This will also flash the local EEPROM file to setup things such as the user's home directory.
+After running ``make arduino``, the hex file ``./bin/kernel.hex`` is produced, which needs flashing to the Arduino with ``make upload``. Note: if your device is not at ``/dev/ttyACM0`` then the root makefile will need modifying. This will also flash the local EEPROM file to setup things such as the user's home directory.
 
 ### Interfacing
 Kernel logging and stdin/stout uses the Mega's USB serial, baud rate 9600 and a carriage return plus newline ``'\r\n'`` pair for line endings. It accepts either ``\r`` OR ``\n``, but both will result in a double 'return'.

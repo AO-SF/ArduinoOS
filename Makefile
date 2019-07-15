@@ -20,7 +20,7 @@ pc:
 	./builder
 	cd src/kernel && make pc
 
-install:
+upload:
 	avrdude -Cavrdude.conf -v -patmega2560 -cwiring -P/dev/ttyACM0 -b115200 -D -Uflash:w:./bin/kernel.hex -U eeprom:w:eeprom
 
 clean:
