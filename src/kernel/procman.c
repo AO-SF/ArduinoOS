@@ -1198,14 +1198,19 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 							uint16_t bufAddr=procData->regs[3];
 							KernelFsFileOffset len=procData->regs[4];
 
-							KernelFsFileOffset i;
-							for(i=0; i<len; ++i) {
-								uint8_t value;
-								if (!procManProcessMemoryReadByte(process, procData, bufAddr+i, &value)) {
+							KernelFsFileOffset i=0;
+							while(i<len) {
+								KernelFsFileOffset chunkSize=len-i;
+								if (chunkSize>256)
+									chunkSize=256;
+
+								if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize)) {
 									kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 									return false;
 								}
-								if (kernelFsFileWriteOffset(fd, offset+i, &value, 1)!=1)
+								KernelFsFileOffset written=kernelFsFileWriteOffset(fd, offset+i, (const uint8_t *)procManScratchBuf256, chunkSize);
+								i+=written;
+								if (written<chunkSize)
 									break;
 							}
 							procData->regs[0]=i;
