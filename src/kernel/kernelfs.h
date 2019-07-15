@@ -16,7 +16,7 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 typedef int16_t (KernelFsCharacterDeviceReadFunctor)(void *userData); // returns -1 on failure
 typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData);
-typedef bool (KernelFsCharacterDeviceWriteFunctor)(uint8_t value, void *userData);
+typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(const uint8_t *data, KernelFsFileOffset len, void *userData);
 
 typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatCustomMiniFs 0

@@ -127,22 +127,22 @@ KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, 
 KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 int16_t kernelDevZeroReadFunctor(void *userData);
 bool kernelDevZeroCanReadFunctor(void *userData);
-bool kernelDevZeroWriteFunctor(uint8_t value, void *userData);
+KernelFsFileOffset kernelDevZeroWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 int16_t kernelDevFullReadFunctor(void *userData);
 bool kernelDevFullCanReadFunctor(void *userData);
-bool kernelDevFullWriteFunctor(uint8_t value, void *userData);
+KernelFsFileOffset kernelDevFullWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 int16_t kernelDevNullReadFunctor(void *userData);
 bool kernelDevNullCanReadFunctor(void *userData);
-bool kernelDevNullWriteFunctor(uint8_t value, void *userData);
+KernelFsFileOffset kernelDevNullWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 int16_t kernelDevURandomReadFunctor(void *userData);
 bool kernelDevURandomCanReadFunctor(void *userData);
-bool kernelDevURandomWriteFunctor(uint8_t value, void *userData);
+KernelFsFileOffset kernelDevURandomWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 int16_t kernelDevTtyS0ReadFunctor(void *userData);
 bool kernelDevTtyS0CanReadFunctor(void *userData);
-bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData);
+KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 int16_t kernelDevPinReadFunctor(void *userData);
 bool kernelDevPinCanReadFunctor(void *userData);
-bool kernelDevPinWriteFunctor(uint8_t value, void *userData);
+KernelFsFileOffset kernelDevPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 
 #ifndef ARDUINO
 void kernelSigIntHandler(int sig);
@@ -166,9 +166,8 @@ ISR(USART0_RX_vect) {
 			if (circBufTailPeek(&kernelDevTtyS0CircBuf, &tailValue)) {
 				if (tailValue!='\n' && circBufUnpush(&kernelDevTtyS0CircBuf)) {
 					// Clear last char on screen
-					kernelDevTtyS0WriteFunctor(8, NULL);
-					kernelDevTtyS0WriteFunctor(' ', NULL);
-					kernelDevTtyS0WriteFunctor(8, NULL);
+					const uint8_t tempChars[3]={8,' ',8};
+					kernelDevTtyS0WriteFunctor(tempChars, 3, NULL);
 				}
 			}
 		} else {
@@ -179,7 +178,7 @@ ISR(USART0_RX_vect) {
 			if (value=='\n')
 				++kernelDevTtyS0CircBufNewlineCount;
 			if (kernelDevTtyS0EchoFlag)
-				kernelDevTtyS0WriteFunctor(value, NULL);
+				kernelDevTtyS0WriteFunctor(&value, 1, NULL);
 		}
 	}
 }
@@ -586,8 +585,9 @@ bool kernelDevZeroCanReadFunctor(void *userData) {
 	return true;
 }
 
-bool kernelDevZeroWriteFunctor(uint8_t value, void *userData) {
-	return true;
+
+KernelFsFileOffset kernelDevZeroWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	return len;
 }
 
 int16_t kernelDevFullReadFunctor(void *userData) {
@@ -598,8 +598,8 @@ bool kernelDevFullCanReadFunctor(void *userData) {
 	return true;
 }
 
-bool kernelDevFullWriteFunctor(uint8_t value, void *userData) {
-	return false;
+KernelFsFileOffset kernelDevFullWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	return 0;
 }
 
 int16_t kernelDevNullReadFunctor(void *userData) {
@@ -610,8 +610,8 @@ bool kernelDevNullCanReadFunctor(void *userData) {
 	return true;
 }
 
-bool kernelDevNullWriteFunctor(uint8_t value, void *userData) {
-	return true;
+KernelFsFileOffset kernelDevNullWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	return len;
 }
 
 int16_t kernelDevURandomReadFunctor(void *userData) {
@@ -622,8 +622,8 @@ bool kernelDevURandomCanReadFunctor(void *userData) {
 	return true;
 }
 
-bool kernelDevURandomWriteFunctor(uint8_t value, void *userData) {
-	return false;
+KernelFsFileOffset kernelDevURandomWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	return 0;
 }
 
 int16_t kernelDevTtyS0ReadFunctor(void *userData) {
@@ -683,18 +683,15 @@ bool kernelDevTtyS0CanReadFunctor(void *userData) {
 #endif
 }
 
-bool kernelDevTtyS0WriteFunctor(uint8_t value, void *userData) {
-#ifdef ARDUINO
-	// putchar seems to always return EOF so just ignore return value
-	putchar(value);
+KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	KernelFsFileOffset written=fwrite(data, 1, len, stdout);
 	fflush(stdout);
-	return true;
-#else
-	if (putchar(value)!=value)
-		return false;
-	fflush(stdout);
-	return true;
-#endif
+
+	// FIXME: KernelFsFileOffset is unsigned so check below is a hack.
+	if (written>=UINT16_MAX-256) // should be written<0
+		written=0;
+
+	return written;
 }
 
 int16_t kernelDevPinReadFunctor(void *userData) {
@@ -706,9 +703,15 @@ bool kernelDevPinCanReadFunctor(void *userData) {
 	return true;
 }
 
-bool kernelDevPinWriteFunctor(uint8_t value, void *userData) {
+KernelFsFileOffset kernelDevPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
-	return pinWrite(pinNum, (value!=0));
+
+	// Simply write last of values given (considered as a boolean),
+	// acting as if we had looped over and set each state in turn.
+	if (pinWrite(pinNum, (data[len-1]!=0)))
+		return len;
+	else
+		return 0;
 }
 
 #ifndef ARDUINO

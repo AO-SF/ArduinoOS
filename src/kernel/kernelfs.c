@@ -775,11 +775,7 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 			break;
 			case KernelFsDeviceTypeCharacter: {
 				// offset is ignored as these are not seekable
-				KernelFsFileOffset written;
-				for(written=0; written<dataLen; ++written)
-					if (!device->d.character.writeFunctor(data[written], device->d.character.functorUserData))
-						break;
-				return written;
+				return device->d.character.writeFunctor(data, dataLen, device->d.character.functorUserData);
 			} break;
 			case KernelFsDeviceTypeDirectory:
 				// This operation cannot be performed on a directory
