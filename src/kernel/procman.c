@@ -1871,14 +1871,24 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 	uint16_t bufAddr=procData->regs[3];
 	KernelFsFileOffset len=procData->regs[4];
 
-	KernelFsFileOffset i;
-	for(i=0; i<len; ++i) {
-		uint8_t value;
-		if (kernelFsFileReadOffset(fd, offset+i, &value, 1, i==0)!=1)
+	KernelFsFileOffset i=0;
+	while(i<len) {
+		KernelFsFileOffset chunkSize=len-i;
+		if (chunkSize>256)
+			chunkSize=256;
+
+		KernelFsFileOffset read=kernelFsFileReadOffset(fd, offset+i, (uint8_t *)procManScratchBuf256, chunkSize, false);
+		if (read==0)
 			break;
-		if (!procManProcessMemoryWriteByte(process, procData, bufAddr+i, value))
+
+		if (!procManProcessMemoryWriteBlock(process, procData, bufAddr+i, (const uint8_t *)procManScratchBuf256, read))
 			return false;
+
+		i+=read;
+		if (read<chunkSize)
+			break;
 	}
+
 	procData->regs[0]=i;
 
 	return true;
