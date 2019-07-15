@@ -1,7 +1,5 @@
 require lib/sys/sys.s
 
-requireend lib/std/io/fget.s
-requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 
@@ -59,29 +57,34 @@ skipneqz r1
 jmp error
 
 ; Read data from file, printing to stdout
-mov r1 0 ; loop index
+mov r2 0 ; loop index
 label catArgNLoopStart
 
-; Read character
-mov r0 fd
-load8 r0 r0
-push16 r1
-call fgetc
-pop16 r1
+; Read block (reusing pathBuf)
+mov r0 SyscallIdRead
+mov r1 fd
+load8 r1 r1
+mov r3 pathBuf
+mov r4 PathMax
+syscall
 
 ; Check for EOF
-mov r2 256
-cmp r2 r0 r2
-skipneq r2
+cmp r4 r0 r0
+skipneqz r4
 jmp catArgNLoopEnd
 
-; Print character
-push16 r1
-call putc0
-pop16 r1
+; Print block
+mov r4 r0
+mov r0 SyscallIdEnvGetStdoutFd
+syscall
+mov r1 r0
+mov r0 SyscallIdWrite
+; we can leave r2 non-zero as offset is ignored for stdout
+mov r3 pathBuf
+syscall
 
-; Advance to next character
-inc r1
+; Advance to next block
+add r2 r2 r4
 jmp catArgNLoopStart
 label catArgNLoopEnd
 
