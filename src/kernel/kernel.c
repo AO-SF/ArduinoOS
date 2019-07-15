@@ -529,9 +529,7 @@ KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8
 	addr+=offset;
 
 #ifdef ARDUINO
-	KernelFsFileOffset i;
-	for(i=0; i<len; ++i)
-		data[i]=eeprom_read_byte((void *)(addr+i));
+	eeprom_read_block(data, (void *)addr, len);
 	return len;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
@@ -550,9 +548,7 @@ KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, cons
 	addr+=offset;
 
 #ifdef ARDUINO
-	KernelFsFileOffset i;
-	for(i=0; i<len; ++i)
-		eeprom_update_byte((void *)(addr+i), data[i]);
+	eeprom_update_block((const void *)data, (void *)addr, len);
 	return len;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
