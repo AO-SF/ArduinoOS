@@ -8,8 +8,8 @@
 uint8_t kernelMountedDeviceFdsNext=0;
 KernelFsFd kernelMountedDeviceFds[kernelMountedDeviceFdsMax];
 
-int16_t kernelMountReadFunctor(KernelFsFileOffset addr, void *userData);
-bool kernelMountWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData);
+KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
+KernelFsFileOffset kernelMountWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 
 bool kernelMount(KernelFsBlockDeviceFormat format, const char *devicePath, const char *dirPath) {
 	// Check paths are valid
@@ -79,21 +79,18 @@ void kernelUnmount(const char *devicePath) {
 	kernelLog(LogTypeWarning, kstrP("could not unmount - no such device mounted (devicePath='%s')\n"), devicePath);
 }
 
-int16_t kernelMountReadFunctor(KernelFsFileOffset addr, void *userData) {
+KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
 	assert(((uintptr_t)userData)<KernelFsFdMax);
 	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
 
 	// Simply read from device file directly
-	uint8_t value;
-	if (kernelFsFileReadOffset(deviceFd, addr, &value, 1, false)!=1)
-		return -1;
-	return value;
+	return kernelFsFileReadOffset(deviceFd, addr, data, len, false);
 }
 
-bool kernelMountWriteFunctor(KernelFsFileOffset addr, uint8_t value, void *userData) {
+KernelFsFileOffset kernelMountWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	assert(((uintptr_t)userData)<KernelFsFdMax);
 	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
 
 	// Simply write to device file directly
-	return (kernelFsFileWriteOffset(deviceFd, addr, &value, 1)==1);
+	return kernelFsFileWriteOffset(deviceFd, addr, data, len);
 }
