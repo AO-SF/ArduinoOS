@@ -366,12 +366,12 @@ uint16_t miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset,
 	// Find index for this filename
 	uint8_t index=miniFsFilenameToIndex(fs, filename);
 	if (index==MINIFSMAXFILES)
-		return -1;
+		return 0;
 
 	// Check offset against length
 	uint16_t fileLen=miniFsFileGetContentLenFromIndex(fs, index);
 	if (offset>=fileLen)
-		return -1;
+		return 0;
 	if (len>fileLen-offset)
 		len=fileLen-offset;
 
