@@ -3,7 +3,7 @@ A kernel/operating system designed to run on Arduino boards (the Mega 2560 in pa
 
 The kernel provides a basic virtual filesystem, with directories such as ``/bin``, ``/etc`` and ``/tmp``, and can run processes (using preemptive multitasking) written in a custom machine code/bytecode format. The Arduino version also maps e.g. the USB Serial connection to ``/dev/ttyS0`` and the board's pins to ``/dev/pinX``, while the PC version maps stdin/out to ``/dev/ttyS0`` and provides virtual ``/dev/pinX`` files.
 
-The userspace environment consists of various utilities, such as: ``sh`` - with builtins such as ``exit`` and ``cd``, ``mount``, ``kill`` and ``cat``, along with a startup script in ``/etc/startup`` mounting the user's home directory (stored in EEPROM). The example home directory contains a few extra example programs, in particular a 2D game ``sokoban``. In addition, if there is space on the board, other read-only directories exist, such as ``/lib`` with assembly source files, and ``/man`` with man-pages split into sections
+The userspace environment consists of various utilities, such as: ``sh`` - with builtins such as ``exit`` and ``cd`` - ``mount``, ``kill`` and ``cat``, along with a startup script in ``/etc/startup`` mounting the user's home directory (stored in EEPROM). The example home directory contains a few extra example programs, in particular a 2D game ``sokoban``. In addition, if there is space on the board, other read-only directories exist, such as ``/lib`` with assembly source files, and ``/man`` with man-pages split into sections
 
 There are also a few tools (which run on a standard PC, not the Arduino) such as an assembler, a disassembler and an emulator. A compiler is also being developed at [AOSCompiler](https://github.com/AO-SF/AOSCompiler).
 
@@ -31,7 +31,7 @@ The kernel takes no arguments, and boots into a shell (sh.s) via init (init.s). 
 Note: Currently only the Arduino Mega 2560 is supported.
 
 ### Uploading
-After running ``make arduino``, the hex file ``./bin/kernel.hex`` is produced, which needs flashing to the Arduino with ``make install``. Note: if your device is not at ``/dev/ttyS0`` then the root makefile will need modifying. This will also flash the local EEPROM file to setup things such as the user's home directory.
+After running ``make arduino``, the hex file ``./bin/kernel.hex`` is produced, which needs flashing to the Arduino with ``make install``. Note: if your device is not at ``/dev/ttyACM0`` then the root makefile will need modifying. This will also flash the local EEPROM file to setup things such as the user's home directory.
 
 ### Interfacing
 Kernel logging and stdin/stout uses the Mega's USB serial, baud rate 9600 and a carriage return plus newline ``'\r\n'`` pair for line endings. It accepts either ``\r`` OR ``\n``, but both will result in a double 'return'.
