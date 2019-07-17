@@ -1533,6 +1533,48 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 								}
 							}
 						} break;
+						case BytecodeSyscallIdStrchr: {
+							uint16_t strAddr=procData->regs[1];
+							uint16_t c=procData->regs[2];
+
+							procData->regs[0]=0;
+							while(1) {
+								uint8_t value;
+								if (!procManProcessMemoryReadByte(process, procData, strAddr, &value)) {
+									kernelLog(LogTypeWarning, kstrP("failed during strchr syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									return false;
+								}
+
+								if (value==c) {
+									procData->regs[0]=strAddr;
+									break;
+								}
+								if (value=='\0')
+									break;
+
+								strAddr++;
+							}
+						} break;
+						case BytecodeSyscallIdStrchrnul: {
+							uint16_t strAddr=procData->regs[1];
+							uint16_t c=procData->regs[2];
+
+							procData->regs[0]=strAddr;
+							while(1) {
+								uint8_t value;
+								if (!procManProcessMemoryReadByte(process, procData, procData->regs[0], &value)) {
+									kernelLog(LogTypeWarning, kstrP("failed during strchrnul syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									return false;
+								}
+
+								if (value==c)
+									break;
+								if (value=='\0')
+									break;
+
+								++procData->regs[0];
+							}
+						} break;
 						default:
 							kernelLog(LogTypeWarning, kstrP("invalid syscall id=%i, process %u (%s), killing\n"), syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							return false;
