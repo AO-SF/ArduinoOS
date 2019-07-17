@@ -162,6 +162,9 @@ typedef enum {
 	BytecodeSyscallIdMount=(1280|1),
 	BytecodeSyscallIdUnmount=(1280|2),
 	BytecodeSyscallIdIoctl=(1280|3),
+	BytecodeSyscallIdStrchr=(1536|0),
+	BytecodeSyscallIdStrchrnul=(1536|1),
+	BytecodeSyscallIdMemmove=(1536|2),
 } BytecodeSyscallId;
 
 typedef enum {
