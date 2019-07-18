@@ -1,28 +1,18 @@
+require strlen.s
+require ../mem/memmove.s
+
 ; strcpy(destAddr=r0, srcAddr=r1)
 label strcpy
-
-mov r3 0 ; loop index
-mov r4 r1 ; copy str base addr into r4
-
-label strcpyLoopStart
-
-; load character
-mov r1 r4
-add r1 r1 r3
-load8 r1 r1 ; character stored in r1 for now
-
-; copy character
+; protect str addresses
+push16 r0
+push16 r1
+; call strlen on src string
+mov r0 r1
+call strlen
+; use memmove to do copy loop
 mov r2 r0
-add r2 r2 r3
-store8 r2 r1
-
-; reached null terminator?
-cmp r2 r1 r1
-skipneqz r2
-jmp strcpyDone
-
-inc r3
-jmp strcpyLoopStart
-
-label strcpyDone
+inc r2 ; increment length to include null terminator
+pop16 r1
+pop16 r0
+call memmove
 ret
