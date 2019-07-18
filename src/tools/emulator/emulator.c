@@ -596,6 +596,52 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [ioctl] (unimplemented)\n", syscallId);
 						break;
+						case BytecodeSyscallIdStrchr: {
+							// TODO: Check arguments better
+							uint16_t strAddr=process->regs[1];
+							uint16_t c=process->regs[2];
+
+							process->regs[0]=0;
+							uint16_t i;
+							for(i=strAddr; process->memory[i]!=0; ++i) {
+								if (process->memory[i]==c) {
+									process->regs[0]=i;
+									break;
+								}
+							}
+
+							if (infoSyscalls) {
+								printf("Info: syscall(id=%i [strchr], str addr=%u, c=%u, result=%u\n", syscallId, strAddr, c, process->regs[0]);
+							}
+						} break;
+						case BytecodeSyscallIdStrchrnul: {
+							// TODO: Check arguments better
+							uint16_t strAddr=process->regs[1];
+							uint16_t c=process->regs[2];
+
+							uint16_t i;
+							for(i=strAddr; process->memory[i]!=0; ++i) {
+								if (process->memory[i]==c)
+									break;
+							}
+							process->regs[0]=i;
+
+							if (infoSyscalls) {
+								printf("Info: syscall(id=%i [strchrnul], str addr=%u, c=%u, result=%u\n", syscallId, strAddr, c, process->regs[0]);
+							}
+						} break;
+						case BytecodeSyscallIdMemmove: {
+							// TODO: Check arguments better
+							uint16_t destAddr=process->regs[1];
+							uint16_t srcAddr=process->regs[2];
+							uint16_t size=process->regs[3];
+
+							memmove(process->memory+destAddr, process->memory+srcAddr, size);
+
+							if (infoSyscalls) {
+								printf("Info: syscall(id=%i [memmove], dest addr=%u, src addr=%u, size=%u\n", syscallId, destAddr, srcAddr, size);
+							}
+						} break;
 						default:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);
