@@ -10,7 +10,7 @@ ab pathArg PathMax
 ab rmScratchBuf PathMax
 
 ; Get path argument
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 rmScratchBuf
 mov r3 PathMax
@@ -25,7 +25,7 @@ mov r1 rmScratchBuf
 call getpath
 
 ; Invoke delete syscall
-mov r0 267
+mov r0 SyscallIdDelete
 mov r1 pathArg
 syscall
 

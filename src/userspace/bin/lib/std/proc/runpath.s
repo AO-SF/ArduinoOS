@@ -1,4 +1,5 @@
 require ../proc/getpath.s
+require ../../sys/syscall.s
 
 ab runpathPathBuf PathMax
 
@@ -13,7 +14,7 @@ mov r0 runpathPathBuf
 call getpath
 
 ; Call exec
-mov r0 5
+mov r0 SyscallIdExec
 mov r1 runpathPathBuf
 pop16 r2
 pop16 r3

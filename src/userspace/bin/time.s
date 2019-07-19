@@ -19,19 +19,19 @@ ab arg3Buf ArgLenMax
 ab cmdBuf ArgLenMax
 
 ; Grab arguments
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 arg1Buf
 mov r3 ArgLenMax
 syscall
 
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 2
 mov r2 arg2Buf
 mov r3 ArgLenMax
 syscall
 
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 3
 mov r2 arg3Buf
 mov r3 ArgLenMax
@@ -49,7 +49,7 @@ mov r1 startTime
 store16 r1 r0
 
 ; Call fork
-mov r0 4
+mov r0 SyscallIdFork
 syscall
 
 mov r1 PidMax

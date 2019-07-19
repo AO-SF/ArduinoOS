@@ -20,7 +20,7 @@ ab pageArgBuf ArgLenMax
 ab pathBuf ArgLenMax
 
 ; Get args
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 sectionArgBuf
 mov r3 ArgLenMax
@@ -28,7 +28,7 @@ syscall
 cmp r0 r0 r0
 skipneqz r0
 jmp usage
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 2
 mov r2 pageArgBuf
 mov r3 ArgLenMax
@@ -52,7 +52,7 @@ mov r1 pageArgBuf
 call strcat
 
 ; Check file exists
-mov r0 266
+mov r0 SyscallIdFileExists
 mov r1 pathBuf
 syscall
 cmp r0 r0 r0

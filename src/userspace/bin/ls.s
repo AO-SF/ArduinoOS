@@ -13,7 +13,7 @@ ab queryDirFd 1
 ab queryDirLen 1
 
 ; Check for argument, otherwise use pwd
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 argBuf
 mov r3 PathMax
@@ -47,7 +47,7 @@ skipneqz r0
 jmp error
 
 ; Read path back from fd (to handle user passing relative paths for example)
-mov r0 261
+mov r0 SyscallIdGetPath
 mov r1 queryDirFd
 load8 r1 r1
 mov r2 queryDir
@@ -64,7 +64,7 @@ mov r2 0
 push8 r2
 
 label loopStart
-mov r0 260
+mov r0 SyscallIdDirGetChildN
 mov r1 queryDirFd
 load8 r1 r1
 pop8 r2

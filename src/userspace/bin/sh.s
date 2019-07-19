@@ -120,7 +120,7 @@ label startDone
 mov r1 1 ; child loop index
 label argLoopStart
 push8 r1
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r2 inputBuf
 syscall
 
@@ -395,7 +395,7 @@ jmp shellRunFdInputLoopStart
 
 label shellForkExec
 ; Fork
-mov r0 4
+mov r0 SyscallIdFork
 syscall
 mov r1 childPid
 store8 r1 r0
@@ -426,7 +426,7 @@ mov r0 inputBuf
 call puts0
 mov r0 '\n'
 call putc0
-mov r0 0
+mov r0 SyscallIdExit
 mov r1 1
 syscall
 
@@ -483,7 +483,7 @@ call getabspath
 
 label shellCdHome
 ; Ensure path is a directory
-mov r0 265
+mov r0 SyscallIdIsDir
 mov r1 absBuf
 syscall
 
@@ -505,7 +505,7 @@ mov r0 pwdBuf
 mov r1 absBuf
 call strcpy
 
-mov r0 515
+mov r0 SyscallIdEnvSetPwd
 mov r1 pwdBuf
 syscall
 
@@ -552,12 +552,12 @@ cmp r0 r1 r0
 skipneq r0
 jmp interruptHandlerReleaseLock
 ; send child suicide signal
-mov r0 12
+mov r0 SyscallIdSignal
 mov r2 3 ; suicide
 syscall
 ; call waitpid with a 5s timeout
 label interruptHandlerWaitPidLoopStart
-mov r0 6
+mov r0 SyscallIdWaitPid
 mov r2 5
 syscall
 ; interrupted by another signal? if so, try again
@@ -572,7 +572,7 @@ cmp r2 r0 r2
 skipeq r2
 jmp interruptHandlerRet
 ; kill child
-mov r0 10
+mov r0 SyscallIdKill
 syscall
 ; note: in this case lock is released when we return from waitpid
 jmp interruptHandlerRet

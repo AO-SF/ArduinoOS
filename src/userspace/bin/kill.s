@@ -6,7 +6,7 @@ requireend lib/std/str/strtoint.s
 ab argBuf ArgLenMax
 
 ; Grab pid from first argument
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 argBuf
 mov r3 64
@@ -22,7 +22,7 @@ call strtoint
 
 ; Kill
 mov r1 r0
-mov r0 10
+mov r0 SyscallIdKill
 syscall
 
 ; Exit

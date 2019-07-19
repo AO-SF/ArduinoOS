@@ -12,7 +12,7 @@ db offStr 'off\n',0
 ab argBuf ArgLenMax
 
 ; Grab arg
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 argBuf
 syscall

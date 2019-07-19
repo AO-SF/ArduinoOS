@@ -12,7 +12,7 @@ syscall
 
 ; Grab path
 mov r1 r0
-mov r0 261
+mov r0 SyscallIdGetPath
 mov r2 pathBuf
 syscall
 

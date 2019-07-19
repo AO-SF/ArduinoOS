@@ -7,7 +7,7 @@ db standardMsg 'y', 0
 ab argBuf ArgLenMax
 
 ; Grab argument
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 argBuf
 mov r3 ArgLenMax

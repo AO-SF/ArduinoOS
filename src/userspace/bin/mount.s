@@ -22,7 +22,7 @@ ab devicePath PathMax
 ab dirPath PathMax
 
 ; Grab type argument
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 typeArg
 mov r3 ArgLenMax
@@ -62,7 +62,7 @@ jmp gottypearg
 label gottypearg
 
 ; Read other two arguments
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 2
 mov r2 scratchBuf
 mov r3 PathMax
@@ -74,7 +74,7 @@ mov r0 devicePath
 mov r1 scratchBuf
 call getpath
 
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 3
 mov r2 scratchBuf
 mov r3 PathMax
@@ -87,7 +87,7 @@ mov r1 scratchBuf
 call getpath
 
 ; Invoke mount syscall
-mov r0 1281
+mov r0 SyscallIdMount
 mov r1 typeId
 load16 r1 r1
 mov r2 devicePath

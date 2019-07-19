@@ -23,7 +23,7 @@ call puts0
 ; Grab all cpu counts now in one go and compute sum
 ; This at least makes sure the percentages add up properly
 ; Although there is still an (unavoidable) race condition between this and actually outputting the data
-mov r0 9
+mov r0 SyscallIdGetAllCpuCounts
 mov r1 cpuCounts
 syscall
 
@@ -80,7 +80,7 @@ mov r1 psPidPid
 store8 r1 r0
 
 ; Grab state and check for existence of process
-mov r0 8
+mov r0 SyscallIdGetPidState
 mov r1 psPidPid
 load8 r1 r1
 mov r2 psPidStateBuf
@@ -124,7 +124,7 @@ mov r0 ' '
 call putc0
 
 ; Print ram
-mov r0 11
+mov r0 SyscallIdGetPidRam
 mov r1 psPidPid
 load8 r1 r1
 syscall
@@ -144,7 +144,7 @@ mov r0 ' '
 call putc0
 
 ; Print command
-mov r0 7
+mov r0 SyscallIdGetPidPath
 mov r1 psPidPid
 load8 r1 r1
 mov r2 psPidScratchBuf

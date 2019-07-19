@@ -24,7 +24,7 @@ call exit
 
 ; ensure we have pid 0 (otherwise init should already be running)
 label start
-mov r0 1
+mov r0 SyscallIdGetPid
 syscall
 cmp r0 r0 r0
 skipeqz r0
@@ -57,7 +57,7 @@ jmp error
 
 ; otherwise call waitpid with our own pid so that we sleep forever
 label parent
-mov r0 6
+mov r0 SyscallIdWaitPid
 mov r1 0
 mov r2 0 ; infinite timeout
 syscall

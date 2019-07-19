@@ -25,7 +25,7 @@ ab pathBuf PathMax
 ab scratchByte 1
 
 ; Grab level path from arg
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 pathBuf
 mov r3 PathMax

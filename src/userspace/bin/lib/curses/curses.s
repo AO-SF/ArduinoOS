@@ -1,5 +1,6 @@
 requireend ../std/io/fput.s
 requireend ../std/io/fputdec.s
+require ../sys/syscall.s
 
 db cursesEscSeqStrClear 27, '[2J', 0
 db cursesEscSeqStrSetRgb 27, '[38;2;', 0
@@ -53,7 +54,7 @@ mov r3 r0 ; on/off value
 mov r0 SyscallIdEnvGetStdoutFd
 syscall
 mov r1 r0 ; fd for stdout
-mov r0 1283 ; ioctl syscall id
+mov r0 SyscallIdIoctl
 mov r2 0 ; set echo command
 syscall
 ret

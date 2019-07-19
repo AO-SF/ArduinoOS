@@ -18,7 +18,7 @@ ab destFd 1
 ab cpScratchBuf PathMax
 
 ; Get source and dest arguments
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 sourceArg
 mov r3 PathMax
@@ -26,7 +26,7 @@ syscall
 cmp r0 r0 r0
 skipneqz r0
 jmp showUsage
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 2
 mov r2 destArg
 mov r3 PathMax
@@ -61,11 +61,11 @@ mov r1 cpScratchBuf
 call getpath
 
 ; Create/resize dest path
-mov r0 263
+mov r0 SyscallIdGetFileLen
 mov r1 sourceArg
 syscall
 mov r2 r0
-mov r0 262
+mov r0 SyscallIdResizeFile
 mov r1 destArg
 syscall
 

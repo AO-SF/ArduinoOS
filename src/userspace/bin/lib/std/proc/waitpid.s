@@ -7,7 +7,7 @@ mov r2 0 ; infinite timeout
 mov r3 SyscallWaitpidStatusInterrupted
 ; loop as waitpid may be interrupted by a signal
 label waitpidLoop
-mov r0 SyscallIdWaitpid ; as the syscall returns the result in r0 also, we need to reset this each iteration
+mov r0 SyscallIdWaitPid ; as the syscall returns the result in r0 also, we need to reset this each iteration
 syscall
 cmp r4 r0 r4
 skipneq r4 ; interrupted?

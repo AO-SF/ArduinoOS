@@ -11,7 +11,7 @@ ab scratchBuf PathMax
 ab devicePath PathMax
 
 ; Read device argument
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 scratchBuf
 mov r3 PathMax
@@ -24,7 +24,7 @@ mov r1 scratchBuf
 call getpath
 
 ; Invoke unmount syscall
-mov r0 1282
+mov r0 SyscallIdUnmount
 mov r1 devicePath
 syscall
 

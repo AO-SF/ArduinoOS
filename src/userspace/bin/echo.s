@@ -6,7 +6,7 @@ requireend lib/std/proc/exit.s
 ab buf ArgLenMax
 
 ; Get argc
-mov r0 2 ; getargc
+mov r0 SyscallIdArgc
 syscall
 push8 r0
 
@@ -38,7 +38,7 @@ pop8 r0
 label skipspace
 
 ; Get arg
-mov r0 3 ; getargvn
+mov r0 SyscallIdArgvN
 mov r1 r4
 mov r2 buf
 mov r3 ArgLenMax

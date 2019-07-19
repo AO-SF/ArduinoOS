@@ -55,7 +55,7 @@ call puts0
 mov r0 ' '
 call putc0
 
-mov r0 263
+mov r0 SyscallIdGetFileLen
 mov r1 pathBuf
 syscall
 cmp r1 r0 r0
@@ -90,7 +90,7 @@ mov r2 0 ; child num
 
 label printDirChildLoopStart
 ; Call getchildn
-mov r0 260
+mov r0 SyscallIdDirGetChildN
 mov r3 pathBuf
 syscall
 

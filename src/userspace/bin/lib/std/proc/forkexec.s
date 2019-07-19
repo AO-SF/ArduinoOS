@@ -5,7 +5,7 @@ label forkexec ; takes path in r0 to exec in a forked process, with arguments in
 push16 r0
 push16 r1
 ; call fork
-mov r0 4
+mov r0 SyscallIdFork
 syscall
 mov r1 PidMax
 cmp r1 r0 r1
@@ -17,7 +17,7 @@ jmp forkexecchild
 jmp forkexecsuccess
 ; child - exec given program with given args
 label forkexecchild
-mov r0 5
+mov r0 SyscallIdExec
 mov r4 r3
 mov r3 r2
 pop16 r2

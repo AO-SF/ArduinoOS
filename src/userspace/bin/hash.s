@@ -33,7 +33,7 @@ label hashArgN
 
 ; Get arg
 mov r1 r0
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r2 argBuf
 mov r3 PathMax
 syscall

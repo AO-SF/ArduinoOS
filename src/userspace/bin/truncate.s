@@ -12,14 +12,14 @@ ab pathArgBuf ArgLenMax
 ab pathAbsBuf ArgLenMax
 
 ; Grab args
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 sizeArgBuf
 syscall
 cmp r0 r0 r0
 skipneqz r0
 jmp usage
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 2
 mov r2 pathArgBuf
 syscall

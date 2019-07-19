@@ -36,7 +36,7 @@ jmp getpathMakeAbsolute
 ; look for directories in PATH environment variable
 push16 r0
 push16 r1
-mov r0 516 ; getpath
+mov r0 SyscallIdEnvGetPath
 mov r1 getpathPATHBuf
 syscall
 pop16 r1
@@ -91,7 +91,7 @@ push16 r0
 push16 r1
 push16 r2
 push16 r3
-mov r0 266
+mov r0 SyscallIdFileExists
 mov r1 getpathScratchBuf
 syscall
 cmp r4 r0 r0

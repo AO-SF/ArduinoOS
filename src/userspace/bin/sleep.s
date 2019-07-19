@@ -7,7 +7,7 @@ requireend lib/std/time/sleep.s
 ab argBuf ArgLenMax
 
 ; grab first argument
-mov r0 3
+mov r0 SyscallIdArgvN
 mov r1 1
 mov r2 argBuf
 mov r3 ArgLenMax
