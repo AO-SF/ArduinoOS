@@ -114,11 +114,11 @@ bool procManProcessSaveProcDataPathPtr(const ProcManProcess *process, BytecodeWo
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value);
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value);
 bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, char *str, uint16_t len);
-bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len); // block should not cross splut in memory between two types
+bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose); // block should not cross splut in memory between two types
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value);
 bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value);
 bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, char *str, uint16_t len);
-bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len);
+bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose);
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value);
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str);
@@ -677,7 +677,7 @@ bool procManProcessSaveProcDataPathPtr(const ProcManProcess *process, BytecodeWo
 }
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value) {
-	return procManProcessMemoryReadBlock(process, procData, addr, value, 1);
+	return procManProcessMemoryReadBlock(process, procData, addr, value, 1, true);
 }
 
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value) {
@@ -703,27 +703,28 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 	return true;
 }
 
-bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len) {
+bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose) {
 	if (addr+len<BytecodeMemoryRamAddr) {
 		// Addresss is in progmem data
 		if (kernelFsFileReadOffset(process->progmemFd, addr, data, len, false)==len)
 			return true;
 		else {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u, len %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr, len);
+			if (verbose)
+				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u, len %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr, len);
 			return false;
 		}
 	} else if (addr>=BytecodeMemoryRamAddr) {
 		// Address is in RAM
 		BytecodeWord ramIndex=(addr-BytecodeMemoryRamAddr);
 		KernelFsFileOffset ramOffset=ramIndex+procData->envVarDataLen;
-		return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, ramOffset, data, len);
+		return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, ramOffset, data, len, verbose);
 	} else
 		// Block spans both regions of memory, invalid call.
 		return false;
 }
 
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value) {
-	return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, value, 1);
+	return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, value, 1, true);
 }
 
 bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value) {
@@ -749,16 +750,18 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 	return true;
 }
 
-bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len) {
+bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose) {
 	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
 	if (offset+len<ramTotalSize) {
 		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len, false)!=len) {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len);
+			if (verbose)
+				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len);
 			return false;
 		}
 		return true;
 	} else {
-		kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (RAM file offset %u, len %u, but size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len, ramTotalSize);
+		if (verbose)
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (RAM file offset %u, len %u, but size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len, ramTotalSize);
 		return false;
 	}
 }
@@ -1243,7 +1246,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				if (chunkSize>256)
 					chunkSize=256;
 
-				if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize)) {
+				if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
 					kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 					return false;
 				}
@@ -1626,7 +1629,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					if (chunkSize>256)
 						chunkSize=256;
 
-					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+i, (uint8_t *)procManScratchBuf256, chunkSize)) {
+					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
 						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
@@ -1646,7 +1649,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					if (chunkSize>256)
 						chunkSize=256;
 
-					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+(size-chunkSize)-i, (uint8_t *)procManScratchBuf256, chunkSize)) {
+					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+(size-chunkSize)-i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
 						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
