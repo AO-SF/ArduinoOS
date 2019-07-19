@@ -562,12 +562,12 @@ mov r2 5
 syscall
 ; interrupted by another signal? if so, try again
 ; TODO: if interrupted repeatedly we may never exit
-mov r2 65531
+mov r2 SyscallWaitpidStatusInterrupted
 cmp r2 r0 r2
 skipneq r2
 jmp interruptHandlerWaitPidLoopStart
 ; if not timed out, no need to kill
-mov r2 65535
+mov r2 SyscallWaitpidStatusTimeout
 cmp r2 r0 r2
 skipeq r2
 jmp interruptHandlerRet

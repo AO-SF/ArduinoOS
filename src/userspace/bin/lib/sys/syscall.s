@@ -16,4 +16,8 @@ const SyscallIdEnvSetStdoutFd 519
 
 const SyscallIdRegisterSignalHandler 1024
 
+const SyscallWaitpidStatusSuccess 0
 const SyscallWaitpidStatusInterrupted 65531
+const SyscallWaitpidStatusNoProcess 65532
+const SyscallWaitpidStatusKilled 65534
+const SyscallWaitpidStatusTimeout 65535
