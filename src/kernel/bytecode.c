@@ -62,6 +62,7 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 		switch(instruction[0]&0xF) {
 			case 0: info->d.misc.type=BytecodeInstructionMiscTypeNop; return true; break;
 			case 1: info->d.misc.type=BytecodeInstructionMiscTypeSyscall; return true; break;
+			case 2: info->d.misc.type=BytecodeInstructionMiscTypeClearInstructionCache; return true; break;
 		}
 
 		return false;
@@ -115,6 +116,10 @@ BytecodeInstructionShort bytecodeInstructionCreateMiscNop(void) {
 
 BytecodeInstructionShort bytecodeInstructionCreateMiscSyscall(void) {
 	return 0xC1;
+}
+
+BytecodeInstructionShort bytecodeInstructionCreateMiscClearInstructionCache(void) {
+	return 0xC2;
 }
 
 BytecodeInstructionStandard bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value) {

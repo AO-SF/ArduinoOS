@@ -144,6 +144,9 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionMiscTypeSyscall:
 							disassemblerPrint(addr, instruction, "syscall");
 						break;
+						case BytecodeInstructionMiscTypeClearInstructionCache:
+							disassemblerPrint(addr, instruction, "clear icache");
+						break;
 						case BytecodeInstructionMiscTypeSet8:
 							disassemblerPrint(addr, instruction, "r%u=%u", info.d.misc.d.set8.destReg, info.d.misc.d.set8.value);
 						break;

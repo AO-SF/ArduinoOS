@@ -75,6 +75,7 @@ typedef enum {
 	AssemblerInstructionTypeMov,
 	AssemblerInstructionTypeLabel,
 	AssemblerInstructionTypeSyscall,
+	AssemblerInstructionTypeClearInstructionCache,
 	AssemblerInstructionTypeAlu,
 	AssemblerInstructionTypeJmp,
 	AssemblerInstructionTypePush8,
@@ -1026,6 +1027,11 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeSyscall;
+		} else if (strcmp(first, "clricache")==0) {
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeClearInstructionCache;
 		} else if (strcmp(first, "jmp")==0) {
 			char *addr=strtok_r(NULL, " ", &savePtr);
 			if (addr==NULL) {
@@ -1420,6 +1426,11 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeLen=1;
 				instruction->machineCodeInstructions=1;
 			break;
+			case AssemblerInstructionTypeClearInstructionCache:
+				instruction->machineCode[0]=bytecodeInstructionCreateMiscClearInstructionCache();
+				instruction->machineCodeLen=1;
+				instruction->machineCodeInstructions=1;
+			break;
 			case AssemblerInstructionTypeAlu:
 				instruction->machineCodeLen=2; // all ALU instructions take 2 bytes
 				instruction->machineCodeInstructions=1;
@@ -1567,6 +1578,8 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeLabel:
 			break;
 			case AssemblerInstructionTypeSyscall:
+			break;
+			case AssemblerInstructionTypeClearInstructionCache:
 			break;
 			case AssemblerInstructionTypeAlu: {
 				// Verify dest is a valid register
@@ -1865,6 +1878,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			break;
 			case AssemblerInstructionTypeSyscall:
 				printf("syscall (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeClearInstructionCache:
+				printf("clricache (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeAlu:
 				switch(instruction->d.alu.type) {

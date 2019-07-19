@@ -77,6 +77,15 @@ char procManScratchBufPath1[KernelFsPathMax];
 char procManScratchBufPath2[KernelFsPathMax];
 char procManScratchBuf256[256];
 
+#define ProcManPrefetchDataBufferSize 32
+typedef struct {
+	uint8_t buffer[ProcManPrefetchDataBufferSize];
+	uint16_t baseAddr, len;
+} ProcManPrefetchData;
+
+void procManPrefetchDataClear(ProcManPrefetchData *pd);
+bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *process, ProcManProcessProcData *procData, uint16_t addr, uint8_t *value);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,11 +123,11 @@ bool procManProcessSaveProcDataPathPtr(const ProcManProcess *process, BytecodeWo
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value);
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value);
 bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, char *str, uint16_t len);
-bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len); // block should not cross splut in memory between two types
+bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose); // block should not cross splut in memory between two types
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value);
 bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value);
 bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, char *str, uint16_t len);
-bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len);
+bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose);
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value);
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str);
@@ -126,11 +135,11 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 
 bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.  TODO: Avoid hardcoded limit
 
-bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong *instruction);
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManExitStatus *exitStatus);
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstructionLong *instruction);
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
 bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus);
-bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus);
-bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus);
+bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
+bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
 bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *procData, ProcManExitStatus *exitStatus);
 
 void procManProcessFork(ProcManProcess *process, ProcManProcessProcData *procData);
@@ -450,16 +459,18 @@ void procManProcessTick(ProcManPid pid) {
 	}
 
 	// Run a few instructions
+	ProcManPrefetchData prefetchData;
+	procManPrefetchDataClear(&prefetchData);
 	for(uint16_t instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
 		// Run a single instruction
 		BytecodeInstructionLong instruction;
-		if (!procManProcessGetInstruction(process, &procData, &instruction)) {
+		if (!procManProcessGetInstruction(process, &procData, &prefetchData, &instruction)) {
 			kernelLog(LogTypeWarning, kstrP("process %u tick - could not get instruction, killing\n"), pid);
 			goto kill;
 		}
 
 		// Execute instruction
-		if (!procManProcessExecInstruction(process, &procData, instruction, &exitStatus)) {
+		if (!procManProcessExecInstruction(process, &procData, instruction, &prefetchData, &exitStatus)) {
 			if (process->state!=ProcManProcessStateExiting)
 				kernelLog(LogTypeWarning, kstrP("process %u tick - could not exec instruction or returned false, killing\n"), pid);
 			goto kill;
@@ -677,7 +688,7 @@ bool procManProcessSaveProcDataPathPtr(const ProcManProcess *process, BytecodeWo
 }
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value) {
-	return procManProcessMemoryReadBlock(process, procData, addr, value, 1);
+	return procManProcessMemoryReadBlock(process, procData, addr, value, 1, true);
 }
 
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value) {
@@ -703,27 +714,28 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 	return true;
 }
 
-bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len) {
+bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose) {
 	if (addr+len<BytecodeMemoryRamAddr) {
 		// Addresss is in progmem data
 		if (kernelFsFileReadOffset(process->progmemFd, addr, data, len, false)==len)
 			return true;
 		else {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u, len %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr, len);
+			if (verbose)
+				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (0x%04X, pointing to PROGMEM at offset %u, len %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, addr, len);
 			return false;
 		}
 	} else if (addr>=BytecodeMemoryRamAddr) {
 		// Address is in RAM
 		BytecodeWord ramIndex=(addr-BytecodeMemoryRamAddr);
 		KernelFsFileOffset ramOffset=ramIndex+procData->envVarDataLen;
-		return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, ramOffset, data, len);
+		return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, ramOffset, data, len, verbose);
 	} else
 		// Block spans both regions of memory, invalid call.
 		return false;
 }
 
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value) {
-	return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, value, 1);
+	return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, value, 1, true);
 }
 
 bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value) {
@@ -749,16 +761,18 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 	return true;
 }
 
-bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len) {
+bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose) {
 	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
 	if (offset+len<ramTotalSize) {
 		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len, false)!=len) {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len);
+			if (verbose)
+				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len);
 			return false;
 		}
 		return true;
 	} else {
-		kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (RAM file offset %u, len %u, but size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len, ramTotalSize);
+		if (verbose)
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (RAM file offset %u, len %u, but size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len, ramTotalSize);
 		return false;
 	}
 }
@@ -879,20 +893,20 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 	return true;
 }
 
-bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong *instruction) {
-	if (!procManProcessMemoryReadByte(process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+0))
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstructionLong *instruction) {
+	if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+0))
 		return false;
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(*instruction);
 	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
-		if (!procManProcessMemoryReadByte(process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+1))
+		if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+1))
 			return false;
 	if (length==BytecodeInstructionLengthLong)
-		if (!procManProcessMemoryReadByte(process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+2))
+		if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+2))
 			return false;
 	return true;
 }
 
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManExitStatus *exitStatus) {
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	// Parse instruction
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
@@ -906,10 +920,10 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 			return procManProcessExecInstructionMemory(process, procData, &info, exitStatus);
 		break;
 		case BytecodeInstructionTypeAlu:
-			return procManProcessExecInstructionAlu(process, procData, &info, exitStatus);
+			return procManProcessExecInstructionAlu(process, procData, &info, prefetchData, exitStatus);
 		break;
 		case BytecodeInstructionTypeMisc:
-			return procManProcessExecInstructionMisc(process, procData, &info, exitStatus);
+			return procManProcessExecInstructionMisc(process, procData, &info, prefetchData, exitStatus);
 		break;
 	}
 
@@ -950,7 +964,7 @@ bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcess
 	return true;
 }
 
-bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus) {
+bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	BytecodeWord opA=procData->regs[info->d.alu.opAReg];
 	BytecodeWord opB=procData->regs[info->d.alu.opBReg];
 	switch(info->d.alu.type) {
@@ -1012,7 +1026,7 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 				uint8_t skipDist=info->d.alu.opBReg+1;
 				for(uint8_t i=0; i<skipDist; ++i) {
 					BytecodeInstructionLong skippedInstruction;
-					if (!procManProcessGetInstruction(process, procData, &skippedInstruction)) {
+					if (!procManProcessGetInstruction(process, procData, prefetchData, &skippedInstruction)) {
 						kernelLog(LogTypeWarning, kstrP("could not skip instruction (initial skip dist %u), process %u (%s), killing\n"), skipDist, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
@@ -1038,13 +1052,16 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 	return true;
 }
 
-bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus) {
+bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	switch(info->d.misc.type) {
 		case BytecodeInstructionMiscTypeNop:
 		break;
 		case BytecodeInstructionMiscTypeSyscall:
 			if (!procManProcessExecSyscall(process, procData, exitStatus))
 				return false;
+		break;
+		case BytecodeInstructionMiscTypeClearInstructionCache:
+			procManPrefetchDataClear(prefetchData);
 		break;
 		case BytecodeInstructionMiscTypeSet8:
 			procData->regs[info->d.misc.d.set8.destReg]=info->d.misc.d.set8.value;
@@ -1243,7 +1260,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				if (chunkSize>256)
 					chunkSize=256;
 
-				if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize)) {
+				if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
 					kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 					return false;
 				}
@@ -1626,7 +1643,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					if (chunkSize>256)
 						chunkSize=256;
 
-					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+i, (uint8_t *)procManScratchBuf256, chunkSize)) {
+					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
 						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
@@ -1646,7 +1663,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					if (chunkSize>256)
 						chunkSize=256;
 
-					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+(size-chunkSize)-i, (uint8_t *)procManScratchBuf256, chunkSize)) {
+					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+(size-chunkSize)-i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
 						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
@@ -2018,4 +2035,29 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 void procManResetInstructionCounters(void) {
 	for(ProcManPid i=0; i<ProcManPidMax; ++i)
 		procManData.processes[i].instructionCounter=0;
+}
+
+void procManPrefetchDataClear(ProcManPrefetchData *pd) {
+	pd->len=0;
+}
+
+bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *process, ProcManProcessProcData *procData, uint16_t addr, uint8_t *value) {
+	// Not already in cache?
+	if (addr<pd->baseAddr || addr>=pd->baseAddr+pd->len) {
+		// Attempt to read largest block we can, but try smaller sizes if this fails.
+		for(pd->len=ProcManPrefetchDataBufferSize; pd->len>0; pd->len/=2)
+			if (procManProcessMemoryReadBlock(process, procData, addr, pd->buffer, pd->len, false))
+				break;
+
+		// Could we not even read the requested byte?
+		if (pd->len==0)
+			return false;
+
+		// At least one byte read - update base address
+		pd->baseAddr=addr;
+	}
+
+	// Grab from cache
+	*value=pd->buffer[addr-pd->baseAddr];
+	return true;
 }

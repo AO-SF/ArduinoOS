@@ -170,6 +170,7 @@ typedef enum {
 typedef enum {
 	BytecodeInstructionMiscTypeNop,
 	BytecodeInstructionMiscTypeSyscall,
+	BytecodeInstructionMiscTypeClearInstructionCache,
 	BytecodeInstructionMiscTypeSet8,
 	BytecodeInstructionMiscTypeSet16,
 } BytecodeInstructionMiscType;
@@ -210,6 +211,7 @@ BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluT
 BytecodeInstructionStandard bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue);
 BytecodeInstructionShort bytecodeInstructionCreateMiscNop(void);
 BytecodeInstructionShort bytecodeInstructionCreateMiscSyscall(void);
+BytecodeInstructionShort bytecodeInstructionCreateMiscClearInstructionCache(void);
 BytecodeInstructionStandard bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
 void bytecodeInstructionCreateMiscSet16(BytecodeInstructionLong instruction, BytecodeRegister destReg, uint16_t value);
 
