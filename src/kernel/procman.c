@@ -83,7 +83,7 @@ typedef struct {
 	uint16_t baseAddr, len;
 } ProcManPrefetchData;
 
-void procManPrefetchDataInit(ProcManPrefetchData *pd);
+void procManPrefetchDataClear(ProcManPrefetchData *pd);
 bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *process, ProcManProcessProcData *procData, uint16_t addr, uint8_t *value);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -460,7 +460,7 @@ void procManProcessTick(ProcManPid pid) {
 
 	// Run a few instructions
 	ProcManPrefetchData prefetchData;
-	procManPrefetchDataInit(&prefetchData);
+	procManPrefetchDataClear(&prefetchData);
 	for(uint16_t instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
 		// Run a single instruction
 		BytecodeInstructionLong instruction;
@@ -1061,7 +1061,7 @@ bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessPr
 				return false;
 		break;
 		case BytecodeInstructionMiscTypeClearInstructionCache:
-			procManPrefetchDataInit(prefetchData);
+			procManPrefetchDataClear(prefetchData);
 		break;
 		case BytecodeInstructionMiscTypeSet8:
 			procData->regs[info->d.misc.d.set8.destReg]=info->d.misc.d.set8.value;
@@ -2037,7 +2037,7 @@ void procManResetInstructionCounters(void) {
 		procManData.processes[i].instructionCounter=0;
 }
 
-void procManPrefetchDataInit(ProcManPrefetchData *pd) {
+void procManPrefetchDataClear(ProcManPrefetchData *pd) {
 	pd->len=0;
 }
 
