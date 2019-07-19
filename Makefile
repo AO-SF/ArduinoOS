@@ -1,3 +1,7 @@
+ALL:
+	@echo "Error expected argument - try 'make arduino', 'make pc' or 'make clean'"
+	@exit
+
 arduino:
 	mkdir -p bin
 	cd src/kernel && make clean # HACK as kernel may make arduino versions of some of the objects
