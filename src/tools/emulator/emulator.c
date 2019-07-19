@@ -650,6 +650,9 @@ bool processRunNextInstruction(Process *process) {
 						break;
 					}
 				} break;
+				case BytecodeInstructionMiscTypeClearInstructionCache:
+					// We do not use an instruction cache so nothing to do
+				break;
 				case BytecodeInstructionMiscTypeSet8:
 					process->regs[info.d.misc.d.set8.destReg]=info.d.misc.d.set8.value;
 					if (infoInstructions)

@@ -139,7 +139,7 @@ bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcDat
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
 bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus);
 bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
-bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus);
+bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
 bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *procData, ProcManExitStatus *exitStatus);
 
 void procManProcessFork(ProcManProcess *process, ProcManProcessProcData *procData);
@@ -923,7 +923,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 			return procManProcessExecInstructionAlu(process, procData, &info, prefetchData, exitStatus);
 		break;
 		case BytecodeInstructionTypeMisc:
-			return procManProcessExecInstructionMisc(process, procData, &info, exitStatus);
+			return procManProcessExecInstructionMisc(process, procData, &info, prefetchData, exitStatus);
 		break;
 	}
 
@@ -1052,13 +1052,16 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 	return true;
 }
 
-bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus) {
+bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	switch(info->d.misc.type) {
 		case BytecodeInstructionMiscTypeNop:
 		break;
 		case BytecodeInstructionMiscTypeSyscall:
 			if (!procManProcessExecSyscall(process, procData, exitStatus))
 				return false;
+		break;
+		case BytecodeInstructionMiscTypeClearInstructionCache:
+			procManPrefetchDataInit(prefetchData);
 		break;
 		case BytecodeInstructionMiscTypeSet8:
 			procData->regs[info->d.misc.d.set8.destReg]=info->d.misc.d.set8.value;
