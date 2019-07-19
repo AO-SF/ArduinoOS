@@ -21,8 +21,7 @@ mov r0 header
 call puts0
 
 ; Grab all cpu counts now in one go and compute sum
-; This at least makes sure the percentages add up properly
-; Although there is still an (unavoidable) race condition between this and actually outputting the data
+; This at least makes sure the percentages add up properly, almost
 mov r0 SyscallIdGetAllCpuCounts
 mov r1 cpuCounts
 syscall
