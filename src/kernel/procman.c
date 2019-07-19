@@ -77,6 +77,15 @@ char procManScratchBufPath1[KernelFsPathMax];
 char procManScratchBufPath2[KernelFsPathMax];
 char procManScratchBuf256[256];
 
+#define ProcManPrefetchDataBufferSize 32
+typedef struct {
+	uint8_t buffer[ProcManPrefetchDataBufferSize];
+	uint16_t baseAddr, len;
+} ProcManPrefetchData;
+
+void procManPrefetchDataInit(ProcManPrefetchData *pd);
+bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *process, ProcManProcessProcData *procData, uint16_t addr, uint8_t *value);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -126,10 +135,10 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 
 bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.  TODO: Avoid hardcoded limit
 
-bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong *instruction);
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManExitStatus *exitStatus);
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstructionLong *instruction);
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
 bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus);
-bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus);
+bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
 bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus);
 bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *procData, ProcManExitStatus *exitStatus);
 
@@ -450,16 +459,18 @@ void procManProcessTick(ProcManPid pid) {
 	}
 
 	// Run a few instructions
+	ProcManPrefetchData prefetchData;
+	procManPrefetchDataInit(&prefetchData);
 	for(uint16_t instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
 		// Run a single instruction
 		BytecodeInstructionLong instruction;
-		if (!procManProcessGetInstruction(process, &procData, &instruction)) {
+		if (!procManProcessGetInstruction(process, &procData, &prefetchData, &instruction)) {
 			kernelLog(LogTypeWarning, kstrP("process %u tick - could not get instruction, killing\n"), pid);
 			goto kill;
 		}
 
 		// Execute instruction
-		if (!procManProcessExecInstruction(process, &procData, instruction, &exitStatus)) {
+		if (!procManProcessExecInstruction(process, &procData, instruction, &prefetchData, &exitStatus)) {
 			if (process->state!=ProcManProcessStateExiting)
 				kernelLog(LogTypeWarning, kstrP("process %u tick - could not exec instruction or returned false, killing\n"), pid);
 			goto kill;
@@ -882,20 +893,20 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 	return true;
 }
 
-bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong *instruction) {
-	if (!procManProcessMemoryReadByte(process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+0))
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstructionLong *instruction) {
+	if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+0))
 		return false;
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(*instruction);
 	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
-		if (!procManProcessMemoryReadByte(process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+1))
+		if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+1))
 			return false;
 	if (length==BytecodeInstructionLengthLong)
-		if (!procManProcessMemoryReadByte(process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+2))
+		if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+2))
 			return false;
 	return true;
 }
 
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManExitStatus *exitStatus) {
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	// Parse instruction
 	BytecodeInstructionInfo info;
 	if (!bytecodeInstructionParse(&info, instruction)) {
@@ -909,7 +920,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 			return procManProcessExecInstructionMemory(process, procData, &info, exitStatus);
 		break;
 		case BytecodeInstructionTypeAlu:
-			return procManProcessExecInstructionAlu(process, procData, &info, exitStatus);
+			return procManProcessExecInstructionAlu(process, procData, &info, prefetchData, exitStatus);
 		break;
 		case BytecodeInstructionTypeMisc:
 			return procManProcessExecInstructionMisc(process, procData, &info, exitStatus);
@@ -953,7 +964,7 @@ bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcess
 	return true;
 }
 
-bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus) {
+bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	BytecodeWord opA=procData->regs[info->d.alu.opAReg];
 	BytecodeWord opB=procData->regs[info->d.alu.opBReg];
 	switch(info->d.alu.type) {
@@ -1015,7 +1026,7 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 				uint8_t skipDist=info->d.alu.opBReg+1;
 				for(uint8_t i=0; i<skipDist; ++i) {
 					BytecodeInstructionLong skippedInstruction;
-					if (!procManProcessGetInstruction(process, procData, &skippedInstruction)) {
+					if (!procManProcessGetInstruction(process, procData, prefetchData, &skippedInstruction)) {
 						kernelLog(LogTypeWarning, kstrP("could not skip instruction (initial skip dist %u), process %u (%s), killing\n"), skipDist, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
@@ -2021,4 +2032,29 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 void procManResetInstructionCounters(void) {
 	for(ProcManPid i=0; i<ProcManPidMax; ++i)
 		procManData.processes[i].instructionCounter=0;
+}
+
+void procManPrefetchDataInit(ProcManPrefetchData *pd) {
+	pd->len=0;
+}
+
+bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *process, ProcManProcessProcData *procData, uint16_t addr, uint8_t *value) {
+	// Not already in cache?
+	if (addr<pd->baseAddr || addr>=pd->baseAddr+pd->len) {
+		// Attempt to read largest block we can, but try smaller sizes if this fails.
+		for(pd->len=ProcManPrefetchDataBufferSize; pd->len>0; pd->len/=2)
+			if (procManProcessMemoryReadBlock(process, procData, addr, pd->buffer, pd->len, false))
+				break;
+
+		// Could we not even read the requested byte?
+		if (pd->len==0)
+			return false;
+
+		// At least one byte read - update base address
+		pd->baseAddr=addr;
+	}
+
+	// Grab from cache
+	*value=pd->buffer[addr-pd->baseAddr];
+	return true;
 }
