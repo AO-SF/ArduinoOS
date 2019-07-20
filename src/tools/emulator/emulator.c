@@ -61,11 +61,11 @@ int main(int argc, char **argv) {
 	for(i=1; i<argc; ++i) {
 		if (strncmp(argv[i], "--", 2)!=0)
 			break;
-		if (strcmp(argv[i], "--infoSyscalls")==0)
+		if (strcmp(argv[i], "--infosyscalls")==0)
 			infoSyscalls=true;
-		else if (strcmp(argv[i], "--infoInstructions")==0)
+		else if (strcmp(argv[i], "--infoinstructions")==0)
 			infoInstructions=true;
-		else if (strcmp(argv[i], "--infoState")==0)
+		else if (strcmp(argv[i], "--infostate")==0)
 			infoState=true;
 		else if (strcmp(argv[i], "--passonexitstatus")==0)
 			passOnExitStatus=true;
@@ -200,7 +200,8 @@ bool processRunNextInstruction(Process *process) {
 			int opB=process->regs[info.d.alu.opBReg];
 			switch(info.d.alu.type) {
 				case BytecodeInstructionAluTypeInc: {
-					int pre=process->regs[info.d.alu.destReg]+=info.d.alu.incDecValue;
+					int pre=process->regs[info.d.alu.destReg];
+					process->regs[info.d.alu.destReg]+=info.d.alu.incDecValue;
 					if (infoInstructions) {
 						if (info.d.alu.incDecValue==1)
 							printf("Info: r%i++ (r%i=%i+1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
@@ -209,7 +210,8 @@ bool processRunNextInstruction(Process *process) {
 					}
 				} break;
 				case BytecodeInstructionAluTypeDec: {
-					int pre=process->regs[info.d.alu.destReg]-=info.d.alu.incDecValue;
+					int pre=process->regs[info.d.alu.destReg];
+					process->regs[info.d.alu.destReg]-=info.d.alu.incDecValue;
 					if (infoInstructions) {
 						if (info.d.alu.incDecValue==1)
 							printf("Info: r%i-- (r%i=%i-1=%i)\n", info.d.alu.destReg, info.d.alu.destReg, pre, process->regs[info.d.alu.destReg]);
