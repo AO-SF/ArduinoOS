@@ -61,11 +61,11 @@ int main(int argc, char **argv) {
 	for(i=1; i<argc; ++i) {
 		if (strncmp(argv[i], "--", 2)!=0)
 			break;
-		if (strcmp(argv[i], "--infoSyscalls")==0)
+		if (strcmp(argv[i], "--infosyscalls")==0)
 			infoSyscalls=true;
-		else if (strcmp(argv[i], "--infoInstructions")==0)
+		else if (strcmp(argv[i], "--infoinstructions")==0)
 			infoInstructions=true;
-		else if (strcmp(argv[i], "--infoState")==0)
+		else if (strcmp(argv[i], "--infostate")==0)
 			infoState=true;
 		else if (strcmp(argv[i], "--passonexitstatus")==0)
 			passOnExitStatus=true;
