@@ -98,6 +98,12 @@ typedef enum {
 } BytecodeInstructionAluCmpMask;
 
 typedef enum {
+	BytecodeInstructionAluExtraTypeNot,
+	BytecodeInstructionAluExtraTypeStore16,
+	BytecodeInstructionAluExtraTypeLoad16,
+} BytecodeInstructionAluExtraType;
+
+typedef enum {
 	BytecodeInstructionAluTypeInc,
 	BytecodeInstructionAluTypeDec,
 	BytecodeInstructionAluTypeAdd,
@@ -107,13 +113,11 @@ typedef enum {
 	BytecodeInstructionAluTypeXor,
 	BytecodeInstructionAluTypeOr,
 	BytecodeInstructionAluTypeAnd,
-	BytecodeInstructionAluTypeNot,
 	BytecodeInstructionAluTypeCmp,
 	BytecodeInstructionAluTypeShiftLeft,
 	BytecodeInstructionAluTypeShiftRight,
 	BytecodeInstructionAluTypeSkip,
-	BytecodeInstructionAluTypeStore16,
-	BytecodeInstructionAluTypeLoad16,
+	BytecodeInstructionAluTypeExtra,
 } BytecodeInstructionAluType;
 
 typedef struct {

@@ -110,9 +110,6 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionAluTypeAnd:
 							disassemblerPrint(addr, instruction, "r%u=r%u&r%u", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg);
 						break;
-						case BytecodeInstructionAluTypeNot:
-							disassemblerPrint(addr, instruction, "r%u=~r%u", info.d.alu.destReg, info.d.alu.opAReg);
-						break;
 						case BytecodeInstructionAluTypeCmp:
 							disassemblerPrint(addr, instruction, "r%u=cmp(r%u, r%u)", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg);
 						break;
@@ -125,12 +122,22 @@ int main(int argc, char **argv) {
 						case BytecodeInstructionAluTypeSkip:
 							disassemblerPrint(addr, instruction, "skip%u r%u (%s), dist %u", info.d.alu.opAReg, info.d.alu.destReg, byteCodeInstructionAluCmpBitStrings[info.d.alu.opAReg], info.d.alu.opBReg+1);
 						break;
-						case BytecodeInstructionAluTypeStore16:
-							disassemblerPrint(addr, instruction, "[r%u]=r%u (16 bit)", info.d.alu.destReg, info.d.alu.opAReg);
-						break;
-						case BytecodeInstructionAluTypeLoad16:
-							disassemblerPrint(addr, instruction, "r%u=[r%u] (16 bit)", info.d.alu.destReg, info.d.alu.opAReg);
-						break;
+						case BytecodeInstructionAluTypeExtra: {
+							switch(info.d.alu.opBReg) {
+								case BytecodeInstructionAluExtraTypeNot:
+									disassemblerPrint(addr, instruction, "r%u=~r%u", info.d.alu.destReg, info.d.alu.opAReg);
+								break;
+								case BytecodeInstructionAluExtraTypeStore16:
+									disassemblerPrint(addr, instruction, "[r%u]=r%u (16 bit)", info.d.alu.destReg, info.d.alu.opAReg);
+								break;
+								case BytecodeInstructionAluExtraTypeLoad16:
+									disassemblerPrint(addr, instruction, "r%u=[r%u] (16 bit)", info.d.alu.destReg, info.d.alu.opAReg);
+								break;
+								default:
+									disassemblerPrint(addr, instruction, "unknown ALU extra operation (type %u)", info.d.alu.opBReg);
+								break;
+							}
+						} break;
 						default:
 							disassemblerPrint(addr, instruction, "unknown ALU operation");
 						break;

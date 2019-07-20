@@ -18,6 +18,7 @@ typedef struct {
 	unsigned ops;
 	unsigned skipBit;
 	unsigned incDecValue;
+	BytecodeInstructionAluExtraType extraType;
 } AssemblerInstructionAluData;
 
 const AssemblerInstructionAluData assemblerInstructionAluData[]={
@@ -45,7 +46,6 @@ const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeXor, .str="xor", .ops=2},
 	{.type=BytecodeInstructionAluTypeOr, .str="or", .ops=2},
 	{.type=BytecodeInstructionAluTypeAnd, .str="and", .ops=2},
-	{.type=BytecodeInstructionAluTypeNot, .str="not", .ops=1},
 	{.type=BytecodeInstructionAluTypeCmp, .str="cmp", .ops=2},
 	{.type=BytecodeInstructionAluTypeShiftLeft, .str="shl", .ops=2},
 	{.type=BytecodeInstructionAluTypeShiftRight, .str="shr", .ops=2},
@@ -65,8 +65,9 @@ const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeSkip, .str="skip5", .ops=0, .skipBit=5},
 	{.type=BytecodeInstructionAluTypeSkip, .str="skip6", .ops=0, .skipBit=6},
 	{.type=BytecodeInstructionAluTypeSkip, .str="skip7", .ops=0, .skipBit=7},
-	{.type=BytecodeInstructionAluTypeStore16, .str="store16", .ops=1},
-	{.type=BytecodeInstructionAluTypeLoad16, .str="load16", .ops=1},
+	{.type=BytecodeInstructionAluTypeExtra, .str="not", .ops=1, .extraType=BytecodeInstructionAluExtraTypeNot},
+	{.type=BytecodeInstructionAluTypeExtra, .str="store16", .ops=1, .extraType=BytecodeInstructionAluExtraTypeStore16},
+	{.type=BytecodeInstructionAluTypeExtra, .str="load16", .ops=1, .extraType=BytecodeInstructionAluExtraTypeLoad16},
 };
 
 typedef enum {
@@ -123,6 +124,7 @@ typedef struct {
 	const char *opB;
 	uint8_t skipBit;
 	uint8_t incDecValue;
+	uint8_t extraType;
 } AssemblerInstructionAlu;
 
 typedef struct {
@@ -1265,6 +1267,8 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 					instruction->d.alu.skipBit=assemblerInstructionAluData[j].skipBit;
 				if (instruction->d.alu.type==BytecodeInstructionAluTypeInc || instruction->d.alu.type==BytecodeInstructionAluTypeDec)
 					instruction->d.alu.incDecValue=assemblerInstructionAluData[j].incDecValue;
+				if (instruction->d.alu.type==BytecodeInstructionAluTypeExtra)
+					instruction->d.alu.extraType=assemblerInstructionAluData[j].extraType;
 				instruction->d.alu.dest=dest;
 				instruction->d.alu.opA=opA;
 				instruction->d.alu.opB=opB;
@@ -1618,7 +1622,11 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					// Special case to encode literal add/sub delta
 					opAReg=(instruction->d.alu.incDecValue-1)>>3;
 					opBReg=(instruction->d.alu.incDecValue-1)&7;
+				} else if (instruction->d.alu.type==BytecodeInstructionAluTypeExtra) {
+					// Special case to store type
+					opBReg=instruction->d.alu.extraType;
 				}
+
 				BytecodeInstructionStandard aluOp=bytecodeInstructionCreateAlu(instruction->d.alu.type, destReg, opAReg, opBReg);
 
 				instruction->machineCode[0]=(aluOp>>8);
@@ -1692,7 +1700,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create as two instructions: store16 SP srcReg; inc2 SP
-				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, BytecodeRegisterSP, srcReg, 0);
+				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterSP, srcReg, (BytecodeRegister)BytecodeInstructionAluExtraTypeStore16);
 				instruction->machineCode[0]=(store16Op>>8);
 				instruction->machineCode[1]=(store16Op&0xFF);
 
@@ -1719,7 +1727,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[0]=(dec2Op>>8);
 				instruction->machineCode[1]=(dec2Op&0xFF);
 
-				BytecodeInstructionStandard loadOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, destReg, BytecodeRegisterSP, 0);
+				BytecodeInstructionStandard loadOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, destReg, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypeLoad16);
 				instruction->machineCode[2]=(loadOp>>8);
 				instruction->machineCode[3]=(loadOp&0xFF);
 			} break;
@@ -1755,7 +1763,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[3]=(inc9Op&0xFF);
 
 				// store16 rSP rS
-				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeStore16, BytecodeRegisterSP, BytecodeRegisterS, 0);
+				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterSP, BytecodeRegisterS, (BytecodeRegister)BytecodeInstructionAluExtraTypeStore16);
 				instruction->machineCode[4]=(store16Op>>8);
 				instruction->machineCode[5]=(store16Op&0xFF);
 
@@ -1779,7 +1787,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[0]=(decOp>>8);
 				instruction->machineCode[1]=(decOp&0xFF);
 
-				BytecodeInstructionStandard load16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeLoad16, BytecodeRegisterIP, BytecodeRegisterSP, 0);
+				BytecodeInstructionStandard load16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterIP, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypeLoad16);
 				instruction->machineCode[2]=(load16Op>>8);
 				instruction->machineCode[3]=(load16Op&0xFF);
 			} break;
@@ -1930,9 +1938,6 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 					case BytecodeInstructionAluTypeAnd:
 						printf("%s=%s&%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
-					case BytecodeInstructionAluTypeNot:
-						printf("%s=~%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
-					break;
 					case BytecodeInstructionAluTypeCmp:
 						printf("%s=cmp(%s,%s) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.opB, line->file, line->lineNum, line->original);
 					break;
@@ -1945,11 +1950,18 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 					case BytecodeInstructionAluTypeSkip:
 						printf("skip if %s has bit %u set (%s) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.skipBit, byteCodeInstructionAluCmpBitStrings[instruction->d.alu.skipBit], line->file, line->lineNum, line->original);
 					break;
-					case BytecodeInstructionAluTypeStore16:
-						printf("[%s]=%s (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
-					break;
-					case BytecodeInstructionAluTypeLoad16:
-						printf("%s=[%s] (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
+					case BytecodeInstructionAluTypeExtra:
+						switch(instruction->d.alu.extraType) {
+							case BytecodeInstructionAluExtraTypeNot:
+								printf("%s=~%s (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
+							break;
+							case BytecodeInstructionAluExtraTypeStore16:
+								printf("[%s]=%s (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
+							break;
+							case BytecodeInstructionAluExtraTypeLoad16:
+								printf("%s=[%s] (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
+							break;
+						}
 					break;
 				}
 			break;
