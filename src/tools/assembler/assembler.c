@@ -347,7 +347,7 @@ int main(int argc, char **argv) {
 	strcpy(assemblerLine->modified, autoLine);
 	assemblerInsertLine(program, assemblerLine, autoLineNext++);
 
-	sprintf(autoLine, "load8 r0 r7 ; 'G' magic header byte 1");
+	sprintf(autoLine, "load8 r0 r7 ; 'G' magic header byte 2");
 	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
 	assemblerLine->lineNum=autoLineNext+1;
 	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
@@ -361,7 +361,7 @@ int main(int argc, char **argv) {
 	// Unless nostack set, add line to set the stack pointer (this is just reserving it for now)
 	uint16_t stackSetLineIndex=0;
 	if (!program->noStack) {
-		sprintf(autoLine, "mov r%u 65535", BytecodeRegisterSP);
+		sprintf(autoLine, "mov r%u 65535 ; setup stack", BytecodeRegisterSP);
 
 		assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
 		assemblerLine->lineNum=autoLineNext+1;
