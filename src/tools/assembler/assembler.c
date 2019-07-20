@@ -337,7 +337,7 @@ int main(int argc, char **argv) {
 	AssemblerLine *assemblerLine;
 
 	// Add a couple of lines to put magic bytes at the front of the file
-	sprintf(autoLine, "nop ; magic header byte 1");
+	sprintf(autoLine, "%s ; magic header byte 1", BytecodeMagicByte1AsmInstructionStr);
 	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
 	assemblerLine->lineNum=autoLineNext+1;
 	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
@@ -348,7 +348,7 @@ int main(int argc, char **argv) {
 	strcpy(assemblerLine->modified, autoLine);
 	assemblerInsertLine(program, assemblerLine, autoLineNext++);
 
-	sprintf(autoLine, "nop ; magic header byte 2");
+	sprintf(autoLine, "%s ; magic header byte 2", BytecodeMagicByte2AsmInstructionStr);
 	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
 	assemblerLine->lineNum=autoLineNext+1;
 	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return

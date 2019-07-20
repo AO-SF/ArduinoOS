@@ -115,14 +115,14 @@ int main(int argc, char **argv) {
 	int c;
 	uint8_t *next=process->memory;
 	c=fgetc(inputFile);
-	if (c!='G') {
-		printf("Error: first magic byte is not 'G' as expected\n");
+	if (c!=BytecodeMagicByte1) {
+		printf("Error: first magic byte is not 0x%02X as expected\n", BytecodeMagicByte1);
 		goto done;
 	}
 	*next++=c;
 	c=fgetc(inputFile);
-	if (c!='G') {
-		printf("Error: second magic byte is not 'G' as expected\n");
+	if (c!=BytecodeMagicByte2) {
+		printf("Error: second magic byte is not 0x%02X as expected\n", BytecodeMagicByte2);
 		goto done;
 	}
 	*next++=c;

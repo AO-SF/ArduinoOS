@@ -1954,7 +1954,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 			return KernelFsFdInvalid;
 		}
 
-		if (magicBytes[0]=='G' && magicBytes[1]=='G') {
+		if (magicBytes[0]==BytecodeMagicByte1 && magicBytes[1]==BytecodeMagicByte2) {
 			// A standard native executable - no special handling required (the magic bytes run as harmless instructions)
 			break;
 		} else if (magicBytes[0]=='#' && magicBytes[1]=='!') {
