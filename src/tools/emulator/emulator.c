@@ -309,6 +309,22 @@ bool processRunNextInstruction(Process *process) {
 							if (infoInstructions)
 								printf("Info: r%i=[r%i] (16 bit) (=[%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, opA, process->regs[info.d.alu.destReg]);
 						break;
+						case BytecodeInstructionAluExtraTypePush16:
+							process->memory[process->regs[info.d.alu.destReg]]=(opA>>8);
+							++process->regs[info.d.alu.destReg];
+							process->memory[process->regs[info.d.alu.destReg]]=(opA&0xFF);
+							++process->regs[info.d.alu.destReg];
+							if (infoInstructions)
+								printf("Info: [r%i]=r%i, r%i+=2 (16 bit push) ([%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.destReg, process->regs[info.d.alu.destReg]-2, opA);
+						break;
+						case BytecodeInstructionAluExtraTypePop16:
+							--process->regs[info.d.alu.opAReg];
+							process->regs[info.d.alu.destReg]=process->memory[process->regs[info.d.alu.opAReg]];
+							--process->regs[info.d.alu.opAReg];
+							process->regs[info.d.alu.destReg]|=(((BytecodeWord)process->memory[process->regs[info.d.alu.opAReg]])<<8);
+							if (infoInstructions)
+								printf("Info: r%i-=2, [r%i]=r%i (16 bit pop) ([%i]=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.opAReg], process->regs[info.d.alu.destReg]);
+						break;
 						default:
 							printf("Error: Unknown alu extra instruction with type %i\n", info.d.alu.opBReg);
 							return false;

@@ -68,6 +68,8 @@ const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeExtra, .str="not", .ops=1, .extraType=BytecodeInstructionAluExtraTypeNot},
 	{.type=BytecodeInstructionAluTypeExtra, .str="store16", .ops=1, .extraType=BytecodeInstructionAluExtraTypeStore16},
 	{.type=BytecodeInstructionAluTypeExtra, .str="load16", .ops=1, .extraType=BytecodeInstructionAluExtraTypeLoad16},
+	{.type=BytecodeInstructionAluTypeExtra, .str="push16", .ops=0, .extraType=BytecodeInstructionAluExtraTypePush16},
+	{.type=BytecodeInstructionAluTypeExtra, .str="pop16", .ops=0, .extraType=BytecodeInstructionAluExtraTypePop16},
 };
 
 typedef enum {
@@ -81,8 +83,6 @@ typedef enum {
 	AssemblerInstructionTypeJmp,
 	AssemblerInstructionTypePush8,
 	AssemblerInstructionTypePop8,
-	AssemblerInstructionTypePush16,
-	AssemblerInstructionTypePop16,
 	AssemblerInstructionTypeCall,
 	AssemblerInstructionTypeRet,
 	AssemblerInstructionTypeStore8,
@@ -140,14 +140,6 @@ typedef struct {
 } AssemblerInstructionPop8;
 
 typedef struct {
-	const char *src;
-} AssemblerInstructionPush16;
-
-typedef struct {
-	const char *dest;
-} AssemblerInstructionPop16;
-
-typedef struct {
 	const char *label;
 } AssemblerInstructionCall;
 
@@ -181,8 +173,6 @@ typedef struct {
 		AssemblerInstructionJmp jmp;
 		AssemblerInstructionPush8 push8;
 		AssemblerInstructionPop8 pop8;
-		AssemblerInstructionPush16 push16;
-		AssemblerInstructionPop16 pop16;
 		AssemblerInstructionCall call;
 		AssemblerInstructionStore8 store8;
 		AssemblerInstructionLoad8 load8;
@@ -1071,30 +1061,6 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypePop8;
 			instruction->d.pop8.dest=dest;
-		} else if (strcmp(first, "push16")==0) {
-			char *src=strtok_r(NULL, " ", &savePtr);
-			if (src==NULL) {
-				printf("error - expected src register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
-				return false;
-			}
-
-			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
-			instruction->lineIndex=i;
-			instruction->modifiedLineCopy=lineCopy;
-			instruction->type=AssemblerInstructionTypePush16;
-			instruction->d.push16.src=src;
-		} else if (strcmp(first, "pop16")==0) {
-			char *dest=strtok_r(NULL, " ", &savePtr);
-			if (dest==NULL) {
-				printf("error - expected dest register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
-				return false;
-			}
-
-			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
-			instruction->lineIndex=i;
-			instruction->modifiedLineCopy=lineCopy;
-			instruction->type=AssemblerInstructionTypePop16;
-			instruction->d.pop16.dest=dest;
 		} else if (strcmp(first, "call")==0) {
 			char *label=strtok_r(NULL, " ", &savePtr);
 			if (label==NULL) {
@@ -1457,14 +1423,6 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeLen=3; // Reserve three bytes (dec1 + load8)
 				instruction->machineCodeInstructions=2;
 			break;
-			case AssemblerInstructionTypePush16:
-				instruction->machineCodeLen=4; // Reserve four bytes (store16 + inc2)
-				instruction->machineCodeInstructions=2;
-			break;
-			case AssemblerInstructionTypePop16:
-				instruction->machineCodeLen=4; // Reserve four bytes (dec2 + load16)
-				instruction->machineCodeInstructions=2;
-			break;
 			case AssemblerInstructionTypeCall:
 				instruction->machineCodeLen=11;
 				instruction->machineCodeInstructions=4;
@@ -1596,6 +1554,18 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeClearInstructionCache:
 			break;
 			case AssemblerInstructionTypeAlu: {
+				// Special case for push16 and pop16 as these require the stack register - fail if we cannot use it
+				if (program->noStack && instruction->d.alu.type==BytecodeInstructionAluTypeExtra) {
+					if (instruction->d.alu.extraType==BytecodeInstructionAluExtraTypePush16) {
+						printf("error - push16 requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+						return false;
+					}
+					if (instruction->d.alu.extraType==BytecodeInstructionAluExtraTypePop16) {
+						printf("error - pop16 requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+						return false;
+					}
+				}
+
 				// Verify dest is a valid register
 				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.alu.dest);
 				if (destReg==BytecodeRegisterNB) {
@@ -1625,6 +1595,13 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				} else if (instruction->d.alu.type==BytecodeInstructionAluTypeExtra) {
 					// Special case to store type
 					opBReg=instruction->d.alu.extraType;
+
+					// Special case for push16 and pop16 to indicate stack register
+					if (opBReg==BytecodeInstructionAluExtraTypePush16) {
+						opAReg=destReg;
+						destReg=BytecodeRegisterSP;
+					} else if (opBReg==BytecodeInstructionAluExtraTypePop16)
+						opAReg=BytecodeRegisterSP;
 				}
 
 				BytecodeInstructionStandard aluOp=bytecodeInstructionCreateAlu(instruction->d.alu.type, destReg, opAReg, opBReg);
@@ -1684,52 +1661,6 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[1]=(dec1Op&0xFF);
 
 				instruction->machineCode[2]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeLoad8, destReg, BytecodeRegisterSP);
-			} break;
-			case AssemblerInstructionTypePush16: {
-				// This requires the stack register - fail if we cannot use it
-				if (program->noStack) {
-					printf("error - push16 requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
-					return false;
-				}
-
-				// Verify src is a valid register
-				BytecodeRegister srcReg=assemblerRegisterFromStr(instruction->d.push16.src);
-				if (srcReg==BytecodeRegisterNB) {
-					printf("error - expected register (r0-r7) as src, instead got '%s' (%s:%u '%s')\n", instruction->d.push16.src, line->file, line->lineNum, line->original);
-					return false;
-				}
-
-				// Create as two instructions: store16 SP srcReg; inc2 SP
-				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterSP, srcReg, (BytecodeRegister)BytecodeInstructionAluExtraTypeStore16);
-				instruction->machineCode[0]=(store16Op>>8);
-				instruction->machineCode[1]=(store16Op&0xFF);
-
-				BytecodeInstructionStandard inc2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, BytecodeRegisterSP, 2);
-				instruction->machineCode[2]=(inc2Op>>8);
-				instruction->machineCode[3]=(inc2Op&0xFF);
-			} break;
-			case AssemblerInstructionTypePop16: {
-				// This requires the stack register - fail if we cannot use it
-				if (program->noStack) {
-					printf("error - pop16 requires stack register but nostack set (%s:%u '%s')\n", line->file, line->lineNum, line->original);
-					return false;
-				}
-
-				// Verify dest is a valid register
-				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.pop16.dest);
-				if (destReg==BytecodeRegisterNB) {
-					printf("error - expected register (r0-r7) as dest, instead got '%s' (%s:%u '%s')\n", instruction->d.pop16.dest, line->file, line->lineNum, line->original);
-					return false;
-				}
-
-				// Create as two instructions: dec2 SP; load16 destReg SP
-				BytecodeInstructionStandard dec2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, BytecodeRegisterSP, 2);
-				instruction->machineCode[0]=(dec2Op>>8);
-				instruction->machineCode[1]=(dec2Op&0xFF);
-
-				BytecodeInstructionStandard loadOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, destReg, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypeLoad16);
-				instruction->machineCode[2]=(loadOp>>8);
-				instruction->machineCode[3]=(loadOp&0xFF);
 			} break;
 			case AssemblerInstructionTypeCall: {
 				// This requires the scratch register - fail if we cannot use it
@@ -1961,6 +1892,12 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 							case BytecodeInstructionAluExtraTypeLoad16:
 								printf("%s=[%s] (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
 							break;
+							case BytecodeInstructionAluExtraTypePush16:
+								printf("[%s]=%s,%s+=2 (16 bit push) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.dest, line->file, line->lineNum, line->original);
+							break;
+							case BytecodeInstructionAluExtraTypePop16:
+								printf("%s-=2,%s=[%s] (16 bit pop) (%s:%u '%s')\n", instruction->d.alu.opA, instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
+							break;
 						}
 					break;
 				}
@@ -1973,12 +1910,6 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			break;
 			case AssemblerInstructionTypePop8:
 				printf("pop8 %s (%s:%u '%s')\n", instruction->d.pop8.dest, line->file, line->lineNum, line->original);
-			break;
-			case AssemblerInstructionTypePush16:
-				printf("push16 %s (%s:%u '%s')\n", instruction->d.push16.src, line->file, line->lineNum, line->original);
-			break;
-			case AssemblerInstructionTypePop16:
-				printf("pop16 %s (%s:%u '%s')\n", instruction->d.pop16.dest, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeCall:
 				printf("call %s (%s:%u '%s')\n", instruction->d.call.label, line->file, line->lineNum, line->original);

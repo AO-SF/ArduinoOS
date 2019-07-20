@@ -1049,6 +1049,22 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 						return false;
 					}
 				} break;
+				case BytecodeInstructionAluExtraTypePush16: {
+					BytecodeWord destAddr=procData->regs[info->d.alu.destReg];
+					if (!procManProcessMemoryWriteWord(process, procData, destAddr, opA)) {
+						kernelLog(LogTypeWarning, kstrP("failed during push16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+					procData->regs[info->d.alu.destReg]+=2;
+				}break;
+				case BytecodeInstructionAluExtraTypePop16: {
+					procData->regs[info->d.alu.opAReg]-=2;
+					BytecodeWord srcAddr=procData->regs[info->d.alu.opAReg];
+					if (!procManProcessMemoryReadWord(process, procData, srcAddr, &procData->regs[info->d.alu.destReg])) {
+						kernelLog(LogTypeWarning, kstrP("failed during load16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+				}break;
 				default:
 					kernelLog(LogTypeWarning, kstrP("unknown alu extra instruction, type %u, process %u (%s), killing\n"), info->d.alu.opBReg, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 					return false;
