@@ -88,6 +88,7 @@ typedef enum {
 	AssemblerInstructionTypeLoad8,
 	AssemblerInstructionTypeXchg8,
 	AssemblerInstructionTypeConst,
+	AssemblerInstructionTypeNop,
 } AssemblerInstructionType;
 
 typedef struct {
@@ -335,8 +336,8 @@ int main(int argc, char **argv) {
 	uint16_t autoLineNext=0;
 	AssemblerLine *assemblerLine;
 
-	// Add a couple of lines to put magic bytes at the front of the file ('GG')
-	sprintf(autoLine, "load8 r0 r7 ; 'G' magic header byte 1");
+	// Add a couple of lines to put magic bytes at the front of the file
+	sprintf(autoLine, "nop ; magic header byte 1");
 	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
 	assemblerLine->lineNum=autoLineNext+1;
 	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
@@ -347,7 +348,7 @@ int main(int argc, char **argv) {
 	strcpy(assemblerLine->modified, autoLine);
 	assemblerInsertLine(program, assemblerLine, autoLineNext++);
 
-	sprintf(autoLine, "load8 r0 r7 ; 'G' magic header byte 2");
+	sprintf(autoLine, "nop ; magic header byte 2");
 	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
 	assemblerLine->lineNum=autoLineNext+1;
 	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
@@ -1217,6 +1218,11 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->type=AssemblerInstructionTypeConst;
 			instruction->d.constSymbol.symbol=symbol;
 			instruction->d.constSymbol.value=constValue;
+		} else if (strcmp(first, "nop")==0) {
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeNop;
 		} else {
 			// Check for an ALU operation
 			unsigned j;
@@ -1478,6 +1484,10 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeConst:
 				instruction->machineCodeLen=0;
 				instruction->machineCodeInstructions=0;
+			break;
+			case AssemblerInstructionTypeNop:
+				instruction->machineCodeLen=1;
+				instruction->machineCodeInstructions=1;
 			break;
 		}
 	}
@@ -1826,6 +1836,9 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			} break;
 			case AssemblerInstructionTypeConst:
 			break;
+			case AssemblerInstructionTypeNop:
+				instruction->machineCode[0]=bytecodeInstructionCreateMiscNop();
+			break;
 		}
 	}
 
@@ -1972,6 +1985,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			break;
 			case AssemblerInstructionTypeConst:
 				printf("const %s=%u (%s:%u '%s')\n", instruction->d.constSymbol.symbol, instruction->d.constSymbol.value, line->file, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeNop:
+				printf("nop (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 			break;
 		}
 	}
