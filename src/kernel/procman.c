@@ -1078,7 +1078,7 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 					}
 					procData->regs[info->d.alu.destReg]+=2;
 					return true;
-				}break;
+				} break;
 				case BytecodeInstructionAluExtraTypePop16: {
 					procData->regs[info->d.alu.opAReg]-=2;
 					BytecodeWord srcAddr=procData->regs[info->d.alu.opAReg];
@@ -1087,7 +1087,7 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 						return false;
 					}
 					return true;
-				}break;
+				} break;
 			}
 
 			kernelLog(LogTypeWarning, kstrP("unknown alu extra instruction, type %u, process %u (%s), killing\n"), info->d.alu.opBReg, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
