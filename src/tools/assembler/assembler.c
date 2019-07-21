@@ -1424,12 +1424,12 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeInstructions=2;
 			break;
 			case AssemblerInstructionTypeCall:
-				instruction->machineCodeLen=11;
-				instruction->machineCodeInstructions=4;
+				instruction->machineCodeLen=9;
+				instruction->machineCodeInstructions=3;
 			break;
 			case AssemblerInstructionTypeRet:
-				instruction->machineCodeLen=4;
-				instruction->machineCodeInstructions=2;
+				instruction->machineCodeLen=2;
+				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeStore8:
 				instruction->machineCodeLen=1;
@@ -1688,23 +1688,18 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				instruction->machineCode[0]=(getIpOp>>8);
 				instruction->machineCode[1]=(getIpOp&0xFF);
 
-				// inc9 rS
-				BytecodeInstructionStandard inc9Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, BytecodeRegisterS, 9);
-				instruction->machineCode[2]=(inc9Op>>8);
-				instruction->machineCode[3]=(inc9Op&0xFF);
+				// inc7 rS
+				BytecodeInstructionStandard inc7Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, BytecodeRegisterS, 7);
+				instruction->machineCode[2]=(inc7Op>>8);
+				instruction->machineCode[3]=(inc7Op&0xFF);
 
-				// store16 rSP rS
-				BytecodeInstructionStandard store16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterSP, BytecodeRegisterS, (BytecodeRegister)BytecodeInstructionAluExtraTypeStore16);
-				instruction->machineCode[4]=(store16Op>>8);
-				instruction->machineCode[5]=(store16Op&0xFF);
-
-				// inc2 rSP
-				BytecodeInstructionStandard inc2Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, BytecodeRegisterSP, 2);
-				instruction->machineCode[6]=(inc2Op>>8);
-				instruction->machineCode[7]=(inc2Op&0xFF);
+				// push16 rSP rS
+				BytecodeInstructionStandard push16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterSP, BytecodeRegisterS, (BytecodeRegister)BytecodeInstructionAluExtraTypePush16);
+				instruction->machineCode[4]=(push16Op>>8);
+				instruction->machineCode[5]=(push16Op&0xFF);
 
 				// mov rIP jmpaddr
-				bytecodeInstructionCreateMiscSet16(instruction->machineCode+8, BytecodeRegisterIP, addr);
+				bytecodeInstructionCreateMiscSet16(instruction->machineCode+6, BytecodeRegisterIP, addr);
 			} break;
 			case AssemblerInstructionTypeRet: {
 				// This requires the stack register - fail if we cannot use it
@@ -1713,14 +1708,10 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					return false;
 				}
 
-				// Create instructions (pop ret addr off stack and jump)
-				BytecodeInstructionStandard decOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, BytecodeRegisterSP, 2);
-				instruction->machineCode[0]=(decOp>>8);
-				instruction->machineCode[1]=(decOp&0xFF);
-
-				BytecodeInstructionStandard load16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterIP, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypeLoad16);
-				instruction->machineCode[2]=(load16Op>>8);
-				instruction->machineCode[3]=(load16Op&0xFF);
+				// Create instructions (pop16 to pop ret addr off stack and jump back)
+				BytecodeInstructionStandard pop16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterIP, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypePop16);
+				instruction->machineCode[0]=(pop16Op>>8);
+				instruction->machineCode[1]=(pop16Op&0xFF);
 			} break;
 			case AssemblerInstructionTypeStore8: {
 				// Verify dest and src are valid registers
