@@ -62,7 +62,7 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/assembler ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
 
-# Build volumes
+# Build progmem volumes
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/curses" "libcurses" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/pin" "libpin" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/io" "libstdio" "./tmp/progmemdata"
@@ -79,6 +79,22 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "usrbin" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "usrgames" "./tmp/progmemdata"
 
+rm -f "./tmp/progmemdata/commonprogmem.h"
+echo "#ifndef COMMONPROGMEM_H" >> "./tmp/progmemdata/commonprogmem.h"
+echo "#define COMMONPROGMEM_H" >> "./tmp/progmemdata/commonprogmem.h"
+echo "" >> "./tmp/progmemdata/commonprogmem.h"
+cd "./tmp/progmemdata"
+for filename in *.h; do
+	if [ "$filename" != "commonprogmem.h" ]
+	then
+		echo "#include \"$filename\"" >> "commonprogmem.h"
+	fi
+done
+cd ../../
+echo "" >> "./tmp/progmemdata/commonprogmem.h"
+echo "#endif" >> "./tmp/progmemdata/commonprogmem.h"
+
+# Build other volumes
 ./bin/minifsbuilder --size=1024 -fflatfile "./tmp/mockups/etcmockup" "etc" "./tmp"
 ./bin/minifsbuilder --size=3072 -fflatfile "./tmp/mockups/homemockup" "home" "./tmp"
 cat ./tmp/etc ./tmp/home > ./eeprom

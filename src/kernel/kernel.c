@@ -29,21 +29,7 @@
 #include "ktime.h"
 #include "util.h"
 
-#include "progmembin.h"
-#include "progmemlibcurses.h"
-#include "progmemlibpin.h"
-#include "progmemlibsys.h"
-#include "progmemlibstdio.h"
-#include "progmemlibstdmath.h"
-#include "progmemlibstdproc.h"
-#include "progmemlibstdmem.h"
-#include "progmemlibstdstr.h"
-#include "progmemlibstdtime.h"
-#include "progmemman1.h"
-#include "progmemman2.h"
-#include "progmemman3.h"
-#include "progmemusrgames.h"
-#include "progmemusrbin.h"
+#include "commonprogmem.h"
 
 #ifdef KERNELCUSTOMRAMSIZE
 #define KernelTmpDataPoolSize KERNELCUSTOMRAMSIZE
