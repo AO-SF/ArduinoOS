@@ -927,6 +927,7 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 		break;
 	}
 
+	kernelLog(LogTypeWarning, kstrP("invalid instruction type %i, process %u (%s), killing\n"), info.type, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 	return false;
 }
 
@@ -937,6 +938,7 @@ bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcess
 				kernelLog(LogTypeWarning, kstrP("failed during store8 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
+			return true;
 		break;
 		case BytecodeInstructionMemoryTypeLoad8: {
 			uint8_t value;
@@ -945,6 +947,7 @@ bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcess
 				return false;
 			}
 			procData->regs[info->d.memory.destReg]=value;
+			return true;
 		} break;
 		case BytecodeInstructionMemoryTypeXchg8: {
 			uint8_t memValue;
@@ -958,10 +961,12 @@ bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcess
 				return false;
 			}
 			procData->regs[info->d.memory.srcReg]=memValue;
+			return true;
 		} break;
 	}
 
-	return true;
+	kernelLog(LogTypeWarning, kstrP("invalid memory instruction type %i, process %u (%s), killing\n"), info->d.memory.type, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	return false;
 }
 
 bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
@@ -970,18 +975,23 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 	switch(info->d.alu.type) {
 		case BytecodeInstructionAluTypeInc:
 			procData->regs[info->d.alu.destReg]+=info->d.alu.incDecValue;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeDec:
 			procData->regs[info->d.alu.destReg]-=info->d.alu.incDecValue;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeAdd:
 			procData->regs[info->d.alu.destReg]=opA+opB;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeSub:
 			procData->regs[info->d.alu.destReg]=opA-opB;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeMul:
 			procData->regs[info->d.alu.destReg]=opA*opB;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeDiv:
 			if (opB==0) {
@@ -989,15 +999,19 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 				return false;
 			}
 			procData->regs[info->d.alu.destReg]=opA/opB;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeXor:
 			procData->regs[info->d.alu.destReg]=opA^opB;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeOr:
 			procData->regs[info->d.alu.destReg]=opA|opB;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeAnd:
 			procData->regs[info->d.alu.destReg]=opA&opB;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeCmp: {
 			BytecodeWord *d=&procData->regs[info->d.alu.destReg];
@@ -1010,12 +1024,15 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 			*d|=(opA<=opB)<<BytecodeInstructionAluCmpBitLessEqual;
 			*d|=(opA>opB)<<BytecodeInstructionAluCmpBitGreaterThan;
 			*d|=(opA>=opB)<<BytecodeInstructionAluCmpBitGreaterEqual;
+			return true;
 		} break;
 		case BytecodeInstructionAluTypeShiftLeft:
 			procData->regs[info->d.alu.destReg]=opA<<opB;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeShiftRight:
 			procData->regs[info->d.alu.destReg]=opA>>opB;
+			return true;
 		break;
 		case BytecodeInstructionAluTypeSkip: {
 			if (procData->regs[info->d.alu.destReg] & (1u<<info->d.alu.opAReg)) {
@@ -1029,11 +1046,13 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 					}
 				}
 			}
+			return true;
 		} break;
 		case BytecodeInstructionAluTypeExtra: {
-			switch(info->d.alu.opBReg) {
+			switch((BytecodeInstructionAluExtraType)info->d.alu.opBReg) {
 				case BytecodeInstructionAluExtraTypeNot:
 					procData->regs[info->d.alu.destReg]=~opA;
+					return true;
 				break;
 				case BytecodeInstructionAluExtraTypeStore16: {
 					BytecodeWord destAddr=procData->regs[info->d.alu.destReg];
@@ -1041,6 +1060,7 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 						kernelLog(LogTypeWarning, kstrP("failed during store16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
+					return true;
 				} break;
 				case BytecodeInstructionAluExtraTypeLoad16: {
 					BytecodeWord srcAddr=procData->regs[info->d.alu.opAReg];
@@ -1048,6 +1068,7 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 						kernelLog(LogTypeWarning, kstrP("failed during load16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
+					return true;
 				} break;
 				case BytecodeInstructionAluExtraTypePush16: {
 					BytecodeWord destAddr=procData->regs[info->d.alu.destReg];
@@ -1056,6 +1077,7 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 						return false;
 					}
 					procData->regs[info->d.alu.destReg]+=2;
+					return true;
 				}break;
 				case BytecodeInstructionAluExtraTypePop16: {
 					procData->regs[info->d.alu.opAReg]-=2;
@@ -1064,16 +1086,17 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 						kernelLog(LogTypeWarning, kstrP("failed during load16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
 					}
+					return true;
 				}break;
-				default:
-					kernelLog(LogTypeWarning, kstrP("unknown alu extra instruction, type %u, process %u (%s), killing\n"), info->d.alu.opBReg, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				break;
 			}
+
+			kernelLog(LogTypeWarning, kstrP("unknown alu extra instruction, type %u, process %u (%s), killing\n"), info->d.alu.opBReg, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			return false;
 		} break;
 	}
 
-	return true;
+	kernelLog(LogTypeWarning, kstrP("unknown alu instruction type %i, process %u (%s), killing\n"), info->d.alu.type, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	return false;
 }
 
 bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
@@ -1083,19 +1106,24 @@ bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessPr
 		case BytecodeInstructionMiscTypeSyscall:
 			if (!procManProcessExecSyscall(process, procData, exitStatus))
 				return false;
+			return true;
 		break;
 		case BytecodeInstructionMiscTypeClearInstructionCache:
 			procManPrefetchDataClear(prefetchData);
+			return true;
 		break;
 		case BytecodeInstructionMiscTypeSet8:
 			procData->regs[info->d.misc.d.set8.destReg]=info->d.misc.d.set8.value;
+			return true;
 		break;
 		case BytecodeInstructionMiscTypeSet16:
 			procData->regs[info->d.misc.d.set16.destReg]=info->d.misc.d.set16.value;
+			return true;
 		break;
 	}
 
-	return true;
+	kernelLog(LogTypeWarning, kstrP("unknown misc instructon type %i, process %u (%s), killing\n"), info->d.misc.type, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	return false;
 }
 
 bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *procData, ProcManExitStatus *exitStatus) {
@@ -1109,6 +1137,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		break;
 		case BytecodeSyscallIdGetPid:
 			procData->regs[0]=procManGetPidFromProcess(process);
+			return true;
 		break;
 		case BytecodeSyscallIdGetArgC: {
 			procData->regs[0]=0;
@@ -1120,6 +1149,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				}
 				procData->regs[0]+=(strlen(arg)>0);
 			}
+
+			return true;
 		} break;
 		case BytecodeSyscallIdGetArgVN: {
 			uint8_t n=procData->regs[1];
@@ -1140,15 +1171,20 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				}
 				procData->regs[0]=strlen(arg);
 			}
+
+			return true;
 		} break;
 		case BytecodeSyscallIdFork:
 			procManProcessFork(process, procData);
+			return true;
 		break;
 		case BytecodeSyscallIdExec:
 			if (!procManProcessExec(process, procData)) {
 				kernelLog(LogTypeWarning, kstrP("failed during exec syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
+
+			return true;
 		break;
 		case BytecodeSyscallIdWaitPid: {
 			BytecodeWord waitPid=procData->regs[1];
@@ -1163,6 +1199,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				process->waitingData8=waitPid;
 				process->waitingData16=(timeout>0 ? (ktimeGetMs()+999)/1000+timeout : 0); // +999 is to make sure we do not sleep for less than the given number of seconds (as we would if we round the result of millis down)
 			}
+
+			return true;
 		} break;
 		case BytecodeSyscallIdGetPidPath: {
 			ProcManPid pid=procData->regs[1];
@@ -1178,6 +1216,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				procData->regs[0]=1;
 			} else
 				procData->regs[0]=0;
+
+			return true;
 		} break;
 		case BytecodeSyscallIdGetPidState: {
 			ProcManPid pid=procData->regs[1];
@@ -1208,6 +1248,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				procData->regs[0]=1;
 			} else
 				procData->regs[0]=0;
+
+			return true;
 		} break;
 		case BytecodeSyscallIdGetAllCpuCounts: {
 			BytecodeWord bufAddr=procData->regs[1];
@@ -1224,12 +1266,16 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				}
 				bufAddr+=2;
 			}
+
+			return true;
 		} break;
 		case BytecodeSyscallIdKill: {
 			ProcManPid pid=procData->regs[1];
 			kernelLog(LogTypeInfo, kstrP("process %u - kill syscall directed at %u\n"), procManGetPidFromProcess(process), pid);
 			if (pid!=0) // do not allow killing init
 				procManProcessKill(pid, ProcManExitStatusKilled);
+
+			return true;
 		} break;
 		case BytecodeSyscallIdSignal: {
 			ProcManPid targetPid=procData->regs[1];
@@ -1241,6 +1287,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					procManProcessSendSignal(targetPid, signalId);
 			} else
 				kernelLog(LogTypeWarning, kstrP("process %u - warning bad signalId %u in signal syscall (target pid=%u)\n"), procManGetPidFromProcess(process), signalId, targetPid);
+
+			return true;
 		} break;
 		case BytecodeSyscallIdGetPidRam: {
 			BytecodeWord pid=procData->regs[1];
@@ -1256,6 +1304,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					procData->regs[0]=sizeof(ProcManProcessProcData)+qEnvVarDataLen+qRamLen;
 			} else
 				procData->regs[0]=0;
+
+			return true;
 		} break;
 		case BytecodeSyscallIdRead: {
 			KernelFsFd fd=procData->regs[1];
@@ -1271,6 +1321,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					return false;
 				}
 			}
+
+			return true;
 		} break;
 		case BytecodeSyscallIdWrite: {
 			KernelFsFd fd=procData->regs[1];
@@ -1294,6 +1346,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					break;
 			}
 			procData->regs[0]=i;
+
+			return true;
 		} break;
 		case BytecodeSyscallIdOpen: {
 			char path[KernelFsPathMax];
@@ -1310,11 +1364,15 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			if (procData->regs[0]!=KernelFsFdInvalid && strcmp(path, "/dev/ttyS0")==0)
 				kernelReaderPidAdd(procManGetPidFromProcess(process));
+
+			return true;
 		} break;
 		case BytecodeSyscallIdClose:
 			if (kstrStrcmp("/dev/ttyS0", kernelFsGetFilePath(procData->regs[1]))==0)
 				kernelReaderPidRemove(procManGetPidFromProcess(process));
 			kernelFsFileClose(procData->regs[1]);
+
+			return true;
 		break;
 		case BytecodeSyscallIdDirGetChildN: {
 			KernelFsFd fd=procData->regs[1];
@@ -1333,6 +1391,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			} else {
 				procData->regs[0]=0;
 			}
+
+			return true;
 		} break;
 		case BytecodeSyscallIdGetPath: {
 			KernelFsFd fd=procData->regs[1];
@@ -1352,6 +1412,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				}
 				procData->regs[0]=1;
 			}
+
+			return true;
 		} break;
 		case BytecodeSyscallIdResizeFile: {
 			// Grab path and new size
@@ -1372,6 +1434,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				procData->regs[0]=kernelFsFileResize(path, newSize);
 			else
 				procData->regs[0]=kernelFsFileCreateWithSize(path, newSize);
+
+			return true;
 		} break;
 		case BytecodeSyscallIdFileGetLen: {
 			uint16_t pathAddr=procData->regs[1];
@@ -1383,6 +1447,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			kernelFsPathNormalise(path);
 			procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileGetLen(path) : 0);
+
+			return true;
 		} break;
 		case BytecodeSyscallIdTryReadByte: {
 			KernelFsFd fd=procData->regs[1];
@@ -1416,6 +1482,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				procData->regs[0]=value;
 			else
 				procData->regs[0]=256;
+
+			return true;
 		} break;
 		case BytecodeSyscallIdIsDir: {
 			uint16_t pathAddr=procData->regs[1];
@@ -1427,6 +1495,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			kernelFsPathNormalise(path);
 			procData->regs[0]=kernelFsFileIsDir(path);
+
+			return true;
 		} break;
 		case BytecodeSyscallIdFileExists: {
 			uint16_t pathAddr=procData->regs[1];
@@ -1438,6 +1508,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			kernelFsPathNormalise(path);
 			procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileExists(path) : false);
+
+			return true;
 		} break;
 		case BytecodeSyscallIdDelete: {
 			uint16_t pathAddr=procData->regs[1];
@@ -1449,18 +1521,24 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			kernelFsPathNormalise(path);
 			procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileDelete(path) : false);
+
+			return true;
 		} break;
 		case BytecodeSyscallIdEnvGetStdinFd:
 			procData->regs[0]=procData->stdinFd;
+			return true;
 		break;
 		case BytecodeSyscallIdEnvSetStdinFd:
 			procData->stdinFd=procData->regs[1];
+			return true;
 		break;
 		case BytecodeSyscallIdEnvGetStdoutFd:
 			procData->regs[0]=procData->stdoutFd;
+			return true;
 		break;
 		case BytecodeSyscallIdEnvSetStdoutFd:
 			procData->stdoutFd=procData->regs[1];
+			return true;
 		break;
 		case BytecodeSyscallIdEnvGetPwd: {
 			char pwd[KernelFsPathMax];
@@ -1474,6 +1552,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				kernelLog(LogTypeWarning, kstrP("failed during envgetpwd syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
+
+			return true;
 		} break;
 		case BytecodeSyscallIdEnvSetPwd: {
 			BytecodeWord addr=procData->regs[1];
@@ -1484,6 +1564,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			KernelFsFileOffset ramIndex=addr-BytecodeMemoryRamAddr;
 			procData->pwd=ramIndex+procData->envVarDataLen;
+
+			return true;
 		} break;
 		case BytecodeSyscallIdEnvGetPath: {
 			char path[ProcManEnvVarPathMax];
@@ -1496,6 +1578,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				kernelLog(LogTypeWarning, kstrP("failed during envgetpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
+
+			return true;
 		} break;
 		case BytecodeSyscallIdEnvSetPath: {
 			BytecodeWord addr=procData->regs[1];
@@ -1506,9 +1590,13 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			KernelFsFileOffset ramIndex=addr-BytecodeMemoryRamAddr;
 			procData->path=ramIndex+procData->envVarDataLen;
+
+			return true;
 		} break;
 		case BytecodeSyscallIdTimeMonotonic:
 			procData->regs[0]=(ktimeGetMs()/1000);
+
+			return true;
 		break;
 		case BytecodeSyscallIdRegisterSignalHandler: {
 			uint16_t signalId=procData->regs[1];
@@ -1521,11 +1609,14 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			} else
 				procData->signalHandlers[signalId]=handlerAddr;
 
+			return true;
 		} break;
 		case BytecodeSyscallIdShutdown:
 			// Kill all processes, causing kernel to return/halt
 			kernelLog(LogTypeInfo, kstrP("process %u (%s) initiated shutdown via syscall\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			kernelShutdownBegin();
+
+			return true;
 		break;
 		case BytecodeSyscallIdMount: {
 			// Grab arguments
@@ -1547,6 +1638,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			// Attempt to mount
 			procData->regs[0]=kernelMount(format, devicePath, dirPath);
+
+			return true;
 		} break;
 		case BytecodeSyscallIdUnmount: {
 			// Grab arguments
@@ -1561,6 +1654,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			// Unmount
 			kernelUnmount(devicePath);
+
+			return true;
 		} break;
 		case BytecodeSyscallIdIoctl: {
 			// Grab arguments
@@ -1612,6 +1707,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					}
 				}
 			}
+			return true;
 		} break;
 		case BytecodeSyscallIdStrchr: {
 			uint16_t strAddr=procData->regs[1];
@@ -1634,6 +1730,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 				strAddr++;
 			}
+			return true;
 		} break;
 		case BytecodeSyscallIdStrchrnul: {
 			uint16_t strAddr=procData->regs[1];
@@ -1654,6 +1751,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 				++procData->regs[0];
 			}
+			return true;
 		} break;
 		case BytecodeSyscallIdMemmove: {
 			uint16_t destAddr=procData->regs[1];
@@ -1699,14 +1797,12 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					i+=chunkSize;
 				}
 			}
+			return true;
 		} break;
-		default:
-			kernelLog(LogTypeWarning, kstrP("invalid syscall id=%i, process %u (%s), killing\n"), syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-			return false;
-		break;
 	}
 
-	return true;
+	kernelLog(LogTypeWarning, kstrP("invalid syscall id=%i, process %u (%s), killing\n"), syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	return false;
 }
 
 void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData) {
