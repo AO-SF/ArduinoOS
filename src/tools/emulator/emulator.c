@@ -323,7 +323,7 @@ bool processRunNextInstruction(Process *process) {
 							--process->regs[info.d.alu.opAReg];
 							process->regs[info.d.alu.destReg]|=(((BytecodeWord)process->memory[process->regs[info.d.alu.opAReg]])<<8);
 							if (infoInstructions)
-								printf("Info: r%i-=2, [r%i]=r%i (16 bit pop) ([%i]=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.opAReg], process->regs[info.d.alu.destReg]);
+								printf("Info: r%i-=2, r%i=[r%i] (16 bit pop) ([%i]=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.opAReg], process->regs[info.d.alu.destReg]);
 						break;
 						default:
 							printf("Error: Unknown alu extra instruction with type %i\n", info.d.alu.opBReg);
