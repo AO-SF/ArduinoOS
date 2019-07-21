@@ -999,9 +999,6 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 		case BytecodeInstructionAluTypeAnd:
 			procData->regs[info->d.alu.destReg]=opA&opB;
 		break;
-		case BytecodeInstructionAluTypeNot:
-			procData->regs[info->d.alu.destReg]=~opA;
-		break;
 		case BytecodeInstructionAluTypeCmp: {
 			BytecodeWord *d=&procData->regs[info->d.alu.destReg];
 			*d=0;
@@ -1033,18 +1030,45 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 				}
 			}
 		} break;
-		case BytecodeInstructionAluTypeStore16: {
-			BytecodeWord destAddr=procData->regs[info->d.alu.destReg];
-			if (!procManProcessMemoryWriteWord(process, procData, destAddr, opA)) {
-				kernelLog(LogTypeWarning, kstrP("failed during store16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
-			}
-		} break;
-		case BytecodeInstructionAluTypeLoad16: {
-			BytecodeWord srcAddr=procData->regs[info->d.alu.opAReg];
-			if (!procManProcessMemoryReadWord(process, procData, srcAddr, &procData->regs[info->d.alu.destReg])) {
-				kernelLog(LogTypeWarning, kstrP("failed during load16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
+		case BytecodeInstructionAluTypeExtra: {
+			switch(info->d.alu.opBReg) {
+				case BytecodeInstructionAluExtraTypeNot:
+					procData->regs[info->d.alu.destReg]=~opA;
+				break;
+				case BytecodeInstructionAluExtraTypeStore16: {
+					BytecodeWord destAddr=procData->regs[info->d.alu.destReg];
+					if (!procManProcessMemoryWriteWord(process, procData, destAddr, opA)) {
+						kernelLog(LogTypeWarning, kstrP("failed during store16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+				} break;
+				case BytecodeInstructionAluExtraTypeLoad16: {
+					BytecodeWord srcAddr=procData->regs[info->d.alu.opAReg];
+					if (!procManProcessMemoryReadWord(process, procData, srcAddr, &procData->regs[info->d.alu.destReg])) {
+						kernelLog(LogTypeWarning, kstrP("failed during load16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+				} break;
+				case BytecodeInstructionAluExtraTypePush16: {
+					BytecodeWord destAddr=procData->regs[info->d.alu.destReg];
+					if (!procManProcessMemoryWriteWord(process, procData, destAddr, opA)) {
+						kernelLog(LogTypeWarning, kstrP("failed during push16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+					procData->regs[info->d.alu.destReg]+=2;
+				}break;
+				case BytecodeInstructionAluExtraTypePop16: {
+					procData->regs[info->d.alu.opAReg]-=2;
+					BytecodeWord srcAddr=procData->regs[info->d.alu.opAReg];
+					if (!procManProcessMemoryReadWord(process, procData, srcAddr, &procData->regs[info->d.alu.destReg])) {
+						kernelLog(LogTypeWarning, kstrP("failed during load16 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+				}break;
+				default:
+					kernelLog(LogTypeWarning, kstrP("unknown alu extra instruction, type %u, process %u (%s), killing\n"), info->d.alu.opBReg, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				break;
 			}
 		} break;
 	}
@@ -1954,7 +1978,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 			return KernelFsFdInvalid;
 		}
 
-		if (magicBytes[0]=='G' && magicBytes[1]=='G') {
+		if (magicBytes[0]==BytecodeMagicByte1 && magicBytes[1]==BytecodeMagicByte2) {
 			// A standard native executable - no special handling required (the magic bytes run as harmless instructions)
 			break;
 		} else if (magicBytes[0]=='#' && magicBytes[1]=='!') {

@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define BytecodeMagicByte1 '/'
+#define BytecodeMagicByte2 '/'
+#define BytecodeMagicByte1AsmInstructionStr "load8 r5 r7"
+#define BytecodeMagicByte2AsmInstructionStr "load8 r5 r7"
+
 typedef uint16_t BytecodeWord;
 typedef uint32_t BytecodeDoubleWord;
 
@@ -54,8 +59,8 @@ typedef BytecodeWord BytecodeInstructionStandard;
 typedef uint8_t BytecodeInstructionLong[3];
 
 typedef enum {
-	BytecodeInstructionMemoryTypeStore8,
 	BytecodeInstructionMemoryTypeLoad8,
+	BytecodeInstructionMemoryTypeStore8,
 	BytecodeInstructionMemoryTypeXchg8,
 } BytecodeInstructionMemoryType;
 
@@ -93,6 +98,14 @@ typedef enum {
 } BytecodeInstructionAluCmpMask;
 
 typedef enum {
+	BytecodeInstructionAluExtraTypeNot,
+	BytecodeInstructionAluExtraTypeStore16,
+	BytecodeInstructionAluExtraTypeLoad16,
+	BytecodeInstructionAluExtraTypePush16,
+	BytecodeInstructionAluExtraTypePop16,
+} BytecodeInstructionAluExtraType;
+
+typedef enum {
 	BytecodeInstructionAluTypeInc,
 	BytecodeInstructionAluTypeDec,
 	BytecodeInstructionAluTypeAdd,
@@ -102,13 +115,11 @@ typedef enum {
 	BytecodeInstructionAluTypeXor,
 	BytecodeInstructionAluTypeOr,
 	BytecodeInstructionAluTypeAnd,
-	BytecodeInstructionAluTypeNot,
 	BytecodeInstructionAluTypeCmp,
 	BytecodeInstructionAluTypeShiftLeft,
 	BytecodeInstructionAluTypeShiftRight,
 	BytecodeInstructionAluTypeSkip,
-	BytecodeInstructionAluTypeStore16,
-	BytecodeInstructionAluTypeLoad16,
+	BytecodeInstructionAluTypeExtra,
 } BytecodeInstructionAluType;
 
 typedef struct {
