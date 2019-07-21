@@ -148,6 +148,8 @@ int main(int argc, char **argv) {
 }
 
 bool processRunNextInstruction(Process *process) {
+	BytecodeWord originalIP=process->regs[BytecodeRegisterIP];
+
 	BytecodeInstructionLong instruction;
 	instruction[0]=process->memory[process->regs[BytecodeRegisterIP]++];
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
@@ -325,6 +327,22 @@ bool processRunNextInstruction(Process *process) {
 							if (infoInstructions)
 								printf("Info: r%i-=2, r%i=[r%i] (16 bit pop) ([%i]=%i)\n", info.d.alu.opAReg, info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.opAReg], process->regs[info.d.alu.destReg]);
 						break;
+						case BytecodeInstructionAluExtraTypeCall: {
+							BytecodeWord preIPReg=process->regs[BytecodeRegisterIP];
+
+							// Push return address
+							process->memory[process->regs[info.d.alu.opAReg]]=(preIPReg>>8);
+							++process->regs[info.d.alu.opAReg];
+							process->memory[process->regs[info.d.alu.opAReg]]=(preIPReg&0xFF);
+							++process->regs[info.d.alu.opAReg];
+
+							// Jump to call address
+							process->regs[BytecodeRegisterIP]=process->regs[info.d.alu.destReg];
+
+							// Logging
+							if (infoInstructions)
+								printf("Info (%u): call r%i r%i ([r%u=%u]=r%u=%u, r%u+=2, r%u=r%u=%u)\n", originalIP, info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opAReg, process->regs[info.d.alu.opAReg]-2, BytecodeRegisterIP, preIPReg, info.d.alu.opAReg, BytecodeRegisterIP, info.d.alu.destReg, process->regs[BytecodeRegisterIP]);
+						} break;
 						default:
 							printf("Error: Unknown alu extra instruction with type %i\n", info.d.alu.opBReg);
 							return false;

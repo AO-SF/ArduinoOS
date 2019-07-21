@@ -103,6 +103,7 @@ typedef enum {
 	BytecodeInstructionAluExtraTypeLoad16,
 	BytecodeInstructionAluExtraTypePush16,
 	BytecodeInstructionAluExtraTypePop16,
+	BytecodeInstructionAluExtraTypeCall,
 } BytecodeInstructionAluExtraType;
 
 typedef enum {

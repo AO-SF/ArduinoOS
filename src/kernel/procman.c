@@ -1088,6 +1088,19 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 					}
 					return true;
 				} break;
+				case BytecodeInstructionAluExtraTypeCall: {
+					// Push return address
+					if (!procManProcessMemoryWriteWord(process, procData, opA, procData->regs[BytecodeRegisterIP])) {
+						kernelLog(LogTypeWarning, kstrP("failed during call instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+					procData->regs[info->d.alu.opAReg]+=2;
+
+					// Jump to call address
+					procData->regs[BytecodeRegisterIP]=procData->regs[info->d.alu.destReg];
+
+					return true;
+				} break;
 			}
 
 			kernelLog(LogTypeWarning, kstrP("unknown alu extra instruction, type %u, process %u (%s), killing\n"), info->d.alu.opBReg, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));

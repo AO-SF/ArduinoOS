@@ -139,6 +139,9 @@ int main(int argc, char **argv) {
 								case BytecodeInstructionAluExtraTypePop16:
 									disassemblerPrint(addr, instruction, "r%u-=2, r%u=[r%u] (16 bit pop)", info.d.alu.opAReg, info.d.alu.destReg, info.d.alu.opAReg);
 								break;
+								case BytecodeInstructionAluExtraTypeCall:
+									disassemblerPrint(addr, instruction, "call r%u r%u (call)", info.d.alu.destReg, info.d.alu.opAReg);
+								break;
 								default:
 									disassemblerPrint(addr, instruction, "unknown ALU extra operation (type %u)", info.d.alu.opBReg);
 								break;

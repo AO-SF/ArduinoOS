@@ -1424,8 +1424,8 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeInstructions=2;
 			break;
 			case AssemblerInstructionTypeCall:
-				instruction->machineCodeLen=9;
-				instruction->machineCodeInstructions=3;
+				instruction->machineCodeLen=5;
+				instruction->machineCodeInstructions=2;
 			break;
 			case AssemblerInstructionTypeRet:
 				instruction->machineCodeLen=2;
@@ -1683,23 +1683,13 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create instructions (push adjusted IP onto stack and jump into function)
-				// mov rS rIP
-				BytecodeInstructionStandard getIpOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, BytecodeRegisterS, BytecodeRegisterIP, BytecodeRegisterIP);
-				instruction->machineCode[0]=(getIpOp>>8);
-				instruction->machineCode[1]=(getIpOp&0xFF);
+				// set16 rS addr
+				bytecodeInstructionCreateMiscSet16(instruction->machineCode+0, BytecodeRegisterS, addr);
 
-				// inc7 rS
-				BytecodeInstructionStandard inc7Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, BytecodeRegisterS, 7);
-				instruction->machineCode[2]=(inc7Op>>8);
-				instruction->machineCode[3]=(inc7Op&0xFF);
-
-				// push16 rSP rS
-				BytecodeInstructionStandard push16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterSP, BytecodeRegisterS, (BytecodeRegister)BytecodeInstructionAluExtraTypePush16);
-				instruction->machineCode[4]=(push16Op>>8);
-				instruction->machineCode[5]=(push16Op&0xFF);
-
-				// mov rIP jmpaddr
-				bytecodeInstructionCreateMiscSet16(instruction->machineCode+6, BytecodeRegisterIP, addr);
+				// call rS rSP
+				BytecodeInstructionStandard callOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterS, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypeCall);
+				instruction->machineCode[3]=(callOp>>8);
+				instruction->machineCode[4]=(callOp&0xFF);
 			} break;
 			case AssemblerInstructionTypeRet: {
 				// This requires the stack register - fail if we cannot use it
@@ -1888,6 +1878,12 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 							break;
 							case BytecodeInstructionAluExtraTypePop16:
 								printf("%s-=2,%s=[%s] (16 bit pop) (%s:%u '%s')\n", instruction->d.alu.opA, instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
+							break;
+							case BytecodeInstructionAluExtraTypeCall:
+								// This should never be reached.
+								// 'call label' is actually done as pseudo instruction,
+								// and alu call is not supported.
+								assert(false); // TODO: handle better
 							break;
 						}
 					break;
