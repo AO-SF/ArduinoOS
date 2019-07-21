@@ -1,4 +1,4 @@
-CFLAGS = -std=gnu11 -Wall
+CFLAGS = -std=gnu11 -Wall -I../../tmp/progmemdata
 LFLAGS = -lm
 
 pc: CFLAGS += -O2 -DPC -ggdb3 -DKERNELCUSTOMRAMSIZE=8192
