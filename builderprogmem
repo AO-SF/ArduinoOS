@@ -52,7 +52,7 @@ for filename in *.h; do
 	then
 		progmemName=$(echo "$filename" | cut -b8-)
 		progmemName=${progmemName%??}
-		printf "	{.size=PROGMEM%sDATASIZE},\n" "$progmemName" "$progmemName" >> "commonprogmem.h"
+		printf "	{.size=PROGMEM%sDATASIZE},\n" "$progmemName" >> "commonprogmem.h"
 	fi
 done
 echo "};" >> "commonprogmem.h"
