@@ -1,3 +1,5 @@
+#/bin/bash
+
 # This script creates the file 'commonprogmem.h'.
 # It is designed to make it easier to modify the RO progmem volumes
 # included in the kernel, without having to change the kernel source
