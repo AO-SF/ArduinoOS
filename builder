@@ -63,21 +63,21 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
 
 # Build progmem volumes
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/curses" "libcurses" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/pin" "libpin" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/io" "libstdio" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/math" "libstdmath" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/mem" "libstdmem" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/proc" "libstdproc" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/str" "libstdstr" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/time" "libstdtime" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/sys" "libsys" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/man/1" "man1" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/man/2" "man2" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./src/userspace/man/3" "man3" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./tmp/mockups/binmockup" "bin" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "usrbin" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "usrgames" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/curses" "_lib_curses" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/pin" "_lib_pin" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/io" "_lib_std_io" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/math" "_lib_std_math" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/mem" "_lib_std_mem" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/proc" "_lib_std_proc" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/str" "_lib_std_str" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/time" "_lib_std_time" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/sys" "_lib_sys" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/man/1" "_usr_man_1" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/man/2" "_usr_man_2" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/man/3" "_usr_man_3" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/binmockup" "_bin" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "_usr_bin" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "_usr_games" "./tmp/progmemdata"
 
 ./builderprogmem
 
