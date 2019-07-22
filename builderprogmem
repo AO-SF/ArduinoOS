@@ -1,0 +1,86 @@
+#/bin/bash
+
+# This script creates the file 'commonprogmem.h'.
+# It is designed to make it easier to modify the RO progmem volumes
+# included in the kernel, without having to change the kernel source
+# code. Only the main builder script needs changing to specify what
+# volumes to generate.
+
+cd "./tmp/progmemdata"
+
+# Clear existing file if needed
+rm -f ".commonprogmem.h"
+
+# Add note about being auto-generated
+echo "// NOTE: File auto-generated (see builderprogmem script)" >> "commonprogmem.h"
+echo "" >> "commonprogmem.h"
+
+# Add include guards
+echo "#ifndef COMMONPROGMEM_H" >> "commonprogmem.h"
+echo "#define COMMONPROGMEM_H" >> "commonprogmem.h"
+echo "" >> "commonprogmem.h"
+
+# Include kstr module for strings
+echo "#include \"../../src/kernel/kstr.h\"" >> "commonprogmem.h"
+echo "" >> "commonprogmem.h"
+
+# Add sub-file include directives
+for filename in *.h; do
+	if [ "$filename" != "commonprogmem.h" ]
+	then
+		echo "#include \"$filename\"" >> "commonprogmem.h"
+	fi
+done
+echo "" >> "commonprogmem.h"
+
+# Add type definitions
+echo "#ifdef ARDUINO" >> "commonprogmem.h"
+echo "typedef uint32_t ProgmemDataPtr;" >> "commonprogmem.h"
+echo "#else" >> "commonprogmem.h"
+echo "typedef uintptr_t ProgmemDataPtr;" >> "commonprogmem.h"
+echo "#endif" >> "commonprogmem.h"
+echo "" >> "commonprogmem.h"
+echo "typedef struct {" >> "commonprogmem.h"
+echo "	KStr mountPoint;" >> "commonprogmem.h"
+echo "	ProgmemDataPtr dataPtr;" >> "commonprogmem.h"
+echo "	uint16_t size;" >> "commonprogmem.h"
+echo "} ProgmemEntry;" >> "commonprogmem.h"
+echo "" >> "commonprogmem.h"
+
+# Add main array definition
+echo "static ProgmemEntry commonProgmemData[]={" >> "commonprogmem.h"
+for filename in *.h; do
+	if [ "$filename" != "commonprogmem.h" ]
+	then
+		progmemName=$(echo "$filename" | cut -b8-)
+		progmemName=${progmemName%??}
+		printf "	{.size=PROGMEM%sDATASIZE},\n" "$progmemName" >> "commonprogmem.h"
+	fi
+done
+echo "};" >> "commonprogmem.h"
+echo "" >> "commonprogmem.h"
+
+# Create init function (needed for arduino pgm_get_far_address function)
+echo "static unsigned commonProgmemCount=0;" >> "commonprogmem.h"
+echo "static void commonProgmemInit(void) {" >> "commonprogmem.h"
+echo "	// Note: this function is required because the Arduino data pointers can only be deciphered at run-time." >> "commonprogmem.h"
+for filename in *.h; do
+	if [ "$filename" != "commonprogmem.h" ]
+	then
+		progmemName=$(echo "$filename" | cut -b8-)
+		progmemName=${progmemName%??}
+		mountPoint=${progmemName//'_'/'/'}
+
+		echo "" >> "commonprogmem.h"
+		printf "	commonProgmemData[commonProgmemCount].mountPoint=kstrP(\"%s\");\n" "$mountPoint" >> "commonprogmem.h"
+		printf "	commonProgmemData[commonProgmemCount].dataPtr=PROGMEM%sDATAPTR;\n" "$progmemName" >> "commonprogmem.h"
+		echo "	commonProgmemCount++;" >> "commonprogmem.h"
+	fi
+done
+echo "}" >> "commonprogmem.h"
+
+# End file
+echo "" >> "commonprogmem.h"
+echo "#endif" >> "commonprogmem.h"
+
+cd ../../

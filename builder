@@ -1,14 +1,16 @@
-#!/bin/sh
+#!/bin/bash
 
 # Create mock directories
 rm -rf ./tmp/*
 mkdir -p ./tmp
 
+rm -rf ./tmp/progmemdata/*
 rm -rf ./tmp/mockups/binmockup/*
 rm -rf ./tmp/mockups/usrbinmockup/*
 rm -rf ./tmp/mockups/homemockup/*
 rm -rf ./tmp/mockups/etcmockup/*
 rm -rf ./tmp/mockups/usrgamesmockup/*
+mkdir -p ./tmp/progmemdata
 mkdir -p ./tmp/mockups/binmockup
 mkdir -p ./tmp/mockups/usrbinmockup
 mkdir -p ./tmp/mockups/homemockup
@@ -60,23 +62,26 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/assembler ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
 
-# Build volumes
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/curses" "libcurses" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/pin" "libpin" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/io" "libstdio" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/math" "libstdmath" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/mem" "libstdmem" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/proc" "libstdproc" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/str" "libstdstr" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/time" "libstdtime" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/sys" "libsys" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/man/1" "man1" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/man/2" "man2" "./src/kernel"
-./bin/minifsbuilder -fcheader "./src/userspace/man/3" "man3" "./src/kernel"
-./bin/minifsbuilder -fcheader "./tmp/mockups/binmockup" "bin" "./src/kernel"
-./bin/minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "usrbin" "./src/kernel"
-./bin/minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "usrgames" "./src/kernel"
+# Build progmem volumes
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/curses" "_lib_curses" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/pin" "_lib_pin" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/io" "_lib_std_io" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/math" "_lib_std_math" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/mem" "_lib_std_mem" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/proc" "_lib_std_proc" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/str" "_lib_std_str" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/time" "_lib_std_time" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/sys" "_lib_sys" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/man/1" "_usr_man_1" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/man/2" "_usr_man_2" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/man/3" "_usr_man_3" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/binmockup" "_bin" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "_usr_bin" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "_usr_games" "./tmp/progmemdata"
 
+./builderprogmem
+
+# Build other volumes
 ./bin/minifsbuilder --size=1024 -fflatfile "./tmp/mockups/etcmockup" "etc" "./tmp"
 ./bin/minifsbuilder --size=3072 -fflatfile "./tmp/mockups/homemockup" "home" "./tmp"
 cat ./tmp/etc ./tmp/home > ./eeprom

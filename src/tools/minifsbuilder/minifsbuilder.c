@@ -164,8 +164,10 @@ bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, ui
 	fprintf(hFile, "#define PROGMEM%sDATASIZE %iu\n", name, size);
 	fprintf(hFile, "#ifdef ARDUINO\n");
 	fprintf(hFile, "#include <avr/pgmspace.h>\n");
+	fprintf(hFile, "#define PROGMEM%sDATAPTR ((uint32_t)pgm_get_far_address(progmem%sData))\n", name, name);
 	fprintf(hFile, "static const uint8_t progmem%sData[PROGMEM%sDATASIZE] PROGMEM ={\n", name, name);
 	fprintf(hFile, "#else\n");
+	fprintf(hFile, "#define PROGMEM%sDATAPTR ((uintptr_t)progmem%sData)\n", name, name);
 	fprintf(hFile, "static const uint8_t progmem%sData[PROGMEM%sDATASIZE]={\n", name, name);
 	fprintf(hFile, "#endif\n");
 	fprintf(hFile, "\t");
