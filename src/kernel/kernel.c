@@ -68,15 +68,6 @@ uint32_t kernelStateTime=0;
 
 #define kernelFatalError(format, ...) do { kernelLog(LogTypeError, format, ##__VA_ARGS__); kernelHalt(); } while(0)
 
-#ifdef ARDUINO
-// These array exists so that kernelProgmemGenericReadFunctor can work, even though the progmem pointers are 32 bit while userData can only pass 16 bits.
-uint32_t kernelProgmemAddresses[16];
-uint8_t kernelProgmemAddressesNext=0;
-#define kernelProgmemGenericReadMakePointer(pData) (kernelProgmemAddresses[kernelProgmemAddressesNext]=pgm_get_far_address(pData),(void *)&kernelProgmemAddresses[kernelProgmemAddressesNext++])
-#else
-#define kernelProgmemGenericReadMakePointer(pData) ((void *)pData)
-#endif
-
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -358,45 +349,13 @@ void kernelBoot(void) {
 	if (!kernelFsAddBlockDeviceFile(kstrP("/tmp"), KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL))
 		kernelFatalError(kstrP("fs init failure: /tmp\n"));
 
-	// ... essential: RO volume /bin
-	void *progmemUserData;
-
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmembinData);
-	if (!kernelFsAddBlockDeviceFile(kstrP("/bin"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMbinDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData))
-		kernelFatalError(kstrP("fs init failure: /bin\n"));
-
-	// ... non-essential RO volumes
-	error=false;
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemlibcursesData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/lib/curses"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMlibcursesDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemlibpinData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/lib/pin"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMlibpinDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemlibstdioData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/lib/std/io"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMlibstdioDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemlibstdmathData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/lib/std/math"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMlibstdmathDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemlibstdmemData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/lib/std/mem"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMlibstdmemDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemlibstdprocData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/lib/std/proc"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMlibstdprocDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemlibstdstrData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/lib/std/str"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMlibstdstrDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemlibstdtimeData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/lib/std/time"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMlibstdtimeDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemlibsysData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/lib/sys"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMlibsysDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemusrbinData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/usr/bin"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMusrbinDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemusrgamesData);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/usr/games"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMusrgamesDATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemman1Data);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/usr/man/1"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMman1DATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemman3Data);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/usr/man/2"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMman2DATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	progmemUserData=kernelProgmemGenericReadMakePointer(progmemman3Data);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/usr/man/3"), KernelFsBlockDeviceFormatCustomMiniFs, PROGMEMman3DATASIZE, &kernelProgmemGenericReadFunctor, NULL, progmemUserData);
-	if (error)
-		kernelLog(LogTypeWarning, kstrP("fs init failure: /lib and /usr\n"));
+	// ... RO volumes
+	bool progmemError=false;
+	for(unsigned i=0; i<commonProgmemCount; ++i) {
+		progmemError|=!kernelFsAddBlockDeviceFile(commonProgmemData[i].mountPoint, KernelFsBlockDeviceFormatCustomMiniFs, commonProgmemData[i].size, &kernelProgmemGenericReadFunctor, NULL, &commonProgmemData[i].dataPtr);
+	}
+	if (progmemError)
+		kernelLog(LogTypeWarning, kstrP("fs init failure: RO PROGMEM volume error\n"));
 
 	// ... optional EEPROM volumes
 	error=false;
@@ -491,7 +450,8 @@ KernelFsFileOffset kernelProgmemGenericReadFunctor(KernelFsFileOffset addr, uint
 	for(i=0; i<len; ++i)
 		data[i]=pgm_read_byte_far(farAddr+addr+i);
 #else
-	const uint8_t *dataSource=(const uint8_t *)userData;
+	const uintptr_t dataSourceAddr=*(const uintptr_t *)userData;
+	const uint8_t *dataSource=(const uint8_t *)dataSourceAddr;
 	memcpy(data, dataSource+addr, len);
 #endif
 	return len;
