@@ -72,7 +72,7 @@ for filename in *.h; do
 		mountPoint=${progmemName//'_'/'/'}
 
 		echo "" >> "commonprogmem.h"
-		printf "	commonProgmemData[commonProgmemCount].mountPoint=kstrAllocProgmem(\"%s\");\n" "$mountPoint" >> "commonprogmem.h"
+		printf "	commonProgmemData[commonProgmemCount].mountPoint=kstrP(\"%s\");\n" "$mountPoint" >> "commonprogmem.h"
 		printf "	commonProgmemData[commonProgmemCount].dataPtr=PROGMEM%sDATAPTR;\n" "$progmemName" >> "commonprogmem.h"
 		echo "	commonProgmemCount++;" >> "commonprogmem.h"
 	fi
