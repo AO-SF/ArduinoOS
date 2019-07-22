@@ -18,6 +18,10 @@ echo "#ifndef COMMONPROGMEM_H" >> "commonprogmem.h"
 echo "#define COMMONPROGMEM_H" >> "commonprogmem.h"
 echo "" >> "commonprogmem.h"
 
+# Include kstr module for strings
+echo "#include \"../../src/kernel/kstr.h\"" >> "commonprogmem.h"
+echo "" >> "commonprogmem.h"
+
 # Add sub-file include directives
 for filename in *.h; do
 	if [ "$filename" != "commonprogmem.h" ]
@@ -35,7 +39,7 @@ echo "typedef uintptr_t ProgmemDataPtr;" >> "commonprogmem.h"
 echo "#endif" >> "commonprogmem.h"
 echo "" >> "commonprogmem.h"
 echo "typedef struct {" >> "commonprogmem.h"
-echo "	const char *name;" >> "commonprogmem.h"
+echo "	KStr name;" >> "commonprogmem.h"
 echo "	ProgmemDataPtr dataPtr;" >> "commonprogmem.h"
 echo "	uint16_t size;" >> "commonprogmem.h"
 echo "} ProgmemEntry;" >> "commonprogmem.h"
@@ -48,7 +52,7 @@ for filename in *.h; do
 	then
 		progmemName=$(echo "$filename" | cut -b8-)
 		progmemName=${progmemName%??}
-		printf "	{.name=\"%s\", .size=PROGMEM%sDATASIZE},\n" "$progmemName" "$progmemName" >> "commonprogmem.h"
+		printf "	{.size=PROGMEM%sDATASIZE},\n" "$progmemName" "$progmemName" >> "commonprogmem.h"
 	fi
 done
 echo "};" >> "commonprogmem.h"
@@ -63,7 +67,11 @@ for filename in *.h; do
 	then
 		progmemName=$(echo "$filename" | cut -b8-)
 		progmemName=${progmemName%??}
-		printf "	commonProgmemData[commonProgmemCount++].dataPtr=PROGMEM%sDATAPTR;\n" "$progmemName" >> "commonprogmem.h"
+
+		echo "" >> "commonprogmem.h"
+		printf "	commonProgmemData[commonProgmemCount].name=kstrAllocProgmem(\"%s\");\n" "$progmemName" >> "commonprogmem.h"
+		printf "	commonProgmemData[commonProgmemCount].dataPtr=PROGMEM%sDATAPTR;\n" "$progmemName" >> "commonprogmem.h"
+		echo "	commonProgmemCount++;" >> "commonprogmem.h"
 	fi
 done
 echo "}" >> "commonprogmem.h"
