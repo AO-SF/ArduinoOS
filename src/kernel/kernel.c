@@ -304,6 +304,9 @@ void kernelBoot(void) {
 
 	ktimeInit();
 
+	// Initialise progmem data
+	commonProgmemInit();
+
 	// PC only - register sigint handler so we can pass this signal onto e.g. the shell
 #ifndef ARDUINO
     signal(SIGINT, kernelSigIntHandler); // TODO: Check return.
