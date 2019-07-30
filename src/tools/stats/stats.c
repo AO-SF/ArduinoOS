@@ -32,8 +32,8 @@ int main(int argc, char **argv) {
 	unsigned instructionSet8Less16Count=0;
 
 	unsigned instructionAluCount=0;
-	unsigned instructionAluCounts[BytecodeInstructionAluTypeLoad16+1]; // HACK
-	for(unsigned i=0; i<BytecodeInstructionAluTypeLoad16+1; ++i)
+	unsigned instructionAluCounts[BytecodeInstructionAluTypeExtra+1]; // HACK
+	for(unsigned i=0; i<BytecodeInstructionAluTypeExtra+1; ++i)
 		instructionAluCounts[i]=0;
 
 	unsigned instructionLoad8Count=0;
@@ -192,6 +192,8 @@ int main(int argc, char **argv) {
 								if (info.d.misc.d.set16.value<16)
 									++instructionSet16Less16Count;
 							break;
+							case BytecodeInstructionMiscTypeClearInstructionCache:
+							break;
 						}
 					break;
 				}
@@ -226,7 +228,7 @@ int main(int argc, char **argv) {
 	printf("\n");
 
 	printf("instructionAluCount: total %u\n", instructionAluCount);
-	for(unsigned i=0; i<BytecodeInstructionAluTypeLoad16+1; ++i) {
+	for(unsigned i=0; i<BytecodeInstructionAluTypeExtra+1; ++i) {
 		printf("	%2u (%s): total %u\n", i, statsBytecodeInstructionAluTypeToString(i), instructionAluCounts[i]);
 	}
 	printf("\n");
@@ -267,7 +269,7 @@ void statsPrintV(uint16_t addr, BytecodeInstructionLong instruction, const char 
 	printf("\n");
 }
 
-const char *statsBytecodeInstructionAluTypeStrings[BytecodeInstructionAluTypeLoad16+1]={ // HACK
+const char *statsBytecodeInstructionAluTypeStrings[BytecodeInstructionAluTypeExtra+1]={ // HACK
 	[BytecodeInstructionAluTypeInc]="Inc",
 	[BytecodeInstructionAluTypeDec]="Dec",
 	[BytecodeInstructionAluTypeAdd]="Add",
@@ -277,13 +279,11 @@ const char *statsBytecodeInstructionAluTypeStrings[BytecodeInstructionAluTypeLoa
 	[BytecodeInstructionAluTypeXor]="Xor",
 	[BytecodeInstructionAluTypeOr]="Or",
 	[BytecodeInstructionAluTypeAnd]="And",
-	[BytecodeInstructionAluTypeNot]="Not",
 	[BytecodeInstructionAluTypeCmp]="Cmp",
 	[BytecodeInstructionAluTypeShiftLeft]="ShiftLeft",
 	[BytecodeInstructionAluTypeShiftRight]="ShiftRight",
 	[BytecodeInstructionAluTypeSkip]="Skip",
-	[BytecodeInstructionAluTypeStore16]="Store16",
-	[BytecodeInstructionAluTypeLoad16]="Load16",
+	[BytecodeInstructionAluTypeExtra]="Extra",
 };
 
 const char *statsBytecodeInstructionAluTypeToString(BytecodeInstructionAluType type) {
