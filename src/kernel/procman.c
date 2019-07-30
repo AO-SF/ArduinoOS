@@ -19,10 +19,9 @@
 #include "procman.h"
 #include "ktime.h"
 
-#define procManProcessInstructionCounterMax (65536llu) // TODO: On arduino this needs 32 bit
-#define procManProcessInstructionCounterMaxMinusOne (65535lu)
-#define procManProcessTickInstructionsPerTick 80 // Generally a higher value causes faster execution, but decreased responsiveness if many processes running
-#define procManTicksPerInstructionCounterReset (800) // must not exceed procManProcessInstructionCounterMax/procManProcessTickInstructionsPerTick, which is currently ~819. target is to reset roughly every 10s
+#define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
+#define procManProcessInstructionsPerTick 160 // generally a higher value causes faster execution, but decreased responsiveness if many processes running
+#define procManTicksPerInstructionCounterReset (procManProcessInstructionCounterMax/procManProcessInstructionsPerTick)
 
 #define ProcManSignalHandlerInvalid 0
 
@@ -461,7 +460,7 @@ void procManProcessTick(ProcManPid pid) {
 	// Run a few instructions
 	ProcManPrefetchData prefetchData;
 	procManPrefetchDataClear(&prefetchData);
-	for(uint16_t instructionNum=0; instructionNum<procManProcessTickInstructionsPerTick; ++instructionNum) {
+	for(uint16_t instructionNum=0; instructionNum<procManProcessInstructionsPerTick; ++instructionNum) {
 		// Run a single instruction
 		BytecodeInstructionLong instruction;
 		if (!procManProcessGetInstruction(process, &procData, &prefetchData, &instruction)) {
@@ -477,7 +476,7 @@ void procManProcessTick(ProcManPid pid) {
 		}
 
 		// Increment instruction counter
-		assert(process->instructionCounter<procManProcessInstructionCounterMaxMinusOne); // we reset often enough to prevent this
+		assert(process->instructionCounter<procManProcessInstructionCounterMax); // we reset often enough to prevent this
 		++process->instructionCounter;
 
 		// Has this process gone inactive?
