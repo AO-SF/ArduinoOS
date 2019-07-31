@@ -16,7 +16,7 @@ const char *byteCodeInstructionAluCmpBitStrings[BytecodeInstructionAluCmpBitNB]=
 #endif
 
 BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstructionLong instruction) {
-	if ((instruction[0]>>4)<0xD)
+	if (instruction[0]<0xD0)
 		return BytecodeInstructionLengthShort;
 	else if ((instruction[0]>>3)!=0x1B)
 		return BytecodeInstructionLengthStandard;
