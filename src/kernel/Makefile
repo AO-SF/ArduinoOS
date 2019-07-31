@@ -1,7 +1,7 @@
 CFLAGS = -std=gnu11 -Wall -I../../tmp/progmemdata
 LFLAGS = -lm
 
-pc: CFLAGS += -O2 -DPC -ggdb3 -DKERNELCUSTOMRAMSIZE=8192
+pc: CFLAGS += -O2 -DPC -ggdb3
 pc: CPP = clang
 pctiny: CFLAGS += -O2 -DPC -ggdb3
 pctiny: CPP = clang
