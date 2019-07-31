@@ -25,7 +25,6 @@ BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstructionLong
 }
 
 bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstructionLong instruction) {
-	uint16_t upper16=(((uint16_t)instruction[0])<<8)|instruction[1];
 
 	// If first two bits are not both 1 then we are dealing with a memory-type instruction.
 	uint8_t upperTwoBits=(instruction[0]>>6);
@@ -43,6 +42,7 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 		info->type=BytecodeInstructionTypeAlu;
 		info->length=BytecodeInstructionLengthLong;
 
+		uint16_t upper16=(((uint16_t)instruction[0])<<8)|instruction[1];
 		info->d.alu.type=((upper16>>9)&0xF);
 		info->d.alu.destReg=((upper16>>6)&0x7);
 		info->d.alu.opAReg=((upper16>>3)&0x7);
