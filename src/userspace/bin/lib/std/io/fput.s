@@ -1,7 +1,5 @@
 requireend ../str/strlen.s
 
-ab libiofputScratchByte 1
-
 ; puts0(strAddr=r0)=puts(0, strAddr)
 label puts0
 mov r1 r0
@@ -55,17 +53,15 @@ jmp fputc
 
 ; fputc(fd=r0, offset=r1, c=r2)
 label fputc
-
-; store given character into scratch byte for write call to access
-mov r3 libiofputScratchByte
-store8 r3 r2
-
+; store given character on stack for write call to access
+mov r3 r6
+push8 r2
 ; syscall write
 mov r2 r1
 mov r1 r0
 mov r0 SyscallIdWrite
-mov r3 libiofputScratchByte
 mov r4 1
 syscall
-
+; restore stack
+dec r6
 ret
