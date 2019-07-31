@@ -945,19 +945,7 @@ bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcess
 			procData->regs[info->d.memory.destReg]=value;
 			return true;
 		} break;
-		case BytecodeInstructionMemoryTypeXchg8: {
-			uint8_t memValue;
-			if (!procManProcessMemoryReadByte(process, procData, procData->regs[info->d.memory.destReg], &memValue)) {
-				kernelLog(LogTypeWarning, kstrP("failed during xchg8 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
-			}
-			uint8_t regValue=(procData->regs[info->d.memory.srcReg] & 0xFF);
-			if (!procManProcessMemoryWriteByte(process, procData, procData->regs[info->d.memory.destReg], regValue)) {
-				kernelLog(LogTypeWarning, kstrP("failed during xchg8 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
-			}
-			procData->regs[info->d.memory.srcReg]=memValue;
-			return true;
+		case BytecodeInstructionMemoryTypeSet4: {
 		} break;
 	}
 
@@ -1095,6 +1083,20 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 					// Jump to call address
 					procData->regs[BytecodeRegisterIP]=procData->regs[info->d.alu.destReg];
 
+					return true;
+				} break;
+				case BytecodeInstructionAluExtraTypeXchg8: {
+					uint8_t memValue;
+					if (!procManProcessMemoryReadByte(process, procData, procData->regs[info->d.alu.destReg], &memValue)) {
+						kernelLog(LogTypeWarning, kstrP("failed during xchg8 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+					uint8_t regValue=(procData->regs[info->d.alu.opAReg] & 0xFF);
+					if (!procManProcessMemoryWriteByte(process, procData, procData->regs[info->d.alu.destReg], regValue)) {
+						kernelLog(LogTypeWarning, kstrP("failed during xchg8 instruction execution, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						return false;
+					}
+					procData->regs[info->d.alu.opAReg]=memValue;
 					return true;
 				} break;
 			}

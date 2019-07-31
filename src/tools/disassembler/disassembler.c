@@ -65,8 +65,7 @@ int main(int argc, char **argv) {
 					case BytecodeInstructionMemoryTypeLoad8:
 						disassemblerPrint(addr, instruction, "r%u=*r%u", info.d.memory.destReg, info.d.memory.srcReg);
 					break;
-					case BytecodeInstructionMemoryTypeXchg8:
-						disassemblerPrint(addr, instruction, "xchg8 *r%u r%u", info.d.memory.destReg, info.d.memory.srcReg);
+					case BytecodeInstructionMemoryTypeSet4:
 					break;
 				}
 			break;
@@ -136,6 +135,9 @@ int main(int argc, char **argv) {
 							break;
 							case BytecodeInstructionAluExtraTypeCall:
 								disassemblerPrint(addr, instruction, "call r%u r%u (call)", info.d.alu.destReg, info.d.alu.opAReg);
+							break;
+							case BytecodeInstructionAluExtraTypeXchg8:
+								disassemblerPrint(addr, instruction, "xchg8 *r%u r%u", info.d.alu.destReg, info.d.alu.opAReg);
 							break;
 							default:
 								disassemblerPrint(addr, instruction, "unknown ALU extra operation (type %u)", info.d.alu.opBReg);

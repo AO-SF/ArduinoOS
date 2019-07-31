@@ -106,7 +106,7 @@ typedef uint8_t BytecodeInstruction3Byte[3];
 typedef enum {
 	BytecodeInstructionMemoryTypeLoad8,
 	BytecodeInstructionMemoryTypeStore8,
-	BytecodeInstructionMemoryTypeXchg8,
+	BytecodeInstructionMemoryTypeSet4,
 } BytecodeInstructionMemoryType;
 
 typedef struct {
@@ -149,6 +149,7 @@ typedef enum {
 	BytecodeInstructionAluExtraTypePush16,
 	BytecodeInstructionAluExtraTypePop16,
 	BytecodeInstructionAluExtraTypeCall,
+	BytecodeInstructionAluExtraTypeXchg8,
 } BytecodeInstructionAluExtraType;
 
 typedef enum {

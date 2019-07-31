@@ -1440,7 +1440,7 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeXchg8:
-				instruction->machineCodeLen=1;
+				instruction->machineCodeLen=2;
 				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeConst:
@@ -1752,7 +1752,9 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create instruction
-				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeXchg8, addrReg, srcDestReg);
+				BytecodeInstruction2Byte xchg8Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, addrReg, srcDestReg, BytecodeInstructionAluExtraTypeXchg8);
+				instruction->machineCode[0]=(xchg8Op>>8);
+				instruction->machineCode[1]=(xchg8Op&0xFF);
 			} break;
 			case AssemblerInstructionTypeConst:
 			break;
