@@ -159,11 +159,7 @@ bool processRunNextInstruction(Process *process) {
 		instruction[2]=process->memory[process->regs[BytecodeRegisterIP]++];
 
 	BytecodeInstructionInfo info;
-	if (!bytecodeInstructionParse(&info, instruction)) {
-		if (infoInstructions)
-			printf("Error: Invalid instruction (bad bit sequence)\n");
-		return false;
-	}
+	bytecodeInstructionParse(&info, instruction);
 
 	if (process->skipCounter>0) {
 		if (infoInstructions)

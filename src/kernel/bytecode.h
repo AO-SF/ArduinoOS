@@ -215,7 +215,7 @@ typedef struct {
 } BytecodeInstructionInfo;
 
 BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstruction3Byte instruction); // Returns instruction's length by looking at the upper bits (without fully verifying the instruction is valid)
-bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction3Byte instruction);
+void bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction3Byte instruction);
 
 BytecodeInstruction1Byte bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg); // for Xchg8 the addr is put in destReg, then the src/dest reg is put into srcReg
 BytecodeInstruction2Byte bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);

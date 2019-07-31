@@ -908,10 +908,7 @@ bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcDat
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstruction3Byte instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	// Parse instruction
 	BytecodeInstructionInfo info;
-	if (!bytecodeInstructionParse(&info, instruction)) {
-		kernelLog(LogTypeWarning, kstrP("could not parse instruction 0x%02X%02X%02X, process %u (%s), killing\n"), instruction[0], instruction[1], instruction[2], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-		return false;
-	}
+	bytecodeInstructionParse(&info, instruction);
 
 	// Execute instruction
 	switch(info.type) {

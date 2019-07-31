@@ -24,59 +24,41 @@ BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstruction3Byt
 		return BytecodeInstructionLength3Byte;
 }
 
-bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction3Byte instruction) {
-	// If first two bits are not both 1 then we are dealing with a memory-type instruction.
+void bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction3Byte instruction) {
+	// Parse instruction
 	uint8_t upperTwoBits=(instruction[0]>>6);
 	if (upperTwoBits!=0x3) {
+		// If first two bits are not both 1 then we are dealing with a memory-type instruction.
 		info->type=BytecodeInstructionTypeMemory;
 		info->d.memory.type=upperTwoBits;
 		info->d.memory.destReg=((instruction[0]>>3)&0x7);
 		info->d.memory.srcReg=(instruction[0]&0x7);
-		return true;
-	}
-
-	// Otherwise if the 3rd bit is also 1 then this is an ALU instruction
-	if (instruction[0] & 0x20) {
-		info->type=BytecodeInstructionTypeAlu;
-
+	} else if (instruction[0] & 0x20) {
+		// Otherwise if the 3rd bit is also 1 then this is an ALU instruction
 		uint16_t upper16=(((uint16_t)instruction[0])<<8)|instruction[1];
+		info->type=BytecodeInstructionTypeAlu;
 		info->d.alu.type=((upper16>>9)&0xF);
 		info->d.alu.destReg=((upper16>>6)&0x7);
 		info->d.alu.opAReg=((upper16>>3)&0x7);
 		info->d.alu.opBReg=(upper16&0x7);
 		info->d.alu.incDecValue=(upper16&63)+1;
-
-		return true;
-	}
-
-	// Otherwise this is a misc instruction.
-	// If the 4th bit is a 1 we have a set8/16 instruction, else a short misc instruction.
-	if (instruction[0] & 0x10) {
-		// Long misc instruction
-		info->type=BytecodeInstructionTypeMisc;
-
-		if (instruction[0]&0x8) {
-			info->d.misc.type=BytecodeInstructionMiscTypeSet16;
-			info->d.misc.d.set16.destReg=(instruction[0]&0x7);
-			info->d.misc.d.set16.value=((uint16_t)(instruction[1])<<8)|instruction[2];
-		} else {
-			info->d.misc.type=BytecodeInstructionMiscTypeSet8;
-			info->d.misc.d.set8.destReg=(instruction[0]&0x7);
-			info->d.misc.d.set8.value=instruction[1];
-		}
-
-		return true;
 	} else {
-		// Short misc instruction
+		// Otherwise this is a misc instruction.
 		info->type=BytecodeInstructionTypeMisc;
-
-		switch(instruction[0]&0xF) {
-			case 0: info->d.misc.type=BytecodeInstructionMiscTypeNop; return true; break;
-			case 1: info->d.misc.type=BytecodeInstructionMiscTypeSyscall; return true; break;
-			case 2: info->d.misc.type=BytecodeInstructionMiscTypeClearInstructionCache; return true; break;
-		}
-
-		return false;
+		if (instruction[0] & 0x10) {
+			// If the 4th bit is a 1 we have a set8/16 instruction
+			if (instruction[0] & 0x8) {
+				info->d.misc.type=BytecodeInstructionMiscTypeSet16;
+				info->d.misc.d.set16.destReg=(instruction[0]&0x7);
+				info->d.misc.d.set16.value=((uint16_t)(instruction[1])<<8)|instruction[2];
+			} else {
+				info->d.misc.type=BytecodeInstructionMiscTypeSet8;
+				info->d.misc.d.set8.destReg=(instruction[0]&0x7);
+				info->d.misc.d.set8.value=instruction[1];
+			}
+		} else
+			// Otherwise we have a short misc instruction
+			info->d.misc.type=BytecodeInstructionMiscTypeNop+(instruction[0] & 0xF);
 	}
 }
 
