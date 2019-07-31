@@ -7,8 +7,8 @@
 
 #include "bytecode.h"
 
-void disassemblerPrint(uint16_t addr, BytecodeInstructionLong instruction, const char *fmt, ...);
-void disassemblerPrintV(uint16_t addr, BytecodeInstructionLong instruction, const char *fmt, va_list ap);
+void disassemblerPrint(uint16_t addr, BytecodeInstruction3Byte instruction, const char *fmt, ...);
+void disassemblerPrintV(uint16_t addr, BytecodeInstruction3Byte instruction, const char *fmt, va_list ap);
 
 int main(int argc, char **argv) {
 	FILE *inputFile=NULL;
@@ -33,10 +33,10 @@ int main(int argc, char **argv) {
 	int c;
 	while((c=fgetc(inputFile))!=EOF) {
 		// First see if we need to load another byte for a long instruction
-		BytecodeInstructionLong instruction;
+		BytecodeInstruction3Byte instruction;
 		instruction[0]=c;
 		BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
-		if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong) {
+		if (length==BytecodeInstructionLength2Byte || length==BytecodeInstructionLength3Byte) {
 			c=fgetc(inputFile);
 			if (c==EOF) {
 				disassemblerPrint(addr, instruction, "Missing 2nd byte of instruction");
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 			}
 			instruction[1]=c;
 		}
-		if (length==BytecodeInstructionLengthLong) {
+		if (length==BytecodeInstructionLength3Byte) {
 			c=fgetc(inputFile);
 			if (c==EOF) {
 				disassemblerPrint(addr, instruction, "Missing 3rd byte of instruction");
@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 		// Parse instruction
 		BytecodeInstructionInfo info;
 		if (!bytecodeInstructionParse(&info, instruction)) {
-			if (length==BytecodeInstructionLengthShort)
+			if (length==BytecodeInstructionLength1Byte)
 				disassemblerPrint(addr, instruction, "Unknown short instruction");
 			else
 				disassemblerPrint(addr, instruction, "Unknown long instruction");
@@ -175,7 +175,7 @@ int main(int argc, char **argv) {
 		}
 
 		// Update addr for next call
-		addr+=1+(length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)+(length==BytecodeInstructionLengthLong);
+		addr+=1+(length==BytecodeInstructionLength2Byte || length==BytecodeInstructionLength3Byte)+(length==BytecodeInstructionLength3Byte);
 	}
 
 	// Done
@@ -186,26 +186,26 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-void disassemblerPrint(uint16_t addr, BytecodeInstructionLong instruction, const char *fmt, ...) {
+void disassemblerPrint(uint16_t addr, BytecodeInstruction3Byte instruction, const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
 	disassemblerPrintV(addr, instruction, fmt, ap);
 	va_end(ap);
 }
 
-void disassemblerPrintV(uint16_t addr, BytecodeInstructionLong instruction, const char *fmt, va_list ap) {
+void disassemblerPrintV(uint16_t addr, BytecodeInstruction3Byte instruction, const char *fmt, va_list ap) {
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
 	char c0=(isgraph(instruction[0]) ? (instruction[0]) : '.');
 	char c1=(isgraph(instruction[1]) ? (instruction[1]) : '.');
 	char c2=(isgraph(instruction[2]) ? (instruction[2]) : '.');
 	switch(length) {
-		case BytecodeInstructionLengthShort:
+		case BytecodeInstructionLength1Byte:
 			printf("%06u=%04X      %02X=%c   ", addr, addr, (instruction[0]), c0);
 		break;
-		case BytecodeInstructionLengthStandard:
+		case BytecodeInstructionLength2Byte:
 			printf("%06u=%04X    %02X%02X=%c%c  ", addr, addr, instruction[0], instruction[1], c0, c1);
 		break;
-		case BytecodeInstructionLengthLong:
+		case BytecodeInstructionLength3Byte:
 			printf("%06u=%04X  %02X%02X%02X=%c%c%c ", addr, addr, instruction[0], instruction[1], instruction[2], c0, c1, c2);
 		break;
 	}

@@ -94,14 +94,14 @@ typedef enum {
 } BytecodeInstructionType;
 
 typedef enum {
-	BytecodeInstructionLengthShort,
-	BytecodeInstructionLengthStandard,
-	BytecodeInstructionLengthLong,
+	BytecodeInstructionLength1Byte,
+	BytecodeInstructionLength2Byte,
+	BytecodeInstructionLength3Byte,
 } BytecodeInstructionLength;
 
-typedef uint8_t BytecodeInstructionShort;
-typedef BytecodeWord BytecodeInstructionStandard;
-typedef uint8_t BytecodeInstructionLong[3];
+typedef uint8_t BytecodeInstruction1Byte;
+typedef BytecodeWord BytecodeInstruction2Byte;
+typedef uint8_t BytecodeInstruction3Byte[3];
 
 typedef enum {
 	BytecodeInstructionMemoryTypeLoad8,
@@ -214,16 +214,16 @@ typedef struct {
 	} d;
 } BytecodeInstructionInfo;
 
-BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstructionLong instruction); // Returns instruction's length by looking at the upper bits (without fully verifying the instruction is valid)
-bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstructionLong instruction);
+BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstruction3Byte instruction); // Returns instruction's length by looking at the upper bits (without fully verifying the instruction is valid)
+bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction3Byte instruction);
 
-BytecodeInstructionShort bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg); // for Xchg8 the addr is put in destReg, then the src/dest reg is put into srcReg
-BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);
-BytecodeInstructionStandard bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue);
-BytecodeInstructionShort bytecodeInstructionCreateMiscNop(void);
-BytecodeInstructionShort bytecodeInstructionCreateMiscSyscall(void);
-BytecodeInstructionShort bytecodeInstructionCreateMiscClearInstructionCache(void);
-BytecodeInstructionStandard bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
-void bytecodeInstructionCreateMiscSet16(BytecodeInstructionLong instruction, BytecodeRegister destReg, uint16_t value);
+BytecodeInstruction1Byte bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg); // for Xchg8 the addr is put in destReg, then the src/dest reg is put into srcReg
+BytecodeInstruction2Byte bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);
+BytecodeInstruction2Byte bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue);
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscNop(void);
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscSyscall(void);
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscClearInstructionCache(void);
+BytecodeInstruction2Byte bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
+void bytecodeInstructionCreateMiscSet16(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value);
 
 #endif

@@ -15,16 +15,16 @@ const char *byteCodeInstructionAluCmpBitStrings[BytecodeInstructionAluCmpBitNB]=
 };
 #endif
 
-BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstructionLong instruction) {
+BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstruction3Byte instruction) {
 	if (instruction[0]<0xD0)
-		return BytecodeInstructionLengthShort;
+		return BytecodeInstructionLength1Byte;
 	else if ((instruction[0]>>3)!=0x1B)
-		return BytecodeInstructionLengthStandard;
+		return BytecodeInstructionLength2Byte;
 	else
-		return BytecodeInstructionLengthLong;
+		return BytecodeInstructionLength3Byte;
 }
 
-bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstructionLong instruction) {
+bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction3Byte instruction) {
 
 	// If first two bits are not both 1 then we are dealing with a memory-type instruction.
 	uint8_t upperTwoBits=(instruction[0]>>6);
@@ -81,11 +81,11 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 	}
 }
 
-BytecodeInstructionShort bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg) {
+BytecodeInstruction1Byte bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg) {
 	return ((((uint8_t)type)<<6) | (destReg<<3) | srcReg);
 }
 
-BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg) {
+BytecodeInstruction2Byte bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg) {
 	assert(destReg<BytecodeRegisterNB);
 	assert(opAReg<BytecodeRegisterNB);
 	assert(opBReg<BytecodeRegisterNB);
@@ -96,7 +96,7 @@ BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluT
 	return (((uint16_t)upper)<<8)|lower;
 }
 
-BytecodeInstructionStandard bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue) {
+BytecodeInstruction2Byte bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue) {
 	assert(type==BytecodeInstructionAluTypeInc || type==BytecodeInstructionAluTypeDec);
 	assert(incDecValue>0 && incDecValue<64);
 
@@ -106,23 +106,23 @@ BytecodeInstructionStandard bytecodeInstructionCreateAluIncDecValue(BytecodeInst
 	return bytecodeInstructionCreateAlu(type, destReg, opAReg, opBReg);
 }
 
-BytecodeInstructionShort bytecodeInstructionCreateMiscNop(void) {
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscNop(void) {
 	return 0xC0;
 }
 
-BytecodeInstructionShort bytecodeInstructionCreateMiscSyscall(void) {
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscSyscall(void) {
 	return 0xC1;
 }
 
-BytecodeInstructionShort bytecodeInstructionCreateMiscClearInstructionCache(void) {
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscClearInstructionCache(void) {
 	return 0xC2;
 }
 
-BytecodeInstructionStandard bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value) {
+BytecodeInstruction2Byte bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value) {
 	return (((uint16_t)(0xD0|destReg))<<8)|value;
 }
 
-void bytecodeInstructionCreateMiscSet16(BytecodeInstructionLong instruction, BytecodeRegister destReg, uint16_t value) {
+void bytecodeInstructionCreateMiscSet16(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value) {
 	instruction[0]=(0xD8|destReg);
 	instruction[1]=(value>>8);
 	instruction[2]=(value&0xFF);

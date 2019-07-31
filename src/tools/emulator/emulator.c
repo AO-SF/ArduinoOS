@@ -150,12 +150,12 @@ int main(int argc, char **argv) {
 bool processRunNextInstruction(Process *process) {
 	BytecodeWord originalIP=process->regs[BytecodeRegisterIP];
 
-	BytecodeInstructionLong instruction;
+	BytecodeInstruction3Byte instruction;
 	instruction[0]=process->memory[process->regs[BytecodeRegisterIP]++];
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
-	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
+	if (length==BytecodeInstructionLength2Byte || length==BytecodeInstructionLength3Byte)
 		instruction[1]=process->memory[process->regs[BytecodeRegisterIP]++];
-	if (length==BytecodeInstructionLengthLong)
+	if (length==BytecodeInstructionLength3Byte)
 		instruction[2]=process->memory[process->regs[BytecodeRegisterIP]++];
 
 	BytecodeInstructionInfo info;
