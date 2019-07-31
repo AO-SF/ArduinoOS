@@ -25,7 +25,6 @@ BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstruction3Byt
 }
 
 bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction3Byte instruction) {
-
 	// If first two bits are not both 1 then we are dealing with a memory-type instruction.
 	uint8_t upperTwoBits=(instruction[0]>>6);
 	if (upperTwoBits!=0x3) {
@@ -37,7 +36,7 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 	}
 
 	// Otherwise if the 3rd bit is also 1 then this is an ALU instruction
-	if (((instruction[0]>>5)&1)==1) {
+	if (instruction[0] & 0x20) {
 		info->type=BytecodeInstructionTypeAlu;
 
 		uint16_t upper16=(((uint16_t)instruction[0])<<8)|instruction[1];
@@ -51,23 +50,12 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 	}
 
 	// Otherwise this is a misc instruction.
-	// If the 4th bit is a 0 we have a short instruction, else a long one.
-	if (((instruction[0]>>4)&1)==0) {
-		// Short misc instruction
-		info->type=BytecodeInstructionTypeMisc;
-
-		switch(instruction[0]&0xF) {
-			case 0: info->d.misc.type=BytecodeInstructionMiscTypeNop; return true; break;
-			case 1: info->d.misc.type=BytecodeInstructionMiscTypeSyscall; return true; break;
-			case 2: info->d.misc.type=BytecodeInstructionMiscTypeClearInstructionCache; return true; break;
-		}
-
-		return false;
-	} else {
+	// If the 4th bit is a 1 we have a set8/16 instruction, else a short misc instruction.
+	if (instruction[0] & 0x10) {
 		// Long misc instruction
 		info->type=BytecodeInstructionTypeMisc;
 
-		if ((instruction[0]>>3)&1) {
+		if (instruction[0]&0x8) {
 			info->d.misc.type=BytecodeInstructionMiscTypeSet16;
 			info->d.misc.d.set16.destReg=(instruction[0]&0x7);
 			info->d.misc.d.set16.value=((uint16_t)(instruction[1])<<8)|instruction[2];
@@ -78,6 +66,17 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 		}
 
 		return true;
+	} else {
+		// Short misc instruction
+		info->type=BytecodeInstructionTypeMisc;
+
+		switch(instruction[0]&0xF) {
+			case 0: info->d.misc.type=BytecodeInstructionMiscTypeNop; return true; break;
+			case 1: info->d.misc.type=BytecodeInstructionMiscTypeSyscall; return true; break;
+			case 2: info->d.misc.type=BytecodeInstructionMiscTypeClearInstructionCache; return true; break;
+		}
+
+		return false;
 	}
 }
 
