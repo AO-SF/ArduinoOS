@@ -1504,14 +1504,14 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					// Integer - use set8 or set16 instruction as needed
 					unsigned value=atoi(instruction->d.mov.src);
 					if (value<256) {
-						BytecodeInstructionStandard set8Op=bytecodeInstructionCreateMiscSet8(destReg, value);
+						BytecodeInstruction2Byte set8Op=bytecodeInstructionCreateMiscSet8(destReg, value);
 						instruction->machineCode[0]=(set8Op>>8);
 						instruction->machineCode[1]=(set8Op&0xFF);
 					} else
 						bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
 				} else if ((srcReg=assemblerRegisterFromStr(instruction->d.mov.src))!=BytecodeRegisterNB) {
 					// Register - use dest=src|src as a copy, and add a nop to pad to 3 bytes
-					BytecodeInstructionStandard copyOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, destReg, srcReg, srcReg);
+					BytecodeInstruction2Byte copyOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, destReg, srcReg, srcReg);
 					instruction->machineCode[0]=(copyOp>>8);
 					instruction->machineCode[1]=(copyOp&0xFF);
 				} else if (instruction->d.mov.src[0]=='\'') {
@@ -1525,7 +1525,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 						}
 					}
 
-					BytecodeInstructionStandard set8Op=bytecodeInstructionCreateMiscSet8(destReg, c);
+					BytecodeInstruction2Byte set8Op=bytecodeInstructionCreateMiscSet8(destReg, c);
 					instruction->machineCode[0]=(set8Op>>8);
 					instruction->machineCode[1]=(set8Op&0xFF);
 				} else if ((defineAddr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src))!=-1) {
@@ -1537,7 +1537,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, labelAddr);
 				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
 					if (constValue<256) {
-						BytecodeInstructionStandard op=bytecodeInstructionCreateMiscSet8(destReg, constValue);
+						BytecodeInstruction2Byte op=bytecodeInstructionCreateMiscSet8(destReg, constValue);
 						instruction->machineCode[0]=(op>>8);
 						instruction->machineCode[1]=(op&0xFF);
 					} else
@@ -1604,7 +1604,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 						opAReg=BytecodeRegisterSP;
 				}
 
-				BytecodeInstructionStandard aluOp=bytecodeInstructionCreateAlu(instruction->d.alu.type, destReg, opAReg, opBReg);
+				BytecodeInstruction2Byte aluOp=bytecodeInstructionCreateAlu(instruction->d.alu.type, destReg, opAReg, opBReg);
 
 				instruction->machineCode[0]=(aluOp>>8);
 				instruction->machineCode[1]=(aluOp&0xFF);
@@ -1637,7 +1637,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				// Create as two instructions: store8 SP srcReg; inc1 SP
 				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeStore8, BytecodeRegisterSP, srcReg);
 
-				BytecodeInstructionStandard inc1Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, BytecodeRegisterSP, 1);
+				BytecodeInstruction2Byte inc1Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, BytecodeRegisterSP, 1);
 				instruction->machineCode[1]=(inc1Op>>8);
 				instruction->machineCode[2]=(inc1Op&0xFF);
 			} break;
@@ -1656,7 +1656,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create as two instructions: dec1 SP; load16 destReg SP
-				BytecodeInstructionStandard dec1Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, BytecodeRegisterSP, 1);
+				BytecodeInstruction2Byte dec1Op=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, BytecodeRegisterSP, 1);
 				instruction->machineCode[0]=(dec1Op>>8);
 				instruction->machineCode[1]=(dec1Op&0xFF);
 
@@ -1687,7 +1687,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				bytecodeInstructionCreateMiscSet16(instruction->machineCode+0, BytecodeRegisterS, addr);
 
 				// call rS rSP
-				BytecodeInstructionStandard callOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterS, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypeCall);
+				BytecodeInstruction2Byte callOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterS, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypeCall);
 				instruction->machineCode[3]=(callOp>>8);
 				instruction->machineCode[4]=(callOp&0xFF);
 			} break;
@@ -1699,7 +1699,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create instructions (pop16 to pop ret addr off stack and jump back)
-				BytecodeInstructionStandard pop16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterIP, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypePop16);
+				BytecodeInstruction2Byte pop16Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterIP, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypePop16);
 				instruction->machineCode[0]=(pop16Op>>8);
 				instruction->machineCode[1]=(pop16Op&0xFF);
 			} break;

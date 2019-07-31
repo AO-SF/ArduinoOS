@@ -43,20 +43,65 @@ typedef enum {
 #define BytecodeRegisterIP BytecodeRegister7
 
 typedef enum {
+	BytecodeSyscallIdExit=(0|0),
+	BytecodeSyscallIdGetPid=(0|1),
+	BytecodeSyscallIdGetArgC=(0|2),
+	BytecodeSyscallIdGetArgVN=(0|3),
+	BytecodeSyscallIdFork=(0|4),
+	BytecodeSyscallIdExec=(0|5),
+	BytecodeSyscallIdWaitPid=(0|6),
+	BytecodeSyscallIdGetPidPath=(0|7),
+	BytecodeSyscallIdGetPidState=(0|8),
+	BytecodeSyscallIdGetAllCpuCounts=(0|9),
+	BytecodeSyscallIdKill=(0|10),
+	BytecodeSyscallIdGetPidRam=(0|11),
+	BytecodeSyscallIdSignal=(0|12),
+	BytecodeSyscallIdRead=(256|0),
+	BytecodeSyscallIdWrite=(256|1),
+	BytecodeSyscallIdOpen=(256|2),
+	BytecodeSyscallIdClose=(256|3),
+	BytecodeSyscallIdDirGetChildN=(256|4),
+	BytecodeSyscallIdGetPath=(256|5),
+	BytecodeSyscallIdResizeFile=(256|6),
+	BytecodeSyscallIdFileGetLen=(256|7),
+	BytecodeSyscallIdTryReadByte=(256|8),
+	BytecodeSyscallIdIsDir=(256|9),
+	BytecodeSyscallIdFileExists=(256|10),
+	BytecodeSyscallIdDelete=(256|11),
+	BytecodeSyscallIdEnvGetStdinFd=(512|0),
+	BytecodeSyscallIdEnvSetStdinFd=(512|1),
+	BytecodeSyscallIdEnvGetPwd=(512|2),
+	BytecodeSyscallIdEnvSetPwd=(512|3),
+	BytecodeSyscallIdEnvGetPath=(512|4),
+	BytecodeSyscallIdEnvSetPath=(512|5),
+	BytecodeSyscallIdEnvGetStdoutFd=(512|6),
+	BytecodeSyscallIdEnvSetStdoutFd=(512|7),
+	BytecodeSyscallIdTimeMonotonic=(768|0),
+	BytecodeSyscallIdRegisterSignalHandler=(1024|0),
+	BytecodeSyscallIdShutdown=(1280|0),
+	BytecodeSyscallIdMount=(1280|1),
+	BytecodeSyscallIdUnmount=(1280|2),
+	BytecodeSyscallIdIoctl=(1280|3),
+	BytecodeSyscallIdStrchr=(1536|0),
+	BytecodeSyscallIdStrchrnul=(1536|1),
+	BytecodeSyscallIdMemmove=(1536|2),
+} BytecodeSyscallId;
+
+typedef enum {
 	BytecodeInstructionTypeMemory,
 	BytecodeInstructionTypeAlu,
 	BytecodeInstructionTypeMisc,
 } BytecodeInstructionType;
 
 typedef enum {
-	BytecodeInstructionLengthShort,
-	BytecodeInstructionLengthStandard,
-	BytecodeInstructionLengthLong,
+	BytecodeInstructionLength1Byte,
+	BytecodeInstructionLength2Byte,
+	BytecodeInstructionLength3Byte,
 } BytecodeInstructionLength;
 
-typedef uint8_t BytecodeInstructionShort;
-typedef BytecodeWord BytecodeInstructionStandard;
-typedef uint8_t BytecodeInstructionLong[3];
+typedef uint8_t BytecodeInstruction1Byte;
+typedef BytecodeWord BytecodeInstruction2Byte;
+typedef uint8_t BytecodeInstruction3Byte[3];
 
 typedef enum {
 	BytecodeInstructionMemoryTypeLoad8,
@@ -135,51 +180,6 @@ typedef enum {
 } BytecodeSyscallIdIoctlCommand;
 
 typedef enum {
-	BytecodeSyscallIdExit=(0|0),
-	BytecodeSyscallIdGetPid=(0|1),
-	BytecodeSyscallIdGetArgC=(0|2),
-	BytecodeSyscallIdGetArgVN=(0|3),
-	BytecodeSyscallIdFork=(0|4),
-	BytecodeSyscallIdExec=(0|5),
-	BytecodeSyscallIdWaitPid=(0|6),
-	BytecodeSyscallIdGetPidPath=(0|7),
-	BytecodeSyscallIdGetPidState=(0|8),
-	BytecodeSyscallIdGetAllCpuCounts=(0|9),
-	BytecodeSyscallIdKill=(0|10),
-	BytecodeSyscallIdGetPidRam=(0|11),
-	BytecodeSyscallIdSignal=(0|12),
-	BytecodeSyscallIdRead=(256|0),
-	BytecodeSyscallIdWrite=(256|1),
-	BytecodeSyscallIdOpen=(256|2),
-	BytecodeSyscallIdClose=(256|3),
-	BytecodeSyscallIdDirGetChildN=(256|4),
-	BytecodeSyscallIdGetPath=(256|5),
-	BytecodeSyscallIdResizeFile=(256|6),
-	BytecodeSyscallIdFileGetLen=(256|7),
-	BytecodeSyscallIdTryReadByte=(256|8),
-	BytecodeSyscallIdIsDir=(256|9),
-	BytecodeSyscallIdFileExists=(256|10),
-	BytecodeSyscallIdDelete=(256|11),
-	BytecodeSyscallIdEnvGetStdinFd=(512|0),
-	BytecodeSyscallIdEnvSetStdinFd=(512|1),
-	BytecodeSyscallIdEnvGetPwd=(512|2),
-	BytecodeSyscallIdEnvSetPwd=(512|3),
-	BytecodeSyscallIdEnvGetPath=(512|4),
-	BytecodeSyscallIdEnvSetPath=(512|5),
-	BytecodeSyscallIdEnvGetStdoutFd=(512|6),
-	BytecodeSyscallIdEnvSetStdoutFd=(512|7),
-	BytecodeSyscallIdTimeMonotonic=(768|0),
-	BytecodeSyscallIdRegisterSignalHandler=(1024|0),
-	BytecodeSyscallIdShutdown=(1280|0),
-	BytecodeSyscallIdMount=(1280|1),
-	BytecodeSyscallIdUnmount=(1280|2),
-	BytecodeSyscallIdIoctl=(1280|3),
-	BytecodeSyscallIdStrchr=(1536|0),
-	BytecodeSyscallIdStrchrnul=(1536|1),
-	BytecodeSyscallIdMemmove=(1536|2),
-} BytecodeSyscallId;
-
-typedef enum {
 	BytecodeInstructionMiscTypeNop,
 	BytecodeInstructionMiscTypeSyscall,
 	BytecodeInstructionMiscTypeClearInstructionCache,
@@ -207,7 +207,6 @@ typedef struct {
 
 typedef struct {
 	BytecodeInstructionType type;
-	BytecodeInstructionLength length;
 	union {
 		BytecodeInstructionMemoryInfo memory;
 		BytecodeInstructionAluInfo alu;
@@ -215,16 +214,16 @@ typedef struct {
 	} d;
 } BytecodeInstructionInfo;
 
-BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstructionLong instruction); // Returns instruction's length by looking at the upper bits (without fully verifying the instruction is valid)
-bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstructionLong instruction);
+BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstruction3Byte instruction); // Returns instruction's length by looking at the upper bits (without fully verifying the instruction is valid)
+void bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction3Byte instruction);
 
-BytecodeInstructionShort bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg); // for Xchg8 the addr is put in destReg, then the src/dest reg is put into srcReg
-BytecodeInstructionStandard bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);
-BytecodeInstructionStandard bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue);
-BytecodeInstructionShort bytecodeInstructionCreateMiscNop(void);
-BytecodeInstructionShort bytecodeInstructionCreateMiscSyscall(void);
-BytecodeInstructionShort bytecodeInstructionCreateMiscClearInstructionCache(void);
-BytecodeInstructionStandard bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
-void bytecodeInstructionCreateMiscSet16(BytecodeInstructionLong instruction, BytecodeRegister destReg, uint16_t value);
+BytecodeInstruction1Byte bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg); // for Xchg8 the addr is put in destReg, then the src/dest reg is put into srcReg
+BytecodeInstruction2Byte bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);
+BytecodeInstruction2Byte bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue);
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscNop(void);
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscSyscall(void);
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscClearInstructionCache(void);
+BytecodeInstruction2Byte bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
+void bytecodeInstructionCreateMiscSet16(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value);
 
 #endif

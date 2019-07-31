@@ -134,8 +134,8 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 
 bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.  TODO: Avoid hardcoded limit
 
-bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstructionLong *instruction);
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstruction3Byte *instruction);
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstruction3Byte instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
 bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus);
 bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
 bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
@@ -462,7 +462,7 @@ void procManProcessTick(ProcManPid pid) {
 	procManPrefetchDataClear(&prefetchData);
 	for(uint16_t instructionNum=0; instructionNum<procManProcessInstructionsPerTick; ++instructionNum) {
 		// Run a single instruction
-		BytecodeInstructionLong instruction;
+		BytecodeInstruction3Byte instruction;
 		if (!procManProcessGetInstruction(process, &procData, &prefetchData, &instruction)) {
 			kernelLog(LogTypeWarning, kstrP("process %u tick - could not get instruction, killing\n"), pid);
 			goto kill;
@@ -892,26 +892,23 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 	return true;
 }
 
-bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstructionLong *instruction) {
+bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstruction3Byte *instruction) {
 	if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+0))
 		return false;
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(*instruction);
-	if (length==BytecodeInstructionLengthStandard || length==BytecodeInstructionLengthLong)
+	if (length==BytecodeInstructionLength2Byte || length==BytecodeInstructionLength3Byte)
 		if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+1))
 			return false;
-	if (length==BytecodeInstructionLengthLong)
+	if (length==BytecodeInstructionLength3Byte)
 		if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+2))
 			return false;
 	return true;
 }
 
-bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstructionLong instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
+bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstruction3Byte instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	// Parse instruction
 	BytecodeInstructionInfo info;
-	if (!bytecodeInstructionParse(&info, instruction)) {
-		kernelLog(LogTypeWarning, kstrP("could not parse instruction 0x%02X%02X%02X, process %u (%s), killing\n"), instruction[0], instruction[1], instruction[2], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-		return false;
-	}
+	bytecodeInstructionParse(&info, instruction);
 
 	// Execute instruction
 	switch(info.type) {
@@ -1038,7 +1035,7 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 				// Skip next n instructions
 				uint8_t skipDist=info->d.alu.opBReg+1;
 				for(uint8_t i=0; i<skipDist; ++i) {
-					BytecodeInstructionLong skippedInstruction;
+					BytecodeInstruction3Byte skippedInstruction;
 					if (!procManProcessGetInstruction(process, procData, prefetchData, &skippedInstruction)) {
 						kernelLog(LogTypeWarning, kstrP("could not skip instruction (initial skip dist %u), process %u (%s), killing\n"), skipDist, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						return false;
