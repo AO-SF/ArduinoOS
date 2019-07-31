@@ -946,6 +946,8 @@ bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcess
 			return true;
 		} break;
 		case BytecodeInstructionMemoryTypeSet4: {
+			procData->regs[info->d.memory.destReg]=info->d.memory.set4Value;
+			return true;
 		} break;
 	}
 

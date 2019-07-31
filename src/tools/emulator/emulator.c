@@ -183,6 +183,9 @@ bool processRunNextInstruction(Process *process) {
 						printf("Info: r%i=*r%i (=*%i=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, srcAddr, process->regs[info.d.memory.destReg]);
 				} break;
 				case BytecodeInstructionMemoryTypeSet4: {
+					process->regs[info.d.memory.destReg]=info.d.memory.set4Value;
+					if (infoInstructions)
+						printf("Info: r%i=%u\n", info.d.memory.destReg, info.d.memory.set4Value);
 				} break;
 			}
 		break;

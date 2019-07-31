@@ -66,6 +66,7 @@ int main(int argc, char **argv) {
 						disassemblerPrint(addr, instruction, "r%u=*r%u", info.d.memory.destReg, info.d.memory.srcReg);
 					break;
 					case BytecodeInstructionMemoryTypeSet4:
+						disassemblerPrint(addr, instruction, "r%u=%u", info.d.memory.destReg, info.d.memory.set4Value);
 					break;
 				}
 			break;
