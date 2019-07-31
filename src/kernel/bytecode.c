@@ -30,7 +30,6 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 	uint8_t upperTwoBits=(instruction[0]>>6);
 	if (upperTwoBits!=0x3) {
 		info->type=BytecodeInstructionTypeMemory;
-		info->length=BytecodeInstructionLengthShort;
 		info->d.memory.type=upperTwoBits;
 		info->d.memory.destReg=((instruction[0]>>3)&0x7);
 		info->d.memory.srcReg=(instruction[0]&0x7);
@@ -40,7 +39,6 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 	// Otherwise if the 3rd bit is also 1 then this is an ALU instruction
 	if (((instruction[0]>>5)&1)==1) {
 		info->type=BytecodeInstructionTypeAlu;
-		info->length=BytecodeInstructionLengthLong;
 
 		uint16_t upper16=(((uint16_t)instruction[0])<<8)|instruction[1];
 		info->d.alu.type=((upper16>>9)&0xF);
@@ -57,7 +55,6 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 	if (((instruction[0]>>4)&1)==0) {
 		// Short misc instruction
 		info->type=BytecodeInstructionTypeMisc;
-		info->length=BytecodeInstructionLengthShort;
 
 		switch(instruction[0]&0xF) {
 			case 0: info->d.misc.type=BytecodeInstructionMiscTypeNop; return true; break;
@@ -69,7 +66,6 @@ bool bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 	} else {
 		// Long misc instruction
 		info->type=BytecodeInstructionTypeMisc;
-		info->length=BytecodeInstructionLengthLong;
 
 		if ((instruction[0]>>3)&1) {
 			info->d.misc.type=BytecodeInstructionMiscTypeSet16;

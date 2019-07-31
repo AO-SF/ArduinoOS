@@ -207,7 +207,6 @@ typedef struct {
 
 typedef struct {
 	BytecodeInstructionType type;
-	BytecodeInstructionLength length;
 	union {
 		BytecodeInstructionMemoryInfo memory;
 		BytecodeInstructionAluInfo alu;
