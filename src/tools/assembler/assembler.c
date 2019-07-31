@@ -1346,9 +1346,12 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				BytecodeRegister srcReg;
 				int defineAddr, allocationAddr, constValue, labelAddr;
 				if (isdigit(instruction->d.mov.src[0])) {
-					// Integer - use set8 or set16 instruction as needed
+					// Integer - use set4, set8 or set16 instruction as needed
+					BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.mov.dest);
 					unsigned value=atoi(instruction->d.mov.src);
-					if (value<256)
+					if (value<16 && destReg<4)
+						instruction->machineCodeLen=1; // will use set4 instruction
+					else if (value<256)
 						instruction->machineCodeLen=2; // will use set8 instruction
 					else
 						instruction->machineCodeLen=3; // will use set16 instruction
@@ -1440,7 +1443,7 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeXchg8:
-				instruction->machineCodeLen=1;
+				instruction->machineCodeLen=2;
 				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeConst:
@@ -1501,9 +1504,11 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				BytecodeRegister srcReg;
 				int defineAddr, allocationAddr, constValue, labelAddr;
 				if (isdigit(instruction->d.mov.src[0])) {
-					// Integer - use set8 or set16 instruction as needed
+					// Integer - use set4, set8 or set16 instruction as needed
 					unsigned value=atoi(instruction->d.mov.src);
-					if (value<256) {
+					if (value<16 && destReg<4) {
+						instruction->machineCode[0]=bytecodeInstructionCreateMemorySet4(destReg, value);
+					} else if (value<256) {
 						BytecodeInstruction2Byte set8Op=bytecodeInstructionCreateMiscSet8(destReg, value);
 						instruction->machineCode[0]=(set8Op>>8);
 						instruction->machineCode[1]=(set8Op&0xFF);
@@ -1752,7 +1757,9 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create instruction
-				instruction->machineCode[0]=bytecodeInstructionCreateMemory(BytecodeInstructionMemoryTypeXchg8, addrReg, srcDestReg);
+				BytecodeInstruction2Byte xchg8Op=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, addrReg, srcDestReg, (BytecodeRegister)BytecodeInstructionAluExtraTypeXchg8);
+				instruction->machineCode[0]=(xchg8Op>>8);
+				instruction->machineCode[1]=(xchg8Op&0xFF);
 			} break;
 			case AssemblerInstructionTypeConst:
 			break;

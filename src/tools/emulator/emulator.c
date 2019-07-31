@@ -182,14 +182,10 @@ bool processRunNextInstruction(Process *process) {
 					if (infoInstructions)
 						printf("Info: r%i=*r%i (=*%i=%i)\n", info.d.memory.destReg, info.d.memory.srcReg, srcAddr, process->regs[info.d.memory.destReg]);
 				} break;
-				case BytecodeInstructionMemoryTypeXchg8: {
-					BytecodeWord addr=process->regs[info.d.memory.destReg];
-					BytecodeRegister srcDestReg=info.d.memory.srcReg;
-					uint8_t memValue=process->memory[addr];
-					process->memory[addr]=(process->regs[srcDestReg] & 0xFF);
-					process->regs[srcDestReg]=memValue;
+				case BytecodeInstructionMemoryTypeSet4: {
+					process->regs[info.d.memory.destReg]=info.d.memory.set4Value;
 					if (infoInstructions)
-						printf("Info: xchg *r%i r%i\n", info.d.memory.destReg, srcDestReg);
+						printf("Info: r%i=%u\n", info.d.memory.destReg, info.d.memory.set4Value);
 				} break;
 			}
 		break;
@@ -338,6 +334,15 @@ bool processRunNextInstruction(Process *process) {
 							// Logging
 							if (infoInstructions)
 								printf("Info (%u): call r%i r%i ([r%u=%u]=r%u=%u, r%u+=2, r%u=r%u=%u)\n", originalIP, info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opAReg, process->regs[info.d.alu.opAReg]-2, BytecodeRegisterIP, preIPReg, info.d.alu.opAReg, BytecodeRegisterIP, info.d.alu.destReg, process->regs[BytecodeRegisterIP]);
+						} break;
+						case BytecodeInstructionAluExtraTypeXchg8: {
+							BytecodeWord addr=process->regs[info.d.alu.destReg];
+							BytecodeRegister srcDestReg=info.d.alu.opAReg;
+							uint8_t memValue=process->memory[addr];
+							process->memory[addr]=(process->regs[srcDestReg] & 0xFF);
+							process->regs[srcDestReg]=memValue;
+							if (infoInstructions)
+								printf("Info: xchg *r%i r%i\n", info.d.alu.destReg, srcDestReg);
 						} break;
 						default:
 							printf("Error: Unknown alu extra instruction with type %i\n", info.d.alu.opBReg);

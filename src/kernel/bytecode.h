@@ -106,12 +106,13 @@ typedef uint8_t BytecodeInstruction3Byte[3];
 typedef enum {
 	BytecodeInstructionMemoryTypeLoad8,
 	BytecodeInstructionMemoryTypeStore8,
-	BytecodeInstructionMemoryTypeXchg8,
+	BytecodeInstructionMemoryTypeSet4,
 } BytecodeInstructionMemoryType;
 
 typedef struct {
 	BytecodeInstructionMemoryType type;
 	BytecodeRegister destReg, srcReg;
+	BytecodeRegister set4Value;
 } BytecodeInstructionMemoryInfo;
 
 typedef enum {
@@ -149,6 +150,7 @@ typedef enum {
 	BytecodeInstructionAluExtraTypePush16,
 	BytecodeInstructionAluExtraTypePop16,
 	BytecodeInstructionAluExtraTypeCall,
+	BytecodeInstructionAluExtraTypeXchg8,
 } BytecodeInstructionAluExtraType;
 
 typedef enum {
@@ -218,6 +220,7 @@ BytecodeInstructionLength bytecodeInstructionParseLength(BytecodeInstruction3Byt
 void bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction3Byte instruction);
 
 BytecodeInstruction1Byte bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg); // for Xchg8 the addr is put in destReg, then the src/dest reg is put into srcReg
+BytecodeInstruction1Byte bytecodeInstructionCreateMemorySet4(BytecodeRegister destReg, uint8_t value); // destReg<4, value<16
 BytecodeInstruction2Byte bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg);
 BytecodeInstruction2Byte bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue);
 BytecodeInstruction1Byte bytecodeInstructionCreateMiscNop(void);

@@ -31,8 +31,13 @@ void bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 		// If first two bits are not both 1 then we are dealing with a memory-type instruction.
 		info->type=BytecodeInstructionTypeMemory;
 		info->d.memory.type=upperTwoBits;
-		info->d.memory.destReg=((instruction[0]>>3)&0x7);
-		info->d.memory.srcReg=(instruction[0]&0x7);
+		if (info->d.memory.type==BytecodeInstructionMemoryTypeSet4) {
+			info->d.memory.destReg=((instruction[0]>>4)&0x3);
+			info->d.memory.set4Value=(instruction[0]&0xF);
+		} else {
+			info->d.memory.destReg=((instruction[0]>>3)&0x7);
+			info->d.memory.srcReg=(instruction[0]&0x7);
+		}
 	} else if (instruction[0] & 0x20) {
 		// Otherwise if the 3rd bit is also 1 then this is an ALU instruction
 		uint16_t upper16=(((uint16_t)instruction[0])<<8)|instruction[1];
@@ -64,6 +69,13 @@ void bytecodeInstructionParse(BytecodeInstructionInfo *info, BytecodeInstruction
 
 BytecodeInstruction1Byte bytecodeInstructionCreateMemory(BytecodeInstructionMemoryType type, BytecodeRegister destReg, BytecodeRegister srcReg) {
 	return ((((uint8_t)type)<<6) | (destReg<<3) | srcReg);
+}
+
+BytecodeInstruction1Byte bytecodeInstructionCreateMemorySet4(BytecodeRegister destReg, uint8_t value) {
+	assert(destReg<4);
+	assert(value<16);
+
+	return ((((uint8_t)BytecodeInstructionMemoryTypeSet4)<<6) | (destReg<<4) | value);
 }
 
 BytecodeInstruction2Byte bytecodeInstructionCreateAlu(BytecodeInstructionAluType type, BytecodeRegister destReg, BytecodeRegister opAReg, BytecodeRegister opBReg) {
