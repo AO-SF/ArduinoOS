@@ -1,15 +1,11 @@
 require fput.s
 
-ab fputdecPadFlag 1
-
 ; putdecpad(x=r0)
 label putdecpad
-mov r2 fputdecPadFlag
-mov r3 1
-store8 r2 r3
 mov r1 r0
 mov r0 SyscallIdEnvGetStdoutFd
 syscall
+mov r2 1
 jmp fputdeccommon
 
 ; putdec(x=r0)
@@ -21,13 +17,14 @@ jmp fputdec
 
 ; fputdec(fd=r0, x=r1)
 label fputdec
-mov r2 fputdecPadFlag
-mov r3 0
-store8 r2 r3
+mov r2 0
 jmp fputdeccommon
 
-; fputdeccommon(fd=r0, x=r1) - fputdecPadFlag must be set to 0 or 1 before entering
+; fputdeccommon(fd=r0, x=r1, padFlag=r2)
 label fputdeccommon
+
+; Save padFlag onto stack
+push8 r2
 
 ; Init ready for loop
 mov r2 10000
@@ -38,8 +35,8 @@ label fputdecLoopStart
 div r3 r1 r2 ; current digit in r3
 
 ; If padding we need to print all digits
-mov r5 fputdecPadFlag
-load8 r5 r5
+pop8 r5
+push8 r5
 cmp r5 r5 r5
 skipeqz r5
 jmp fputdecLoopPrint
@@ -100,5 +97,6 @@ div r2 r2 r3
 jmp fputdecLoopStart
 
 label fputdecLoopEnd
-
+; Restore stack
+dec r6 ; remove padFlag from stack
 ret
