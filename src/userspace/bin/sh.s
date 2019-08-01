@@ -8,6 +8,7 @@ requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/getpwd.s
 requireend lib/std/proc/openpath.s
 requireend lib/std/proc/runpath.s
+requireend lib/std/proc/thread.s
 requireend lib/std/proc/waitpid.s
 requireend lib/std/str/strchr.s
 requireend lib/std/str/strrchr.s
