@@ -1,12 +1,9 @@
 requireend pinopen.s
 requireend pinsetmode.s
 
-ab pinsetScratchByte 1
-
 label pinset ; num=r0, value=r1, sets pin to value
-; store value in scratch byte
-mov r2 pinsetScratchByte
-store8 r2 r1
+; store value on stack
+push8 r1
 ; open pin device file
 call pinopen
 push8 r0
@@ -17,7 +14,7 @@ call pinsetmode
 mov r0 SyscallIdWrite
 pop8 r1
 mov r2 0
-mov r3 pinsetScratchByte
+pop8 r3
 mov r4 1
 syscall
 ; close pin device file
