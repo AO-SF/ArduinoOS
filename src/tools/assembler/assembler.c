@@ -1515,7 +1515,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 					} else
 						bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
 				} else if ((srcReg=assemblerRegisterFromStr(instruction->d.mov.src))!=BytecodeRegisterNB) {
-					// Register - use dest=src|src as a copy, and add a nop to pad to 3 bytes
+					// Register - use dest=src|src as a copy
 					BytecodeInstruction2Byte copyOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, destReg, srcReg, srcReg);
 					instruction->machineCode[0]=(copyOp>>8);
 					instruction->machineCode[1]=(copyOp&0xFF);
