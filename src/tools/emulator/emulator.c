@@ -641,6 +641,17 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [ioctl] (unimplemented)\n", syscallId);
 						break;
+						case BytecodeSyscallIdGetLogLevel:
+							// TODO: this
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [getloglevel] (unimplemented)\n", syscallId);
+							process->regs[0]=3; // i.e. none
+						break;
+						case BytecodeSyscallIdSetLogLevel:
+							// TODO: this
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [setloglevel] (unimplemented)\n", syscallId);
+						break;
 						case BytecodeSyscallIdStrchr: {
 							// TODO: Check arguments better
 							uint16_t strAddr=process->regs[1];
