@@ -1727,7 +1727,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		break;
 		case BytecodeSyscallIdSetLogLevel:
-			kernelLogSetLevel((procData->regs[0]<=LogLevelNone) ? procData->regs[0] : LogLevelNone);
+			kernelLogSetLevel((procData->regs[1]<=LogLevelNone) ? procData->regs[1] : LogLevelNone);
 			return true;
 		break;
 		case BytecodeSyscallIdStrchr: {
