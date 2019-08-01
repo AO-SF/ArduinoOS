@@ -1,0 +1,12 @@
+KLOGLEVEL(1) - User Commands
+
+NAME
+      kloglevel - get/set kernel logging level
+
+SYNOPSIS
+      kloglevel [level]
+
+DESCRIPTION
+      Prints current kernel logging level (0 - all, 1 - warnings + errors, 2 - errors, 3 - none).
+
+      If an argument is passed it is interpreted as a new logging level to set.
