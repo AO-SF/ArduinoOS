@@ -1,5 +1,3 @@
-ab libiofgetScratchByte 1
-
 ; r=fgets(fd=r0, offset=r1, buf=r2, len=r3) reads up to and including first newline, always null-terminates buf (potentially to be 0 length if could not read), returns number of bytes read from file
 ; TODO: Support length limit from r3 (using r3 as scratch currently)
 label fgets
@@ -69,25 +67,23 @@ ret
 
 ; r0=fgetc(fd=r0, offset=r1), returns 256 on failure
 label fgetc
-
-; read single character into libiofgetScratchByte
+; read single character onto stack
 mov r2 r1
 mov r1 r0
 mov r0 SyscallIdRead
-mov r3 libiofgetScratchByte
+mov r3 r6
+inc r6
 mov r4 1
 syscall
-
 ; check for failure
 cmp r0 r0 r0
 skipeqz r0
 jmp fgetcDone
-
 ; failed
+dec r6 ; fix stack
 mov r0 256
 ret
-
+; success
 label fgetcDone
-mov r0 libiofgetScratchByte
-load8 r0 r0
+pop8 r0 ; pop read character off stack
 ret

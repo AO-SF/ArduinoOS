@@ -5,7 +5,6 @@ requireend ../str/strcat.s
 requireend ../str/strchr.s
 requireend ../str/strcpy.s
 
-ab getpathPATHBuf EnvVarPathMax
 ab getpathScratchBuf PathMax
 db getpathSlashStr '/', 0
 
@@ -31,17 +30,19 @@ cmp r2 r0 r0
 pop16 r1
 pop16 r0
 skipeqz r2
-jmp getpathMakeAbsolute
+jmp getpathMakeAbsoluteNoStackRestore
 ; No slashes found,
 ; look for directories in PATH environment variable
-push16 r0
-push16 r1
+mov r2 r0
+mov r3 r1
 mov r0 SyscallIdEnvGetPath
-mov r1 getpathPATHBuf
+mov r1 r6 ; use stack to store PATH
 syscall
-pop16 r1
-pop16 r0
-mov r2 getpathPATHBuf ; // ptr into PATH
+mov r0 r2
+mov r1 r3
+mov r2 r6 ; protect PATH
+mov r6 EnvVarPathMax
+add r6 r2 r6
 label getpathPATHLoopStart
 ; look for colon indicating end of path dir
 push16 r0
@@ -56,7 +57,7 @@ pop16 r2
 pop16 r1
 pop16 r0
 skipneqz r4
-jmp getpathMakeAbsolute
+jmp getpathMakeAbsoluteStackRestore
 ; colon found - replace with null byte
 push16 r0
 push16 r1
@@ -104,6 +105,8 @@ jmp getpathPATHLoopContinue
 ; it does - copy path into dest in r0
 mov r1 getpathScratchBuf
 call strcpy
+mov r4 EnvVarPathMax ; restore stack
+sub r6 r6 r4
 ret
 ; it does not - update offset in r2 for next time and loop again
 label getpathPATHLoopContinue
@@ -111,6 +114,11 @@ mov r2 r3
 inc r2
 jmp getpathPATHLoopStart
 ; Otherwise make sure dest path is absolute
-label getpathMakeAbsolute
+label getpathMakeAbsoluteStackRestore
+call getabspath
+mov r4 EnvVarPathMax ; restore stack
+sub r6 r6 r4
+ret
+label getpathMakeAbsoluteNoStackRestore
 call getabspath
 ret
