@@ -266,6 +266,10 @@ void kernelShutdownNext(void) {
 }
 
 void kernelBoot(void) {
+	// Set logging level to warnings and errors only
+	kernelLogSetLevel(LogLevelWarning);
+
+	// Initialise reader PID array to indicate that no processes currently have /dev/ttyS0 open
 	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
 		kernelReaderPidArray[i]=ProcManPidMax;
 

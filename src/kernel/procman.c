@@ -1722,6 +1722,14 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			return true;
 		} break;
+		case BytecodeSyscallIdGetLogLevel:
+			procData->regs[0]=kernelLogGetLevel();
+			return true;
+		break;
+		case BytecodeSyscallIdSetLogLevel:
+			kernelLogSetLevel((procData->regs[1]<=LogLevelNone) ? procData->regs[1] : LogLevelNone);
+			return true;
+		break;
 		case BytecodeSyscallIdStrchr: {
 			uint16_t strAddr=procData->regs[1];
 			uint16_t c=procData->regs[2];

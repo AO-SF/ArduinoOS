@@ -43,6 +43,8 @@ const SyscallIdShutdown 1280
 const SyscallIdMount 1281
 const SyscallIdUnmount 1282
 const SyscallIdIoctl 1283
+const SyscallIdGetLogLevel 1284
+const SyscallIdSetLogLevel 1285
 
 const SyscallIdStrChr 1536
 const SyscallIdStrChrNul 1537
