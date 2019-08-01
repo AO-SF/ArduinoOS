@@ -12,6 +12,8 @@
 #include "log.h"
 #include "ktime.h"
 
+LogLevel kernelLogLevel=LogLevelInfo;
+
 void kernelLog(LogType type, KStr format, ...) {
 	va_list ap;
 	va_start(ap, format);
@@ -20,12 +22,16 @@ void kernelLog(LogType type, KStr format, ...) {
 }
 
 void kernelLogV(LogType type, KStr format, va_list ap) {
+	// No need to print this type at the current logging level?
+	if (type<kernelLogGetLevel())
+		return;
+
 	// Open file if needed
-	#ifdef ARDUINO
+//	#ifdef ARDUINO
 	FILE *file=stdout;
-	#else
-	FILE *file=fopen("kernel.log", "a");
-	#endif
+//	#else
+//	FILE *file=fopen("kernel.log", "a");
+//	#endif
 
 	if (file!=NULL) {
 		// Print time
@@ -45,9 +51,9 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 		kstrVfprintf(file, format, ap);
 
 		// Close file if needed
-		#ifndef ARDUINO
-		fclose(file);
-		#endif
+//		#ifndef ARDUINO
+//		fclose(file);
+//		#endif
 	}
 
 	kstrFree(&format);
@@ -60,4 +66,12 @@ static const char *logTypeToStringArray[]={
 };
 const char *logTypeToString(LogType type) {
 	return logTypeToStringArray[type];
+}
+
+LogLevel kernelLogGetLevel(void) {
+	return kernelLogLevel;
+}
+
+void kernelLogSetLevel(LogLevel level) {
+	kernelLogLevel=level;
 }
