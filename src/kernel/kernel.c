@@ -390,15 +390,15 @@ void kernelBoot(void) {
 	// * 18,19 - /dev/ttyS1
 	// * 14,15 - /dev/ttyS3
 	// * 50,51,52 - /dev/spi
-	ADDDEVDIGITALPIN("/dev/pin0",PinD22);
-	ADDDEVDIGITALPIN("/dev/pin1",PinD23);
-	ADDDEVDIGITALPIN("/dev/pin2",PinD24);
-	ADDDEVDIGITALPIN("/dev/pin3",PinD25);
-	ADDDEVDIGITALPIN("/dev/pin4",PinD26);
-	ADDDEVDIGITALPIN("/dev/pin5",PinD27);
-	ADDDEVDIGITALPIN("/dev/pin6",PinD28);
-	ADDDEVDIGITALPIN("/dev/pin7",PinD29);
-	ADDDEVDIGITALPIN("/dev/pin8",PinD53);
+	ADDDEVDIGITALPIN("/dev/pin0", PinD22);
+	ADDDEVDIGITALPIN("/dev/pin1", PinD23);
+	ADDDEVDIGITALPIN("/dev/pin2", PinD24);
+	ADDDEVDIGITALPIN("/dev/pin3", PinD25);
+	ADDDEVDIGITALPIN("/dev/pin4", PinD26);
+	ADDDEVDIGITALPIN("/dev/pin5", PinD27);
+	ADDDEVDIGITALPIN("/dev/pin6", PinD28);
+	ADDDEVDIGITALPIN("/dev/pin7", PinD29);
+	ADDDEVDIGITALPIN("/dev/pin8", PinD53);
 	ADDDEVDIGITALPIN("/dev/pin12", PinD10);
 	ADDDEVDIGITALPIN("/dev/pin13", PinD11);
 	ADDDEVDIGITALPIN("/dev/pin14", PinD12);
