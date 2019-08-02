@@ -27,6 +27,7 @@
 #include "minifs.h"
 #include "pins.h"
 #include "procman.h"
+#include "spi.h"
 #include "util.h"
 
 #include "commonprogmem.h"
@@ -101,6 +102,9 @@ KernelFsFileOffset kernelDevURandomWriteFunctor(const uint8_t *data, KernelFsFil
 int16_t kernelDevTtyS0ReadFunctor(void *userData);
 bool kernelDevTtyS0CanReadFunctor(void *userData);
 KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
+int16_t kernelDevSpiReadFunctor(void *userData);
+bool kernelDevSpiCanReadFunctor(void *userData);
+KernelFsFileOffset kernelDevSpiWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 int16_t kernelDevDigitalPinReadFunctor(void *userData);
 bool kernelDevDigitalPinCanReadFunctor(void *userData);
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
@@ -293,6 +297,13 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, kstrP("initialised uart (serial)\n"));
 #endif
 
+	// Arduino-only: init SPI bus (ready to map to /dev/spi).
+#ifdef ARDUINO
+	spiInit();
+
+	kernelLog(LogTypeInfo, kstrP("initialised SPI\n"));
+#endif
+
 	// Enter booting state
 	kernelSetState(KernelStateBooting);
 	kernelLog(LogTypeInfo, kstrP("booting\n"));
@@ -373,6 +384,9 @@ void kernelBoot(void) {
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/full"), &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, true, NULL);
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/null"), &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, true, NULL);
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/ttyS0"), &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, true, NULL);
+#ifdef ARDUINO
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/spi"), &kernelDevSpiReadFunctor, &kernelDevSpiCanReadFunctor, &kernelDevSpiWriteFunctor, false, NULL);
+#endif
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/urandom"), &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, true, NULL);
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/zero"), &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, true, NULL);
 
@@ -664,6 +678,19 @@ KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileO
 		written=0;
 
 	return written;
+}
+
+int16_t kernelDevSpiReadFunctor(void *userData) {
+	return spiReadByte();
+}
+
+bool kernelDevSpiCanReadFunctor(void *userData) {
+	return true;
+}
+
+KernelFsFileOffset kernelDevSpiWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	spiWriteBlock(data, len);
+	return len;
 }
 
 int16_t kernelDevDigitalPinReadFunctor(void *userData) {
