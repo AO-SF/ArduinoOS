@@ -27,11 +27,11 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 		return;
 
 	// Open file if needed
-//	#ifdef ARDUINO
+	#ifdef ARDUINO
 	FILE *file=stdout;
-//	#else
-//	FILE *file=fopen("kernel.log", "a");
-//	#endif
+	#else
+	FILE *file=fopen("kernel.log", "a");
+	#endif
 
 	if (file!=NULL) {
 		// Print time
@@ -51,9 +51,9 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 		kstrVfprintf(file, format, ap);
 
 		// Close file if needed
-//		#ifndef ARDUINO
-//		fclose(file);
-//		#endif
+		#ifndef ARDUINO
+		fclose(file);
+		#endif
 	}
 
 	kstrFree(&format);
