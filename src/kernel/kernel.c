@@ -22,11 +22,11 @@
 
 #include "kernel.h"
 #include "kernelfs.h"
+#include "ktime.h"
 #include "log.h"
 #include "minifs.h"
 #include "pins.h"
 #include "procman.h"
-#include "ktime.h"
 #include "util.h"
 
 #include "commonprogmem.h"
