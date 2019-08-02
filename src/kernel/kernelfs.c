@@ -14,7 +14,7 @@
 #include "ktime.h"
 #include "util.h"
 
-#define KernelFsDevicesMax 96
+#define KernelFsDevicesMax 128
 typedef uint8_t KernelFsDeviceIndex;
 
 typedef uint8_t KernelFsDeviceType;
