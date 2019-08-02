@@ -22,6 +22,7 @@ typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatCustomMiniFs 0
 #define KernelFsBlockDeviceFormatFlatFile 1
 #define KernelFsBlockDeviceFormatNB 2
+#define KernelFsBlockDeviceFormatBits 1
 
 typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData); // returns -1 on failure
 typedef KernelFsFileOffset (KernelFsBlockDeviceWriteFunctor)(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
@@ -37,9 +38,9 @@ void kernelFsQuit(void);
 // Virtual device functions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, bool canOpenMany, void *functorUserData);
+bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, bool canOpenMany, void *userData);
 bool kernelFsAddDirectoryDeviceFile(KStr mountPoint);
-bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *functorUserData);
+bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // File functions -including directories (all paths are expected to be valid and normalised)
