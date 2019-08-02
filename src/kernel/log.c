@@ -23,7 +23,7 @@ void kernelLog(LogType type, KStr format, ...) {
 
 void kernelLogV(LogType type, KStr format, va_list ap) {
 	// No need to print this type at the current logging level?
-	if (type<kernelLogGetLevel())
+	if ((LogLevel)type<kernelLogGetLevel())
 		return;
 
 	// Open file if needed
