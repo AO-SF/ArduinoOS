@@ -30,4 +30,6 @@ typedef struct {
 
 SdInitResult sdInit(SdCard *card, uint8_t slaveSelectPin);
 
+bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data); // 512 bytes stored into data
+
 #endif
