@@ -338,12 +338,9 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, kstrP("initialised uart (serial)\n"));
 #endif
 
-	// Arduino-only: init SPI bus (ready to map to /dev/spi).
-#ifdef ARDUINO
+	// Init SPI bus (ready to map to /dev/spi).
 	spiInit(SpiClockSpeedDiv64);
-
 	kernelLog(LogTypeInfo, kstrP("initialised SPI\n"));
-#endif
 
 	// Enter booting state
 	kernelSetState(KernelStateBooting);

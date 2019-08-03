@@ -16,20 +16,13 @@
 #define SpiPinSck PinD52
 
 typedef enum {
-#ifdef ARDUINO
-	SpiClockSpeedDiv4  =(0u<<SPR1|0u<<SPR0),
-	SpiClockSpeedDiv16 =(0u<<SPR1|1u<<SPR0),
-	SpiClockSpeedDiv64 =(1u<<SPR1|0u<<SPR0),
-	SpiClockSpeedDiv128=(1u<<SPR1|1u<<SPR0),
-#else
 	SpiClockSpeedDiv4,
 	SpiClockSpeedDiv16,
 	SpiClockSpeedDiv64,
 	SpiClockSpeedDiv128,
-#endif
 } SpiClockSpeed;
 
-bool spiInit(SpiClockSpeed clockSpeed); // Always succeeds on ARDUINO builds, fails otherwise.
+void spiInit(SpiClockSpeed clockSpeed);
 
 // Note: the following functions should only be used directly from kernel space if the SPI bus is 'locked' first - see kernelSpiGrabLock.
 

@@ -1,21 +1,34 @@
 #include "spi.h"
 
-bool spiInit(SpiClockSpeed clockSpeed) {
+void spiInit(SpiClockSpeed clockSpeed) {
 #ifdef ARDUINO
 	// Set MISO as input, MOSI and SCK as output.
 	pinSetMode(SpiPinMiso, PinModeInput);
 	pinSetMode(SpiPinMosi, PinModeOutput);
 	pinSetMode(SpiPinSck, PinModeOutput);
 
+	// Derive speed flags
+	uint8_t clockSpeedFlags=(1u<<SPR1|0u<<SPR0); // default to SpiClockSpeedDiv64
+	switch(clockSpeed) {
+		case SpiClockSpeedDiv4:
+			clockSpeedFlags=(0u<<SPR1|0u<<SPR0);
+		break;
+		case SpiClockSpeedDiv16:
+			clockSpeedFlags=(0u<<SPR1|1u<<SPR0);
+		break;
+		case SpiClockSpeedDiv64:
+			clockSpeedFlags=(1u<<SPR1|0u<<SPR0);
+		break;
+		case SpiClockSpeedDiv128:
+			clockSpeedFlags=(1u<<SPR1|1u<<SPR0);
+		break;
+	}
+
 	// Set following flags:
 	// * SPE - enable hardware SPI
 	// * MSTR - master mode
 	// With MSB first data order implied due to lack of DORD flag, among others.
-	SPCR|=(1<<SPE|1<<MSTR|clockSpeed);
-
-	return true;
-#else
-	return false;
+	SPCR|=(1<<SPE|1<<MSTR|clockSpeedFlags);
 #endif
 }
 
@@ -26,7 +39,7 @@ uint8_t spiTransmitByte(uint8_t value) {
 		;
 	return SPDR;
 #else
-	// shouldn't happen as spiInit would have returned false
+	// simply discard given value and always return 0 as read byte
 	return 0;
 #endif
 }
