@@ -218,6 +218,7 @@ bool kernelReaderPidCanAdd(void) {
 			return true;
 	return false;
 }
+
 bool kernelReaderPidAdd(ProcManPid pid) {
 	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
 		if (kernelReaderPidArray[i]==ProcManPidMax) {
