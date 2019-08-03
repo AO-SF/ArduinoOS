@@ -15,7 +15,21 @@
 #define SpiPinMosi PinD51
 #define SpiPinSck PinD52
 
-bool spiInit(void); // Always succeeds on ARDUINO builds, fails otherwise.
+typedef enum {
+#ifdef ARDUINO
+	SpiClockSpeedDiv4  =(0u<<SPR1|0u<<SPR0),
+	SpiClockSpeedDiv16 =(0u<<SPR1|1u<<SPR0),
+	SpiClockSpeedDiv64 =(1u<<SPR1|0u<<SPR0),
+	SpiClockSpeedDiv128=(1u<<SPR1|1u<<SPR0),
+#else
+	SpiClockSpeedDiv4,
+	SpiClockSpeedDiv16,
+	SpiClockSpeedDiv64,
+	SpiClockSpeedDiv128,
+#endif
+} SpiClockSpeed;
+
+bool spiInit(SpiClockSpeed clockSpeed); // Always succeeds on ARDUINO builds, fails otherwise.
 
 uint8_t spiTransmitByte(uint8_t value);
 

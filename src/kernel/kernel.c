@@ -299,7 +299,7 @@ void kernelBoot(void) {
 
 	// Arduino-only: init SPI bus (ready to map to /dev/spi).
 #ifdef ARDUINO
-	spiInit();
+	spiInit(SpiClockSpeedDiv64);
 
 	kernelLog(LogTypeInfo, kstrP("initialised SPI\n"));
 #endif

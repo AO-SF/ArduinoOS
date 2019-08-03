@@ -1,14 +1,17 @@
 #include "spi.h"
 
-bool spiInit(void) {
+bool spiInit(SpiClockSpeed clockSpeed) {
 #ifdef ARDUINO
 	// Set MISO as input, MOSI and SCK as output.
 	pinSetMode(SpiPinMiso, PinModeInput);
 	pinSetMode(SpiPinMosi, PinModeOutput);
 	pinSetMode(SpiPinSck, PinModeOutput);
 
-	// Set up SPI, MSB first, Master, mode 0, clock fck/64.
-	SPCR|=(1<<SPE|1<<MSTR);	// | 1<<SPR1 );	//| 1<<SPR0);
+	// Set following flags:
+	// * SPE - enable hardware SPI
+	// * MSTR - master mode
+	// With MSB first data order implied due to lack of DORD flag, among others.
+	SPCR|=(1<<SPE|1<<MSTR|clockSpeed);
 
 	return true;
 #else
