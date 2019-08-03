@@ -60,6 +60,9 @@ int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too o
 
 volatile uint8_t kernelCtrlCWaiting=false;
 
+KernelFsFd kernelSpiLockFd=KernelFsFdInvalid;
+uint8_t kernelSpiSlaveSelectPin;
+
 // reader pid array stores pid of processes with /dev/ttyS0 open, used for ctrl+c propagation from host
 #define kernelReaderPidArrayMax 4
 ProcManPid kernelReaderPidArray[kernelReaderPidArrayMax];
@@ -235,6 +238,43 @@ bool kernelReaderPidRemove(ProcManPid pid) {
 			return true;
 		}
 	return false;
+}
+
+bool kernelSpiGrabLock(uint8_t slaveSelectPin) {
+	// Already locked by kernel?
+	if (kernelSpiLockFd!=KernelFsFdInvalid)
+		return false;
+
+	// Attempt to open file
+	kernelSpiLockFd=kernelFsFileOpen("/dev/spi");
+	if (kernelSpiLockFd==KernelFsFdInvalid)
+		return false;
+
+	// Set slave select pin low to active.
+	if (!pinWrite(slaveSelectPin, false)) {
+		kernelFsFileClose(kernelSpiLockFd);
+		kernelSpiLockFd=KernelFsFdInvalid;
+		return false;
+	}
+
+	kernelSpiSlaveSelectPin=slaveSelectPin;
+
+	return true;
+}
+
+void kernelSpiReleaseLock(void) {
+	// Not even locked by kernel?
+	if (kernelSpiLockFd==KernelFsFdInvalid)
+		return;
+
+	// Set slave select pin high to deactive.
+	pinWrite(kernelSpiSlaveSelectPin, true);
+
+	// Close file
+	kernelFsFileClose(kernelSpiLockFd);
+
+	// Clear global fd
+	kernelSpiLockFd=KernelFsFdInvalid;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

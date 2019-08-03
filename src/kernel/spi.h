@@ -31,6 +31,8 @@ typedef enum {
 
 bool spiInit(SpiClockSpeed clockSpeed); // Always succeeds on ARDUINO builds, fails otherwise.
 
+// Note: the following functions should only be used directly from kernel space if the SPI bus is 'locked' first - see kernelSpiGrabLock.
+
 uint8_t spiTransmitByte(uint8_t value);
 
 uint8_t spiReadByte(void);
