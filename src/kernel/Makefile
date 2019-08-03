@@ -12,7 +12,7 @@ pc: ALL
 pctiny: ALL
 arduino: ALL
 
-OBJS = avrlib.o bytecode.o circbuf.o kernel.o kernelfs.o kstr.o log.o minifs.o pins.o kernelmount.o procman.o spi.o uart.o ktime.o
+OBJS = avrlib.o bytecode.o circbuf.o kernel.o kernelfs.o kstr.o log.o minifs.o pins.o kernelmount.o procman.o sd.o spi.o uart.o ktime.o
 
 ALL: $(OBJS)
 	$(CPP) $(CFLAGS) $(OBJS) -o ../../bin/kernel $(LFLAGS)
