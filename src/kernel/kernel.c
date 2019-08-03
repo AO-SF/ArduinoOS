@@ -262,13 +262,30 @@ bool kernelSpiGrabLock(uint8_t slaveSelectPin) {
 	return true;
 }
 
+bool kernelSpiGrabLockNoSlaveSelect(void) {
+	// Already locked by kernel?
+	if (kernelSpiLockFd!=KernelFsFdInvalid)
+		return false;
+
+	// Attempt to open file
+	kernelSpiLockFd=kernelFsFileOpen("/dev/spi");
+	if (kernelSpiLockFd==KernelFsFdInvalid)
+		return false;
+
+	// Set slave pin to 255 to indicate no such pin.
+	kernelSpiSlaveSelectPin=255;
+
+	return true;
+}
+
 void kernelSpiReleaseLock(void) {
 	// Not even locked by kernel?
 	if (kernelSpiLockFd==KernelFsFdInvalid)
 		return;
 
-	// Set slave select pin high to deactive.
-	pinWrite(kernelSpiSlaveSelectPin, true);
+	// Set slave select pin high to deactive (if any).
+	if (kernelSpiSlaveSelectPin!=255)
+		pinWrite(kernelSpiSlaveSelectPin, true);
 
 	// Close file
 	kernelFsFileClose(kernelSpiLockFd);
