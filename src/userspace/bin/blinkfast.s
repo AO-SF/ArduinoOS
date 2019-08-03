@@ -1,3 +1,5 @@
+require lib/sys/sys.s
+
 requireend lib/pin/pinopen.s
 requireend lib/pin/pinsetmode.s
 requireend lib/std/proc/exit.s
@@ -7,8 +9,10 @@ db blinkFastOffByte 0
 
 ab blinkFastPinFd 1
 
+; jump past suicide handler (which must exist in first 256 bytes)
 jmp start
 
+; suicide handler - close pin fd and exit
 label suicideHandler
 mov r0 SyscallIdClose
 mov r1 blinkFastPinFd
@@ -17,6 +21,7 @@ syscall
 mov r0 1
 call exit
 
+; progra start
 label start
 
 ; open led pin device file
@@ -26,6 +31,7 @@ cmp r1 r0 r0
 skipneqz r1
 jmp error
 
+; save fd
 mov r1 blinkFastPinFd
 store8 r1 r0
 
@@ -43,9 +49,11 @@ call pinsetmode
 
 ; prepare for loop
 mov r1 blinkFastPinFd
-load8 r1 r1
-mov r2 0
-mov r4 1
+load8 r1 r1 ; pin fd
+mov r2 0 ; data offset - ignored for pin device files
+mov r4 1 ; data len - single character
+
+; loop start
 label loopstart
 
 ; Turn LED off
