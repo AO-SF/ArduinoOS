@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Create mock directories
+echo "	Creating mockup directories in tmp..."
+
 rm -rf ./tmp/*
 mkdir -p ./tmp
 
@@ -18,9 +20,11 @@ mkdir -p ./tmp/mockups/etcmockup
 mkdir -p ./tmp/mockups/usrgamesmockup
 
 # Fill mock directories
+echo "	Creating /etc mockup..."
 cp ./src/userspace/bin/startup.sh ./tmp/mockups/etcmockup/startup
 cp ./src/userspace/bin/shutdown.sh ./tmp/mockups/etcmockup/shutdown
 
+echo "	Creating /home mockup..."
 ./bin/assembler ./src/userspace/bin/fib.s ./tmp/mockups/homemockup/fib
 cp ./src/userspace/home/* ./tmp/mockups/homemockup
 ./bin/assembler ./src/userspace/bin/tree.s ./tmp/mockups/homemockup/tree
@@ -29,9 +33,11 @@ cp ./src/userspace/home/* ./tmp/mockups/homemockup
 ./bin/assembler ./src/userspace/bin/blinkfast.s ./tmp/mockups/homemockup/blinkfast
 ./bin/assembler ./src/userspace/bin/spitest.s ./tmp/mockups/homemockup/spitest
 
+echo "	Creating /usr/games mockup..."
 cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/assembler ./src/userspace/bin/sokoban.s ./tmp/mockups/usrgamesmockup/sokoban
 
+echo "	Creating /bin mockup..."
 ./bin/assembler ./src/userspace/bin/cat.s ./tmp/mockups/binmockup/cat
 ./bin/assembler ./src/userspace/bin/cp.s ./tmp/mockups/binmockup/cp
 ./bin/assembler ./src/userspace/bin/echo.s ./tmp/mockups/binmockup/echo
@@ -52,6 +58,7 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/assembler ./src/userspace/bin/unmount.s ./tmp/mockups/binmockup/unmount
 ./bin/assembler ./src/userspace/bin/yes.s ./tmp/mockups/binmockup/yes
 
+echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/burn.s ./tmp/mockups/usrbinmockup/burn
 ./bin/assembler ./src/userspace/bin/factor.s ./tmp/mockups/usrbinmockup/factor
 ./bin/assembler ./src/userspace/bin/getpin.s ./tmp/mockups/usrbinmockup/getpin
@@ -65,6 +72,8 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
 
 # Build progmem volumes
+echo "	Formatting static PROGMEM data files from userspace files and mockups..."
+
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/curses" "_lib_curses" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/pin" "_lib_pin" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/io" "_lib_std_io" "./tmp/progmemdata"
@@ -82,9 +91,13 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "_usr_bin" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "_usr_games" "./tmp/progmemdata"
 
+echo "	Creating common header file to describe all static PROGMEM data files..."
 ./builderprogmem
 
 # Build other volumes
+echo "	Formatting eeprom data file from /etc and /home mockups..."
+
 ./bin/minifsbuilder --size=1024 -fflatfile "./tmp/mockups/etcmockup" "etc" "./tmp"
 ./bin/minifsbuilder --size=3072 -fflatfile "./tmp/mockups/homemockup" "home" "./tmp"
+
 cat ./tmp/etc ./tmp/home > ./eeprom
