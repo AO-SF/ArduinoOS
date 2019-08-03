@@ -27,6 +27,7 @@ cp ./src/userspace/home/* ./tmp/mockups/homemockup
 ./bin/assembler ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/assembler ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
 ./bin/assembler ./src/userspace/bin/blinkfast.s ./tmp/mockups/homemockup/blinkfast
+./bin/assembler ./src/userspace/bin/spitest.s ./tmp/mockups/homemockup/spitest
 
 cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/assembler ./src/userspace/bin/sokoban.s ./tmp/mockups/usrgamesmockup/sokoban
@@ -70,6 +71,7 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/math" "_lib_std_math" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/mem" "_lib_std_mem" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/proc" "_lib_std_proc" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/spi" "_lib_std_spi" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/str" "_lib_std_str" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/time" "_lib_std_time" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/sys" "_lib_sys" "./tmp/progmemdata"

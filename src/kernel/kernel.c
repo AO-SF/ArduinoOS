@@ -22,11 +22,12 @@
 
 #include "kernel.h"
 #include "kernelfs.h"
+#include "ktime.h"
 #include "log.h"
 #include "minifs.h"
 #include "pins.h"
 #include "procman.h"
-#include "ktime.h"
+#include "spi.h"
 #include "util.h"
 
 #include "commonprogmem.h"
@@ -58,6 +59,9 @@ int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too o
 #endif
 
 volatile uint8_t kernelCtrlCWaiting=false;
+
+KernelFsFd kernelSpiLockFd=KernelFsFdInvalid;
+uint8_t kernelSpiSlaveSelectPin;
 
 // reader pid array stores pid of processes with /dev/ttyS0 open, used for ctrl+c propagation from host
 #define kernelReaderPidArrayMax 4
@@ -101,9 +105,12 @@ KernelFsFileOffset kernelDevURandomWriteFunctor(const uint8_t *data, KernelFsFil
 int16_t kernelDevTtyS0ReadFunctor(void *userData);
 bool kernelDevTtyS0CanReadFunctor(void *userData);
 KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
-int16_t kernelDevPinReadFunctor(void *userData);
-bool kernelDevPinCanReadFunctor(void *userData);
-KernelFsFileOffset kernelDevPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
+int16_t kernelDevSpiReadFunctor(void *userData);
+bool kernelDevSpiCanReadFunctor(void *userData);
+KernelFsFileOffset kernelDevSpiWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
+int16_t kernelDevDigitalPinReadFunctor(void *userData);
+bool kernelDevDigitalPinCanReadFunctor(void *userData);
+KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 
 #ifndef ARDUINO
 void kernelSigIntHandler(int sig);
@@ -214,6 +221,7 @@ bool kernelReaderPidCanAdd(void) {
 			return true;
 	return false;
 }
+
 bool kernelReaderPidAdd(ProcManPid pid) {
 	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
 		if (kernelReaderPidArray[i]==ProcManPidMax) {
@@ -230,6 +238,43 @@ bool kernelReaderPidRemove(ProcManPid pid) {
 			return true;
 		}
 	return false;
+}
+
+bool kernelSpiGrabLock(uint8_t slaveSelectPin) {
+	// Already locked by kernel?
+	if (kernelSpiLockFd!=KernelFsFdInvalid)
+		return false;
+
+	// Attempt to open file
+	kernelSpiLockFd=kernelFsFileOpen("/dev/spi");
+	if (kernelSpiLockFd==KernelFsFdInvalid)
+		return false;
+
+	// Set slave select pin low to active.
+	if (!pinWrite(slaveSelectPin, false)) {
+		kernelFsFileClose(kernelSpiLockFd);
+		kernelSpiLockFd=KernelFsFdInvalid;
+		return false;
+	}
+
+	kernelSpiSlaveSelectPin=slaveSelectPin;
+
+	return true;
+}
+
+void kernelSpiReleaseLock(void) {
+	// Not even locked by kernel?
+	if (kernelSpiLockFd==KernelFsFdInvalid)
+		return;
+
+	// Set slave select pin high to deactive.
+	pinWrite(kernelSpiSlaveSelectPin, true);
+
+	// Close file
+	kernelFsFileClose(kernelSpiLockFd);
+
+	// Clear global fd
+	kernelSpiLockFd=KernelFsFdInvalid;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -292,6 +337,10 @@ void kernelBoot(void) {
 
 	kernelLog(LogTypeInfo, kstrP("initialised uart (serial)\n"));
 #endif
+
+	// Init SPI bus (ready to map to /dev/spi).
+	spiInit(SpiClockSpeedDiv64);
+	kernelLog(LogTypeInfo, kstrP("initialised SPI\n"));
 
 	// Enter booting state
 	kernelSetState(KernelStateBooting);
@@ -373,6 +422,9 @@ void kernelBoot(void) {
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/full"), &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, true, NULL);
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/null"), &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, true, NULL);
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/ttyS0"), &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, true, NULL);
+#ifdef ARDUINO
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/spi"), &kernelDevSpiReadFunctor, &kernelDevSpiCanReadFunctor, &kernelDevSpiWriteFunctor, false, NULL);
+#endif
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/urandom"), &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, true, NULL);
 	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/zero"), &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, true, NULL);
 
@@ -380,24 +432,63 @@ void kernelBoot(void) {
 		kernelLog(LogTypeWarning, kstrP("fs init failure: /dev\n"));
 
 	// ... optional pin device files
-	// TODO: include all once we figure out how to fit into ram
-	// For now just include digital pins 2 through 13 (avoiding serial pins 0 & 1, and including led pin at 13)
-	uint8_t pinsAdded=0;
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin12"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD10);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin13"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD11);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin14"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD12);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin15"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD13);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin35"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD5);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin36"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD2);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin37"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD3);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin53"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD4);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin59"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD6);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin60"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD7);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin61"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD8);
-	pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP("/dev/pin62"), &kernelDevPinReadFunctor, &kernelDevPinCanReadFunctor, &kernelDevPinWriteFunctor, false, (void *)(uintptr_t)PinD9);
+	// TODO: add analogue pins, with slightly different read/write logic
+#define ADDDEVDIGITALPIN(path,pinNum) (pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP(path), &kernelDevDigitalPinReadFunctor, &kernelDevDigitalPinCanReadFunctor, &kernelDevDigitalPinWriteFunctor, false, (void *)(uintptr_t)(pinNum)),++pinsTarget)
 
-	const uint8_t pinsTarget=13-2+1;
-	kernelLog((pinsAdded==pinsTarget ? LogTypeInfo : LogTypeWarning), kstrP("added %u/%u pin devices\n"), pinsAdded, pinsTarget);
+	uint8_t pinsAdded=0, pinsTarget=0;
+	// All digital pins except:
+	// * 0,1 - /dev/ttyS0
+	// * 16,17 - /dev/ttyS2
+	// * 18,19 - /dev/ttyS1
+	// * 14,15 - /dev/ttyS3
+	// * 50,51,52 - /dev/spi
+	ADDDEVDIGITALPIN("/dev/pin0", PinD22);
+	ADDDEVDIGITALPIN("/dev/pin1", PinD23);
+	ADDDEVDIGITALPIN("/dev/pin2", PinD24);
+	ADDDEVDIGITALPIN("/dev/pin3", PinD25);
+	ADDDEVDIGITALPIN("/dev/pin4", PinD26);
+	ADDDEVDIGITALPIN("/dev/pin5", PinD27);
+	ADDDEVDIGITALPIN("/dev/pin6", PinD28);
+	ADDDEVDIGITALPIN("/dev/pin7", PinD29);
+	ADDDEVDIGITALPIN("/dev/pin8", PinD53);
+	ADDDEVDIGITALPIN("/dev/pin12", PinD10);
+	ADDDEVDIGITALPIN("/dev/pin13", PinD11);
+	ADDDEVDIGITALPIN("/dev/pin14", PinD12);
+	ADDDEVDIGITALPIN("/dev/pin15", PinD13);
+	ADDDEVDIGITALPIN("/dev/pin16", PinD37);
+	ADDDEVDIGITALPIN("/dev/pin17", PinD36);
+	ADDDEVDIGITALPIN("/dev/pin18", PinD35);
+	ADDDEVDIGITALPIN("/dev/pin19", PinD34);
+	ADDDEVDIGITALPIN("/dev/pin20", PinD33);
+	ADDDEVDIGITALPIN("/dev/pin21", PinD32);
+	ADDDEVDIGITALPIN("/dev/pin22", PinD31);
+	ADDDEVDIGITALPIN("/dev/pin23", PinD30);
+	ADDDEVDIGITALPIN("/dev/pin24", PinD21);
+	ADDDEVDIGITALPIN("/dev/pin25", PinD20);
+	ADDDEVDIGITALPIN("/dev/pin31", PinD38);
+	ADDDEVDIGITALPIN("/dev/pin35", PinD5);
+	ADDDEVDIGITALPIN("/dev/pin36", PinD2);
+	ADDDEVDIGITALPIN("/dev/pin37", PinD3);
+	ADDDEVDIGITALPIN("/dev/pin48", PinD41);
+	ADDDEVDIGITALPIN("/dev/pin49", PinD40);
+	ADDDEVDIGITALPIN("/dev/pin50", PinD39);
+	ADDDEVDIGITALPIN("/dev/pin53", PinD4);
+	ADDDEVDIGITALPIN("/dev/pin59", PinD6);
+	ADDDEVDIGITALPIN("/dev/pin60", PinD7);
+	ADDDEVDIGITALPIN("/dev/pin61", PinD8);
+	ADDDEVDIGITALPIN("/dev/pin62", PinD9);
+	ADDDEVDIGITALPIN("/dev/pin88", PinD49);
+	ADDDEVDIGITALPIN("/dev/pin89", PinD48);
+	ADDDEVDIGITALPIN("/dev/pin90", PinD47);
+	ADDDEVDIGITALPIN("/dev/pin91", PinD46);
+	ADDDEVDIGITALPIN("/dev/pin92", PinD45);
+	ADDDEVDIGITALPIN("/dev/pin93", PinD44);
+	ADDDEVDIGITALPIN("/dev/pin94", PinD43);
+	ADDDEVDIGITALPIN("/dev/pin95", PinD42);
+
+	kernelLog((pinsAdded==pinsTarget ? LogTypeInfo : LogTypeWarning), kstrP("added %u/%u digital pin devices\n"), pinsAdded, pinsTarget);
+
+#undef ADDDEVDIGITALPIN
 
 	kernelLog(LogTypeInfo, kstrP("initialised filesystem\n"));
 
@@ -627,16 +718,29 @@ KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileO
 	return written;
 }
 
-int16_t kernelDevPinReadFunctor(void *userData) {
+int16_t kernelDevSpiReadFunctor(void *userData) {
+	return spiReadByte();
+}
+
+bool kernelDevSpiCanReadFunctor(void *userData) {
+	return true;
+}
+
+KernelFsFileOffset kernelDevSpiWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	spiWriteBlock(data, len);
+	return len;
+}
+
+int16_t kernelDevDigitalPinReadFunctor(void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
 	return pinRead(pinNum);
 }
 
-bool kernelDevPinCanReadFunctor(void *userData) {
+bool kernelDevDigitalPinCanReadFunctor(void *userData) {
 	return true;
 }
 
-KernelFsFileOffset kernelDevPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
 
 	// Simply write last of values given (considered as a boolean),
