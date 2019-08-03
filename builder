@@ -70,6 +70,7 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/math" "_lib_std_math" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/mem" "_lib_std_mem" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/proc" "_lib_std_proc" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/spi" "_lib_std_spi" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/str" "_lib_std_str" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/time" "_lib_std_time" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/sys" "_lib_sys" "./tmp/progmemdata"
