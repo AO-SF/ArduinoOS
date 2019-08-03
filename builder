@@ -20,23 +20,6 @@ mkdir -p ./tmp/mockups/etcmockup
 mkdir -p ./tmp/mockups/usrgamesmockup
 
 # Fill mock directories
-echo "	Creating /etc mockup..."
-cp ./src/userspace/bin/startup.sh ./tmp/mockups/etcmockup/startup
-cp ./src/userspace/bin/shutdown.sh ./tmp/mockups/etcmockup/shutdown
-
-echo "	Creating /home mockup..."
-./bin/assembler ./src/userspace/bin/fib.s ./tmp/mockups/homemockup/fib
-cp ./src/userspace/home/* ./tmp/mockups/homemockup
-./bin/assembler ./src/userspace/bin/tree.s ./tmp/mockups/homemockup/tree
-./bin/assembler ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
-./bin/assembler ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
-./bin/assembler ./src/userspace/bin/blinkfast.s ./tmp/mockups/homemockup/blinkfast
-./bin/assembler ./src/userspace/bin/spitest.s ./tmp/mockups/homemockup/spitest
-
-echo "	Creating /usr/games mockup..."
-cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
-./bin/assembler ./src/userspace/bin/sokoban.s ./tmp/mockups/usrgamesmockup/sokoban
-
 echo "	Creating /bin mockup..."
 ./bin/assembler ./src/userspace/bin/cat.s ./tmp/mockups/binmockup/cat
 ./bin/assembler ./src/userspace/bin/cp.s ./tmp/mockups/binmockup/cp
@@ -58,6 +41,19 @@ echo "	Creating /bin mockup..."
 ./bin/assembler ./src/userspace/bin/unmount.s ./tmp/mockups/binmockup/unmount
 ./bin/assembler ./src/userspace/bin/yes.s ./tmp/mockups/binmockup/yes
 
+echo "	Creating /etc mockup..."
+cp ./src/userspace/bin/startup.sh ./tmp/mockups/etcmockup/startup
+cp ./src/userspace/bin/shutdown.sh ./tmp/mockups/etcmockup/shutdown
+
+echo "	Creating /home mockup..."
+./bin/assembler ./src/userspace/bin/fib.s ./tmp/mockups/homemockup/fib
+cp ./src/userspace/home/* ./tmp/mockups/homemockup
+./bin/assembler ./src/userspace/bin/tree.s ./tmp/mockups/homemockup/tree
+./bin/assembler ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
+./bin/assembler ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
+./bin/assembler ./src/userspace/bin/blinkfast.s ./tmp/mockups/homemockup/blinkfast
+./bin/assembler ./src/userspace/bin/spitest.s ./tmp/mockups/homemockup/spitest
+
 echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/burn.s ./tmp/mockups/usrbinmockup/burn
 ./bin/assembler ./src/userspace/bin/factor.s ./tmp/mockups/usrbinmockup/factor
@@ -70,6 +66,10 @@ echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/setpin.s ./tmp/mockups/usrbinmockup/setpin
 ./bin/assembler ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
+
+echo "	Creating /usr/games mockup..."
+cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
+./bin/assembler ./src/userspace/bin/sokoban.s ./tmp/mockups/usrgamesmockup/sokoban
 
 # Build progmem volumes
 echo "	Formatting static PROGMEM data files from userspace files and mockups..."
