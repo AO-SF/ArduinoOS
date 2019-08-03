@@ -45,7 +45,7 @@ uint8_t spiTransmitByte(uint8_t value) {
 }
 
 uint8_t spiReadByte(void) {
-	return spiTransmitByte(0);
+	return spiTransmitByte(0xFF);
 }
 
 void spiWriteByte(uint8_t value) {
