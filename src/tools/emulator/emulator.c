@@ -666,9 +666,8 @@ bool processRunNextInstruction(Process *process) {
 								}
 							}
 
-							if (infoSyscalls) {
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [strchr], str addr=%u, c=%u, result=%u\n", syscallId, strAddr, c, process->regs[0]);
-							}
 						} break;
 						case BytecodeSyscallIdStrchrnul: {
 							// TODO: Check arguments better
@@ -682,9 +681,8 @@ bool processRunNextInstruction(Process *process) {
 							}
 							process->regs[0]=i;
 
-							if (infoSyscalls) {
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [strchrnul], str addr=%u, c=%u, result=%u\n", syscallId, strAddr, c, process->regs[0]);
-							}
 						} break;
 						case BytecodeSyscallIdMemmove: {
 							// TODO: Check arguments better
@@ -694,9 +692,33 @@ bool processRunNextInstruction(Process *process) {
 
 							memmove(process->memory+destAddr, process->memory+srcAddr, size);
 
-							if (infoSyscalls) {
+							if (infoSyscalls)
 								printf("Info: syscall(id=%i [memmove], dest addr=%u, src addr=%u, size=%u\n", syscallId, destAddr, srcAddr, size);
-							}
+						} break;
+						case BytecodeSyscallIdSpiDeviceRegister: {
+							// Always fail
+							uint16_t id=process->regs[1];
+							uint16_t type=process->regs[2];
+
+							process->regs[0]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [spideviceregister], id=%u, type=%u\n", syscallId, id, type);
+						} break;
+						case BytecodeSyscallIdSpiDeviceDeregister: {
+							// Nothing to do - cannot register such devices in the first place
+							uint16_t id=process->regs[1];
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [spidevicederegister], id=%u\n", syscallId, id);
+						} break;
+						case BytecodeSyscallIdSpiDeviceGetType: {
+							// Must be unused - cannot register such devices in the first place
+							uint16_t id=process->regs[1];
+							process->regs[0]=0; // TODO: fix magic number 0 with typeunused constant from somewhere
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [spidevicegettype], id=%u\n", syscallId, id);
 						} break;
 						default:
 							if (infoSyscalls)

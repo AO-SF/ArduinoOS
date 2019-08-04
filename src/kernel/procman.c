@@ -1828,6 +1828,28 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			return true;
 		} break;
+		case BytecodeSyscallIdSpiDeviceRegister: {
+			SpiDeviceId id=procData->regs[1];
+			SpiDeviceType type=procData->regs[2];
+
+			procData->regs[0]=spiDeviceRegister(id, type);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdSpiDeviceDeregister: {
+			SpiDeviceId id=procData->regs[1];
+
+			spiDeviceDeregister(id);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdSpiDeviceGetType: {
+			SpiDeviceId id=procData->regs[1];
+
+			procData->regs[0]=spiDeviceGetType(id);
+
+			return true;
+		} break;
 	}
 
 	kernelLog(LogTypeWarning, kstrP("invalid syscall id=%i, process %u (%s), killing\n"), syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
