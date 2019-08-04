@@ -52,7 +52,6 @@ cp ./src/userspace/home/* ./tmp/mockups/homemockup
 ./bin/assembler ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/assembler ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
 ./bin/assembler ./src/userspace/bin/blinkfast.s ./tmp/mockups/homemockup/blinkfast
-./bin/assembler ./src/userspace/bin/spitest.s ./tmp/mockups/homemockup/spitest
 
 echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/burn.s ./tmp/mockups/usrbinmockup/burn
