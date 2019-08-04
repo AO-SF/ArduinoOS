@@ -3,6 +3,7 @@
 
 #include "kernel.h"
 #include "ktime.h"
+#include "log.h"
 #include "sd.h"
 #include "spi.h"
 #include "util.h"
@@ -200,11 +201,13 @@ bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
 	uint8_t responseByte;
 
 	// Attempt to grab SPI bus lock
-	if (!kernelSpiGrabLockNoSlaveSelect())
+	if (!kernelSpiGrabLockNoSlaveSelect()) {
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: could not grab SPI bus lock (block=%u)\n"), block);
 		return false;
+	}
 
 	// Ensure MOSI is high initially
-	spiWriteByte(0xFF);
+	sdWriteDummyBytes();
 
 	// Enable the slave by setting pin low
 	pinWrite(card->slaveSelectPin, false);
@@ -218,13 +221,17 @@ bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
 	spiWriteByte((addr>>0)&0xFF);
 	spiWriteByte(0x01);
 	responseByte=sdWaitForResponse(16);
-	if (responseByte!=0x00)
+	if (responseByte!=0x00) {
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 R1 response 0x%02X (block=%u)\n"), responseByte, block);
 		goto error;
+	}
 
 	// Read data token byte
 	responseByte=sdWaitForResponse(1024);
-	if (responseByte!=0xFE)
+	if (responseByte!=0xFE) {
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 data token byte 0x%02X (block=%u)\n"), responseByte, block);
 		goto error;
+	}
 
 	// Read data bytes
 	for(unsigned i=0; i<SdBlockSize; ++i)
@@ -240,6 +247,10 @@ bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
 	// Release slave select and lock
 	pinWrite(card->slaveSelectPin, true);
 	kernelSpiReleaseLock();
+
+	// Write to log
+	kernelLog(LogTypeInfo, kstrP("sdReadBlock success (block=%u)\n"), block);
+
 	return true;
 
 	error:
