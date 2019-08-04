@@ -8,7 +8,7 @@ typedef struct {
 
 const SpiDevicePinPair spiDevicePinPairs[SpiDeviceIdMax]={
 	{.powerPin=PinD42, .slaveSelectPin=PinD43},
-	{.powerPin=PinD44, .slaveSelectPin=PinD46},
+	{.powerPin=PinD44, .slaveSelectPin=PinD45},
 	{.powerPin=PinD46, .slaveSelectPin=PinD47},
 	{.powerPin=PinD48, .slaveSelectPin=PinD49},
 };
