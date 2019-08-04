@@ -2,6 +2,7 @@
 #include <stdarg.h>
 
 #include "kernel.h"
+#include "ktime.h"
 #include "sd.h"
 #include "spi.h"
 
@@ -20,12 +21,13 @@ uint8_t sdWaitForResponse(unsigned max); // Waits until we receive something oth
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-SdInitResult sdInit(SdCard *card, uint8_t slaveSelectPin) {
+SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 	uint8_t responseByte;
 	SdInitResult result=SdInitResultOk;
 
 	// Setup card fields
 	card->type=SdTypeBadCard;
+	card->powerPin=powerPin;
 	card->slaveSelectPin=slaveSelectPin;
 	card->addressMode=SdAddressModeByte;
 
@@ -35,6 +37,12 @@ SdInitResult sdInit(SdCard *card, uint8_t slaveSelectPin) {
 
 	// Ensure MOSI is high initially
 	spiWriteByte(0xFF);
+
+	// Turn on power pin
+	pinWrite(powerPin, true);
+
+	// Delay for at least 1ms
+	ktimeDelayMs(10);
 
 	// We are required to send at least 74 dummy bytes, but do 200 to be safe.
 	sdWriteDummyBytesN(200);
@@ -169,8 +177,21 @@ SdInitResult sdInit(SdCard *card, uint8_t slaveSelectPin) {
 	error:
 	assert(result!=SdInitResultOk);
 	pinWrite(slaveSelectPin, true);
+	pinWrite(powerPin, false);
 	kernelSpiReleaseLock();
 	return result;
+}
+
+void sdQuit(SdCard *card) {
+	// Not initialised?
+	if (card->type==SdTypeBadCard)
+		return;
+
+	// Turn off power pin
+	pinWrite(card->powerPin, false);
+
+	// Mark 'unmounted'
+	card->type=SdTypeBadCard;
 }
 
 bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {

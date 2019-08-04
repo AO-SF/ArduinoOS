@@ -24,11 +24,13 @@ typedef enum {
 
 typedef struct {
 	SdType type;
+	uint8_t powerPin;
 	uint8_t slaveSelectPin;
 	SdAddressMode addressMode;
 } SdCard;
 
-SdInitResult sdInit(SdCard *card, uint8_t slaveSelectPin);
+SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin);
+void sdQuit(SdCard *card);
 
 bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data); // 512 bytes stored into data
 
