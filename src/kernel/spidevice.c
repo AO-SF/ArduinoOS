@@ -189,9 +189,14 @@ void spiDeviceSdCardReaderUnmount(SpiDeviceId id) {
 	if (spiDevices[id].d.sdCardReader.sdCard.type==SdTypeBadCard)
 		return;
 
-	// Remove virtual device file representing the card
+	// Grab local copy of mount point
 	char mountPoint[KernelFsPathMax];
 	kstrStrcpy(mountPoint, spiDevices[id].d.sdCardReader.mountPoint);
+
+	// Write to log
+	kernelLog(LogTypeInfo, kstrP("SPI device SD card reader unmount (id=%u, mountPoint='%s')\n"), id, mountPoint);
+
+	// Remove virtual device file representing the card
 	kernelFsFileDelete(mountPoint);
 
 	// Power off SD card and mark unmounted
