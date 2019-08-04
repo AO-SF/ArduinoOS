@@ -1857,6 +1857,30 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdSpiDeviceSdCardReaderMount: {
+			// Grab arguments
+			SpiDeviceId id=procData->regs[1];
+			uint16_t mountPointAddr=procData->regs[2];
+
+			char mountPoint[KernelFsPathMax];
+			if (!procManProcessMemoryReadStr(process, procData, mountPointAddr, mountPoint, KernelFsPathMax)) {
+				kernelLog(LogTypeWarning, kstrP("failed during spidevicesdcardreadermount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			kernelFsPathNormalise(mountPoint);
+
+			// Attempt to mount
+			procData->regs[0]=spiDeviceSdCardReaderMount(id, mountPoint);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdSpiDeviceSdCardReaderUnmount: {
+			SpiDeviceId id=procData->regs[1];
+
+			spiDeviceSdCardReaderUnmount(id);
+
+			return true;
+		} break;
 	}
 
 	kernelLog(LogTypeWarning, kstrP("invalid syscall id=%i, process %u (%s), killing\n"), syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));

@@ -90,6 +90,8 @@ typedef enum {
 	BytecodeSyscallIdSpiDeviceRegister=(1792|0),
 	BytecodeSyscallIdSpiDeviceDeregister=(1792|1),
 	BytecodeSyscallIdSpiDeviceGetType=(1792|2),
+	BytecodeSyscallIdSpiDeviceSdCardReaderMount=(1792|3),
+	BytecodeSyscallIdSpiDeviceSdCardReaderUnmount=(1792|4),
 } BytecodeSyscallId;
 
 typedef enum {

@@ -720,6 +720,21 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [spidevicegettype], id=%u\n", syscallId, id);
 						} break;
+						case BytecodeSyscallIdSpiDeviceSdCardReaderMount: {
+							// SPI devices are unsupported
+							uint16_t id=process->regs[1];
+							process->regs[0]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [spidevicesdcardreadermount], id=%u\n", syscallId, id);
+						} break;
+						case BytecodeSyscallIdSpiDeviceSdCardReaderUnmount: {
+							// SPI devices are unsupported
+							uint16_t id=process->regs[1];
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [spidevicesdcardreaderunmount], id=%u\n", syscallId, id);
+						} break;
 						default:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);
