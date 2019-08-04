@@ -5,6 +5,7 @@
 #include "ktime.h"
 #include "sd.h"
 #include "spi.h"
+#include "util.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -156,6 +157,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 
 	// If in byte mode, want to send CMD16 to set block size to 512 to match FAT file system.
 	// (block mode devices are fixed at 512 anyway)
+	assert(SdBlockSize==512);
 	if (card->addressMode==SdAddressModeByte) {
 		sdWriteCommand(0x50, 0x00, 0x00, 0x02, 0x00, 0x01, 0xFF);
 		responseByte=sdWaitForResponse(16);
@@ -208,7 +210,7 @@ bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
 	pinWrite(card->slaveSelectPin, false);
 
 	// Send CMD17 - read block
-	uint32_t addr=(card->addressMode==SdAddressModeBlock ? block : block*512);
+	uint32_t addr=(card->addressMode==SdAddressModeBlock ? block : block*SdBlockSize);
 	spiWriteByte(0x51); // we use write byte rather than sdWriteCommand as address argument parts may be 0xFF
 	spiWriteByte((addr>>24)&0xFF);
 	spiWriteByte((addr>>16)&0xFF);
@@ -225,7 +227,7 @@ bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
 		goto error;
 
 	// Read data bytes
-	for(unsigned i=0; i<512; ++i)
+	for(unsigned i=0; i<SdBlockSize; ++i)
 		data[i]=sdWaitForResponse(1024);
 
 	// Read (and ignore) two CRC bytes
