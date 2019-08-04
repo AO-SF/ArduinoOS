@@ -28,6 +28,7 @@
 #include "pins.h"
 #include "procman.h"
 #include "spi.h"
+#include "spidevice.h"
 #include "util.h"
 
 #include "commonprogmem.h"
@@ -330,6 +331,9 @@ void kernelShutdownNext(void) {
 void kernelBoot(void) {
 	// Set logging level to warnings and errors only
 	kernelLogSetLevel(LogLevelWarning);
+
+	// Initialise SPI devices ASAP
+	spiDeviceInit();
 
 	// Initialise reader PID array to indicate that no processes currently have /dev/ttyS0 open
 	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
