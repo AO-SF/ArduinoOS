@@ -21,4 +21,7 @@ SpiDeviceType spiDeviceGetType(SpiDeviceId id);
 
 SpiDeviceId spiDeviceGetDeviceForPin(uint8_t pinNum); // returns SpiDeviceIdMax if given pin is not associated with any device (used or unused)
 
+bool spiDeviceSdCardReaderMount(SpiDeviceId id, const char *mountPoint);
+void spiDeviceSdCardReaderUnmount(SpiDeviceId id);
+
 #endif
