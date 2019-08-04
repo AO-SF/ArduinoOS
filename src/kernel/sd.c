@@ -200,7 +200,7 @@ bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
 
 	// Read data token byte
 	responseByte=sdWaitForResponse(1024);
-	if (responseByte!=0xFE) {
+	if (responseByte!=0xFE)
 		goto error;
 
 	// Read data bytes
@@ -228,7 +228,6 @@ bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
-
 
 void sdWriteCommand(uint8_t firstByte, ...) {
 	va_list ap;
