@@ -44,6 +44,9 @@ bool spiDeviceRegister(SpiDeviceId id, SpiDeviceType type) {
 	if (spiDevices[id].type!=SpiDeviceTypeUnused)
 		return false;
 
+	// Write to log
+	kernelLog(LogTypeInfo, kstrP("registered SPI device id=%u type=%u\n"), id, type);
+
 	// Set type to mark slot as used
 	spiDevices[id].type=type;
 
@@ -59,9 +62,12 @@ void spiDeviceDeregister(SpiDeviceId id) {
 	if (spiDevices[id].type==SpiDeviceTypeUnused)
 		return;
 
-	// Force pins back to default just to be safe
+	// Force pins back to default to be safe
 	pinWrite(spiDevicePinPairs[id].powerPin, false);
 	pinWrite(spiDevicePinPairs[id].slaveSelectPin, true);
+
+	// Write to log
+	kernelLog(LogTypeInfo, kstrP("deregistered SPI device id=%u type=%u\n"), id, spiDevices[id].type);
 
 	// Clear type to mark slot as unused
 	spiDevices[id].type=SpiDeviceTypeUnused;
