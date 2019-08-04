@@ -335,9 +335,8 @@ void kernelBoot(void) {
 	// Initialise SPI devices ASAP
 	spiDeviceInit();
 
-	// Initialise reader PID array to indicate that no processes currently have /dev/ttyS0 open
-	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
-		kernelReaderPidArray[i]=ProcManPidMax;
+	// Init SPI bus (ready to map to /dev/spi).
+	spiInit(SpiClockSpeedDiv64);
 
 	// Arduino-only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
 #ifdef ARDUINO
@@ -359,15 +358,15 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, kstrP("initialised uart (serial)\n"));
 #endif
 
-	// Init SPI bus (ready to map to /dev/spi).
-	spiInit(SpiClockSpeedDiv64);
-	kernelLog(LogTypeInfo, kstrP("initialised SPI\n"));
-
 	// Enter booting state
 	kernelSetState(KernelStateBooting);
 	kernelLog(LogTypeInfo, kstrP("booting\n"));
 
 	ktimeInit();
+
+	// Initialise reader PID array to indicate that no processes currently have /dev/ttyS0 open
+	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
+		kernelReaderPidArray[i]=ProcManPidMax;
 
 	// Initialise progmem data
 	commonProgmemInit();
@@ -462,7 +461,7 @@ void kernelBoot(void) {
 	// * 16,17 - /dev/ttyS2
 	// * 18,19 - /dev/ttyS1
 	// * 14,15 - /dev/ttyS3
-	// * 50,51,52 - /dev/spi
+	// * 50,51,52,53 - /dev/spi
 	ADDDEVDIGITALPIN("/dev/pin0", PinD22);
 	ADDDEVDIGITALPIN("/dev/pin1", PinD23);
 	ADDDEVDIGITALPIN("/dev/pin2", PinD24);
@@ -493,7 +492,6 @@ void kernelBoot(void) {
 	ADDDEVDIGITALPIN("/dev/pin48", PinD41);
 	ADDDEVDIGITALPIN("/dev/pin49", PinD40);
 	ADDDEVDIGITALPIN("/dev/pin50", PinD39);
-	ADDDEVDIGITALPIN("/dev/pin53", PinD4);
 	ADDDEVDIGITALPIN("/dev/pin59", PinD6);
 	ADDDEVDIGITALPIN("/dev/pin60", PinD7);
 	ADDDEVDIGITALPIN("/dev/pin61", PinD8);

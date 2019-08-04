@@ -18,6 +18,7 @@
 #include "log.h"
 #include "pins.h"
 #include "procman.h"
+#include "spi.h"
 #include "spidevice.h"
 
 #define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
@@ -1710,6 +1711,12 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
 					switch(command) {
 						case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
+							// Forbid mode changes to SPI bus pins.
+							if (spiIsReservedPin(pinNum)) {
+								kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of SPI bus pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								break;
+							}
+
 							// Forbid mode changes from user space to SPI device pins (even if associated device has type SpiDeviceTypeRaw).
 							SpiDeviceId spiDeviceId=spiDeviceGetDeviceForPin(pinNum);
 							if (spiDeviceId!=SpiDeviceIdMax) {

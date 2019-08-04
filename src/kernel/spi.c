@@ -1,11 +1,18 @@
 #include "spi.h"
 
 void spiInit(SpiClockSpeed clockSpeed) {
+	// Ensure pin 53 is set high to avoid Mega thinking it should go into slave mode.
+	pinSetMode(SpiPinSlaveSelect, PinModeOutput);
+	pinWrite(SpiPinSlaveSelect, true);
+
 #ifdef ARDUINO
 	// Set MISO as input, MOSI and SCK as output.
 	pinSetMode(SpiPinMiso, PinModeInput);
+	pinWrite(SpiPinMiso, true); // enable pull up resistor
 	pinSetMode(SpiPinMosi, PinModeOutput);
+	pinWrite(SpiPinMosi, true);
 	pinSetMode(SpiPinSck, PinModeOutput);
+	pinWrite(SpiPinSck, false);
 
 	// Derive speed flags
 	uint8_t clockSpeedFlags=(1u<<SPR1|0u<<SPR0); // default to SpiClockSpeedDiv64
@@ -61,4 +68,8 @@ void spiWriteStr(const char *str) {
 void spiWriteBlock(const uint8_t *data, size_t len) {
 	for(size_t i=0; i<len; ++i)
 		spiWriteByte(data[i]);
+}
+
+bool spiIsReservedPin(uint8_t pinNum) {
+	return (pinNum==SpiPinMiso || pinNum==SpiPinMosi || pinNum==SpiPinSck || pinNum==SpiPinSlaveSelect);
 }
