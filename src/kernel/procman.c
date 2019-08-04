@@ -1683,6 +1683,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall fd %u, process %u (%s)\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			} else {
 				kstrStrcpy(procManScratchBufPath0, kstrPath);
+
 				// Check for stdin/stdout terminal
 				if (strcmp(procManScratchBufPath0, "/dev/ttyS0")==0) {
 					switch(command) {
@@ -1704,29 +1705,27 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 							kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						break;
 					}
-				} else {
+				} else if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
 					// Check for pin device file path
-					if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
-						uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
-						switch(command) {
-							case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
-								// Forbid mode changes from user space to SPI device pins (even if associated device has type SpiDeviceTypeRaw).
-								SpiDeviceId spiDeviceId=spiDeviceGetDeviceForPin(pinNum);
-								if (spiDeviceId!=SpiDeviceIdMax) {
-									kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of SPI device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-									break;
-								}
+					uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
+					switch(command) {
+						case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
+							// Forbid mode changes from user space to SPI device pins (even if associated device has type SpiDeviceTypeRaw).
+							SpiDeviceId spiDeviceId=spiDeviceGetDeviceForPin(pinNum);
+							if (spiDeviceId!=SpiDeviceIdMax) {
+								kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of SPI device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								break;
+							}
 
-								// Set pin mode
-								pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
-							} break;
-							default:
-								kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-							break;
-						}
-					} else {
-						kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall device (fd %u, device '%s'), process %u (%s)\n"), fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							// Set pin mode
+							pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
+						} break;
+						default:
+							kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						break;
 					}
+				} else {
+					kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall device (fd %u, device '%s'), process %u (%s)\n"), fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				}
 			}
 			return true;
