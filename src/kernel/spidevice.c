@@ -1,14 +1,12 @@
 #include "pins.h"
 #include "spidevice.h"
 
-#define SpiDeviceMax 4
-
 typedef struct {
 	uint8_t powerPin;
 	uint8_t slaveSelectPin;
 } SpiDevicePinPair;
 
-const SpiDevicePinPair spiDevicePinPairs[SpiDeviceMax]={
+const SpiDevicePinPair spiDevicePinPairs[SpiDeviceIdMax]={
 	{.powerPin=PinD42, .slaveSelectPin=PinD43},
 	{.powerPin=PinD44, .slaveSelectPin=PinD46},
 	{.powerPin=PinD46, .slaveSelectPin=PinD47},
@@ -19,11 +17,11 @@ typedef struct {
 	SpiDeviceType type;
 } SpiDevice;
 
-SpiDevice spiDevices[SpiDeviceMax];
+SpiDevice spiDevices[SpiDeviceIdMax];
 
 void spiDeviceInit(void) {
 	// Set all pins as output, with power pins low (no power) and slave select pins high (disabled).
-	for(unsigned i=0; i<SpiDeviceMax; ++i) {
+	for(unsigned i=0; i<SpiDeviceIdMax; ++i) {
 		pinSetMode(spiDevicePinPairs[i].powerPin, PinModeOutput);
 		pinWrite(spiDevicePinPairs[i].powerPin, false);
 
@@ -32,7 +30,18 @@ void spiDeviceInit(void) {
 	}
 
 	// Clear device table
-	for(unsigned i=0; i<SpiDeviceMax; ++i) {
+	for(unsigned i=0; i<SpiDeviceIdMax; ++i) {
 		spiDevices[i].type=SpiDeviceTypeUnused;
 	}
+}
+
+SpiDeviceType spiDeviceGetType(SpiDeviceId id) {
+	return spiDevices[id].type;
+}
+
+SpiDeviceId spiDeviceGetDeviceForPin(uint8_t pinNum) {
+	for(unsigned i=0; i<SpiDeviceIdMax; ++i)
+		if (pinNum==spiDevicePinPairs[i].powerPin || pinNum==spiDevicePinPairs[i].slaveSelectPin)
+			return i;
+	return SpiDeviceIdMax;
 }
