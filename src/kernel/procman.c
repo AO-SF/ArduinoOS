@@ -14,10 +14,10 @@
 #include "kernel.h"
 #include "kernelfs.h"
 #include "kernelmount.h"
+#include "ktime.h"
 #include "log.h"
 #include "pins.h"
 #include "procman.h"
-#include "ktime.h"
 
 #define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
 #define procManProcessInstructionsPerTick 160 // generally a higher value causes faster execution, but decreased responsiveness if many processes running
