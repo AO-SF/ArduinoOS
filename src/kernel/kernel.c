@@ -764,6 +764,11 @@ bool kernelDevDigitalPinCanReadFunctor(void *userData) {
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
 
+	// Forbid writes from user space to SPI device pins (unless associated device has type SpiDeviceTypeRaw).
+	SpiDeviceId spiDeviceId=spiDeviceGetDeviceForPin(pinNum);
+	if (spiDeviceId!=SpiDeviceIdMax && spiDeviceGetType(spiDeviceId)!=SpiDeviceTypeRaw)
+		return 0;
+
 	// Simply write last of values given (considered as a boolean),
 	// acting as if we had looped over and set each state in turn.
 	if (pinWrite(pinNum, (data[len-1]!=0)))
