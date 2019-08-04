@@ -18,6 +18,7 @@
 #include "log.h"
 #include "pins.h"
 #include "procman.h"
+#include "spidevice.h"
 
 #define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
 #define procManProcessInstructionsPerTick 160 // generally a higher value causes faster execution, but decreased responsiveness if many processes running
@@ -1708,9 +1709,17 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
 						uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
 						switch(command) {
-							case BytecodeSyscallIdIoctlCommandDevPinSetMode:
+							case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
+								// Forbid mode changes from user space to SPI device pins (even if associated device has type SpiDeviceTypeRaw).
+								SpiDeviceId spiDeviceId=spiDeviceGetDeviceForPin(pinNum);
+								if (spiDeviceId!=SpiDeviceIdMax) {
+									kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of SPI device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+									break;
+								}
+
+								// Set pin mode
 								pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
-							break;
+							} break;
 							default:
 								kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							break;
