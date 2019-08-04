@@ -100,7 +100,7 @@ label hashArgNLoopEnd
 ; Print hash in hex
 mov r0 hash
 load16 r0 r0
-call puthex
+call puthex16
 mov r0 '\n'
 call putc0
 
