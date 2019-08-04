@@ -35,7 +35,42 @@ void spiDeviceInit(void) {
 	}
 }
 
+bool spiDeviceRegister(SpiDeviceId id, SpiDeviceType type) {
+	// Bad id or type?
+	if (id>=SpiDeviceIdMax || type==SpiDeviceTypeUnused)
+		return false;
+
+	// Slot already in use?
+	if (spiDevices[id].type!=SpiDeviceTypeUnused)
+		return false;
+
+	// Set type to mark slot as used
+	spiDevices[id].type=type;
+
+	return true;
+}
+
+void spiDeviceDeregister(SpiDeviceId id) {
+	// Bad if?
+	if (id>=SpiDeviceIdMax)
+		return;
+
+	// Slot not even in use?
+	if (spiDevices[id].type==SpiDeviceTypeUnused)
+		return;
+
+	// Force pins back to default just to be safe
+	pinWrite(spiDevicePinPairs[id].powerPin, false);
+	pinWrite(spiDevicePinPairs[id].slaveSelectPin, true);
+
+	// Clear type to mark slot as unused
+	spiDevices[id].type=SpiDeviceTypeUnused;
+}
+
 SpiDeviceType spiDeviceGetType(SpiDeviceId id) {
+	if (id>=SpiDeviceIdMax)
+		return SpiDeviceTypeUnused;
+
 	return spiDevices[id].type;
 }
 
