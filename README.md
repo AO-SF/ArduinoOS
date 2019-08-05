@@ -38,6 +38,8 @@ Kernel logging and stdin/stout uses the Mega's USB serial, baud rate 9600 and a 
 
 Example: ``screen /dev/ttyACM0 9600``
 
+Please note that it can take a while to boot (5-20s), and if logging is set to only warnings or worse, nothing will be printed until after booting is complete. If your board appears to be stuck consider changing the logging level to include info entries (see ``kernelBoot`` function in ``kernel.c``). Also, if a process appears to be hanging or is taking a long time to complete, it can be terminated either by pressing ``ctrl+c`` if it is running in the shell (may take several seconds), or by running ``kill PID`` to invoke the kill syscall (use ``ps`` to find PID).
+
 # Examples
 ```
 /bin$ cd
