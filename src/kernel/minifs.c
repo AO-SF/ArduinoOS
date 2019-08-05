@@ -142,6 +142,16 @@ uint8_t miniFsGetChildCount(const MiniFs *fs) {
 	return count;
 }
 
+bool miniFsIsEmpty(const MiniFs *fs) {
+	for(uint8_t i=0; i<MINIFSMAXFILES; ++i)
+		if (!miniFsIsFileSlotEmpty(fs, i)) {
+			assert(miniFsGetChildCount(fs)>0);
+			return false;
+		}
+	assert(miniFsGetChildCount(fs)==0);
+	return true;
+}
+
 void miniFsDebug(const MiniFs *fs) {
 #ifndef ARDUINO
 	printf("Volume debug:\n");

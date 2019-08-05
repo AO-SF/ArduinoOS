@@ -38,6 +38,7 @@ uint16_t miniFsGetTotalSize(const MiniFs *fs); // Total size available for whole
 
 bool miniFsGetChildN(const MiniFs *fs, unsigned childNum, char childPath[MiniFsPathMax]); // n<MINIFSMAXFILES, gaps
 uint8_t miniFsGetChildCount(const MiniFs *fs);
+bool miniFsIsEmpty(const MiniFs *fs); // equivalent to: miniFsGetChildCount()==0, but usually much faster
 
 void miniFsDebug(const MiniFs *fs);
 
