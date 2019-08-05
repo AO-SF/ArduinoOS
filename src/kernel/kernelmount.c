@@ -35,6 +35,8 @@ bool kernelMount(KernelFsBlockDeviceFormat format, const char *devicePath, const
 	KernelFsFileOffset size=kernelFsFileGetLen(devicePath);
 	if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), format, size, &kernelMountReadFunctor, &kernelMountWriteFunctor, (void *)(uintptr_t)(deviceFd))) {
 		kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
+
+		kernelFsFileClose(deviceFd);
 		return false;
 	}
 
