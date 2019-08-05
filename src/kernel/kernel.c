@@ -36,7 +36,7 @@
 #ifdef KERNELCUSTOMRAMSIZE
 #define KernelTmpDataPoolSize KERNELCUSTOMRAMSIZE
 #else
-#define KernelTmpDataPoolSize (4*1024) // 4kb - used as ram (note: Arduino Mega only has 8kb total)
+#define KernelTmpDataPoolSize (2*1024) // 2kb - used as ram (note: Arduino Mega only has 8kb total)
 #endif
 uint8_t kernelTmpDataPool[KernelTmpDataPoolSize];
 
