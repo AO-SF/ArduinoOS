@@ -90,6 +90,7 @@ KernelFsFileOffset kernelProgmemGenericReadFunctor(KernelFsFileOffset addr, uint
 KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
+uint16_t kernelTmpMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
 KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 int16_t kernelDevZeroReadFunctor(void *userData);
 bool kernelDevZeroCanReadFunctor(void *userData);
@@ -398,7 +399,7 @@ void kernelBoot(void) {
 #endif
 
 	// Format RAM used for /tmp
-	if (!miniFsFormat(&kernelTmpWriteFunctor, NULL, KernelTmpDataPoolSize))
+	if (!miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize))
 		kernelFatalError(kstrP("could not format /tmp volume\n"));
 	kernelLog(LogTypeInfo, kstrP("formatted volume representing /tmp (size %u)\n"), KernelTmpDataPoolSize);
 
@@ -591,6 +592,8 @@ KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8
 }
 
 KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	if (len>UINT16_MAX)
+		len=UINT16_MAX;
 	KernelFsFileOffset offset=(KernelFsFileOffset)(uintptr_t)userData;
 	addr+=offset;
 
@@ -614,6 +617,9 @@ KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, 
 	return len;
 }
 
+uint16_t kernelTmpMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData) {
+	return kernelTmpWriteFunctor(addr, data, len, userData);
+}
 
 KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	memcpy(kernelTmpDataPool+addr, data, len);
@@ -627,7 +633,6 @@ int16_t kernelDevZeroReadFunctor(void *userData) {
 bool kernelDevZeroCanReadFunctor(void *userData) {
 	return true;
 }
-
 
 KernelFsFileOffset kernelDevZeroWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	return len;
@@ -727,11 +732,14 @@ bool kernelDevTtyS0CanReadFunctor(void *userData) {
 }
 
 KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	if (len>UINT16_MAX)
+		len=UINT16_MAX;
+
 	KernelFsFileOffset written=fwrite(data, 1, len, stdout);
 	fflush(stdout);
 
 	// FIXME: KernelFsFileOffset is unsigned so check below is a hack.
-	if (written>=UINT16_MAX-256) // should be written<0
+	if (written>=UINT32_MAX-256) // should be written<0
 		written=0;
 
 	return written;
@@ -746,6 +754,8 @@ bool kernelDevSpiCanReadFunctor(void *userData) {
 }
 
 KernelFsFileOffset kernelDevSpiWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	if (len>UINT16_MAX)
+		len=UINT16_MAX;
 	spiWriteBlock(data, len);
 	return len;
 }
