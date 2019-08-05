@@ -14,10 +14,12 @@
 #include "kernel.h"
 #include "kernelfs.h"
 #include "kernelmount.h"
+#include "ktime.h"
 #include "log.h"
 #include "pins.h"
 #include "procman.h"
-#include "ktime.h"
+#include "spi.h"
+#include "spidevice.h"
 
 #define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
 #define procManProcessInstructionsPerTick 160 // generally a higher value causes faster execution, but decreased responsiveness if many processes running
@@ -1682,6 +1684,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall fd %u, process %u (%s)\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			} else {
 				kstrStrcpy(procManScratchBufPath0, kstrPath);
+
 				// Check for stdin/stdout terminal
 				if (strcmp(procManScratchBufPath0, "/dev/ttyS0")==0) {
 					switch(command) {
@@ -1703,21 +1706,33 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 							kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						break;
 					}
-				} else {
+				} else if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
 					// Check for pin device file path
-					if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
-						uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
-						switch(command) {
-							case BytecodeSyscallIdIoctlCommandDevPinSetMode:
-								pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
-							break;
-							default:
-								kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-							break;
-						}
-					} else {
-						kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall device (fd %u, device '%s'), process %u (%s)\n"), fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
+					switch(command) {
+						case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
+							// Forbid mode changes to SPI bus pins.
+							if (spiIsReservedPin(pinNum)) {
+								kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of SPI bus pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								break;
+							}
+
+							// Forbid mode changes from user space to SPI device pins (even if associated device has type SpiDeviceTypeRaw).
+							SpiDeviceId spiDeviceId=spiDeviceGetDeviceForPin(pinNum);
+							if (spiDeviceId!=SpiDeviceIdMax) {
+								kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of SPI device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+								break;
+							}
+
+							// Set pin mode
+							pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
+						} break;
+						default:
+							kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						break;
 					}
+				} else {
+					kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall device (fd %u, device '%s'), process %u (%s)\n"), fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				}
 			}
 			return true;
@@ -1818,6 +1833,52 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					i+=chunkSize;
 				}
 			}
+			return true;
+		} break;
+		case BytecodeSyscallIdSpiDeviceRegister: {
+			SpiDeviceId id=procData->regs[1];
+			SpiDeviceType type=procData->regs[2];
+
+			procData->regs[0]=spiDeviceRegister(id, type);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdSpiDeviceDeregister: {
+			SpiDeviceId id=procData->regs[1];
+
+			spiDeviceDeregister(id);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdSpiDeviceGetType: {
+			SpiDeviceId id=procData->regs[1];
+
+			procData->regs[0]=spiDeviceGetType(id);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdSpiDeviceSdCardReaderMount: {
+			// Grab arguments
+			SpiDeviceId id=procData->regs[1];
+			uint16_t mountPointAddr=procData->regs[2];
+
+			char mountPoint[KernelFsPathMax];
+			if (!procManProcessMemoryReadStr(process, procData, mountPointAddr, mountPoint, KernelFsPathMax)) {
+				kernelLog(LogTypeWarning, kstrP("failed during spidevicesdcardreadermount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			kernelFsPathNormalise(mountPoint);
+
+			// Attempt to mount
+			procData->regs[0]=spiDeviceSdCardReaderMount(id, mountPoint);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdSpiDeviceSdCardReaderUnmount: {
+			SpiDeviceId id=procData->regs[1];
+
+			spiDeviceSdCardReaderUnmount(id);
+
 			return true;
 		} break;
 	}

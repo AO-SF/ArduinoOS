@@ -28,6 +28,7 @@
 #include "pins.h"
 #include "procman.h"
 #include "spi.h"
+#include "spidevice.h"
 #include "util.h"
 
 #include "commonprogmem.h"
@@ -35,7 +36,7 @@
 #ifdef KERNELCUSTOMRAMSIZE
 #define KernelTmpDataPoolSize KERNELCUSTOMRAMSIZE
 #else
-#define KernelTmpDataPoolSize (4*1024) // 4kb - used as ram (note: Arduino Mega only has 8kb total)
+#define KernelTmpDataPoolSize (2*1024) // 2kb - used as ram (note: Arduino Mega only has 8kb total)
 #endif
 uint8_t kernelTmpDataPool[KernelTmpDataPoolSize];
 
@@ -262,13 +263,30 @@ bool kernelSpiGrabLock(uint8_t slaveSelectPin) {
 	return true;
 }
 
+bool kernelSpiGrabLockNoSlaveSelect(void) {
+	// Already locked by kernel?
+	if (kernelSpiLockFd!=KernelFsFdInvalid)
+		return false;
+
+	// Attempt to open file
+	kernelSpiLockFd=kernelFsFileOpen("/dev/spi");
+	if (kernelSpiLockFd==KernelFsFdInvalid)
+		return false;
+
+	// Set slave pin to 255 to indicate no such pin.
+	kernelSpiSlaveSelectPin=255;
+
+	return true;
+}
+
 void kernelSpiReleaseLock(void) {
 	// Not even locked by kernel?
 	if (kernelSpiLockFd==KernelFsFdInvalid)
 		return;
 
-	// Set slave select pin high to deactive.
-	pinWrite(kernelSpiSlaveSelectPin, true);
+	// Set slave select pin high to deactive (if any).
+	if (kernelSpiSlaveSelectPin!=255)
+		pinWrite(kernelSpiSlaveSelectPin, true);
 
 	// Close file
 	kernelFsFileClose(kernelSpiLockFd);
@@ -314,9 +332,11 @@ void kernelBoot(void) {
 	// Set logging level to warnings and errors only
 	kernelLogSetLevel(LogLevelWarning);
 
-	// Initialise reader PID array to indicate that no processes currently have /dev/ttyS0 open
-	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
-		kernelReaderPidArray[i]=ProcManPidMax;
+	// Initialise SPI devices ASAP
+	spiDeviceInit();
+
+	// Init SPI bus (ready to map to /dev/spi).
+	spiInit(SpiClockSpeedDiv64);
 
 	// Arduino-only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
 #ifdef ARDUINO
@@ -338,15 +358,15 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, kstrP("initialised uart (serial)\n"));
 #endif
 
-	// Init SPI bus (ready to map to /dev/spi).
-	spiInit(SpiClockSpeedDiv64);
-	kernelLog(LogTypeInfo, kstrP("initialised SPI\n"));
-
 	// Enter booting state
 	kernelSetState(KernelStateBooting);
 	kernelLog(LogTypeInfo, kstrP("booting\n"));
 
 	ktimeInit();
+
+	// Initialise reader PID array to indicate that no processes currently have /dev/ttyS0 open
+	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
+		kernelReaderPidArray[i]=ProcManPidMax;
 
 	// Initialise progmem data
 	commonProgmemInit();
@@ -441,7 +461,7 @@ void kernelBoot(void) {
 	// * 16,17 - /dev/ttyS2
 	// * 18,19 - /dev/ttyS1
 	// * 14,15 - /dev/ttyS3
-	// * 50,51,52 - /dev/spi
+	// * 50,51,52,53 - /dev/spi
 	ADDDEVDIGITALPIN("/dev/pin0", PinD22);
 	ADDDEVDIGITALPIN("/dev/pin1", PinD23);
 	ADDDEVDIGITALPIN("/dev/pin2", PinD24);
@@ -472,7 +492,6 @@ void kernelBoot(void) {
 	ADDDEVDIGITALPIN("/dev/pin48", PinD41);
 	ADDDEVDIGITALPIN("/dev/pin49", PinD40);
 	ADDDEVDIGITALPIN("/dev/pin50", PinD39);
-	ADDDEVDIGITALPIN("/dev/pin53", PinD4);
 	ADDDEVDIGITALPIN("/dev/pin59", PinD6);
 	ADDDEVDIGITALPIN("/dev/pin60", PinD7);
 	ADDDEVDIGITALPIN("/dev/pin61", PinD8);
@@ -742,6 +761,11 @@ bool kernelDevDigitalPinCanReadFunctor(void *userData) {
 
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
+
+	// Forbid writes from user space to SPI device pins (unless associated device has type SpiDeviceTypeRaw).
+	SpiDeviceId spiDeviceId=spiDeviceGetDeviceForPin(pinNum);
+	if (spiDeviceId!=SpiDeviceIdMax && spiDeviceGetType(spiDeviceId)!=SpiDeviceTypeRaw)
+		return 0;
 
 	// Simply write last of values given (considered as a boolean),
 	// acting as if we had looped over and set each state in turn.

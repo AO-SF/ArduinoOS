@@ -52,18 +52,22 @@ cp ./src/userspace/home/* ./tmp/mockups/homemockup
 ./bin/assembler ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/assembler ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
 ./bin/assembler ./src/userspace/bin/blinkfast.s ./tmp/mockups/homemockup/blinkfast
-./bin/assembler ./src/userspace/bin/spitest.s ./tmp/mockups/homemockup/spitest
 
 echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/burn.s ./tmp/mockups/usrbinmockup/burn
 ./bin/assembler ./src/userspace/bin/factor.s ./tmp/mockups/usrbinmockup/factor
 ./bin/assembler ./src/userspace/bin/getpin.s ./tmp/mockups/usrbinmockup/getpin
 ./bin/assembler ./src/userspace/bin/hash.s ./tmp/mockups/usrbinmockup/hash
+./bin/assembler ./src/userspace/bin/hexdump.s ./tmp/mockups/usrbinmockup/hexdump
 ./bin/assembler ./src/userspace/bin/kloglevel.s ./tmp/mockups/usrbinmockup/kloglevel
 ./bin/assembler ./src/userspace/bin/man.s ./tmp/mockups/usrbinmockup/man
 ./bin/assembler ./src/userspace/bin/ps.s ./tmp/mockups/usrbinmockup/ps
 ./bin/assembler ./src/userspace/bin/reset.s ./tmp/mockups/usrbinmockup/reset
 ./bin/assembler ./src/userspace/bin/setpin.s ./tmp/mockups/usrbinmockup/setpin
+./bin/assembler ./src/userspace/bin/spidereg.s ./tmp/mockups/usrbinmockup/spidereg
+./bin/assembler ./src/userspace/bin/spiinfo.s ./tmp/mockups/usrbinmockup/spiinfo
+./bin/assembler ./src/userspace/bin/spireg.s ./tmp/mockups/usrbinmockup/spireg
+./bin/assembler ./src/userspace/bin/spisdmnt.s ./tmp/mockups/usrbinmockup/spisdmnt
 ./bin/assembler ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
 

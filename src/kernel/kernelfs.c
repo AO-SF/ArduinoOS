@@ -295,7 +295,7 @@ bool kernelFsFileIsDirEmpty(const char *path) {
 			switch(device->block.format) {
 				case KernelFsBlockDeviceFormatCustomMiniFs:
 					miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (device->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), device);
-					bool res=(miniFsGetChildCount(&kernelFsScratchMiniFs)==0);
+					bool res=miniFsIsEmpty(&kernelFsScratchMiniFs);
 					miniFsUnmount(&kernelFsScratchMiniFs);
 					return res;
 				break;

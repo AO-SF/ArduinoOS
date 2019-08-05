@@ -50,9 +50,18 @@ const SyscallIdStrChr 1536
 const SyscallIdStrChrNul 1537
 const SyscallIdMemMove 1538
 
+const SyscallIdSpiDeviceRegister 1792
+const SyscallIdSpiDeviceDeregister 1793
+const SyscallIdSpiDeviceGetType 1794
+const BytecodeSyscallIdSpiDeviceSdCardReaderMount 1795
+const BytecodeSyscallIdSpiDeviceSdCardReaderUnmount 1796
+
 ; WaitPid special return values
 const SyscallWaitpidStatusSuccess 0
 const SyscallWaitpidStatusInterrupted 65531
 const SyscallWaitpidStatusNoProcess 65532
 const SyscallWaitpidStatusKilled 65534
 const SyscallWaitpidStatusTimeout 65535
+
+; SPI device constants
+const SyscallSpiDeviceIdMax 2
