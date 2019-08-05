@@ -82,14 +82,14 @@ label printLoopStart
 ; print block - load byte
 push8 r0
 push8 r1
-push8 r2
+push16 r2
 mov r0 pathBuf
 add r0 r0 r1
 load8 r0 r0
 call puthex8
 mov r0 ' '
 call putc0
-pop8 r2
+pop16 r2
 pop8 r1
 pop8 r0
 ; print block - end of loop?
