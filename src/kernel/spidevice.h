@@ -10,7 +10,7 @@ typedef enum {
 } SpiDeviceType;
 
 typedef uint8_t SpiDeviceId;
-#define SpiDeviceIdMax 4
+#define SpiDeviceIdMax 2
 
 void spiDeviceInit(void); // should be one of the very first things to be called during kernelBoot (used to ensure pins are output and have the correct state asap)
 

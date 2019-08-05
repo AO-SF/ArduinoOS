@@ -64,4 +64,4 @@ const SyscallWaitpidStatusKilled 65534
 const SyscallWaitpidStatusTimeout 65535
 
 ; SPI device constants
-const SyscallSpiDeviceIdMax 4
+const SyscallSpiDeviceIdMax 2
