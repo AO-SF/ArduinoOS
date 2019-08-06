@@ -6,7 +6,13 @@
 
 #include "kstr.h"
 
-typedef uint16_t KernelFsFileOffset;
+// Define file offset/length type.
+// User space can only use 16 bit addresses and lengths, but kernel can use 32 bit.
+// For example, a volume mounted with the mount syscall could access all 4gb of an
+// sd card at /dev/sd if mounted at /media/sd.
+// From user space reading /dev/sd would be limited to first 64kb, but using mount
+// all files in /media/sd could be read up to 64kb.
+typedef uint32_t KernelFsFileOffset;
 
 typedef uint8_t KernelFsFd; // file-descriptor
 #define KernelFsFdInvalid 0
@@ -14,9 +20,9 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 #define KernelFsPathMax 32
 
-typedef int16_t (KernelFsCharacterDeviceReadFunctor)(void *userData); // returns -1 on failure
-typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData);
-typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(const uint8_t *data, KernelFsFileOffset len, void *userData);
+typedef int16_t (KernelFsCharacterDeviceReadFunctor)(void *userData); // read and return a single character, or -1 on failure
+typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData); // returns true if a read would not block
+typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(const uint8_t *data, KernelFsFileOffset len, void *userData); // returns number of bytes written
 
 typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatCustomMiniFs 0

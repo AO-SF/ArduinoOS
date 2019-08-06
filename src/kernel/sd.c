@@ -197,7 +197,7 @@ void sdQuit(SdCard *card) {
 	card->type=SdTypeBadCard;
 }
 
-bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
+bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data) {
 	uint8_t responseByte;
 
 	// Attempt to grab SPI bus lock
@@ -222,14 +222,14 @@ bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
 	spiWriteByte(0x01);
 	responseByte=sdWaitForResponse(16);
 	if (responseByte!=0x00) {
-		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 R1 response 0x%02X (block=%u)\n"), responseByte, block);
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 R1 response 0x%02X (block=%lu)\n"), responseByte, block);
 		goto error;
 	}
 
 	// Read data token byte
 	responseByte=sdWaitForResponse(1024);
 	if (responseByte!=0xFE) {
-		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 data token byte 0x%02X (block=%u)\n"), responseByte, block);
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 data token byte 0x%02X (block=%lu)\n"), responseByte, block);
 		goto error;
 	}
 
@@ -250,7 +250,7 @@ bool sdReadBlock(SdCard *card, uint16_t block, uint8_t *data) {
 	kernelSpiReleaseLock();
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("sdReadBlock success (block=%u)\n"), block);
+	kernelLog(LogTypeInfo, kstrP("sdReadBlock success (block=%lu)\n"), block);
 
 	return true;
 
