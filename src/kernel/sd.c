@@ -202,7 +202,7 @@ bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data) {
 
 	// Attempt to grab SPI bus lock
 	if (!kernelSpiGrabLockNoSlaveSelect()) {
-		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: could not grab SPI bus lock (block=%u)\n"), block);
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: could not grab SPI bus lock (block=%lu)\n"), block);
 		return false;
 	}
 
