@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "kernelfs.h"
 #include "log.h"
 #include "pins.h"
@@ -240,8 +242,35 @@ KernelFsFileOffset spiDeviceSdCardReaderReadFunctor(KernelFsFileOffset addr, uin
 
 KernelFsFileOffset spiDeviceSdCardReaderWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	SpiDeviceId id=(SpiDeviceId)(uintptr_t)userData;
-	_unused(id);
 
-	// TODO: implement this
-	return 0;
+	// Verify id is valid and that it represents an sd card reader device, with a mounted card.
+	if (id>=SpiDeviceIdMax || spiDeviceGetType(id)!=SpiDeviceTypeSdCardReader || spiDevices[id].d.sdCardReader.sdCard.type==SdTypeBadCard)
+		return 0;
+
+	// Loop over address range writing bytes, reading and writing blocks as required.
+	KernelFsFileOffset writeCount=0;
+	while(writeCount<len) {
+		// Do we need to read a new block?
+		uint32_t block=addr/SdBlockSize;
+		if (block!=spiDevices[id].d.sdCardReader.cacheBlock && !sdReadBlock(&spiDevices[id].d.sdCardReader.sdCard, block, spiDevices[id].d.sdCardReader.cache))
+			break;
+		spiDevices[id].d.sdCardReader.cacheBlock=block;
+
+		// Overwrite parts of block with given data.
+		uint16_t offset=addr-block*SdBlockSize; // should be <512 so can fit in 16 bit not full 32
+		uint16_t loopWriteLen=MIN(SdBlockSize-offset, len-writeCount);
+		memcpy(spiDevices[id].d.sdCardReader.cache+offset, data+writeCount, loopWriteLen);
+
+		// Write block back to card
+		if (!sdWriteBlock(&spiDevices[id].d.sdCardReader.sdCard, block, spiDevices[id].d.sdCardReader.cache)) {
+			// If we fail, have to make block as invalid as we may have overwritten some of the data.
+			spiDevices[id].d.sdCardReader.cacheBlock=SpiDeviceSdCardReaderCacheBlockInvalid;
+			break;
+		}
+
+		writeCount+=loopWriteLen;
+		addr+=loopWriteLen;
+	}
+
+	return writeCount;
 }
