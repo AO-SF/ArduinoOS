@@ -15,11 +15,12 @@ const SpiDevicePinPair spiDevicePinPairs[SpiDeviceIdMax]={
 	{.powerPin=PinD48, .slaveSelectPin=PinD49},
 };
 
+#define SpiDeviceSdCardReaderCacheBlockInvalid UINT32_MAX // Used to indicate empty/invalid cache. This is safe as some bits of addresses are 'used up' by the fixed size 512 byte blocks, so not all 32 bits are needed.
 typedef struct {
 	KStr mountPoint;
 	SdCard sdCard; // type set to SdTypeBadCard when none mounted
 	uint8_t cache[SdBlockSize];
-	uint32_t cacheBlock; // for now set to UINT32_MAX to indicate empty cache
+	uint32_t cacheBlock; // see SpiDeviceSdCardReaderCacheBlockInvalid
 } SpiDeviceSdCardReaderData;
 
 typedef struct {
@@ -160,7 +161,7 @@ bool spiDeviceSdCardReaderMount(SpiDeviceId id, const char *mountPoint) {
 	}
 
 	// Mark cache block as undefined (before we even register read/write functors to be safe).
-	spiDevices[id].d.sdCardReader.cacheBlock=UINT32_MAX;
+	spiDevices[id].d.sdCardReader.cacheBlock=SpiDeviceSdCardReaderCacheBlockInvalid;
 
 	// Add block device at given point mount
 	KernelFsFileOffset size=4096; // TODO: this properly - we have notes on how to find this from the card itself
@@ -218,16 +219,9 @@ KernelFsFileOffset spiDeviceSdCardReaderReadFunctor(KernelFsFileOffset addr, uin
 
 	// Verify id is valid and that it represents an sd card reader device, with a mounted card.
 	if (id>=SpiDeviceIdMax || spiDeviceGetType(id)!=SpiDeviceTypeSdCardReader || spiDevices[id].d.sdCardReader.sdCard.type==SdTypeBadCard)
-		return 0; // TODO: or -1 for error?
+		return 0;
 
-	// Note: special case for initial block==UINT32_MAX as we use this as a special 'no cache' flag, so always have to re-read.
-	// In reality, as block size is fixed at 2^9=512, block must be less than 2^(32-9)=2^23.
-	// This means block numbers can never be UINT32_T so this should be safe.
-	uint32_t initialBlock=addr/SdBlockSize;
-	if (initialBlock==UINT16_MAX && spiDevices[id].d.sdCardReader.cacheBlock==UINT32_MAX)
-		spiDevices[id].d.sdCardReader.cacheBlock=0; // force read in first iteration, but none thereafter
-
-	// First read up to first block boundary (or less if len is low enough).
+	// Loop over addresses range reading bytes, reading new blocks as needed.
 	KernelFsFileOffset readCount;
 	for(readCount=0; readCount<len; ++readCount,++addr) {
 		// Do we need to read a new block?
