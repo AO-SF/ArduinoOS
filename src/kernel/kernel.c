@@ -573,11 +573,13 @@ KernelFsFileOffset kernelProgmemGenericReadFunctor(KernelFsFileOffset addr, uint
 }
 
 KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
-	KernelFsFileOffset offset=(KernelFsFileOffset)(uintptr_t)userData;
+	uint16_t offset=(uint16_t)(uintptr_t)userData;
 	addr+=offset;
+	if (addr>UINT16_MAX)
+		return 0;
 
 #ifdef ARDUINO
-	eeprom_read_block(data, (void *)addr, len);
+	eeprom_read_block(data, (void *)(uint16_t)addr, len);
 	return len;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
@@ -594,11 +596,13 @@ KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8
 KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	if (len>UINT16_MAX)
 		len=UINT16_MAX;
-	KernelFsFileOffset offset=(KernelFsFileOffset)(uintptr_t)userData;
+	uint16_t offset=(uint16_t)(uintptr_t)userData;
 	addr+=offset;
+	if (addr>UINT16_MAX)
+		return 0;
 
 #ifdef ARDUINO
-	eeprom_update_block((const void *)data, (void *)addr, len);
+	eeprom_update_block((const void *)data, (void *)(uint16_t)addr, len);
 	return len;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
