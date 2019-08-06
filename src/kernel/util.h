@@ -8,4 +8,8 @@
 #define STATICASSERT2(X,L) STATICASSERT3(X,L)
 #define STATICASSERT(X) STATICASSERT2(X,__LINE__)
 
+#ifndef MIN
+#define MIN(a,b) ((a)<(b) ? (a) : (b))
+#endif
+
 #endif
