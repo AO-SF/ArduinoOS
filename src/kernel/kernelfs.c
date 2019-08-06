@@ -578,6 +578,8 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
 			case KernelFsDeviceTypeBlock:
 				switch(parentDevice->block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
+						if (newSize>=UINT16_MAX)
+							return false; // minifs limits files to 64kb
 						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (parentDevice->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
 						bool res=miniFsFileResize(&kernelFsScratchMiniFs, basename, newSize);
 						miniFsUnmount(&kernelFsScratchMiniFs);
@@ -708,6 +710,10 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 			case KernelFsDeviceTypeBlock:
 				switch(parentDevice->block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						if (offset>=UINT16_MAX)
+							return 0;
+						if (dataLen>=UINT16_MAX)
+							dataLen=UINT16_MAX;
 						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (parentDevice->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
 						uint16_t read=miniFsFileRead(&kernelFsScratchMiniFs, basename, offset, data, dataLen);
 						miniFsUnmount(&kernelFsScratchMiniFs);
@@ -807,6 +813,10 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 			case KernelFsDeviceTypeBlock:
 				switch(parentDevice->block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						if (offset>=UINT16_MAX)
+							return false;
+						if (dataLen>=UINT16_MAX)
+							dataLen=UINT16_MAX;
 						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (parentDevice->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
 						KernelFsFileOffset res=miniFsFileWrite(&kernelFsScratchMiniFs, basename, offset, data, dataLen);
 						miniFsUnmount(&kernelFsScratchMiniFs);
