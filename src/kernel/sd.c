@@ -260,6 +260,67 @@ bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data) {
 	return false;
 }
 
+bool sdWriteBlock(SdCard *card, uint32_t block, const uint8_t *data) {
+	uint8_t responseByte;
+
+	// Attempt to grab SPI bus lock
+	if (!kernelSpiGrabLockNoSlaveSelect()) {
+		kernelLog(LogTypeWarning, kstrP("sdWriteBlock failed: could not grab SPI bus lock (block=%u)\n"), block);
+		return false;
+	}
+
+	// Ensure MOSI is high initially
+	sdWriteDummyBytes();
+
+	// Enable the slave by setting pin low
+	pinWrite(card->slaveSelectPin, false);
+
+	// Send CMD24 - write block
+	uint32_t addr=(card->addressMode==SdAddressModeBlock ? block : block*SdBlockSize);
+	spiWriteByte(0x58); // we use write byte rather than sdWriteCommand as address argument parts may be 0xFF
+	spiWriteByte((addr>>24)&0xFF);
+	spiWriteByte((addr>>16)&0xFF);
+	spiWriteByte((addr>>8)&0xFF);
+	spiWriteByte((addr>>0)&0xFF);
+	spiWriteByte(0x01);
+	responseByte=sdWaitForResponse(16);
+	if (responseByte!=0x00) {
+		kernelLog(LogTypeWarning, kstrP("sdWriteBlock failed: bad CMD24 R1 response 0x%02X (block=%u)\n"), responseByte, block);
+		goto error;
+	}
+
+	// Flush after response
+	sdWriteDummyBytes();
+
+	// Write data token byte
+	spiWriteByte(0xFE);
+
+	// Write data bytes
+	for(unsigned i=0; i<SdBlockSize; ++i)
+		spiWriteByte(data[i]);
+
+	// Write two (dummy) CRC bytes
+	spiWriteByte(0x01);
+	spiWriteByte(0x01);
+
+	// Flush after sending
+	sdWriteDummyBytes();
+
+	// Release slave select and lock
+	pinWrite(card->slaveSelectPin, true);
+	kernelSpiReleaseLock();
+
+	// Write to log
+	kernelLog(LogTypeInfo, kstrP("sdWriteBlock success (block=%u)\n"), block);
+
+	return true;
+
+	error:
+	pinWrite(card->slaveSelectPin, true);
+	kernelSpiReleaseLock();
+	return false;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////

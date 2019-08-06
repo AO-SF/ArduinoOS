@@ -35,5 +35,6 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin);
 void sdQuit(SdCard *card);
 
 bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data); // SdBlockSize bytes stored into data
+bool sdWriteBlock(SdCard *card, uint32_t block, const uint8_t *data);
 
 #endif
