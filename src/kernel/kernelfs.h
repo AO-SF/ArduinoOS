@@ -20,9 +20,9 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 #define KernelFsPathMax 32
 
-typedef int16_t (KernelFsCharacterDeviceReadFunctor)(void *userData); // returns -1 on failure
-typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData);
-typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(const uint8_t *data, KernelFsFileOffset len, void *userData);
+typedef int16_t (KernelFsCharacterDeviceReadFunctor)(void *userData); // read and return a single character, or -1 on failure
+typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData); // returns true if a read would not block
+typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(const uint8_t *data, KernelFsFileOffset len, void *userData); // returns number of bytes written
 
 typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatCustomMiniFs 0
