@@ -34,7 +34,7 @@ typedef struct {
 SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin);
 void sdQuit(SdCard *card);
 
-bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data); // SdBlockSize bytes stored into data
+bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data); // SdBlockSize bytes stored into data. Note that on failure the passed data array may have been clobbered and cannot be trusted.
 bool sdWriteBlock(SdCard *card, uint32_t block, const uint8_t *data);
 
 #endif
