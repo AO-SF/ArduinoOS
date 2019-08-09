@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <string.h>
 
 #include "kernelfs.h"
@@ -17,12 +18,13 @@ const SpiDevicePinPair spiDevicePinPairs[SpiDeviceIdMax]={
 	{.powerPin=PinD48, .slaveSelectPin=PinD49},
 };
 
-#define SpiDeviceSdCardReaderCacheBlockInvalid UINT32_MAX // Used to indicate empty/invalid cache. This is safe as some bits of addresses are 'used up' by the fixed size 512 byte blocks, so not all 32 bits are needed.
 typedef struct {
 	KStr mountPoint;
 	SdCard sdCard; // type set to SdTypeBadCard when none mounted
 	uint8_t cache[SdBlockSize];
-	uint32_t cacheBlock; // see SpiDeviceSdCardReaderCacheBlockInvalid
+	uint32_t cacheIsValid:1; // if false, cacheBlock field is undefined as is the data in the cache array
+	uint32_t cacheIsDirty:1; // if cache is valid, then this represents whether the cache array has been modified since reading
+	uint32_t cacheBlock:30; // Note: using only 30 bits is safe as some bits of addresses are 'used up' by the fixed size 512 byte blocks, so not all 32 bits are needed (only 32-9=23 strictly needed)
 } SpiDeviceSdCardReaderData;
 
 typedef struct {
@@ -163,7 +165,7 @@ bool spiDeviceSdCardReaderMount(SpiDeviceId id, const char *mountPoint) {
 	}
 
 	// Mark cache block as undefined (before we even register read/write functors to be safe).
-	spiDevices[id].d.sdCardReader.cacheBlock=SpiDeviceSdCardReaderCacheBlockInvalid;
+	spiDevices[id].d.sdCardReader.cacheIsValid=false;
 
 	// Add block device at given point mount
 	KernelFsFileOffset size=4096; // TODO: this properly - we have notes on how to find this from the card itself
@@ -199,6 +201,10 @@ void spiDeviceSdCardReaderUnmount(SpiDeviceId id) {
 	char mountPoint[KernelFsPathMax];
 	kstrStrcpy(mountPoint, spiDevices[id].d.sdCardReader.mountPoint);
 
+	// Write out cached block if valid but dirty
+	if (spiDevices[id].d.sdCardReader.cacheIsValid && spiDevices[id].d.sdCardReader.cacheIsDirty && !sdWriteBlock(&spiDevices[id].d.sdCardReader.sdCard, spiDevices[id].d.sdCardReader.cacheBlock, spiDevices[id].d.sdCardReader.cache))
+		kernelLog(LogTypeWarning, kstrP("SPI device SD card reader unmount: failed to write back dirty block %u (id=%u, mountPoint='%s')\n"), spiDevices[id].d.sdCardReader.cacheBlock, id, mountPoint);
+
 	// Write to log
 	kernelLog(LogTypeInfo, kstrP("SPI device SD card reader unmount (id=%u, mountPoint='%s')\n"), id, mountPoint);
 
@@ -226,13 +232,37 @@ KernelFsFileOffset spiDeviceSdCardReaderReadFunctor(KernelFsFileOffset addr, uin
 	// Loop over addresses range reading bytes, reading new blocks as needed.
 	KernelFsFileOffset readCount;
 	for(readCount=0; readCount<len; ++readCount,++addr) {
-		// Do we need to read a new block?
+		// Compute block number for the current address
 		uint32_t block=addr/SdBlockSize;
-		if (block!=spiDevices[id].d.sdCardReader.cacheBlock && !sdReadBlock(&spiDevices[id].d.sdCardReader.sdCard, block, spiDevices[id].d.sdCardReader.cache))
-			break;
-		spiDevices[id].d.sdCardReader.cacheBlock=block;
+
+		// If the existing block is valid, does not match the one we want, and is marked as being dirty,
+		// then it needs writing back to disk now to prevent data loss.
+		if (spiDevices[id].d.sdCardReader.cacheIsValid && block!=spiDevices[id].d.sdCardReader.cacheBlock && spiDevices[id].d.sdCardReader.cacheIsDirty) {
+			// Attempt to write cached block to the card to avoid data loss
+			if (!sdWriteBlock(&spiDevices[id].d.sdCardReader.sdCard, spiDevices[id].d.sdCardReader.cacheBlock, spiDevices[id].d.sdCardReader.cache))
+				break; // Failed to save cache so we cannot re-use it.
+
+			// Clear dirty flag
+			spiDevices[id].d.sdCardReader.cacheIsDirty=false;
+		}
+
+		// Decide if we already have the data we need, or if we need to read from the card.
+		if (!spiDevices[id].d.sdCardReader.cacheIsValid || block!=spiDevices[id].d.sdCardReader.cacheBlock) {
+			// Attempt to read from card
+			if (!sdReadBlock(&spiDevices[id].d.sdCardReader.sdCard, block, spiDevices[id].d.sdCardReader.cache)) {
+				// Mark cache as invalid as a failed read can leave the cache clobbered
+				spiDevices[id].d.sdCardReader.cacheIsValid=false;
+				break;
+			}
+
+			// Update fields
+			spiDevices[id].d.sdCardReader.cacheIsValid=true;
+			spiDevices[id].d.sdCardReader.cacheIsDirty=false;
+			spiDevices[id].d.sdCardReader.cacheBlock=block;
+		}
 
 		// Copy byte into users array
+		assert(spiDevices[id].d.sdCardReader.cacheBlock==block);
 		uint16_t offset=addr-block*SdBlockSize; // should be <512 so can fit in 16 bit not full 32
 		data[readCount]=spiDevices[id].d.sdCardReader.cache[offset];
 	}
@@ -250,24 +280,45 @@ KernelFsFileOffset spiDeviceSdCardReaderWriteFunctor(KernelFsFileOffset addr, co
 	// Loop over address range writing bytes, reading and writing blocks as required.
 	KernelFsFileOffset writeCount=0;
 	while(writeCount<len) {
-		// Do we need to read a new block?
+		// Compute block number for the current address
 		uint32_t block=addr/SdBlockSize;
-		if (block!=spiDevices[id].d.sdCardReader.cacheBlock && !sdReadBlock(&spiDevices[id].d.sdCardReader.sdCard, block, spiDevices[id].d.sdCardReader.cache))
-			break;
-		spiDevices[id].d.sdCardReader.cacheBlock=block;
 
-		// Overwrite parts of block with given data.
+		// Do we need to write back a dirty block before reading?
+		if (spiDevices[id].d.sdCardReader.cacheIsValid && block!=spiDevices[id].d.sdCardReader.cacheBlock && spiDevices[id].d.sdCardReader.cacheIsDirty) {
+			// Attempt to write block back to card
+			if (!sdWriteBlock(&spiDevices[id].d.sdCardReader.sdCard, spiDevices[id].d.sdCardReader.cacheBlock, spiDevices[id].d.sdCardReader.cache))
+				break;
+
+			// Clear dirty flag
+			spiDevices[id].d.sdCardReader.cacheIsDirty=false;
+		}
+
+		// Do we need to read a new block?
+		if (!spiDevices[id].d.sdCardReader.cacheIsValid || block!=spiDevices[id].d.sdCardReader.cacheBlock) {
+			// Attempt to read block from card
+			if (!sdReadBlock(&spiDevices[id].d.sdCardReader.sdCard, block, spiDevices[id].d.sdCardReader.cache)) {
+				// Mark cache as invalid as a failed read can leave the cache clobbered
+				spiDevices[id].d.sdCardReader.cacheIsValid=false;
+				break;
+			}
+
+			// Update fields
+			spiDevices[id].d.sdCardReader.cacheIsValid=true;
+			spiDevices[id].d.sdCardReader.cacheIsDirty=false;
+			spiDevices[id].d.sdCardReader.cacheBlock=block;
+		}
+
+		// Overwrite parts of cached block with given data.
+		assert(spiDevices[id].d.sdCardReader.cacheIsValid);
+		assert(spiDevices[id].d.sdCardReader.cacheBlock==block);
+
 		uint16_t offset=addr-block*SdBlockSize; // should be <512 so can fit in 16 bit not full 32
 		uint16_t loopWriteLen=MIN(SdBlockSize-offset, len-writeCount);
 		memcpy(spiDevices[id].d.sdCardReader.cache+offset, data+writeCount, loopWriteLen);
 
-		// Write block back to card
-		if (!sdWriteBlock(&spiDevices[id].d.sdCardReader.sdCard, block, spiDevices[id].d.sdCardReader.cache)) {
-			// If we fail, have to make block as invalid as we may have overwritten some of the data.
-			spiDevices[id].d.sdCardReader.cacheBlock=SpiDeviceSdCardReaderCacheBlockInvalid;
-			break;
-		}
+		spiDevices[id].d.sdCardReader.cacheIsDirty=true;
 
+		// Update variables for next iteration
 		writeCount+=loopWriteLen;
 		addr+=loopWriteLen;
 	}
