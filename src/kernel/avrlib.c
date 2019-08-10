@@ -96,4 +96,15 @@ int16_t vfprintf_PF(FILE *stream, uint_farptr_t format, va_list ap) {
 	return written;
 }
 
+int freeRam(void) {
+	// taken from https://jeelabs.org/2011/05/22/atmega-memory-use/
+	// modified to make avr-gcc happy
+	extern int __heap_start, *__brkval;
+	int v;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-local-addr"
+	return (int)&v - (__brkval==0 ? (int)&__heap_start : (int)__brkval);
+#pragma GCC diagnostic pop
+}
+
 #endif
