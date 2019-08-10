@@ -320,9 +320,8 @@ bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data) {
 		data[i]=spiReadByte(); // Note: we cannot use sdWaitForResponse as we do not want to ignore 0xFF bytes for once
 
 	// Read (and ignore) two CRC bytes
-	// TODO: probably want to check these, but also use spiReadByte instead in case one of them happens to be 0xFF?
-	sdWaitForResponse(16);
-	sdWaitForResponse(16);
+	spiReadByte();
+	spiReadByte();
 
 	// Flush after response
 	sdWriteDummyBytes();
