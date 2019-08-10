@@ -168,9 +168,17 @@ bool spiDeviceSdCardReaderMount(SpiDeviceId id, const char *mountPoint) {
 	spiDevices[id].d.sdCardReader.cacheIsValid=false;
 
 	// Add block device at given point mount
-	KernelFsFileOffset size=4096; // TODO: this properly - we have notes on how to find this from the card itself
+	uint32_t maxBlockCount=(((uint32_t)1u)<<(32-SdBlockSizeBits)); // we are limited by 32 bit addresses, regardless of how large blocks are
+
+	KernelFsFileOffset size=spiDevices[id].d.sdCardReader.sdCard.blockCount;
+	if (size>=maxBlockCount) {
+		kernelLog(LogTypeWarning, kstrP("SPI device SD card reader mount: block count too large, reducing from %lu to %lu (id=%u, mountPoint='%s')\n"), size, maxBlockCount-1, id, mountPoint);
+		size=maxBlockCount-1;
+	}
+	size*=SdBlockSize;
+
 	if (!kernelFsAddBlockDeviceFile(kstrC(mountPoint), KernelFsBlockDeviceFormatFlatFile, size, &spiDeviceSdCardReaderReadFunctor, &spiDeviceSdCardReaderWriteFunctor, (void *)(uintptr_t)id)) {
-		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: could not add block device to VFS (id=%u, mountPoint='%s')\n"), id, mountPoint);
+		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: could not add block device to VFS (id=%u, mountPoint='%s', size=%u)\n"), id, mountPoint, size);
 		sdQuit(&spiDevices[id].d.sdCardReader.sdCard);
 		return false;
 	}
@@ -179,7 +187,7 @@ bool spiDeviceSdCardReaderMount(SpiDeviceId id, const char *mountPoint) {
 	spiDevices[id].d.sdCardReader.mountPoint=kstrC(mountPoint);
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount success (id=%u, mountPoint='%s')\n"), id, mountPoint);
+	kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount success (id=%u, mountPoint='%s', size=%u)\n"), id, mountPoint, size);
 
 	return true;
 }
