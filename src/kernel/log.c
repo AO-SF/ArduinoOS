@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #endif
 
+#include "avrlib.h"
 #include "log.h"
 #include "ktime.h"
 
@@ -43,6 +44,11 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 		uint16_t s=t/1000lu;
 		uint16_t ms=t-s*1000lu;
 		fprintf(file, "%3u:%02u:%02u:%03u ", h, m, s, ms);
+
+		// Print free memory (arduino only)
+		#ifdef ARDUINO
+		fprintf(file, "fr%04u ", freeRam());
+		#endif
 
 		// Print log type
 		fprintf(file, "%7s ", logTypeToString(type));
