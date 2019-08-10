@@ -41,8 +41,10 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 	card->addressMode=SdAddressModeByte;
 
 	// Attempt to grab SPI bus lock
-	if (!kernelSpiGrabLockNoSlaveSelect())
+	if (!kernelSpiGrabLockNoSlaveSelect()) {
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: could not grab SPI bus lock (powerPin=%u, slaveSelectPin=%u)\n"), powerPin, slaveSelectPin);
 		return SdInitResultSpiLockFail;
+	}
 
 	// Ensure MOSI is high initially
 	spiWriteByte(0xFF);
@@ -63,6 +65,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 	sdWriteCommand(0x40, 0x00, 0x00, 0x00, 0x00, 0x95, 0xFF);
 	responseByte=sdWaitForResponse(16);
 	if (responseByte!=0x01) {
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD0 (software reset) bad response %u (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
 		result=SdInitResultCouldNotReset;
 		goto error;
 	}
@@ -79,6 +82,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 		// until we get either 0x00 indicating SD version 1, or something other than 0x01.
 		// In the latter case try sending CMD1, looking for 0x00, retrying on 0x01, and giving up otherwise.
 
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD8 (check voltage range) unhandled response %u (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
 		result=SdInitResultUnsupportedCard;
 		goto error;
 	}
@@ -94,6 +98,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 	// Check if argument was passed back properly.
 	if (responseR7[0]!=0x00 || responseR7[1]!=0x00 || responseR7[2]!=0x01 || responseR7[3]!=0xAA) {
 		// Bad card
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD8 (check voltage range) bad echo response 0x%02X%02X%02X%02X (powerPin=%u, slaveSelectPin=%u)\n"), responseR7[0], responseR7[1], responseR7[2], responseR7[3], powerPin, slaveSelectPin);
 		result=SdInitResultBadCard;
 		goto error;
 	}
@@ -107,10 +112,12 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 		sdWriteDummyBytes();
 		if (responseByte==0x05) {
 			// Old card - unsupported, use CMD1 similar to case above.
+			kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD55 (ACMD prefix) unhandled response %u (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
 			result=SdInitResultUnsupportedCard;
 			goto error;
 		} else if (responseByte!=0x01) {
 			// Bad response
+			kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD55 (ACMD prefix) bad response %u (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
 			result=SdInitResultBadCard;
 			goto error;
 		}
@@ -126,6 +133,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 			break; // success
 		else {
 			// Bad card
+			kernelLog(LogTypeWarning, kstrP("sdInit failed: ACMD41 (SDC init) bad response %u (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
 			result=SdInitResultBadCard;
 			goto error;
 		}
@@ -133,6 +141,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 
 	if (i==1024) {
 		// Timeout - bad card
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD55+ACMD41 (SDC init) timeout (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
 		result=SdInitResultBadCard;
 		goto error;
 	}
@@ -146,6 +155,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 	if (responseByte!=0x00) {
 		// All cards should support this
 		sdWriteDummyBytes();
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD58 (read OCR) bad response %u (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
 		result=SdInitResultBadCard;
 		goto error;
 	}
@@ -172,6 +182,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 		sdWriteDummyBytes();
 		if (responseByte!=0x00) {
 			// All cards should support this
+			kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD16 (set block size) bad response %u (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
 			result=SdInitResultBadCard;
 			goto error;
 		}
