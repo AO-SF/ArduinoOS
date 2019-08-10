@@ -8,6 +8,12 @@
 #include "spi.h"
 #include "util.h"
 
+typedef enum {
+	SdCsdVersion1,
+	SdCsdVersion2,
+	SdCsdVersionNB,
+} SdCsdVersion;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,6 +34,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 	SdInitResult result=SdInitResultOk;
 
 	// Setup card fields
+	card->blockCount=0;
 	card->type=SdTypeBadCard;
 	card->powerPin=powerPin;
 	card->slaveSelectPin=slaveSelectPin;
@@ -170,6 +177,75 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 		}
 	}
 
+	// Send CMD9 - read CSD register
+	sdWriteCommand(0x49, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF);
+	responseByte=sdWaitForResponse(16);
+	sdWriteDummyBytes();
+	if (responseByte!=0x00) {
+		// All cards should support this
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD9 (read CSD) bad response %u (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
+		result=SdInitResultBadCard;
+		goto error;
+	}
+
+	responseByte=sdWaitForResponse(1024); // read data token
+	if (responseByte!=0xFE) {
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: CMD9 (read CSD) bad data token %u (powerPin=%u, slaveSelectPin=%u)\n"), responseByte, powerPin, slaveSelectPin);
+		result=SdInitResultBadCard;
+		goto error;
+	}
+
+	responseByte=spiReadByte(); // read data byte  0 [120:127]
+	SdCsdVersion csdVersion=(responseByte>>6);
+	if (csdVersion==SdCsdVersion1) {
+		// TODO: handle this case
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: unsupported CSD version 1.0 (powerPin=%u, slaveSelectPin=%u)\n"), powerPin, slaveSelectPin);
+		result=SdInitResultUnsupportedCard;
+		goto error;
+	} else if (csdVersion!=SdCsdVersion2) {
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: bad CSD version %u (powerPin=%u, slaveSelectPin=%u)\n"), csdVersion, powerPin, slaveSelectPin);
+		result=SdInitResultBadCard;
+		goto error;
+	}
+	responseByte=spiReadByte(); // read data byte  1 [112:119]
+	responseByte=spiReadByte(); // read data byte  2 [104:111]
+	responseByte=spiReadByte(); // read data byte  3 [ 96:103]
+	responseByte=spiReadByte(); // read data byte  4 [ 88: 95]
+	responseByte=spiReadByte(); // read data byte  5 [ 80: 87]
+	uint8_t readBlockLenBits=(responseByte&0x0F);
+	if (readBlockLenBits!=SdBlockSizeBits) {
+		kernelLog(LogTypeWarning, kstrP("sdInit failed: CSD bad block len bits %u (powerPin=%u, slaveSelectPin=%u)\n"), readBlockLenBits, powerPin, slaveSelectPin);
+		result=SdInitResultBadCard;
+		goto error;
+	}
+	responseByte=spiReadByte(); // read data byte  6 [ 72: 79]
+	responseByte=spiReadByte(); // read data byte  7 [ 64: 71]
+	uint32_t csdVersion2CSize=0;
+	csdVersion2CSize|=(((uint32_t)(responseByte&0x3F))<<16);
+	responseByte=spiReadByte(); // read data byte  8 [ 56: 63]
+	csdVersion2CSize|=(((uint32_t)responseByte)<<8);
+	responseByte=spiReadByte(); // read data byte  9 [ 48: 55]
+	csdVersion2CSize|=(((uint32_t)responseByte)<<0);
+	responseByte=spiReadByte(); // read data byte 10 [ 40: 47]
+	responseByte=spiReadByte(); // read data byte 11 [ 32: 39]
+	responseByte=spiReadByte(); // read data byte 12 [ 24: 31]
+	responseByte=spiReadByte(); // read data byte 13 [ 16: 23]
+	responseByte=spiReadByte(); // read data byte 14 [  8: 15]
+	responseByte=spiReadByte(); // read data byte 15 [  0:  7]
+
+	uint32_t csdVersion2CSizeMax=(((uint32_t)1u)<<(32-10))-1;
+	if (csdVersion2CSize>=csdVersion2CSizeMax) {
+		kernelLog(LogTypeWarning, kstrP("sdInit: csize too large, reducing from %lu to %lu\n"), csdVersion2CSize, csdVersion2CSizeMax-1);
+		csdVersion2CSize=csdVersion2CSizeMax-1;
+	}
+
+	card->blockCount=(csdVersion2CSize+1)*1024;
+
+	spiReadByte(); // read (and ignore) two CRC bytes
+	spiReadByte();
+
+	sdWriteDummyBytes();
+
 	// Release slave select and lock
 	pinWrite(slaveSelectPin, true);
 	kernelSpiReleaseLock();
@@ -199,6 +275,12 @@ void sdQuit(SdCard *card) {
 
 bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data) {
 	uint8_t responseByte;
+
+	// Bad block?
+	if (block>=card->blockCount) {
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad block (block=%u, count=%u)\n"), block, card->blockCount);
+		return false;
+	}
 
 	// Attempt to grab SPI bus lock
 	if (!kernelSpiGrabLockNoSlaveSelect()) {
@@ -262,6 +344,12 @@ bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data) {
 
 bool sdWriteBlock(SdCard *card, uint32_t block, const uint8_t *data) {
 	uint8_t responseByte;
+
+	// Bad block?
+	if (block>=card->blockCount) {
+		kernelLog(LogTypeWarning, kstrP("sdWriteBlock failed: bad block (block=%u, count=%u)\n"), block, card->blockCount);
+		return false;
+	}
 
 	// Attempt to grab SPI bus lock
 	if (!kernelSpiGrabLockNoSlaveSelect()) {
