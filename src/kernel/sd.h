@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define SdBlockSize 512
+#define SdBlockSizeBits 9
+#define SdBlockSize (1<<SdBlockSizeBits) // =512
 
 typedef enum {
 	SdInitResultOk,
