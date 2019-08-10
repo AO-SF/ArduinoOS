@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <stdarg.h>
 
 #include "kernel.h"
@@ -246,7 +247,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 
 	uint32_t csdVersion2CSizeMax=(((uint32_t)1u)<<(32-10))-1;
 	if (csdVersion2CSize>=csdVersion2CSizeMax) {
-		kernelLog(LogTypeWarning, kstrP("sdInit: csize too large, reducing from %lu to %lu\n"), csdVersion2CSize, csdVersion2CSizeMax-1);
+		kernelLog(LogTypeWarning, kstrP("sdInit: csize too large, reducing from %"PRIu32" to %"PRIu32"\n"), csdVersion2CSize, csdVersion2CSizeMax-1);
 		csdVersion2CSize=csdVersion2CSizeMax-1;
 	}
 
@@ -289,13 +290,13 @@ bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data) {
 
 	// Bad block?
 	if (block>=card->blockCount) {
-		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad block (block=%u, count=%u)\n"), block, card->blockCount);
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad block (block=%"PRIu32", count=%"PRIu32")\n"), block, card->blockCount);
 		return false;
 	}
 
 	// Attempt to grab SPI bus lock
 	if (!kernelSpiGrabLockNoSlaveSelect()) {
-		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: could not grab SPI bus lock (block=%u)\n"), block);
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: could not grab SPI bus lock (block=%"PRIu32")\n"), block);
 		return false;
 	}
 
@@ -315,14 +316,14 @@ bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data) {
 	spiWriteByte(0x01);
 	responseByte=sdWaitForResponse(16);
 	if (responseByte!=0x00) {
-		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 R1 response 0x%02X (block=%u)\n"), responseByte, block);
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 R1 response 0x%02X (block=%"PRIu32")\n"), responseByte, block);
 		goto error;
 	}
 
 	// Read data token byte
 	responseByte=sdWaitForResponse(1024);
 	if (responseByte!=0xFE) {
-		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 data token byte 0x%02X (block=%u)\n"), responseByte, block);
+		kernelLog(LogTypeWarning, kstrP("sdReadBlock failed: bad CMD17 data token byte 0x%02X (block=%"PRIu32")\n"), responseByte, block);
 		goto error;
 	}
 
@@ -342,7 +343,7 @@ bool sdReadBlock(SdCard *card, uint32_t block, uint8_t *data) {
 	kernelSpiReleaseLock();
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("sdReadBlock success (block=%u)\n"), block);
+	kernelLog(LogTypeInfo, kstrP("sdReadBlock success (block=%"PRIu32")\n"), block);
 
 	return true;
 
@@ -357,13 +358,13 @@ bool sdWriteBlock(SdCard *card, uint32_t block, const uint8_t *data) {
 
 	// Bad block?
 	if (block>=card->blockCount) {
-		kernelLog(LogTypeWarning, kstrP("sdWriteBlock failed: bad block (block=%u, count=%u)\n"), block, card->blockCount);
+		kernelLog(LogTypeWarning, kstrP("sdWriteBlock failed: bad block (block=%"PRIu32", count=%"PRIu32")\n"), block, card->blockCount);
 		return false;
 	}
 
 	// Attempt to grab SPI bus lock
 	if (!kernelSpiGrabLockNoSlaveSelect()) {
-		kernelLog(LogTypeWarning, kstrP("sdWriteBlock failed: could not grab SPI bus lock (block=%u)\n"), block);
+		kernelLog(LogTypeWarning, kstrP("sdWriteBlock failed: could not grab SPI bus lock (block=%"PRIu32")\n"), block);
 		return false;
 	}
 
@@ -383,7 +384,7 @@ bool sdWriteBlock(SdCard *card, uint32_t block, const uint8_t *data) {
 	spiWriteByte(0x01);
 	responseByte=sdWaitForResponse(16);
 	if (responseByte!=0x00) {
-		kernelLog(LogTypeWarning, kstrP("sdWriteBlock failed: bad CMD24 R1 response 0x%02X (block=%u)\n"), responseByte, block);
+		kernelLog(LogTypeWarning, kstrP("sdWriteBlock failed: bad CMD24 R1 response 0x%02X (block=%"PRIu32")\n"), responseByte, block);
 		goto error;
 	}
 
@@ -409,7 +410,7 @@ bool sdWriteBlock(SdCard *card, uint32_t block, const uint8_t *data) {
 	kernelSpiReleaseLock();
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("sdWriteBlock success (block=%u)\n"), block);
+	kernelLog(LogTypeInfo, kstrP("sdWriteBlock success (block=%"PRIu32")\n"), block);
 
 	return true;
 

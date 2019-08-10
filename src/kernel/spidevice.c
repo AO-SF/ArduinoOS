@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <string.h>
 
 #include "kernelfs.h"
@@ -172,13 +173,13 @@ bool spiDeviceSdCardReaderMount(SpiDeviceId id, const char *mountPoint) {
 
 	KernelFsFileOffset size=spiDevices[id].d.sdCardReader.sdCard.blockCount;
 	if (size>=maxBlockCount) {
-		kernelLog(LogTypeWarning, kstrP("SPI device SD card reader mount: block count too large, reducing from %lu to %lu (id=%u, mountPoint='%s')\n"), size, maxBlockCount-1, id, mountPoint);
+		kernelLog(LogTypeWarning, kstrP("SPI device SD card reader mount: block count too large, reducing from %"PRIu32" to %"PRIu32" (id=%u, mountPoint='%s')\n"), size, maxBlockCount-1, id, mountPoint);
 		size=maxBlockCount-1;
 	}
 	size*=SdBlockSize;
 
 	if (!kernelFsAddBlockDeviceFile(kstrC(mountPoint), KernelFsBlockDeviceFormatFlatFile, size, &spiDeviceSdCardReaderReadFunctor, &spiDeviceSdCardReaderWriteFunctor, (void *)(uintptr_t)id)) {
-		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: could not add block device to VFS (id=%u, mountPoint='%s', size=%u)\n"), id, mountPoint, size);
+		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: could not add block device to VFS (id=%u, mountPoint='%s', size=%"PRIu32")\n"), id, mountPoint, size);
 		sdQuit(&spiDevices[id].d.sdCardReader.sdCard);
 		return false;
 	}
@@ -187,7 +188,7 @@ bool spiDeviceSdCardReaderMount(SpiDeviceId id, const char *mountPoint) {
 	spiDevices[id].d.sdCardReader.mountPoint=kstrC(mountPoint);
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount success (id=%u, mountPoint='%s', size=%u)\n"), id, mountPoint, size);
+	kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount success (id=%u, mountPoint='%s', size=%"PRIu32")\n"), id, mountPoint, size);
 
 	return true;
 }
@@ -211,7 +212,7 @@ void spiDeviceSdCardReaderUnmount(SpiDeviceId id) {
 
 	// Write out cached block if valid but dirty
 	if (spiDevices[id].d.sdCardReader.cacheIsValid && spiDevices[id].d.sdCardReader.cacheIsDirty && !sdWriteBlock(&spiDevices[id].d.sdCardReader.sdCard, spiDevices[id].d.sdCardReader.cacheBlock, spiDevices[id].d.sdCardReader.cache))
-		kernelLog(LogTypeWarning, kstrP("SPI device SD card reader unmount: failed to write back dirty block %u (id=%u, mountPoint='%s')\n"), spiDevices[id].d.sdCardReader.cacheBlock, id, mountPoint);
+		kernelLog(LogTypeWarning, kstrP("SPI device SD card reader unmount: failed to write back dirty block %"PRIu32" (id=%u, mountPoint='%s')\n"), spiDevices[id].d.sdCardReader.cacheBlock, id, mountPoint);
 
 	// Write to log
 	kernelLog(LogTypeInfo, kstrP("SPI device SD card reader unmount (id=%u, mountPoint='%s')\n"), id, mountPoint);

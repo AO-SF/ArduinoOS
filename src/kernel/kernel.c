@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -583,12 +584,12 @@ KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8
 	return len;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, kstrP("could not seek to addr %u in generic EEPROM read functor (offset=%u)\n"), addr, offset);
+		kernelLog(LogTypeWarning, kstrP("could not seek to addr %"PRIu32" in generic EEPROM read functor (offset=%u)\n"), addr, offset);
 		return 0;
 	}
 	KernelFsFileOffset result=fread(data, 1, len, kernelFakeEepromFile);
 	if (result!=len)
-		kernelLog(LogTypeWarning, kstrP("could not read at addr %u in generic EEPROM read functor (offset=%u, result=%u)\n"), addr, offset, result);
+		kernelLog(LogTypeWarning, kstrP("could not read at addr %"PRIu32" in generic EEPROM read functor (offset=%u, result=%u)\n"), addr, offset, result);
 	return result;
 #endif
 }
@@ -606,12 +607,12 @@ KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, cons
 	return len;
 #else
 	if (fseek(kernelFakeEepromFile, addr, SEEK_SET)!=0 || ftell(kernelFakeEepromFile)!=addr) {
-		kernelLog(LogTypeWarning, kstrP("could not seek to addr %u in /dev/eeprom write functor (offset=%i)\n"), addr, offset);
+		kernelLog(LogTypeWarning, kstrP("could not seek to addr %"PRIu32" in /dev/eeprom write functor (offset=%i)\n"), addr, offset);
 		return 0;
 	}
 	KernelFsFileOffset result=fwrite(data, 1, len, kernelFakeEepromFile);
 	if (result!=len)
-		kernelLog(LogTypeWarning, kstrP("could not write to addr %u in /dev/eeprom write functor (offset=%i,result=%i)\n"), addr, offset, result);
+		kernelLog(LogTypeWarning, kstrP("could not write to addr %"PRIu32" in /dev/eeprom write functor (offset=%i,result=%i)\n"), addr, offset, result);
 	return result;
 #endif
 }

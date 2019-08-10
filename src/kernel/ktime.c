@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdlib.h>
 #ifdef ARDUINO
 #include <avr/interrupt.h>
@@ -57,11 +58,7 @@ void ktimeInit(void) {
 #endif
 
 	ktimeBootTime=ktimeGetMsRaw();
-	#ifdef ARDUINO
-	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %u\n"), ktimeBootTime);
-	#else
-	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %lu\n"), ktimeBootTime);
-	#endif
+	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %"PRIu32"\n"), ktimeBootTime);
 }
 
 uint32_t ktimeGetMs(void) {
