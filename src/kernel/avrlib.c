@@ -47,33 +47,71 @@ int16_t vfprintf_PF(FILE *stream, uint_farptr_t format, va_list ap) {
 					break;
 			}
 
+			bool longFlag=false;
+			if (byte=='l') {
+				longFlag=true;
+				byte=pgm_read_byte_far(++format);
+				if (byte=='\0')
+					break;
+			}
+
 			if (byte=='u') {
-				if (padZero)
-					sprintf(vfprintf_PFFormatStr, "%%0%uu", padLen);
-				else
-					sprintf(vfprintf_PFFormatStr, "%%%uu", padLen);
-				uint16_t val=va_arg(ap, uint16_t);
-				int16_t subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				int16_t subRes;
+				if (longFlag) {
+					if (padZero)
+						sprintf(vfprintf_PFFormatStr, "%%0%ulu", padLen);
+					else
+						sprintf(vfprintf_PFFormatStr, "%%%ulu", padLen);
+					uint32_t val=va_arg(ap, uint32_t);
+					subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				} else {
+					if (padZero)
+						sprintf(vfprintf_PFFormatStr, "%%0%uu", padLen);
+					else
+						sprintf(vfprintf_PFFormatStr, "%%%uu", padLen);
+					uint16_t val=va_arg(ap, uint16_t);
+					subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				}
 				if (subRes<0)
 					break;
 				written+=subRes;
 			} else if (byte=='i') {
-				if (padZero)
-					sprintf(vfprintf_PFFormatStr, "%%0%ui", padLen);
-				else
-					sprintf(vfprintf_PFFormatStr, "%%%ui", padLen);
-				uint16_t val=va_arg(ap, uint16_t);
-				int16_t subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				int16_t subRes;
+				if (longFlag) {
+					if (padZero)
+						sprintf(vfprintf_PFFormatStr, "%%0%uli", padLen);
+					else
+						sprintf(vfprintf_PFFormatStr, "%%%uli", padLen);
+					uint32_t val=va_arg(ap, uint32_t);
+					subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				} else {
+					if (padZero)
+						sprintf(vfprintf_PFFormatStr, "%%0%ui", padLen);
+					else
+						sprintf(vfprintf_PFFormatStr, "%%%ui", padLen);
+					uint16_t val=va_arg(ap, uint16_t);
+					subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				}
 				if (subRes<0)
 					break;
 				written+=subRes;
 			} else if (byte=='X') {
-				if (padZero)
-					sprintf(vfprintf_PFFormatStr, "%%0%uX", padLen);
-				else
-					sprintf(vfprintf_PFFormatStr, "%%%uX", padLen);
-				uint16_t val=va_arg(ap, uint16_t);
-				int16_t subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				int16_t subRes;
+				if (longFlag) {
+					if (padZero)
+						sprintf(vfprintf_PFFormatStr, "%%0%ulX", padLen);
+					else
+						sprintf(vfprintf_PFFormatStr, "%%%ulX", padLen);
+					uint32_t val=va_arg(ap, uint32_t);
+					subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				} else {
+					if (padZero)
+						sprintf(vfprintf_PFFormatStr, "%%0%uX", padLen);
+					else
+						sprintf(vfprintf_PFFormatStr, "%%%uX", padLen);
+					uint16_t val=va_arg(ap, uint16_t);
+					subRes=fprintf(stream, vfprintf_PFFormatStr, val);
+				}
 				if (subRes<0)
 					break;
 				written+=subRes;
