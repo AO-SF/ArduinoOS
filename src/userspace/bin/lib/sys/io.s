@@ -1,1 +1,1 @@
-const PathMax 32
+const PathMax 64

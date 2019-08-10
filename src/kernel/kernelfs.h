@@ -18,7 +18,7 @@ typedef uint8_t KernelFsFd; // file-descriptor
 #define KernelFsFdInvalid 0
 #define KernelFsFdMax 64
 
-#define KernelFsPathMax 32
+#define KernelFsPathMax 64
 
 typedef int16_t (KernelFsCharacterDeviceReadFunctor)(void *userData); // read and return a single character, or -1 on failure
 typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData); // returns true if a read would not block

@@ -27,8 +27,8 @@
 
 #define ProcManSignalHandlerInvalid 0
 
-#define ProcManArgLenMax 32
-#define ProcManEnvVarPathMax 64
+#define ProcManArgLenMax 64
+#define ProcManEnvVarPathMax 128
 
 typedef enum {
 	ProcManProcessStateUnused,
