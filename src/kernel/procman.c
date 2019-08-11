@@ -29,6 +29,7 @@
 
 #define ProcManArgLenMax 64
 #define ProcManEnvVarPathMax 128
+#define ProcManMaxFds 8 // maximum amount of open files a single process can have
 
 typedef enum {
 	ProcManProcessStateUnused,
@@ -47,6 +48,7 @@ struct ProcManProcessProcData {
 	uint16_t ramLen;
 	uint8_t envVarDataLen;
 	uint8_t ramFd;
+	KernelFsFd fds[ProcManMaxFds];
 
 	// Environment variables
 	KernelFsFd stdinFd; // set to KernelFsFdInvalid when init is called
@@ -285,6 +287,8 @@ ProcManPid procManProcessNew(const char *programPath) {
 	for(BytecodeSignalId i=0; i<BytecodeSignalIdNB; ++i)
 		procData.signalHandlers[i]=ProcManSignalHandlerInvalid;
 	procData.stdinFd=KernelFsFdInvalid;
+	for(unsigned i=0; i<ProcManMaxFds; ++i)
+		procData.fds[i]=KernelFsFdInvalid;
 	procData.stdoutFd=KernelFsFdInvalid;
 	procData.envVarDataLen=envVarDataLen;
 	procData.ramLen=0;
@@ -340,7 +344,38 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 		return;
 	}
 
-	// Close files, deleting tmp ones
+	// Attempt to get/load proc data, but note this is not critical (after all, we may be here precisely because we could not read the proc data file).
+	const ProcManProcessProcData *procData=NULL;
+	ProcManProcessProcData procDataRaw;
+	if (procDataGiven!=NULL)
+		procData=procDataGiven;
+	else if (procManProcessLoadProcData(process, &procDataRaw))
+		procData=&procDataRaw;
+
+	// Close files left open by process
+	if (procData!=NULL)
+		for(unsigned i=0; i<ProcManMaxFds; ++i)
+			// Have we found a file left unclosed?
+			if (procData->fds[i]!=KernelFsFdInvalid) {
+				// Check file is actually open according to the VFS
+				KStr pathKStr=kernelFsGetFilePath(procData->fds[i]);
+				if (kstrIsNull(pathKStr)) {
+					kernelLog(LogTypeWarning, kstrP("killing process %u - tried to close fd=%u from fds table (index %u), but not open\n"), pid, procData->fds[i], i);
+				} else {
+					// Write to log
+					kstrStrcpy(procManScratchBuf256, pathKStr);
+					kernelLog(LogTypeWarning, kstrP("killing process %u - closing open file '%s', fd=%u, fdsindex=%u\n"), pid, procManScratchBuf256, procData->fds[i], i);
+
+					// If we are dealing with the serial file, remove from 'reader pid' array.
+					if (strcmp(procManScratchBuf256, "/dev/ttyS0")==0)
+						kernelReaderPidRemove(pid);
+
+					// Close file
+					kernelFsFileClose(procData->fds[i]);
+				}
+			}
+
+	// Close proc and ram files, deleting tmp ones
 	KernelFsFd progmemFd=process->progmemFd;
 	if (progmemFd!=KernelFsFdInvalid) {
 		// progmemFd may be shared so check if anyone else is still using this one before closing it
@@ -1368,6 +1403,19 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdOpen: {
+			// Ensure process has a spare slot in the fds table
+			unsigned fdsIndex;
+			for(fdsIndex=0; fdsIndex<ProcManMaxFds; ++fdsIndex)
+				if (procData->fds[fdsIndex]==KernelFsFdInvalid)
+					break;
+
+			if (fdsIndex==ProcManMaxFds) {
+				kernelLog(LogTypeWarning, kstrP("failed during open syscall, fds table full, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				procData->regs[0]=KernelFsFdInvalid;
+				return true;
+			}
+
+			// Read path from user space
 			char path[KernelFsPathMax];
 			if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], path, KernelFsPathMax)) {
 				kernelLog(LogTypeWarning, kstrP("failed during open syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
@@ -1375,23 +1423,59 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			kernelFsPathNormalise(path);
 
-			if (strcmp(path, "/dev/ttyS0")==0 && !kernelReaderPidCanAdd())
+			// If we are dealing with the serial file, make sure we can add to the 'reader pid' array (see kernelReaderPidArray definition in kernel.c).
+			if (strcmp(path, "/dev/ttyS0")==0 && !kernelReaderPidCanAdd()) {
+				kernelLog(LogTypeWarning, kstrP("failed during open syscall, reader pid array full, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=KernelFsFdInvalid;
-			else
-				procData->regs[0]=kernelFsFileOpen(path);
+				return true;
+			}
 
+			// Attempt to open file (and if successful add to fds table)
+			procData->regs[0]=kernelFsFileOpen(path);
+			procData->fds[fdsIndex]=procData->regs[0];
+
+			// If we were successful and are dealing with the serial file, add to 'reader pid' array.
 			if (procData->regs[0]!=KernelFsFdInvalid && strcmp(path, "/dev/ttyS0")==0)
 				kernelReaderPidAdd(procManGetPidFromProcess(process));
 
-			return true;
-		} break;
-		case BytecodeSyscallIdClose:
-			if (kstrStrcmp("/dev/ttyS0", kernelFsGetFilePath(procData->regs[1]))==0)
-				kernelReaderPidRemove(procManGetPidFromProcess(process));
-			kernelFsFileClose(procData->regs[1]);
+			// Write to log
+			kernelLog(LogTypeInfo, kstrP("open syscall: path='%s' fd=%u, fdsindex=%u, process %u (%s)\n"), path, procData->regs[0], fdsIndex, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 
 			return true;
-		break;
+		} break;
+		case BytecodeSyscallIdClose: {
+			// If we are dealing with the serial file, remove from 'reader pid' array.
+			if (kstrStrcmp("/dev/ttyS0", kernelFsGetFilePath(procData->regs[1]))==0)
+				kernelReaderPidRemove(procManGetPidFromProcess(process));
+
+			// Grab path first for logging, before we close the file and lose it.
+			KStr pathKStr=kernelFsGetFilePath(procData->regs[1]);
+			char path[KernelFsPathMax];
+			kstrStrcpy(path, pathKStr);
+
+			// Close file
+			kernelFsFileClose(procData->regs[1]);
+
+			// Write to log
+			if (kstrIsNull(pathKStr))
+				kernelLog(LogTypeInfo, kstrP("close syscall: fd=%u, nopath, process %u (%s)\n"), procData->regs[1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			else
+				kernelLog(LogTypeInfo, kstrP("close syscall: fd=%u, path='%s', process %u (%s)\n"), procData->regs[1], path, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+
+			// Remove from fds table.
+			// Note: we remove exactly one occurence to match open syscall.
+			unsigned i;
+			for(i=0; i<ProcManMaxFds; ++i)
+				if (procData->fds[i]==procData->regs[1]) {
+					procData->fds[i]=KernelFsFdInvalid;
+					kernelLog(LogTypeInfo, kstrP("close syscall: clearing fdsindex=%u (fd=%u), process %u (%s)\n"), i, procData->regs[1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					break;
+				}
+			if (i==ProcManMaxFds)
+				kernelLog(LogTypeWarning, kstrP("close syscall, fd %u not found in process fds table, process %u (%s)\n"), procData->regs[1] ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+
+			return true;
+		} break;
 		case BytecodeSyscallIdDirGetChildN: {
 			KernelFsFd fd=procData->regs[1];
 			BytecodeWord childNum=procData->regs[2];
@@ -1943,11 +2027,16 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	// Initialise proc file
 	KernelFsFd savedFd=procData->ramFd;
 	BytecodeWord savedR0=procData->regs[0];
+	memcpy(procManScratchBuf256, procData->fds, sizeof(procData->fds));
+
 	procData->ramFd=childRamFd;
 	procData->regs[0]=0; // indicate success in the child
+	for(unsigned i=0; i<ProcManMaxFds; ++i)
+		procData->fds[i]=KernelFsFdInvalid;
 	bool storeRes=procManProcessStoreProcData(child, procData);
 	procData->ramFd=savedFd;
 	procData->regs[0]=savedR0;
+	memcpy(procData->fds, procManScratchBuf256, sizeof(procData->fds));
 	if (!storeRes) {
 		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not save child process data file to '%s'\n"), parentPid, childProcPath);
 		goto error;
