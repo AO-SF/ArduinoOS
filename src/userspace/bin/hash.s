@@ -11,6 +11,9 @@ ab pathBuf PathMax
 ab fd 1
 aw hash 1
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Loop over args in turn
 mov r0 1 ; 0 is program name
 label loopstart

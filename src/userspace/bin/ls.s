@@ -12,6 +12,9 @@ ab queryDir PathMax
 ab queryDirFd 1
 ab queryDirLen 1
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Check for argument, otherwise use pwd
 mov r0 SyscallIdArgvN
 mov r1 1

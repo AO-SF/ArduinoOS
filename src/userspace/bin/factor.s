@@ -8,6 +8,9 @@ requireend lib/std/str/strtoint.s
 db separator ': ', 0
 ab argBuf ArgLenMax
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Loop over args in turn
 mov r0 1 ; 0 is program name
 label loopstart

@@ -17,6 +17,9 @@ ab destFd 1
 
 ab cpScratchBuf PathMax
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Get source and dest arguments
 mov r0 SyscallIdArgvN
 mov r1 1

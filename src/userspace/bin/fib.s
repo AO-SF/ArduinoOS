@@ -2,6 +2,9 @@ requireend lib/std/io/fput.s
 requireend lib/std/io/fputdec.s
 requireend lib/std/proc/exit.s
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Init sequence
 mov r4 0 ; r4 is the lower of the two current values
 mov r5 1 ; r5 is the higher

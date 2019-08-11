@@ -9,6 +9,9 @@ db typeStrRaw 'raw',0
 db typeStrSdCardReader 'SD card reader',0
 db typeStrUnknown 'unknown',0
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Loop over all devices
 mov r1 0
 label loopstart

@@ -9,6 +9,9 @@ requireend lib/std/str/strlen.s
 db rootPath '/', 0
 ab pathBuf PathMax
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Copy root path into path buffer
 mov r0 pathBuf
 mov r1 rootPath

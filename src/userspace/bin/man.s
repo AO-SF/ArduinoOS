@@ -19,6 +19,9 @@ ab pageArgBuf ArgLenMax
 
 ab pathBuf ArgLenMax
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Get args
 mov r0 SyscallIdArgvN
 mov r1 1

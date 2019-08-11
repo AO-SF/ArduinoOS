@@ -16,6 +16,9 @@ ab psPidScratchBuf PathMax
 
 ab psPidInt32 4
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Print header
 mov r0 header
 call puts0

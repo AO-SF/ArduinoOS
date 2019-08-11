@@ -5,6 +5,9 @@ requireend lib/std/proc/exit.s
 
 ab buf ArgLenMax
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Get argc
 mov r0 SyscallIdArgc
 syscall

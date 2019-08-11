@@ -6,6 +6,9 @@ requireend lib/std/str/strcpy.s
 db standardMsg 'y', 0
 ab argBuf ArgLenMax
 
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
+
 ; Grab argument
 mov r0 SyscallIdArgvN
 mov r1 1
