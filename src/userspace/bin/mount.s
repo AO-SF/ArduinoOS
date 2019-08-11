@@ -5,10 +5,6 @@ requireend lib/std/proc/exit.s
 requireend lib/std/proc/getpath.s
 requireend lib/std/str/strequal.s
 
-const typeIdCustomMiniFs 0
-const typeIdFlatFile 1
-const typeIdFat 2
-
 db typeStrCustomMiniFs 'customminifs',0
 db typeStrFlatFile 'flatfile',0
 db typeStrFat 'fat',0
@@ -58,19 +54,19 @@ call exit
 
 label foundTypeCustomMiniFs
 mov r0 typeId
-mov r1 typeIdCustomMiniFs
+mov r1 SyscallMountFormatCustomMiniFs
 store16 r0 r1
 jmp gottypearg
 
 label foundTypeFlatFile
 mov r0 typeId
-mov r1 typeIdFlatFile
+mov r1 SyscallMountFormatFlatFile
 store16 r0 r1
 jmp gottypearg
 
 label foundTypeFat
 mov r0 typeId
-mov r1 typeIdFat
+mov r1 SyscallMountFormatFat
 store16 r0 r1
 jmp gottypearg
 
