@@ -7,9 +7,11 @@ requireend lib/std/str/strequal.s
 
 const typeIdCustomMiniFs 0
 const typeIdFlatFile 1
+const typeIdFat 2
 
 db typeStrCustomMiniFs 'customminifs',0
 db typeStrFlatFile 'flatfile',0
+db typeStrFat 'fat',0
 
 db badTypeErrorStr 'bad type argument\n',0
 db usageErrorStr 'usage: mount type device dir\n',0
@@ -42,6 +44,13 @@ cmp r0 r0 r0
 skipeqz r0
 jmp foundTypeFlatFile
 
+mov r0 typeArg
+mov r1 typeStrFat
+call strequal
+cmp r0 r0 r0
+skipeqz r0
+jmp foundTypeFat
+
 mov r0 badTypeErrorStr
 call puts0
 mov r0 1
@@ -56,6 +65,12 @@ jmp gottypearg
 label foundTypeFlatFile
 mov r0 typeId
 mov r1 typeIdFlatFile
+store16 r0 r1
+jmp gottypearg
+
+label foundTypeFat
+mov r0 typeId
+mov r1 typeIdFat
 store16 r0 r1
 jmp gottypearg
 
