@@ -362,7 +362,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 				} else {
 					// Write to log
 					kstrStrcpy(procManScratchBuf256, pathKStr);
-					kernelLog(LogTypeWarning, kstrP("killing process %u - closing open file '%s', fd=%u, fdsindex=%u\n"), pid, procManScratchBuf256, procData->fds[i], i);
+					kernelLog(LogTypeInfo, kstrP("killing process %u - closing open file '%s', fd=%u, fdsindex=%u\n"), pid, procManScratchBuf256, procData->fds[i], i);
 
 					// Close file
 					kernelFsFileClose(procData->fds[i]);
