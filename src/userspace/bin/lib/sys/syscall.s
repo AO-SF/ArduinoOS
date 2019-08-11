@@ -66,3 +66,7 @@ const SyscallWaitpidStatusTimeout 65535
 
 ; SPI device constants
 const SyscallSpiDeviceIdMax 2
+
+; Mount type/format constants
+const SyscallMountFormatCustomMiniFs 0
+const SyscallMountFormatFlatFile 1
