@@ -48,6 +48,7 @@ cp ./src/userspace/bin/shutdown.sh ./tmp/mockups/etcmockup/shutdown
 echo "	Creating /home mockup..."
 ./bin/assembler ./src/userspace/bin/fib.s ./tmp/mockups/homemockup/fib
 cp ./src/userspace/home/* ./tmp/mockups/homemockup
+./bin/assembler ./src/userspace/bin/helloworld.s ./tmp/mockups/homemockup/helloworld
 ./bin/assembler ./src/userspace/bin/tree.s ./tmp/mockups/homemockup/tree
 ./bin/assembler ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/assembler ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
