@@ -7,7 +7,7 @@ The userspace environment consists of various utilities, such as: ``sh`` - with 
 
 There are also a few tools (which run on a standard PC, not the Arduino) such as an assembler, a disassembler and an emulator. A compiler is also being developed at [AOSCompiler](https://github.com/AO-SF/AOSCompiler).
 
-# Documentation
+# Guides and Documentation
 See the [wiki](https://github.com/AO-SF/ArduinoOS/wiki/Home).
 
 # Compiling and Building
