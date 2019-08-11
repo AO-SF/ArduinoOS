@@ -320,7 +320,7 @@ void kernelShutdownNext(void) {
 		kernelLog(LogTypeInfo, kstrP("shutdown request, killing processes (except init) which did not commit suicide soon enough\n"));
 		for(ProcManPid pid=1; pid<ProcManPidMax; ++pid)
 			if (procManProcessExists(pid))
-				procManProcessKill(pid, ProcManExitStatusKilled);
+				procManProcessKill(pid, ProcManExitStatusKilled, NULL);
 	} else
 		kernelLog(LogTypeInfo, kstrP("shutdown request, all processes (except init) committed suicide soon enough\n"));
 

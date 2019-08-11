@@ -327,10 +327,10 @@ ProcManPid procManProcessNew(const char *programPath) {
 void procManKillAll(void) {
 	for(ProcManPid i=0; i<ProcManPidMax; ++i)
 		if (procManGetProcessByPid(i)!=NULL)
-			procManProcessKill(i, ProcManExitStatusKilled);
+			procManProcessKill(i, ProcManExitStatusKilled, NULL);
 }
 
-void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
+void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const ProcManProcessProcData *procDataGiven) {
 	kernelLog(LogTypeInfo, kstrP("attempting to kill process %u with exit status %u\n"), pid, exitStatus);
 
 	// Not even open?
@@ -399,6 +399,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus) {
 
 void procManProcessTick(ProcManPid pid) {
 	ProcManExitStatus exitStatus=ProcManExitStatusKilled;
+	bool procDataLoaded=false;
 
 	// Find process from PID
 	ProcManProcess *process=procManGetProcessByPid(pid);
@@ -459,6 +460,8 @@ void procManProcessTick(ProcManPid pid) {
 		break;
 	}
 
+	procDataLoaded=true;
+
 	// Run a few instructions
 	ProcManPrefetchData prefetchData;
 	procManPrefetchDataClear(&prefetchData);
@@ -495,7 +498,7 @@ void procManProcessTick(ProcManPid pid) {
 	return;
 
 	kill:
-	procManProcessKill(pid, exitStatus);
+	procManProcessKill(pid, exitStatus, (procDataLoaded ? &procData : NULL));
 }
 
 void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId) {
@@ -1288,7 +1291,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			ProcManPid pid=procData->regs[1];
 			kernelLog(LogTypeInfo, kstrP("process %u - kill syscall directed at %u\n"), procManGetPidFromProcess(process), pid);
 			if (pid!=0) // do not allow killing init
-				procManProcessKill(pid, ProcManExitStatusKilled);
+				procManProcessKill(pid, ProcManExitStatusKilled, (pid==procManGetPidFromProcess(process) ? procData : NULL));
 
 			return true;
 		} break;
