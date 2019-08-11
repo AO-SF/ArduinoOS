@@ -60,6 +60,7 @@ echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/hash.s ./tmp/mockups/usrbinmockup/hash
 ./bin/assembler ./src/userspace/bin/hexdump.s ./tmp/mockups/usrbinmockup/hexdump
 ./bin/assembler ./src/userspace/bin/kloglevel.s ./tmp/mockups/usrbinmockup/kloglevel
+./bin/assembler ./src/userspace/bin/lsof.s ./tmp/mockups/usrbinmockup/lsof
 ./bin/assembler ./src/userspace/bin/man.s ./tmp/mockups/usrbinmockup/man
 ./bin/assembler ./src/userspace/bin/ps.s ./tmp/mockups/usrbinmockup/ps
 ./bin/assembler ./src/userspace/bin/reset.s ./tmp/mockups/usrbinmockup/reset

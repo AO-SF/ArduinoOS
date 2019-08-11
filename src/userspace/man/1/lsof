@@ -1,0 +1,19 @@
+LSOF(1) - User Commands
+
+NAME
+      lsof - show open files
+
+SYNOPSIS
+      lsof
+
+DESCRIPTION
+      Prints a list of files open per process.
+
+      Each file, that each process has open produces its own line of output which
+      is of the form: PID EXECPATH FD FDPATH
+
+      Example output:
+		00001 /bin/sh 00057 /dev/ttyS0
+		00001 /bin/sh 00056 /dev/ttyS0
+		00002 /home/blinkfast 00052 /dev/pin15
+
