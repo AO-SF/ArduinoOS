@@ -6,11 +6,8 @@ requireend lib/std/time/sleep.s
 
 ab argBuf ArgLenMax
 
-; Register suicide signal handler
-mov r0 SyscallIdRegisterSignalHandler
-mov r1 SignalIdSuicide
-mov r2 suicideHandler
-syscall
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
 
 ; grab first argument
 mov r0 SyscallIdArgvN
@@ -27,6 +24,5 @@ call strtoint
 call sleep
 
 ; exit
-label suicideHandler
 mov r0 0
 call exit

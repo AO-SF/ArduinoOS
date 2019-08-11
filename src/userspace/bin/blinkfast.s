@@ -9,20 +9,8 @@ db blinkFastOffByte 0
 
 ab blinkFastPinFd 1
 
-; jump past suicide handler (which must exist in first 256 bytes)
-jmp start
-
-; suicide handler - close pin fd and exit
-label suicideHandler
-mov r0 SyscallIdClose
-mov r1 blinkFastPinFd
-load8 r1 r1
-syscall
-mov r0 1
-call exit
-
-; progra start
-label start
+; Register simple suicide handler
+require lib/std/proc/suicidehandler.s
 
 ; open led pin device file
 mov r0 PinLed
@@ -34,12 +22,6 @@ jmp error
 ; save fd
 mov r1 blinkFastPinFd
 store8 r1 r0
-
-; Register suicide signal handler
-mov r0 SyscallIdRegisterSignalHandler
-mov r1 SignalIdSuicide
-mov r2 suicideHandler
-syscall
 
 ; set pin to output
 mov r0 blinkFastPinFd
