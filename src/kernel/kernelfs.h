@@ -27,10 +27,11 @@ typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(const uint8_t *
 typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatCustomMiniFs 0
 #define KernelFsBlockDeviceFormatFlatFile 1
-#define KernelFsBlockDeviceFormatNB 2
-#define KernelFsBlockDeviceFormatBits 1
+#define KernelFsBlockDeviceFormatFat 2
+#define KernelFsBlockDeviceFormatNB 3
+#define KernelFsBlockDeviceFormatBits 2
 
-typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData); // returns -1 on failure
+typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 typedef KernelFsFileOffset (KernelFsBlockDeviceWriteFunctor)(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -8,6 +8,7 @@
 #include <unistd.h>
 #endif
 
+#include "fat.h"
 #include "kernelfs.h"
 #include "log.h"
 #include "minifs.h"
@@ -24,7 +25,7 @@ typedef uint8_t KernelFsDeviceType;
 #define KernelFsDeviceTypeNB 3
 #define KernelFsDeviceTypeBits 2
 
-STATICASSERT(KernelFsDeviceTypeBits+1+KernelFsBlockDeviceFormatBits+4==8);
+STATICASSERT(KernelFsDeviceTypeBits+1+KernelFsBlockDeviceFormatBits+3==8);
 typedef struct {
 	KStr mountPoint;
 
@@ -33,7 +34,7 @@ typedef struct {
 	uint8_t type:KernelFsDeviceTypeBits; // type is KernelFsDeviceType
 	uint8_t characterCanOpenManyFlag:1;
 	uint8_t blockFormat:KernelFsBlockDeviceFormatBits; // type is KernelFsBlockDeviceFormat
-	uint8_t reserved:4;
+	uint8_t reserved:3;
 
 	// Type-specific data follows
 } KernelFsDeviceCommon;
@@ -72,6 +73,7 @@ KernelFsData kernelFsData;
 char kernelFsPathSplitStaticBuf[KernelFsPathMax];
 
 MiniFs kernelFsScratchMiniFs;
+Fat kernelFsScratchFat;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -89,6 +91,9 @@ bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
 
 uint16_t kernelFsMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
 uint16_t kernelFsMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
+
+uint32_t kernelFsFatReadWrapper(uint32_t addr, uint8_t *data, uint32_t len, void *userData);
+uint32_t kernelFsFatWriteWrapper(uint32_t addr, const uint8_t *data, uint32_t len, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -172,6 +177,11 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsBlockDeviceFormat forma
 		break;
 		case KernelFsBlockDeviceFormatFlatFile:
 		break;
+		case KernelFsBlockDeviceFormatFat:
+			if (!fatMountSafe(&kernelFsScratchFat, &kernelFsFatReadWrapper, (writeFunctor!=NULL ? &kernelFsFatWriteWrapper : NULL), device))
+				goto error;
+			fatUnmount(&kernelFsScratchFat);
+		break;
 		case KernelFsBlockDeviceFormatNB:
 			goto error;
 		break;
@@ -208,6 +218,10 @@ bool kernelFsFileExists(const char *path) {
 					break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
+						return false;
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -261,6 +275,10 @@ bool kernelFsFileIsDir(const char *path) {
 				case KernelFsBlockDeviceFormatFlatFile:
 					return false;
 				break;
+				case KernelFsBlockDeviceFormatFat:
+					// TODO: this for Fat file system support .....
+					return false;
+				break;
 				case KernelFsBlockDeviceFormatNB:
 					assert(false);
 					return false;
@@ -300,6 +318,10 @@ bool kernelFsFileIsDirEmpty(const char *path) {
 				break;
 				case KernelFsBlockDeviceFormatFlatFile:
 					// These are not directories
+					return false;
+				break;
+				case KernelFsBlockDeviceFormatFat:
+					// TODO: this for Fat file system support .....
 					return false;
 				break;
 				case KernelFsBlockDeviceFormatNB:
@@ -349,6 +371,10 @@ KernelFsFileOffset kernelFsFileGetLen(const char *path) {
 					case KernelFsBlockDeviceFormatFlatFile:
 						return device->block.size;
 					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
+						return 0;
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 						return 0;
@@ -384,6 +410,10 @@ KernelFsFileOffset kernelFsFileGetLen(const char *path) {
 					break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
+						return 0;
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
 						return 0;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -438,6 +468,10 @@ bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size) {
 						// These are not directories
 						return false;
 					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
+						return false;
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 					break;
@@ -481,6 +515,9 @@ bool kernelFsFileDelete(const char *path) {
 					break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// Nothing special to do
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -526,6 +563,10 @@ bool kernelFsFileDelete(const char *path) {
 					break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
+						return false;
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -586,6 +627,10 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
 					break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
+						return false;
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -671,6 +716,10 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 					case KernelFsBlockDeviceFormatFlatFile:
 						return device->block.readFunctor(offset, data, dataLen, device->common.userData);
 					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
+						return false;
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 						return 0;
@@ -720,6 +769,10 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 					} break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
+						return 0;
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
 						return 0;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -783,6 +836,10 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 
 						return device->block.writeFunctor(offset, data, dataLen, device->common.userData);
 					} break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
+						return 0;
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 						return 0;
@@ -823,6 +880,10 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 					} break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
+						return 0;
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
 						return 0;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -877,6 +938,10 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 					} break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
+						return false;
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -1023,6 +1088,10 @@ bool kernelFsFileCanOpenMany(const char *path) {
 					case KernelFsBlockDeviceFormatFlatFile:
 						return (device->block.writeFunctor==NULL);
 					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
+						return false;
+					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 					break;
@@ -1057,6 +1126,10 @@ bool kernelFsFileCanOpenMany(const char *path) {
 					break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
+						return false;
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -1184,7 +1257,33 @@ uint16_t kernelFsMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t
 	assert(device->block.format==KernelFsBlockDeviceFormatCustomMiniFs);
 
 	if (device->block.writeFunctor==NULL) {
-		// TODO: think about this
+		// Error as we should never have passed a write functor into mount call.
+		assert(false);
+		return 0;
+	}
+
+	return device->block.writeFunctor(addr, data, len, device->common.userData);
+}
+
+uint32_t kernelFsFatReadWrapper(uint32_t addr, uint8_t *data, uint32_t len, void *userData) {
+	assert(userData!=NULL);
+
+	KernelFsDevice *device=(KernelFsDevice *)userData;
+	assert(device->common.type==KernelFsDeviceTypeBlock);
+	assert(device->block.format==KernelFsBlockDeviceFormatFat);
+
+	return device->block.readFunctor(addr, data, len, device->common.userData);
+}
+
+uint32_t kernelFsFatWriteWrapper(uint32_t addr, const uint8_t *data, uint32_t len, void *userData) {
+	assert(userData!=NULL);
+
+	KernelFsDevice *device=(KernelFsDevice *)userData;
+	assert(device->common.type==KernelFsDeviceTypeBlock);
+	assert(device->block.format==KernelFsBlockDeviceFormatFat);
+
+	if (device->block.writeFunctor==NULL) {
+		// Error as we should never have passed a write functor into mount call.
 		assert(false);
 		return 0;
 	}
