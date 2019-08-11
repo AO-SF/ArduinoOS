@@ -83,6 +83,7 @@ KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, void *userData, KernelFsDeviceType type);
+void kernelFsRemoveDeviceFile(KernelFsDevice *device);
 
 bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
 
@@ -179,9 +180,7 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsBlockDeviceFormat forma
 	return true;
 
 	error:
-
-	// TODO: remove device if managed to add
-
+	kernelFsRemoveDeviceFile(device);
 	return false;
 }
 
@@ -1132,6 +1131,16 @@ KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, void *userData, KernelFsD
 	}
 
 	return NULL;
+}
+
+void kernelFsRemoveDeviceFile(KernelFsDevice *device) {
+	// Does this device file even exist?
+	if (device->common.type==KernelFsDeviceTypeNB)
+		return;
+
+	// Clear type and free memory
+	device->common.type=KernelFsDeviceTypeNB;
+	kstrFree(&device->common.mountPoint);
 }
 
 bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir) {
