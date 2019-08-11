@@ -40,7 +40,7 @@ typedef enum {
 
 #define ARGVMAX 4
 
-typedef struct {
+struct ProcManProcessProcData {
 	// Process data
 	BytecodeWord regs[BytecodeRegisterNB];
 	uint8_t signalHandlers[BytecodeSignalIdNB]; // pointers to functions to run on signals (restricted to first 256 bytes)
@@ -57,7 +57,7 @@ typedef struct {
 	uint8_t argv[ARGVMAX];
 	uint16_t pwd; // set to '/' when init is called
 	uint16_t path; // set to '/usr/games:/usr/bin:/bin:' when init is called
-} ProcManProcessProcData;
+};
 
 typedef struct {
 	uint16_t instructionCounter; // reset regularly
