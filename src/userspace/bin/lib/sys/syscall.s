@@ -12,6 +12,7 @@ const SyscallIdGetAllCpuCounts 9
 const SyscallIdKill 10
 const SyscallIdGetPidRam 11
 const SyscallIdSignal 12
+const SyscallIdGetPidFdN 13
 
 const SyscallIdRead 256
 const SyscallIdWrite 257

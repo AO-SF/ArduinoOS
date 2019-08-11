@@ -1354,6 +1354,31 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdGetPidFdN: {
+			// Grab arguments
+			ProcManPid pid=procData->regs[1];
+			BytecodeWord n=procData->regs[2];
+
+			// Bad pid or n?
+			if (pid>=ProcManPidMax || n>=ProcManMaxFds) {
+				procData->regs[0]=KernelFsFdInvalid;
+				return true;
+			}
+
+			// Load/copy open fds table
+			KernelFsFd fds[ProcManMaxFds];
+			if (pid==procManGetPidFromProcess(process))
+				memcpy(fds, procData->fds, sizeof(procData->fds));
+			else if (!procManProcessGetOpenFds(pid, fds)) {
+				procData->regs[0]=KernelFsFdInvalid;
+				return true;
+			}
+
+			// Read table at given index
+			procData->regs[0]=fds[n];
+
+			return true;
+		} break;
 		case BytecodeSyscallIdGetPidRam: {
 			BytecodeWord pid=procData->regs[1];
 			ProcManProcess *qProcess=procManGetProcessByPid(pid);
