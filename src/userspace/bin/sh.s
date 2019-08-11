@@ -177,27 +177,7 @@ store8 r1 r0
 call shellRunFd
 
 label finish
-; Close stdin/stdout (if we are handling)
-mov r0 handlingStdio
-load8 r0 r0
-cmp r0 r0 r0
-skipneqz r0
-jmp exitsuccess
-
-mov r0 SyscallIdEnvGetStdinFd
-syscall
-mov r1 r0
-mov r0 SyscallIdClose
-syscall
-
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
-mov r1 r0
-mov r0 SyscallIdClose
-syscall
-
 ; Exit (success)
-label exitsuccess
 mov r0 0
 call exit
 
