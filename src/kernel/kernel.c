@@ -65,10 +65,6 @@ volatile uint8_t kernelCtrlCWaiting=false;
 KernelFsFd kernelSpiLockFd=KernelFsFdInvalid;
 uint8_t kernelSpiSlaveSelectPin;
 
-// reader pid array stores pid of processes with /dev/ttyS0 open, used for ctrl+c propagation from host
-#define kernelReaderPidArrayMax 4
-ProcManPid kernelReaderPidArray[kernelReaderPidArrayMax];
-
 KernelState kernelState=KernelStateInvalid;
 uint32_t kernelStateTime=0;
 
@@ -181,7 +177,9 @@ int main(void) {
 		#ifndef ARDUINO
 		uint32_t t=ktimeGetMs();
 		#endif
+
 		procManTickAll();
+
 		#ifndef ARDUINO
 		t=ktimeGetMs()-t;
 		if (t<kernelTickMinTimeMs)
@@ -216,31 +214,6 @@ void kernelShutdownBegin(void) {
 
 KernelState kernelGetState(void) {
 	return kernelState;
-}
-
-bool kernelReaderPidCanAdd(void) {
-	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
-		if (kernelReaderPidArray[i]==ProcManPidMax)
-			return true;
-	return false;
-}
-
-bool kernelReaderPidAdd(ProcManPid pid) {
-	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
-		if (kernelReaderPidArray[i]==ProcManPidMax) {
-			kernelReaderPidArray[i]=pid;
-			return true;
-		}
-	return false;
-}
-
-bool kernelReaderPidRemove(ProcManPid pid) {
-	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
-		if (kernelReaderPidArray[i]==pid) {
-			kernelReaderPidArray[i]=ProcManPidMax;
-			return true;
-		}
-	return false;
 }
 
 bool kernelSpiGrabLock(uint8_t slaveSelectPin) {
@@ -365,10 +338,6 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, kstrP("booting\n"));
 
 	ktimeInit();
-
-	// Initialise reader PID array to indicate that no processes currently have /dev/ttyS0 open
-	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i)
-		kernelReaderPidArray[i]=ProcManPidMax;
 
 	// Initialise progmem data
 	commonProgmemInit();
@@ -801,20 +770,31 @@ void kernelCtrlCStart(void) {
 }
 
 void kernelCtrlCSend(void) {
+	// No ctrl-c since last check?
 	if (!kernelCtrlCWaiting)
 		return;
 
-	for(uint8_t i=0; i<kernelReaderPidArrayMax; ++i) {
-		if (kernelReaderPidArray[i]!=ProcManPidMax) {
-			// Avoid double-caling for a single process
-			uint8_t j;
-			for(j=0; j<i; ++j)
-				if (kernelReaderPidArray[j]==kernelReaderPidArray[i])
-					break;
-			if (j==i)
-				procManProcessSendSignal(kernelReaderPidArray[i], BytecodeSignalIdInterrupt);
-		}
+	// Write to lo
+	kernelLog(LogTypeInfo, kstrP("ctrl+c flagged, sending interrupt to processes with '/dev/ttyS0' open"));
+
+	// Loop over all processes looking for those with /dev/ttyS0 open
+	for(ProcManPid pid=0; pid<ProcManPidMax; ++pid) {
+		// Get table of open fds (simply fails if process doesn't exist, no need to check first)
+		KernelFsFd fds[ProcManMaxFds];
+		if (!procManProcessGetOpenFds(pid, fds))
+			continue;
+
+		// Look through table for an fd representing '/dev/ttyS0'
+		for(unsigned i=0; i<ProcManMaxFds; ++i)
+			if (fds[i]!=KernelFsFdInvalid && kstrDoubleStrcmp(kstrP("/dev/ttyS0"), kernelFsGetFilePath(fds[i]))==0) {
+				// Send interrupt to this process
+				procManProcessSendSignal(pid, BytecodeSignalIdInterrupt);
+
+				// Only send once per program, so break
+				break;
+			}
 	}
 
+	// Clear flag to be ready for next ctrl+c
 	kernelCtrlCWaiting=false;
 }

@@ -364,10 +364,6 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 					kstrStrcpy(procManScratchBuf256, pathKStr);
 					kernelLog(LogTypeWarning, kstrP("killing process %u - closing open file '%s', fd=%u, fdsindex=%u\n"), pid, procManScratchBuf256, procData->fds[i], i);
 
-					// If we are dealing with the serial file, remove from 'reader pid' array.
-					if (strcmp(procManScratchBuf256, "/dev/ttyS0")==0)
-						kernelReaderPidRemove(pid);
-
 					// Close file
 					kernelFsFileClose(procData->fds[i]);
 				}
@@ -1438,20 +1434,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			kernelFsPathNormalise(path);
 
-			// If we are dealing with the serial file, make sure we can add to the 'reader pid' array (see kernelReaderPidArray definition in kernel.c).
-			if (strcmp(path, "/dev/ttyS0")==0 && !kernelReaderPidCanAdd()) {
-				kernelLog(LogTypeWarning, kstrP("failed during open syscall, reader pid array full, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				procData->regs[0]=KernelFsFdInvalid;
-				return true;
-			}
-
 			// Attempt to open file (and if successful add to fds table)
 			procData->regs[0]=kernelFsFileOpen(path);
 			procData->fds[fdsIndex]=procData->regs[0];
-
-			// If we were successful and are dealing with the serial file, add to 'reader pid' array.
-			if (procData->regs[0]!=KernelFsFdInvalid && strcmp(path, "/dev/ttyS0")==0)
-				kernelReaderPidAdd(procManGetPidFromProcess(process));
 
 			// Write to log
 			kernelLog(LogTypeInfo, kstrP("open syscall: path='%s' fd=%u, fdsindex=%u, process %u (%s)\n"), path, procData->regs[0], fdsIndex, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
@@ -1459,10 +1444,6 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdClose: {
-			// If we are dealing with the serial file, remove from 'reader pid' array.
-			if (kstrStrcmp("/dev/ttyS0", kernelFsGetFilePath(procData->regs[1]))==0)
-				kernelReaderPidRemove(procManGetPidFromProcess(process));
-
 			// Grab path first for logging, before we close the file and lose it.
 			KStr pathKStr=kernelFsGetFilePath(procData->regs[1]);
 			char path[KernelFsPathMax];
