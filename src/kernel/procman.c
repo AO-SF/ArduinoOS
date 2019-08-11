@@ -12,7 +12,6 @@
 #endif
 
 #include "kernel.h"
-#include "kernelfs.h"
 #include "kernelmount.h"
 #include "ktime.h"
 #include "log.h"
@@ -29,7 +28,6 @@
 
 #define ProcManArgLenMax 64
 #define ProcManEnvVarPathMax 128
-#define ProcManMaxFds 8 // maximum amount of open files a single process can have
 
 typedef enum {
 	ProcManProcessStateUnused,
@@ -607,6 +605,23 @@ void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId) {
 
 bool procManProcessExists(ProcManPid pid) {
 	return (procManGetProcessByPid(pid)!=NULL);
+}
+
+bool procManProcessGetOpenFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]) {
+	// Grab process (if exists)
+	ProcManProcess *process=procManGetProcessByPid(pid);
+	if (process==NULL)
+		return false;
+
+	// Load proc data
+	ProcManProcessProcData procData;
+	if (!procManProcessLoadProcData(process, &procData))
+		return false;
+
+	// Copy fds table
+	memcpy(fds, procData.fds, sizeof(procData.fds));
+
+	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

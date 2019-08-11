@@ -4,9 +4,12 @@
 #include <stdint.h>
 
 #include "bytecode.h"
+#include "kernelfs.h"
 
 typedef uint8_t ProcManPid;
 #define ProcManPidMax 16
+
+#define ProcManMaxFds 8 // maximum amount of open files a single process can have
 
 typedef enum {
 	ProcManExitStatusSuccess=0, // 0 and all other unused values can be used when calling exit
@@ -43,5 +46,7 @@ void procManProcessTick(ProcManPid pid);
 void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId);
 
 bool procManProcessExists(ProcManPid pid);
+
+bool procManProcessGetOpenFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]); // if process is active (in tick loop) this may be out of date
 
 #endif
