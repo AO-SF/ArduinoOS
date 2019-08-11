@@ -4,12 +4,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct {
-	// Members are to be considered private
-} Fat;
-
 typedef uint32_t (FatReadFunctor)(uint32_t addr, uint8_t *data, uint32_t len, void *userData);
 typedef uint32_t (FatWriteFunctor)(uint32_t addr, const uint8_t *data, uint32_t len, void *userData);
+
+typedef struct {
+	// Members are to be considered private
+	FatReadFunctor *readFunctor;
+	FatWriteFunctor *writeFunctor;
+	void *userData;
+} Fat;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Volume functions
