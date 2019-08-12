@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <stdbool.h>
+
 #define _unused(x) ((void)(x))
 
 #define STATICASSERT4(COND,MSG) typedef char static_assertion_##MSG[(!!(COND))*2-1]
@@ -11,5 +13,7 @@
 #ifndef MIN
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 #endif
+
+bool isPow2(unsigned x);
 
 #endif
