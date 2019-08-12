@@ -10,9 +10,7 @@ There are also a few tools (which run on a standard PC, not the Arduino) such as
 # Guides and Documentation
 See the [wiki](https://github.com/AO-SF/ArduinoOS/wiki/Home).
 
-| | |
-|-|-|
-| <img src="https://github.com/AO-SF/ArduinoOS/raw/master/images/sdcard_bb.png" height="200"> | <img src="https://github.com/AO-SF/ArduinoOS/raw/master/images/ArdOsBytecodeMemoryLayout.png" height="200"> |
+<img src="https://github.com/AO-SF/ArduinoOS/raw/master/images/sdcard_bb.png" height="200"> <img src="https://github.com/AO-SF/ArduinoOS/raw/master/images/ArdOsBytecodeMemoryLayout.png" height="200">
 
 # Compiling and Building
 Run either ``make arduino`` or ``make pc`` from the root directory.
