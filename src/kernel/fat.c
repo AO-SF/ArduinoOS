@@ -13,6 +13,10 @@
 uint32_t fatRead(const Fat *fs, uint32_t addr, uint8_t *data, uint32_t len);
 uint32_t fatWrite(const Fat *fs, uint32_t addr, uint8_t *data, uint32_t len);
 
+bool fatRead8(const Fat *fs, uint32_t addr, uint8_t *value);
+bool fatRead16(const Fat *fs, uint32_t addr, uint16_t *value);
+bool fatRead32(const Fat *fs, uint32_t addr, uint32_t *value);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -76,4 +80,26 @@ uint32_t fatWrite(const Fat *fs, uint32_t addr, uint8_t *data, uint32_t len) {
 	if (fs->writeFunctor==NULL)
 		return 0;
 	return fs->writeFunctor(addr, data, len, fs->userData);
+}
+
+bool fatRead8(const Fat *fs, uint32_t addr, uint8_t *value) {
+	return (fatRead(fs, addr, value, 1)==1);
+}
+
+bool fatRead16(const Fat *fs, uint32_t addr, uint16_t *value) {
+	// Note: little-endian
+	uint8_t lower, upper;
+	if (!fatRead8(fs, addr, &lower) || !fatRead8(fs, addr+1, &upper))
+		return false;
+	*value=(((uint16_t)upper)<<8)|lower;
+	return true;
+}
+
+bool fatRead32(const Fat *fs, uint32_t addr, uint32_t *value) {
+	// Note: little-endian
+	uint16_t lower, upper;
+	if (!fatRead16(fs, addr, &lower) || !fatRead16(fs, addr+2, &upper))
+		return false;
+	*value=(((uint32_t)upper)<<16)|lower;
+	return true;
 }
