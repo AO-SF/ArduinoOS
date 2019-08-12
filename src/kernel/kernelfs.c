@@ -72,6 +72,8 @@ KernelFsData kernelFsData;
 
 char kernelFsPathSplitStaticBuf[KernelFsPathMax];
 
+// These exist as a bit of a hack to save each device having to have a separate union of all types.
+// Instead we mount and unmount each time we access a mounted MiniFs or Fat volume.
 MiniFs kernelFsScratchMiniFs;
 Fat kernelFsScratchFat;
 
