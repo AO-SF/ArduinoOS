@@ -82,7 +82,7 @@ eeprom full null ttyS0 urandom zero pin12 pin13 pin14 pin15 pin35 pin36 pin37 pi
 /home$ shutdown
 ```
 
-![Screenshot of Arduino Game](https://raw.githubusercontent.com/AO-SF/ArduinoOS/master/screenshots/game.png)
+![Screenshot of Arduino Game](https://raw.githubusercontent.com/AO-SF/ArduinoOS/master/screenshots/gamess.png)
 
 # License
 Copyright (C) 2018-2019 Daniel White
