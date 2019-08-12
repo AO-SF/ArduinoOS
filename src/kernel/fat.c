@@ -17,6 +17,18 @@ bool fatRead8(const Fat *fs, uint32_t addr, uint8_t *value);
 bool fatRead16(const Fat *fs, uint32_t addr, uint16_t *value);
 bool fatRead32(const Fat *fs, uint32_t addr, uint32_t *value);
 
+bool fatGetBpbBytsPerSec(const Fat *fs, uint16_t *value);
+bool fatGetBpbRootEntCnt(const Fat *fs, uint16_t *value);
+bool fatGetBpbFatSz16(const Fat *fs, uint16_t *value);
+bool fatGetBpbFatSz32(const Fat *fs, uint32_t *value);
+bool fatGetBpbFatSz(const Fat *fs, uint32_t *value); // picks whichever of 16 and 32 bit versions is non-zero
+bool fatGetBpbTotSec16(const Fat *fs, uint16_t *value);
+bool fatGetBpbTotSec32(const Fat *fs, uint32_t *value);
+bool fatGetBpbTotSec(const Fat *fs, uint32_t *value); // picks whichever of 16 and 32 bit versions is non-zero
+bool fatGetBpbResvdSecCnt(const Fat *fs, uint16_t *value);
+bool fatGetBpbNumFats(const Fat *fs, uint8_t *value);
+bool fatGetBpbSecPerClus(const Fat *fs, uint8_t *value);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -102,4 +114,66 @@ bool fatRead32(const Fat *fs, uint32_t addr, uint32_t *value) {
 		return false;
 	*value=(((uint32_t)upper)<<16)|lower;
 	return true;
+}
+
+bool fatGetBpbBytsPerSec(const Fat *fs, uint16_t *value) {
+	return fatRead16(fs, 11, value);
+}
+
+bool fatGetBpbRootEntCnt(const Fat *fs, uint16_t *value) {
+	return fatRead16(fs, 17, value);
+}
+
+bool fatGetBpbFatSz16(const Fat *fs, uint16_t *value) {
+	return fatRead16(fs, 22, value);
+}
+
+bool fatGetBpbFatSz32(const Fat *fs, uint32_t *value) {
+	return fatRead32(fs, 36, value);
+}
+
+bool fatGetBpbFatSz(const Fat *fs, uint32_t *value) {
+	uint16_t value16;
+	if (!fatGetBpbFatSz16(fs, &value16))
+		return false;
+	if (value16>0) {
+		*value=value16;
+		return true;
+	}
+	if (!fatGetBpbFatSz32(fs, value))
+		return false;
+	return (*value>0);
+}
+
+bool fatGetBpbTotSec16(const Fat *fs, uint16_t *value) {
+	return fatRead16(fs, 9, value);
+}
+
+bool fatGetBpbTotSec32(const Fat *fs, uint32_t *value) {
+	return fatRead32(fs, 32, value);
+}
+
+bool fatGetBpbTotSec(const Fat *fs, uint32_t *value) {
+	uint16_t value16;
+	if (!fatGetBpbTotSec16(fs, &value16))
+		return false;
+	if (value16>0) {
+		*value=value16;
+		return true;
+	}
+	if (!fatGetBpbTotSec32(fs, value))
+		return false;
+	return (*value>0);
+}
+
+bool fatGetBpbResvdSecCnt(const Fat *fs, uint16_t *value) {
+	return fatRead16(fs, 14, value);
+}
+
+bool fatGetBpbNumFats(const Fat *fs, uint8_t *value) {
+	return fatRead8(fs, 16, value);
+}
+
+bool fatGetBpbSecPerClus(const Fat *fs, uint8_t *value) {
+	return fatRead8(fs, 13, value);
 }
