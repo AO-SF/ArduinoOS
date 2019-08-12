@@ -10,8 +10,8 @@
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-uint32_t fatRead(Fat *fs, uint32_t addr, uint8_t *data, uint32_t len);
-uint32_t fatWrite(Fat *fs, uint32_t addr, uint8_t *data, uint32_t len);
+uint32_t fatRead(const Fat *fs, uint32_t addr, uint8_t *data, uint32_t len);
+uint32_t fatWrite(const Fat *fs, uint32_t addr, uint8_t *data, uint32_t len);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -68,11 +68,11 @@ void fatDebug(const Fat *fs) {
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-uint32_t fatRead(Fat *fs, uint32_t addr, uint8_t *data, uint32_t len) {
+uint32_t fatRead(const Fat *fs, uint32_t addr, uint8_t *data, uint32_t len) {
 	return fs->readFunctor(addr, data, len, fs->userData);
 }
 
-uint32_t fatWrite(Fat *fs, uint32_t addr, uint8_t *data, uint32_t len) {
+uint32_t fatWrite(const Fat *fs, uint32_t addr, uint8_t *data, uint32_t len) {
 	if (fs->writeFunctor==NULL)
 		return 0;
 	return fs->writeFunctor(addr, data, len, fs->userData);
