@@ -1420,12 +1420,10 @@ bool assemblerProgramCalculateInitialMachineCodeLengths(AssemblerProgram *progra
 				instruction->machineCodeInstructions=0;
 			break;
 			case AssemblerInstructionTypeSyscall:
-				instruction->machineCode[0]=bytecodeInstructionCreateMiscSyscall();
 				instruction->machineCodeLen=1;
 				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeClearInstructionCache:
-				instruction->machineCode[0]=bytecodeInstructionCreateMiscClearInstructionCache();
 				instruction->machineCodeLen=1;
 				instruction->machineCodeInstructions=1;
 			break;
@@ -1564,8 +1562,10 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 			case AssemblerInstructionTypeLabel:
 			break;
 			case AssemblerInstructionTypeSyscall:
+				instruction->machineCode[0]=bytecodeInstructionCreateMiscSyscall();
 			break;
 			case AssemblerInstructionTypeClearInstructionCache:
+				instruction->machineCode[0]=bytecodeInstructionCreateMiscClearInstructionCache();
 			break;
 			case AssemblerInstructionTypeAlu: {
 				// Special case for push16 and pop16 as these require the stack register - fail if we cannot use it
