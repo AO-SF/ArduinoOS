@@ -234,7 +234,7 @@ bool assemblerProgramShrinkDefines(AssemblerProgram *program); // checks if some
 
 bool assemblerProgramGenerateInitialMachineCodeOffsets(AssemblerProgram *program); // returns false on failure
 void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program);
-bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program); // returns false on failure
+bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program, bool *changeFlag); // returns false on failure. if a size reduction is found, the relevant machineCodeLen field is updated and we return immedaitely (without computing the machine code for any remaining instructions)
 
 void assemblerProgramDebugInstructions(const AssemblerProgram *program);
 
@@ -257,6 +257,8 @@ BytecodeRegister assemblerRegisterFromStr(const char *str); // Returns BytecodeR
 bool assemblerProgramAddIncludeDir(AssemblerProgram *program, const char *dir);
 
 int main(int argc, char **argv) {
+	bool change;
+
 	// Create program struct
 	AssemblerProgram *program=assemblerProgramNew();
 	if (program==NULL)
@@ -301,7 +303,6 @@ int main(int argc, char **argv) {
 		goto done;
 
 	// Preprocess (handle whitespace, includes etc)
-	bool change;
 	do {
 		change=false;
 
@@ -394,9 +395,20 @@ int main(int argc, char **argv) {
 	if (!assemblerProgramGenerateInitialMachineCodeOffsets(program))
 		goto done;
 
-	assemblerProgramComputeMachineCodeOffsets(program);
+	// Machine code generation loop
+	do {
+		// (re)-compute offsets for each instruction based on sum of lengths of all previous ones
+		assemblerProgramComputeMachineCodeOffsets(program);
 
-	// Update instruction we created earlier (if we did) to set the stack pointer register (now that we have computed offsets)
+		// compute machine code, potentially noticing size savings causing us to have to loop
+		if (!assemblerProgramComputeFinalMachineCode(program, &change))
+			goto done;
+
+		// If any changes, loop again as we may now be able to make further changes.
+	} while(change);
+
+	// Update instruction we created earlier (if we did) to set the stack pointer register (now that we have computed offsets),
+	// and then recompute machine code one last time.
 	if (!program->noStack) {
 		// TODO: Check for not finding
 		for(unsigned i=0; i<program->instructionsNext; ++i) {
@@ -409,8 +421,9 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (!assemblerProgramComputeFinalMachineCode(program))
+	if (!assemblerProgramComputeFinalMachineCode(program, &change))
 		goto done;
+	assert(!change); // SP is always >=32kb so needs 3 byte set16 instruction regardless
 
 	// Verbose output
 	if (verbose)
@@ -1486,8 +1499,11 @@ void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program) {
 	program->stackRamOffset=nextRamOffset;
 }
 
-bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
+bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program, bool *changeFlag) {
 	assert(program!=NULL);
+
+	if (changeFlag!=NULL)
+		*changeFlag=false;
 
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
 		AssemblerInstruction *instruction=&program->instructions[i];
