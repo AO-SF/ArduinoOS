@@ -102,9 +102,9 @@ typedef enum {
 } BytecodeInstructionType;
 
 typedef enum {
-	BytecodeInstructionLength1Byte,
-	BytecodeInstructionLength2Byte,
-	BytecodeInstructionLength3Byte,
+	BytecodeInstructionLength1Byte=1,
+	BytecodeInstructionLength2Byte=2,
+	BytecodeInstructionLength3Byte=3,
 } BytecodeInstructionLength;
 
 typedef uint8_t BytecodeInstruction1Byte;
