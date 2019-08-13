@@ -1531,14 +1531,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program, bool *ch
 				if (isdigit(instruction->d.mov.src[0])) {
 					// Integer - use set4, set8 or set16 instruction as needed
 					unsigned value=atoi(instruction->d.mov.src);
-					if (value<16 && destReg<4) {
-						instruction->machineCode[0]=bytecodeInstructionCreateMemorySet4(destReg, value);
-					} else if (value<256) {
-						BytecodeInstruction2Byte set8Op=bytecodeInstructionCreateMiscSet8(destReg, value);
-						instruction->machineCode[0]=(set8Op>>8);
-						instruction->machineCode[1]=(set8Op&0xFF);
-					} else
-						bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, value);
 				} else if ((srcReg=assemblerRegisterFromStr(instruction->d.mov.src))!=BytecodeRegisterNB) {
 					// Register - use dest=src|src as a copy
 					BytecodeInstruction2Byte copyOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, destReg, srcReg, srcReg);
@@ -1554,27 +1547,16 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program, bool *ch
 							case 't': c='\t'; break;
 						}
 					}
-
-					BytecodeInstruction2Byte set8Op=bytecodeInstructionCreateMiscSet8(destReg, c);
-					instruction->machineCode[0]=(set8Op>>8);
-					instruction->machineCode[1]=(set8Op&0xFF);
-				} else if ((defineAddr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src))!=-1) {
-					// Define symbol
-					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, defineAddr);
-				} else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1) {
-					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, allocationAddr);
-				} else if ((labelAddr=assemblerGetLabelSymbolAddr(program, instruction->d.mov.src))!=-1) {
-					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, labelAddr);
-				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
-					if (constValue<16 && destReg<4)
-						instruction->machineCode[0]=bytecodeInstructionCreateMemorySet4(destReg, constValue);
-					else if (constValue<256) {
-						BytecodeInstruction2Byte op=bytecodeInstructionCreateMiscSet8(destReg, constValue);
-						instruction->machineCode[0]=(op>>8);
-						instruction->machineCode[1]=(op&0xFF);
-					} else
-						bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, constValue);
-				} else {
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, c);
+				} else if ((defineAddr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src))!=-1)
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, defineAddr);
+				else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1)
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, allocationAddr);
+				else if ((labelAddr=assemblerGetLabelSymbolAddr(program, instruction->d.mov.src))!=-1)
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, labelAddr);
+				else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1)
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, constValue);
+				else {
 					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 					return false;
 				}
