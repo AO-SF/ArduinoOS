@@ -232,9 +232,9 @@ bool assemblerProgramParseLines(AssemblerProgram *program); // converts lines to
 bool assemblerProgramShiftDefines(AssemblerProgram *program); // moves defines to the end to avoid getting in the way of code, returns true if any changes made
 bool assemblerProgramShrinkDefines(AssemblerProgram *program); // checks if some defines are subsets of others, returns true if any changes made
 
-bool assemblerProgramGenerateInitialMachineCodeOffsets(AssemblerProgram *program); // returns false on failure
-void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program);
-bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program, bool *changeFlag); // returns false on failure. if a size reduction is found, the relevant machineCodeLen field is updated and we return immedaitely (without computing the machine code for any remaining instructions)
+bool assemblerProgramCalculateInitialMachineCodeLengths(AssemblerProgram *program); // returns false on failure
+void assemblerProgramCalculateMachineCodeOffsets(AssemblerProgram *program);
+bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *changeFlag); // returns false on failure. if a size reduction is found, the relevant machineCodeLen field is updated and we return immedaitely (without computing the machine code for any remaining instructions)
 
 void assemblerProgramDebugInstructions(const AssemblerProgram *program);
 
@@ -392,16 +392,16 @@ int main(int argc, char **argv) {
 		;
 
 	// Generate initial guess at machine code offsets for each instruction
-	if (!assemblerProgramGenerateInitialMachineCodeOffsets(program))
+	if (!assemblerProgramCalculateInitialMachineCodeLengths(program))
 		goto done;
 
 	// Machine code generation loop
 	do {
 		// (re)-compute offsets for each instruction based on sum of lengths of all previous ones
-		assemblerProgramComputeMachineCodeOffsets(program);
+		assemblerProgramCalculateMachineCodeOffsets(program);
 
 		// compute machine code, potentially noticing size savings causing us to have to loop
-		if (!assemblerProgramComputeFinalMachineCode(program, &change))
+		if (!assemblerProgramGenerateMachineCode(program, &change))
 			goto done;
 
 		// If any changes, loop again as we may now be able to make further changes.
@@ -421,7 +421,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (!assemblerProgramComputeFinalMachineCode(program, &change))
+	if (!assemblerProgramGenerateMachineCode(program, &change))
 		goto done;
 	assert(!change); // SP is always >=32kb so needs 3 byte set16 instruction regardless
 
@@ -1334,7 +1334,7 @@ bool assemblerProgramShrinkDefines(AssemblerProgram *program) {
 	return anyChange;
 }
 
-bool assemblerProgramGenerateInitialMachineCodeOffsets(AssemblerProgram *program) {
+bool assemblerProgramCalculateInitialMachineCodeLengths(AssemblerProgram *program) {
 	assert(program!=NULL);
 
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
@@ -1479,7 +1479,7 @@ bool assemblerProgramGenerateInitialMachineCodeOffsets(AssemblerProgram *program
 	return true;
 }
 
-void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program) {
+void assemblerProgramCalculateMachineCodeOffsets(AssemblerProgram *program) {
 	assert(program!=NULL);
 
 	unsigned nextMachineCodeOffset=BytecodeMemoryProgmemAddr;
@@ -1499,7 +1499,7 @@ void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program) {
 	program->stackRamOffset=nextRamOffset;
 }
 
-bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program, bool *changeFlag) {
+bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *changeFlag) {
 	assert(program!=NULL);
 
 	if (changeFlag!=NULL)
