@@ -1637,7 +1637,7 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 				}
 
 				// Create instruction which sets the IP register
-				bytecodeInstructionCreateMiscSet16(instruction->machineCode, BytecodeRegisterIP, addr);
+				bytecodeInstructionCreateSet(instruction->machineCode, BytecodeRegisterIP, addr);
 			} break;
 			case AssemblerInstructionTypePush8: {
 				// This requires the stack register - fail if we cannot use it
@@ -1702,13 +1702,13 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 				}
 
 				// Create instructions (push adjusted IP onto stack and jump into function)
-				// set16 rS addr
-				bytecodeInstructionCreateMiscSet16(instruction->machineCode+0, BytecodeRegisterS, addr);
+				// set8/16 rS addr
+				unsigned setLength=bytecodeInstructionCreateSet(instruction->machineCode, BytecodeRegisterS, addr);
 
 				// call rS rSP
 				BytecodeInstruction2Byte callOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterS, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypeCall);
-				instruction->machineCode[3]=(callOp>>8);
-				instruction->machineCode[4]=(callOp&0xFF);
+				instruction->machineCode[setLength+0]=(callOp>>8);
+				instruction->machineCode[setLength+1]=(callOp&0xFF);
 			} break;
 			case AssemblerInstructionTypeRet: {
 				// This requires the stack register - fail if we cannot use it
