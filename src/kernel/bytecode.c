@@ -120,3 +120,14 @@ void bytecodeInstructionCreateMiscSet16(BytecodeInstruction3Byte instruction, By
 	instruction[1]=(value>>8);
 	instruction[2]=(value&0xFF);
 }
+
+void bytecodeInstructionCreateSet(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value) {
+	if (value<16 && destReg<4)
+		instruction[0]=bytecodeInstructionCreateMemorySet4(destReg, value);
+	else if (value<256) {
+		BytecodeInstruction2Byte op=bytecodeInstructionCreateMiscSet8(destReg, value);
+		instruction[0]=(op>>8);
+		instruction[1]=(op&0xFF);
+	} else
+		bytecodeInstructionCreateMiscSet16(instruction, destReg, value);
+}

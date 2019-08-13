@@ -237,4 +237,7 @@ BytecodeInstruction1Byte bytecodeInstructionCreateMiscClearInstructionCache(void
 BytecodeInstruction2Byte bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
 void bytecodeInstructionCreateMiscSet16(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value);
 
+// Generic set instruction, converting to either set4, set8 or set16 as required.
+void bytecodeInstructionCreateSet(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value);
+
 #endif
