@@ -18,6 +18,8 @@ typedef uint32_t BytecodeDoubleWord;
 #define BytecodeMemoryRamAddr ((BytecodeWord)(BytecodeMemoryProgmemAddr+BytecodeMemoryProgmemSize)) // ram in upper 32kb
 #define BytecodeMemoryRamSize ((BytecodeWord)(BytecodeMemoryTotalSize-BytecodeMemoryProgmemSize))
 
+#define ByteCodeIllegalInstructionByte 0xC3 // invalid single byte instruction, can be used as a marker by assemblers and such
+
 typedef enum {
 	BytecodeSignalIdInterrupt,
 	BytecodeSignalIdUser1,
