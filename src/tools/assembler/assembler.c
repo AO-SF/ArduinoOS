@@ -1335,11 +1335,11 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeInstructions=0;
 			break;
 			case AssemblerInstructionTypeDefine:
-				// If we are not pointing into some other define's space, simply copy data into program memory directly
+				// If we are not pointing into some other define's space, we will end up simply copying data into program memory directly
+				instruction->machineCodeLen=0;
 				if (instruction->d.define.pointerLineIndex==instruction->lineIndex)
-					for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
-						instruction->machineCode[instruction->machineCodeLen++]=instruction->d.define.data[j];
-				instruction->machineCodeInstructions=0; // Doesn't really apply
+					instruction->machineCodeLen+=instruction->d.define.totalSize;
+				instruction->machineCodeInstructions=0;
 			break;
 			case AssemblerInstructionTypeMov: {
 				// Check src and determine type
@@ -1491,6 +1491,9 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeAllocation:
 			break;
 			case AssemblerInstructionTypeDefine:
+				// If we are not pointing into some other define's space, simply copy data into program memory directly
+				if (instruction->d.define.pointerLineIndex==instruction->lineIndex)
+					memcpy(instruction->machineCode, instruction->d.define.data, instruction->d.define.totalSize);
 			break;
 			case AssemblerInstructionTypeMov: {
 				// Verify dest is a valid register
