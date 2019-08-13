@@ -160,6 +160,7 @@ typedef struct {
 	BytecodeWord value;
 } AssemblerInstructionConst;
 
+#define AssemblerInstructionMachineCodeMax 1024
 typedef struct {
 	uint16_t lineIndex;
 	char *modifiedLineCopy; // so we can have fields pointing into this
@@ -180,7 +181,7 @@ typedef struct {
 		AssemblerInstructionConst constSymbol;
 	} d;
 
-	uint8_t machineCode[1024]; // TODO: this is pretty wasteful...
+	uint8_t machineCode[AssemblerInstructionMachineCodeMax]; // TODO: this is pretty wasteful...
 	uint16_t machineCodeLen;
 	uint16_t machineCodeOffset;
 	uint8_t machineCodeInstructions;
@@ -1507,6 +1508,10 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 		AssemblerInstruction *instruction=&program->instructions[i];
 		AssemblerLine *line=program->lines[instruction->lineIndex];
 
+		// Clear machine code array to invalid bytes
+		memset(instruction->machineCode, ByteCodeIllegalInstructionByte, AssemblerInstructionMachineCodeMax);
+
+		// Type-specific generation
 		switch(instruction->type) {
 			case AssemblerInstructionTypeAllocation:
 			break;
@@ -1779,9 +1784,20 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 
 		// Check if we have ended up using less bytes than we thought for this instruction.
 		if (instruction->machineCodeLen>0) {
-			BytecodeInstructionLength actualLen=bytecodeInstructionParseLength(instruction->machineCode);
+			// Calculate actual number of btyes we ended up using for this instruction.
+			unsigned actualLen=0;
+			while(actualLen<AssemblerInstructionMachineCodeMax) {
+				// Hit reserved value indicating end of instructions
+				if (instruction->machineCode[actualLen]==ByteCodeIllegalInstructionByte)
+					break;
+
+				// Otherwise parse instruction's length and add to running total.
+				actualLen+=bytecodeInstructionParseLength(instruction->machineCode+actualLen);
+			}
+
+			// Have we saved space since last iteration?
 			if (actualLen!=instruction->machineCodeLen) {
-				// We did - offsets will need adjusting and code regenerating.
+				// We have - offsets will need adjusting and code regenerating.
 				instruction->machineCodeLen=actualLen;
 				if (changeFlag!=NULL) {
 					*changeFlag=true;
