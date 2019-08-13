@@ -1388,7 +1388,13 @@ bool assemblerProgramGenerateInitialMachineCodeOffsets(AssemblerProgram *program
 					// Label symbol may need set16
 					instruction->machineCodeLen=3;
 				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
-					instruction->machineCodeLen=(constValue>=256 ? 3 : 2);
+					BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.mov.dest);
+					if (constValue<16 && destReg<4)
+						instruction->machineCodeLen=1; // use set4
+					else if (constValue<256)
+						instruction->machineCodeLen=2; // use set8
+					else
+						instruction->machineCodeLen=3; // use set16
 				} else {
 					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 					return false;
@@ -1544,7 +1550,9 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				} else if ((labelAddr=assemblerGetLabelSymbolAddr(program, instruction->d.mov.src))!=-1) {
 					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, labelAddr);
 				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
-					if (constValue<256) {
+					if (constValue<16 && destReg<4)
+						instruction->machineCode[0]=bytecodeInstructionCreateMemorySet4(destReg, constValue);
+					else if (constValue<256) {
 						BytecodeInstruction2Byte op=bytecodeInstructionCreateMiscSet8(destReg, constValue);
 						instruction->machineCode[0]=(op>>8);
 						instruction->machineCode[1]=(op&0xFF);
