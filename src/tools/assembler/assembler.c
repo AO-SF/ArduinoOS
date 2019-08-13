@@ -232,7 +232,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program); // converts lines to
 bool assemblerProgramShiftDefines(AssemblerProgram *program); // moves defines to the end to avoid getting in the way of code, returns true if any changes made
 bool assemblerProgramShrinkDefines(AssemblerProgram *program); // checks if some defines are subsets of others, returns true if any changes made
 
-bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program); // returns false on failure
+bool assemblerProgramGenerateInitialMachineCodeOffsets(AssemblerProgram *program); // returns false on failure
 void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program);
 bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program); // returns false on failure
 
@@ -390,8 +390,8 @@ int main(int argc, char **argv) {
 	while(assemblerProgramShrinkDefines(program))
 		;
 
-	// Generate machine code for each instruction
-	if (!assemblerProgramGenerateInitialMachineCode(program))
+	// Generate initial guess at machine code offsets for each instruction
+	if (!assemblerProgramGenerateInitialMachineCodeOffsets(program))
 		goto done;
 
 	assemblerProgramComputeMachineCodeOffsets(program);
@@ -1321,7 +1321,7 @@ bool assemblerProgramShrinkDefines(AssemblerProgram *program) {
 	return anyChange;
 }
 
-bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
+bool assemblerProgramGenerateInitialMachineCodeOffsets(AssemblerProgram *program) {
 	assert(program!=NULL);
 
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
