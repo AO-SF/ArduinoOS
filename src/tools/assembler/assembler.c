@@ -1794,6 +1794,19 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program, bool *ch
 				instruction->machineCode[0]=bytecodeInstructionCreateMiscNop();
 			break;
 		}
+
+		// Check if we have ended up using less bytes than we thought for this instruction.
+		if (instruction->machineCodeLen>0) {
+			BytecodeInstructionLength actualLen=bytecodeInstructionParseLength(instruction->machineCode);
+			if (actualLen!=instruction->machineCodeLen) {
+				// We did - offsets will need adjusting and code regenerating.
+				instruction->machineCodeLen=actualLen;
+				if (changeFlag!=NULL) {
+					*changeFlag=true;
+					break;
+				}
+			}
+		}
 	}
 
 	return true;
