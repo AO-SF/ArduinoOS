@@ -1,3 +1,5 @@
+nostack
+
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
 
