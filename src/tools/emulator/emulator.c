@@ -175,6 +175,10 @@ bool processRunNextInstruction(Process *process) {
 					process->memory[process->regs[info.d.memory.destReg]]=process->regs[info.d.memory.srcReg];
 					if (infoInstructions)
 						printf("Info: *r%i=r%i (*%u=%u)\n", info.d.memory.destReg, info.d.memory.srcReg, process->regs[info.d.memory.destReg], process->regs[info.d.memory.srcReg]);
+					if (process->regs[info.d.memory.destReg]<BytecodeMemoryProgmemSize) {
+						printf("Error: store8 with address pointing into read-only region.\n");
+						return false;
+					}
 				break;
 				case BytecodeInstructionMemoryTypeLoad8: {
 					BytecodeWord srcAddr=process->regs[info.d.memory.srcReg];
@@ -296,6 +300,10 @@ bool processRunNextInstruction(Process *process) {
 							process->memory[process->regs[info.d.alu.destReg]+1]=(process->regs[info.d.alu.opAReg]&0xFF);
 							if (infoInstructions)
 								printf("Info: [r%i]=r%i (16 bit) ([%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.destReg], opA);
+							if (process->regs[info.d.alu.destReg]<BytecodeMemoryProgmemSize) {
+								printf("Error: store16 with address pointing into read-only region.\n");
+								return false;
+							}
 						break;
 						case BytecodeInstructionAluExtraTypeLoad16:
 							process->regs[info.d.alu.destReg]=(((BytecodeWord)process->memory[process->regs[info.d.alu.opAReg]])<<8) |
