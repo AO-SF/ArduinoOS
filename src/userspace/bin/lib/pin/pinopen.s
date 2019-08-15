@@ -21,6 +21,7 @@ mov r0 PathMax
 sub r0 r6 r0
 mov r2 pinopenPrefixLen
 add r0 r0 r2
+mov r2 0 ; no padding
 call inttostr
 ; open file at calculated path
 mov r0 SyscallIdOpen
