@@ -24,7 +24,7 @@ typedef uint8_t KernelFsDeviceType;
 #define KernelFsDeviceTypeNB 3
 #define KernelFsDeviceTypeBits 2
 
-STATICASSERT(KernelFsDeviceTypeBits+1+KernelFsBlockDeviceFormatBits+4==8);
+STATICASSERT(KernelFsDeviceTypeBits+1+5==8);
 typedef struct {
 	KStr mountPoint;
 
@@ -32,8 +32,7 @@ typedef struct {
 
 	uint8_t type:KernelFsDeviceTypeBits; // type is KernelFsDeviceType
 	uint8_t characterCanOpenManyFlag:1;
-	uint8_t blockFormat:KernelFsBlockDeviceFormatBits; // type is KernelFsBlockDeviceFormat
-	uint8_t reserved:4;
+	uint8_t reserved:5;
 
 	// Type-specific data follows
 } KernelFsDeviceCommon;
