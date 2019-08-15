@@ -160,6 +160,7 @@ typedef struct {
 	BytecodeWord value;
 } AssemblerInstructionConst;
 
+#define AssemblerInstructionMachineCodeMax 1024
 typedef struct {
 	uint16_t lineIndex;
 	char *modifiedLineCopy; // so we can have fields pointing into this
@@ -180,7 +181,7 @@ typedef struct {
 		AssemblerInstructionConst constSymbol;
 	} d;
 
-	uint8_t machineCode[1024]; // TODO: this is pretty wasteful...
+	uint8_t machineCode[AssemblerInstructionMachineCodeMax]; // TODO: this is pretty wasteful...
 	uint16_t machineCodeLen;
 	uint16_t machineCodeOffset;
 	uint8_t machineCodeInstructions;
@@ -232,9 +233,9 @@ bool assemblerProgramParseLines(AssemblerProgram *program); // converts lines to
 bool assemblerProgramShiftDefines(AssemblerProgram *program); // moves defines to the end to avoid getting in the way of code, returns true if any changes made
 bool assemblerProgramShrinkDefines(AssemblerProgram *program); // checks if some defines are subsets of others, returns true if any changes made
 
-bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program); // returns false on failure
-void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program);
-bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program); // returns false on failure
+bool assemblerProgramCalculateInitialMachineCodeLengths(AssemblerProgram *program); // returns false on failure
+void assemblerProgramCalculateMachineCodeOffsets(AssemblerProgram *program);
+bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *changeFlag); // returns false on failure. if a size reduction is found, the relevant machineCodeLen field is updated and we return immedaitely (without computing the machine code for any remaining instructions)
 
 void assemblerProgramDebugInstructions(const AssemblerProgram *program);
 
@@ -257,6 +258,8 @@ BytecodeRegister assemblerRegisterFromStr(const char *str); // Returns BytecodeR
 bool assemblerProgramAddIncludeDir(AssemblerProgram *program, const char *dir);
 
 int main(int argc, char **argv) {
+	bool change;
+
 	// Create program struct
 	AssemblerProgram *program=assemblerProgramNew();
 	if (program==NULL)
@@ -301,7 +304,6 @@ int main(int argc, char **argv) {
 		goto done;
 
 	// Preprocess (handle whitespace, includes etc)
-	bool change;
 	do {
 		change=false;
 
@@ -390,13 +392,24 @@ int main(int argc, char **argv) {
 	while(assemblerProgramShrinkDefines(program))
 		;
 
-	// Generate machine code for each instruction
-	if (!assemblerProgramGenerateInitialMachineCode(program))
+	// Generate initial guess at machine code offsets for each instruction
+	if (!assemblerProgramCalculateInitialMachineCodeLengths(program))
 		goto done;
 
-	assemblerProgramComputeMachineCodeOffsets(program);
+	// Machine code generation loop
+	do {
+		// (re)-compute offsets for each instruction based on sum of lengths of all previous ones
+		assemblerProgramCalculateMachineCodeOffsets(program);
 
-	// Update instruction we created earlier (if we did) to set the stack pointer register (now that we have computed offsets)
+		// compute machine code, potentially noticing size savings causing us to have to loop
+		if (!assemblerProgramGenerateMachineCode(program, &change))
+			goto done;
+
+		// If any changes, loop again as we may now be able to make further changes.
+	} while(change);
+
+	// Update instruction we created earlier (if we did) to set the stack pointer register (now that we have computed offsets),
+	// and then recompute machine code one last time.
 	if (!program->noStack) {
 		// TODO: Check for not finding
 		for(unsigned i=0; i<program->instructionsNext; ++i) {
@@ -409,8 +422,9 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (!assemblerProgramComputeFinalMachineCode(program))
+	if (!assemblerProgramGenerateMachineCode(program, &change))
 		goto done;
+	assert(!change); // SP is always >=32kb so needs 3 byte set16 instruction regardless
 
 	// Verbose output
 	if (verbose)
@@ -1321,7 +1335,7 @@ bool assemblerProgramShrinkDefines(AssemblerProgram *program) {
 	return anyChange;
 }
 
-bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
+bool assemblerProgramCalculateInitialMachineCodeLengths(AssemblerProgram *program) {
 	assert(program!=NULL);
 
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
@@ -1335,11 +1349,11 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeInstructions=0;
 			break;
 			case AssemblerInstructionTypeDefine:
-				// If we are not pointing into some other define's space, simply copy data into program memory directly
+				// If we are not pointing into some other define's space, we will end up simply copying data into program memory directly
+				instruction->machineCodeLen=0;
 				if (instruction->d.define.pointerLineIndex==instruction->lineIndex)
-					for(unsigned j=0; j<instruction->d.define.totalSize; ++j)
-						instruction->machineCode[instruction->machineCodeLen++]=instruction->d.define.data[j];
-				instruction->machineCodeInstructions=0; // Doesn't really apply
+					instruction->machineCodeLen+=instruction->d.define.totalSize;
+				instruction->machineCodeInstructions=0;
 			break;
 			case AssemblerInstructionTypeMov: {
 				// Check src and determine type
@@ -1388,7 +1402,13 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 					// Label symbol may need set16
 					instruction->machineCodeLen=3;
 				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
-					instruction->machineCodeLen=(constValue>=256 ? 3 : 2);
+					BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.mov.dest);
+					if (constValue<16 && destReg<4)
+						instruction->machineCodeLen=1; // use set4
+					else if (constValue<256)
+						instruction->machineCodeLen=2; // use set8
+					else
+						instruction->machineCodeLen=3; // use set16
 				} else {
 					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 					return false;
@@ -1401,12 +1421,10 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 				instruction->machineCodeInstructions=0;
 			break;
 			case AssemblerInstructionTypeSyscall:
-				instruction->machineCode[0]=bytecodeInstructionCreateMiscSyscall();
 				instruction->machineCodeLen=1;
 				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeClearInstructionCache:
-				instruction->machineCode[0]=bytecodeInstructionCreateMiscClearInstructionCache();
 				instruction->machineCodeLen=1;
 				instruction->machineCodeInstructions=1;
 			break;
@@ -1460,7 +1478,7 @@ bool assemblerProgramGenerateInitialMachineCode(AssemblerProgram *program) {
 	return true;
 }
 
-void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program) {
+void assemblerProgramCalculateMachineCodeOffsets(AssemblerProgram *program) {
 	assert(program!=NULL);
 
 	unsigned nextMachineCodeOffset=BytecodeMemoryProgmemAddr;
@@ -1480,17 +1498,27 @@ void assemblerProgramComputeMachineCodeOffsets(AssemblerProgram *program) {
 	program->stackRamOffset=nextRamOffset;
 }
 
-bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
+bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *changeFlag) {
 	assert(program!=NULL);
+
+	if (changeFlag!=NULL)
+		*changeFlag=false;
 
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
 		AssemblerInstruction *instruction=&program->instructions[i];
 		AssemblerLine *line=program->lines[instruction->lineIndex];
 
+		// Clear machine code array to invalid bytes
+		memset(instruction->machineCode, ByteCodeIllegalInstructionByte, AssemblerInstructionMachineCodeMax);
+
+		// Type-specific generation
 		switch(instruction->type) {
 			case AssemblerInstructionTypeAllocation:
 			break;
 			case AssemblerInstructionTypeDefine:
+				// If we are not pointing into some other define's space, simply copy data into program memory directly
+				if (instruction->d.define.pointerLineIndex==instruction->lineIndex)
+					memcpy(instruction->machineCode, instruction->d.define.data, instruction->d.define.totalSize);
 			break;
 			case AssemblerInstructionTypeMov: {
 				// Verify dest is a valid register
@@ -1506,14 +1534,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				if (isdigit(instruction->d.mov.src[0])) {
 					// Integer - use set4, set8 or set16 instruction as needed
 					unsigned value=atoi(instruction->d.mov.src);
-					if (value<16 && destReg<4) {
-						instruction->machineCode[0]=bytecodeInstructionCreateMemorySet4(destReg, value);
-					} else if (value<256) {
-						BytecodeInstruction2Byte set8Op=bytecodeInstructionCreateMiscSet8(destReg, value);
-						instruction->machineCode[0]=(set8Op>>8);
-						instruction->machineCode[1]=(set8Op&0xFF);
-					} else
-						bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, value);
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, value);
 				} else if ((srcReg=assemblerRegisterFromStr(instruction->d.mov.src))!=BytecodeRegisterNB) {
 					// Register - use dest=src|src as a copy
 					BytecodeInstruction2Byte copyOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeOr, destReg, srcReg, srcReg);
@@ -1529,25 +1550,16 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 							case 't': c='\t'; break;
 						}
 					}
-
-					BytecodeInstruction2Byte set8Op=bytecodeInstructionCreateMiscSet8(destReg, c);
-					instruction->machineCode[0]=(set8Op>>8);
-					instruction->machineCode[1]=(set8Op&0xFF);
-				} else if ((defineAddr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src))!=-1) {
-					// Define symbol
-					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, defineAddr);
-				} else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1) {
-					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, allocationAddr);
-				} else if ((labelAddr=assemblerGetLabelSymbolAddr(program, instruction->d.mov.src))!=-1) {
-					bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, labelAddr);
-				} else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1) {
-					if (constValue<256) {
-						BytecodeInstruction2Byte op=bytecodeInstructionCreateMiscSet8(destReg, constValue);
-						instruction->machineCode[0]=(op>>8);
-						instruction->machineCode[1]=(op&0xFF);
-					} else
-						bytecodeInstructionCreateMiscSet16(instruction->machineCode, destReg, constValue);
-				} else {
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, c);
+				} else if ((defineAddr=assemblerGetDefineSymbolAddr(program, instruction->d.mov.src))!=-1)
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, defineAddr);
+				else if ((allocationAddr=assemblerGetAllocationSymbolAddr(program, instruction->d.mov.src))!=-1)
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, allocationAddr);
+				else if ((labelAddr=assemblerGetLabelSymbolAddr(program, instruction->d.mov.src))!=-1)
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, labelAddr);
+				else if ((constValue=assemblerGetConstSymbolValue(program, instruction->d.mov.src))!=-1)
+					bytecodeInstructionCreateSet(instruction->machineCode, destReg, constValue);
+				else {
 					printf("error - bad src '%s' (%s:%u '%s')\n", instruction->d.mov.src, line->file, line->lineNum, line->original);
 					return false;
 				}
@@ -1555,8 +1567,10 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeLabel:
 			break;
 			case AssemblerInstructionTypeSyscall:
+				instruction->machineCode[0]=bytecodeInstructionCreateMiscSyscall();
 			break;
 			case AssemblerInstructionTypeClearInstructionCache:
+				instruction->machineCode[0]=bytecodeInstructionCreateMiscClearInstructionCache();
 			break;
 			case AssemblerInstructionTypeAlu: {
 				// Special case for push16 and pop16 as these require the stack register - fail if we cannot use it
@@ -1623,7 +1637,7 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create instruction which sets the IP register
-				bytecodeInstructionCreateMiscSet16(instruction->machineCode, BytecodeRegisterIP, addr);
+				bytecodeInstructionCreateSet(instruction->machineCode, BytecodeRegisterIP, addr);
 			} break;
 			case AssemblerInstructionTypePush8: {
 				// This requires the stack register - fail if we cannot use it
@@ -1688,13 +1702,13 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 				}
 
 				// Create instructions (push adjusted IP onto stack and jump into function)
-				// set16 rS addr
-				bytecodeInstructionCreateMiscSet16(instruction->machineCode+0, BytecodeRegisterS, addr);
+				// set8/16 rS addr
+				unsigned setLength=bytecodeInstructionCreateSet(instruction->machineCode, BytecodeRegisterS, addr);
 
 				// call rS rSP
 				BytecodeInstruction2Byte callOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, BytecodeRegisterS, BytecodeRegisterSP, (BytecodeRegister)BytecodeInstructionAluExtraTypeCall);
-				instruction->machineCode[3]=(callOp>>8);
-				instruction->machineCode[4]=(callOp&0xFF);
+				instruction->machineCode[setLength+0]=(callOp>>8);
+				instruction->machineCode[setLength+1]=(callOp&0xFF);
 			} break;
 			case AssemblerInstructionTypeRet: {
 				// This requires the stack register - fail if we cannot use it
@@ -1766,6 +1780,30 @@ bool assemblerProgramComputeFinalMachineCode(AssemblerProgram *program) {
 			case AssemblerInstructionTypeNop:
 				instruction->machineCode[0]=bytecodeInstructionCreateMiscNop();
 			break;
+		}
+
+		// Check if we have ended up using less bytes than we thought for this instruction.
+		if (instruction->machineCodeLen>0) {
+			// Calculate actual number of btyes we ended up using for this instruction.
+			unsigned actualLen=0;
+			while(actualLen<AssemblerInstructionMachineCodeMax) {
+				// Hit reserved value indicating end of instructions
+				if (instruction->machineCode[actualLen]==ByteCodeIllegalInstructionByte)
+					break;
+
+				// Otherwise parse instruction's length and add to running total.
+				actualLen+=bytecodeInstructionParseLength(instruction->machineCode+actualLen);
+			}
+
+			// Have we saved space since last iteration?
+			if (actualLen!=instruction->machineCodeLen) {
+				// We have - offsets will need adjusting and code regenerating.
+				instruction->machineCodeLen=actualLen;
+				if (changeFlag!=NULL) {
+					*changeFlag=true;
+					break;
+				}
+			}
 		}
 	}
 

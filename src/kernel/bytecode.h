@@ -18,6 +18,8 @@ typedef uint32_t BytecodeDoubleWord;
 #define BytecodeMemoryRamAddr ((BytecodeWord)(BytecodeMemoryProgmemAddr+BytecodeMemoryProgmemSize)) // ram in upper 32kb
 #define BytecodeMemoryRamSize ((BytecodeWord)(BytecodeMemoryTotalSize-BytecodeMemoryProgmemSize))
 
+#define ByteCodeIllegalInstructionByte 0xC3 // invalid single byte instruction, can be used as a marker by assemblers and such
+
 typedef enum {
 	BytecodeSignalIdInterrupt,
 	BytecodeSignalIdUser1,
@@ -102,9 +104,9 @@ typedef enum {
 } BytecodeInstructionType;
 
 typedef enum {
-	BytecodeInstructionLength1Byte,
-	BytecodeInstructionLength2Byte,
-	BytecodeInstructionLength3Byte,
+	BytecodeInstructionLength1Byte=1,
+	BytecodeInstructionLength2Byte=2,
+	BytecodeInstructionLength3Byte=3,
 } BytecodeInstructionLength;
 
 typedef uint8_t BytecodeInstruction1Byte;
@@ -236,5 +238,8 @@ BytecodeInstruction1Byte bytecodeInstructionCreateMiscSyscall(void);
 BytecodeInstruction1Byte bytecodeInstructionCreateMiscClearInstructionCache(void);
 BytecodeInstruction2Byte bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
 void bytecodeInstructionCreateMiscSet16(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value);
+
+// Generic set instruction, converting to either set4, set8 or set16 as required.
+BytecodeInstructionLength bytecodeInstructionCreateSet(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value); // returns length of instruction chosen
 
 #endif
