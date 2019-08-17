@@ -39,6 +39,19 @@ const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeInc, .str="inc15", .ops=0, .incDecValue=15},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec", .ops=0, .incDecValue=1},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec2", .ops=0, .incDecValue=2},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec3", .ops=0, .incDecValue=3},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec4", .ops=0, .incDecValue=4},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec5", .ops=0, .incDecValue=5},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec6", .ops=0, .incDecValue=6},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec7", .ops=0, .incDecValue=7},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec8", .ops=0, .incDecValue=8},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec9", .ops=0, .incDecValue=9},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec10", .ops=0, .incDecValue=10},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec11", .ops=0, .incDecValue=11},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec12", .ops=0, .incDecValue=12},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec13", .ops=0, .incDecValue=13},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec14", .ops=0, .incDecValue=14},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec15", .ops=0, .incDecValue=15},
 	{.type=BytecodeInstructionAluTypeAdd, .str="add", .ops=2},
 	{.type=BytecodeInstructionAluTypeSub, .str="sub", .ops=2},
 	{.type=BytecodeInstructionAluTypeMul, .str="mul", .ops=2},
@@ -1636,8 +1649,93 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 					return false;
 				}
 
-				// Create instruction which sets the IP register
-				bytecodeInstructionCreateSet(instruction->machineCode, BytecodeRegisterIP, addr);
+				// Create instruction which sets or adjusts the IP register
+
+				// Check for trivial case of jumping to a label defined immediately after jump instruction.
+				if (addr==instruction->machineCodeOffset+instruction->machineCodeLen)
+					break; // 'nop' in the most literal sense - no code needed
+
+				// Inspect previous iteration length and try to improve
+				if (instruction->machineCodeLen==3) {
+					BytecodeWord len2Addr=(addr>instruction->machineCodeOffset ? addr-1 : addr); // value addr will have next iteration if we do manage to reduce down to 2 bytes
+
+					// set8 at 2 bytes?
+					if (len2Addr<256) {
+						// No need to generate proper instruction here - will be handled next iteration in machineCodeLen==2 case.
+						instruction->machineCode[0]=bytecodeInstructionCreateMiscNop();
+						instruction->machineCode[1]=bytecodeInstructionCreateMiscNop();
+						break;
+					}
+
+					// inc/dec?
+					BytecodeWord ip=instruction->machineCodeOffset+2; // value IP register will have at the time this instruction will be executed (assuming we manage 2 byte instruction)
+					if (len2Addr>ip) {
+						// inc case
+						BytecodeWord jumpDistance=len2Addr-ip;
+						if (jumpDistance<=64) {
+							// No need to generate proper instruction here - will be handled next iteration in machineCodeLen==2 case.
+							instruction->machineCode[0]=bytecodeInstructionCreateMiscNop();
+							instruction->machineCode[1]=bytecodeInstructionCreateMiscNop();
+							break;
+						}
+					} else if (len2Addr<ip) {
+						// dec case
+						BytecodeWord jumpDistance=ip-len2Addr;
+						if (jumpDistance<=64) {
+							// No need to generate proper instruction here - will be handled next iteration in machineCodeLen==2 case.
+							instruction->machineCode[0]=bytecodeInstructionCreateMiscNop();
+							instruction->machineCode[1]=bytecodeInstructionCreateMiscNop();
+							break;
+						}
+					} else
+						assert(false); // we have len2Addr=ip => addr>machineCodeOffset with len2Addr=addr-1 so addr=machineCodeOffset+machineCodeLen, which should have been handled by trivial case
+
+					// set16 at 3 bytes as last resort
+					bytecodeInstructionCreateMiscSet16(instruction->machineCode, BytecodeRegisterIP, addr);
+					break;
+				} else if (instruction->machineCodeLen==2) {
+					// set8 at 2 bytes?
+					if (addr<256) {
+						BytecodeInstruction2Byte set8Op=bytecodeInstructionCreateMiscSet8(BytecodeRegisterIP, addr);
+						instruction->machineCode[0]=(set8Op>>8);
+						instruction->machineCode[1]=(set8Op&0xFF);
+						break;
+					}
+
+					// Otherwise we must be able to do inc/dec (given we managed last time in 2 bytes)
+					// Note: we know addr is correct for this instruction being 2 bytes long due to machineCodeLen check above.
+					BytecodeWord ip=instruction->machineCodeOffset+instruction->machineCodeLen; // value IP register will have at the time this instruction will be executed
+					if (addr>ip) {
+						// inc case
+						BytecodeWord jumpDistance=addr-ip;
+						if (jumpDistance<=64) {
+							BytecodeInstruction2Byte incOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeInc, BytecodeRegisterIP, jumpDistance);
+							instruction->machineCode[0]=(incOp>>8);
+							instruction->machineCode[1]=(incOp&0xFF);
+							break;
+						}
+					} else if (addr<ip) {
+						// dec case
+						BytecodeWord jumpDistance=ip-addr;
+						if (jumpDistance<=64) {
+							BytecodeInstruction2Byte decOp=bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluTypeDec, BytecodeRegisterIP, jumpDistance);
+							instruction->machineCode[0]=(decOp>>8);
+							instruction->machineCode[1]=(decOp&0xFF);
+							break;
+						}
+					} else
+						assert(false); // we have addr=ip => addr=machineCodeOffset+machineCodeLen, but this should have been caught in initial trivial case
+
+					// Internal error - last iteration we were promised a 2 byte instruction but cannot find it this time around
+					assert(false);
+				} else {
+					// machineCodeLen==0 is valid also but is handled in trivial case above
+					// otherwise only valid lengths are 3 for set16 and 2 for set8/inc/dec
+					assert(false);
+				}
+
+				// We should have called 'break' in every case above
+				assert(false);
 			} break;
 			case AssemblerInstructionTypePush8: {
 				// This requires the stack register - fail if we cannot use it
@@ -1798,13 +1896,15 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 			// Have we saved space since last iteration?
 			if (actualLen!=instruction->machineCodeLen) {
 				// We have - offsets will need adjusting and code regenerating.
+				assert(actualLen<instruction->machineCodeLen);
 				instruction->machineCodeLen=actualLen;
 				if (changeFlag!=NULL) {
 					*changeFlag=true;
 					break;
 				}
 			}
-		}
+		} else
+			assert(instruction->machineCode[0]==ByteCodeIllegalInstructionByte);
 	}
 
 	return true;

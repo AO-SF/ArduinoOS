@@ -1,49 +1,79 @@
-; inttostr(str=r0, val=r1)
+; inttostr(str=r0, x=r1, padFlag=r2) - write x in ascii as a decimal value to given string, optionally padded with zeros
+; note: this was originally done with a loop but it is significantly faster unrolled and optimised
 label inttostr
-; Init ready for loop
+; if padding flag set, simply jump straight to printing first digit
+cmp r2 r2 r2
+skipeqz r2
+jmp inttostrprint4
+; check if single digit
+mov r2 10
+cmp r4 r1 r2
+skipge r4
+jmp inttostrprint0
+; check if two digits
+mov r3 100
+cmp r4 r1 r3
+skipge r4
+jmp inttostrprint1
+; check if three digits
+mul r3 r2 r3 ; shorter version of `mov r3 1000`
+cmp r4 r1 r3
+skipge r4
+jmp inttostrprint2
+; check if four digits
+mul r2 r2 r3 ; shorter version of `mov r2 10000`
+cmp r4 r1 r2
+skipge r4
+jmp inttostrprint3
+; else five digits
+; print ten-thousands digit
+label inttostrprint4
 mov r2 10000
-mov r4 0 ; foundDigit flag
-; Divide to find current digit
-label inttostrLoopStart
-div r3 r1 r2 ; current digit in r3
-; If this digit is non-zero we need to add it
-cmp r5 r3 r3
-skipeqz r5
-jmp inttostrLoopAdd
-; If we have already found a significant digit we need to add this one
-cmp r5 r4 r4
-skipeqz r5
-jmp inttostrLoopAdd
-; If this is the last digit we also need to add it regardless
-mov r5 1
-cmp r5 r2 r5
-skipneq r5
-jmp inttostrLoopAdd
-; Otherwise no need to add
-jmp inttostrLoopNext
-; Add digit
-label inttostrLoopAdd
-mov r4 '0'
-add r4 r4 r3
-store8 r0 r4
+div r3 r1 r2
+mul r4 r3 r2
+sub r1 r1 r4
+mov r2 '0'
+add r2 r3 r2
+store8 r0 r2
 inc r0
-mov r4 1 ; set foundDigit flag
-; Take digits value away from x
-label inttostrLoopNext
-mul r3 r3 r2
-sub r1 r1 r3
-; Finished? (factor=1)
-mov r3 1
-cmp r3 r2 r3
-skipneq r3
-jmp inttostrLoopEnd
-; Reduce divisor by factor of 10
-mov r3 10
-div r2 r2 r3
-; Loop to add next digit
-jmp inttostrLoopStart
-label inttostrLoopEnd
-; Add null terminator
-mov r4 0
-store8 r0 r4
+; print thousands digit
+label inttostrprint3
+mov r2 1000
+div r3 r1 r2
+mul r4 r3 r2
+sub r1 r1 r4
+mov r2 '0'
+add r2 r3 r2
+store8 r0 r2
+inc r0
+; print hundreds digit
+label inttostrprint2
+mov r2 100
+div r3 r1 r2
+mul r4 r3 r2
+sub r1 r1 r4
+mov r2 '0'
+add r2 r3 r2
+store8 r0 r2
+inc r0
+; print tens digit
+label inttostrprint1
+mov r2 10
+div r3 r1 r2
+mul r4 r3 r2
+sub r1 r1 r4
+mov r2 '0'
+add r2 r3 r2
+store8 r0 r2
+inc r0
+; print units digit
+label inttostrprint0
+; divisor is one - nothing to do
+mov r2 '0'
+add r2 r1 r2
+store8 r0 r2
+inc r0
+; add null terminator
+mov r2 0
+store8 r0 r2
 ret
