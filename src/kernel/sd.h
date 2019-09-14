@@ -26,7 +26,7 @@ typedef enum {
 } SdAddressMode;
 
 typedef struct {
-	uint32_t blockCount; // Card size is blockCount*SdBlockSize, allowing up to 2TB. However we only support 4gb due to 32 bit addressing (see spiDeviceSdCardReaderMount).
+	uint32_t blockCount; // Card size is blockCount*SdBlockSize, allowing up to 2TB. However we only support 4gb due to 32 bit addressing (see hwDeviceSdCardReaderMount).
 	SdType type;
 	uint8_t powerPin;
 	uint8_t slaveSelectPin;

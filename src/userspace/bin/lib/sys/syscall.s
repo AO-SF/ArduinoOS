@@ -51,11 +51,11 @@ const SyscallIdStrChr 1536
 const SyscallIdStrChrNul 1537
 const SyscallIdMemMove 1538
 
-const SyscallIdSpiDeviceRegister 1792
-const SyscallIdSpiDeviceDeregister 1793
-const SyscallIdSpiDeviceGetType 1794
-const BytecodeSyscallIdSpiDeviceSdCardReaderMount 1795
-const BytecodeSyscallIdSpiDeviceSdCardReaderUnmount 1796
+const SyscallIdHwDeviceRegister 1792
+const SyscallIdHwDeviceDeregister 1793
+const SyscallIdHwDeviceGetType 1794
+const BytecodeSyscallIdHwDeviceSdCardReaderMount 1795
+const BytecodeSyscallIdHwDeviceSdCardReaderUnmount 1796
 
 ; WaitPid special return values
 const SyscallWaitpidStatusSuccess 0
@@ -65,7 +65,7 @@ const SyscallWaitpidStatusKilled 65534
 const SyscallWaitpidStatusTimeout 65535
 
 ; SPI device constants
-const SyscallSpiDeviceIdMax 2
+const SyscallHwDeviceIdMax 2
 
 ; Mount type/format constants
 const SyscallMountFormatCustomMiniFs 0

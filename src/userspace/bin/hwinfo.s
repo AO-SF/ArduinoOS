@@ -29,7 +29,7 @@ pop8 r1
 
 ; Get type and print associated string
 push8 r1
-mov r0 SyscallIdSpiDeviceGetType
+mov r0 SyscallIdHwDeviceGetType
 syscall
 
 cmp r1 r0 r0
@@ -74,7 +74,7 @@ call putc0
 ; Increment device id and check for max
 pop8 r1
 inc r1
-mov r4 SyscallSpiDeviceIdMax
+mov r4 SyscallHwDeviceIdMax
 cmp r4 r1 r4
 skiplt r4
 jmp loopend

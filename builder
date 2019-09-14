@@ -66,10 +66,10 @@ echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/ps.s ./tmp/mockups/usrbinmockup/ps
 ./bin/assembler ./src/userspace/bin/reset.s ./tmp/mockups/usrbinmockup/reset
 ./bin/assembler ./src/userspace/bin/setpin.s ./tmp/mockups/usrbinmockup/setpin
-./bin/assembler ./src/userspace/bin/spidereg.s ./tmp/mockups/usrbinmockup/spidereg
-./bin/assembler ./src/userspace/bin/spiinfo.s ./tmp/mockups/usrbinmockup/spiinfo
-./bin/assembler ./src/userspace/bin/spireg.s ./tmp/mockups/usrbinmockup/spireg
-./bin/assembler ./src/userspace/bin/spisdmnt.s ./tmp/mockups/usrbinmockup/spisdmnt
+./bin/assembler ./src/userspace/bin/hwdereg.s ./tmp/mockups/usrbinmockup/hwdereg
+./bin/assembler ./src/userspace/bin/hwinfo.s ./tmp/mockups/usrbinmockup/hwinfo
+./bin/assembler ./src/userspace/bin/hwreg.s ./tmp/mockups/usrbinmockup/hwreg
+./bin/assembler ./src/userspace/bin/hwsdmnt.s ./tmp/mockups/usrbinmockup/hwsdmnt
 ./bin/assembler ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
 
