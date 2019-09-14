@@ -66,8 +66,13 @@ const SyscallWaitpidStatusNoProcess 65532
 const SyscallWaitpidStatusKilled 65534
 const SyscallWaitpidStatusTimeout 65535
 
-; SPI device constants
+; HW device constants
 const SyscallHwDeviceIdMax 4
+
+const SyscallHwDeviceTypeUnused 0
+const SyscallHwDeviceTypeRaw 1
+const SyscallHwDeviceTypeSdCardReader 2
+const SyscallHwDeviceTypeDht22 3
 
 ; Mount type/format constants
 const SyscallMountFormatCustomMiniFs 0

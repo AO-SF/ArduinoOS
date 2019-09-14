@@ -3,7 +3,7 @@ require ../sys/sys.s
 ; dht22Register (r0=hw device slot, returns 1/0 for success/failure in r0)
 label dht22Register
 mov r1 r0
-mov r2 3 ; type - DHT22 sensor
+mov r2 SyscallHwDeviceTypeDht22
 mov r0 SyscallIdHwDeviceRegister
 syscall
 ret
