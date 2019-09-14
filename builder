@@ -23,7 +23,6 @@ mkdir -p ./tmp/mockups/usrgamesmockup
 echo "	Creating /bin mockup..."
 ./bin/assembler ./src/userspace/bin/cat.s ./tmp/mockups/binmockup/cat
 ./bin/assembler ./src/userspace/bin/cp.s ./tmp/mockups/binmockup/cp
-./bin/assembler ./src/userspace/bin/dht22read.s ./tmp/mockups/binmockup/dht22read
 ./bin/assembler ./src/userspace/bin/echo.s ./tmp/mockups/binmockup/echo
 ./bin/assembler ./src/userspace/bin/false.s ./tmp/mockups/binmockup/false
 ./bin/assembler ./src/userspace/bin/init.s ./tmp/mockups/binmockup/init
@@ -57,6 +56,7 @@ cp ./src/userspace/home/* ./tmp/mockups/homemockup
 
 echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/burn.s ./tmp/mockups/usrbinmockup/burn
+./bin/assembler ./src/userspace/bin/dht22read.s ./tmp/mockups/usrbinmockup/dht22read
 ./bin/assembler ./src/userspace/bin/factor.s ./tmp/mockups/usrbinmockup/factor
 ./bin/assembler ./src/userspace/bin/getpin.s ./tmp/mockups/usrbinmockup/getpin
 ./bin/assembler ./src/userspace/bin/hash.s ./tmp/mockups/usrbinmockup/hash
