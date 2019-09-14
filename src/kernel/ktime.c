@@ -3,10 +3,8 @@
 #ifdef ARDUINO
 #include <avr/interrupt.h>
 #include <avr/io.h>
-#include <util/delay.h>
 #else
 #include <sys/time.h>
-#include <unistd.h>
 #endif
 
 #include "log.h"

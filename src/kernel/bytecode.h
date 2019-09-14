@@ -90,11 +90,13 @@ typedef enum {
 	BytecodeSyscallIdStrchr=(1536|0),
 	BytecodeSyscallIdStrchrnul=(1536|1),
 	BytecodeSyscallIdMemmove=(1536|2),
-	BytecodeSyscallIdSpiDeviceRegister=(1792|0),
-	BytecodeSyscallIdSpiDeviceDeregister=(1792|1),
-	BytecodeSyscallIdSpiDeviceGetType=(1792|2),
-	BytecodeSyscallIdSpiDeviceSdCardReaderMount=(1792|3),
-	BytecodeSyscallIdSpiDeviceSdCardReaderUnmount=(1792|4),
+	BytecodeSyscallIdHwDeviceRegister=(1792|0),
+	BytecodeSyscallIdHwDeviceDeregister=(1792|1),
+	BytecodeSyscallIdHwDeviceGetType=(1792|2),
+	BytecodeSyscallIdHwDeviceSdCardReaderMount=(1792|3),
+	BytecodeSyscallIdHwDeviceSdCardReaderUnmount=(1792|4),
+	BytecodeSyscallIdHwDeviceDht22GetTemperature=(1792|5),
+	BytecodeSyscallIdHwDeviceDht22GetHumidity=(1792|6),
 } BytecodeSyscallId;
 
 typedef enum {

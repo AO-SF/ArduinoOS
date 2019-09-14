@@ -21,6 +21,7 @@
 #include <unistd.h>
 #endif
 
+#include "hwdevice.h"
 #include "kernel.h"
 #include "kernelfs.h"
 #include "ktime.h"
@@ -29,7 +30,6 @@
 #include "pins.h"
 #include "procman.h"
 #include "spi.h"
-#include "spidevice.h"
 #include "util.h"
 
 #include "commonprogmem.h"
@@ -173,6 +173,9 @@ int main(void) {
 		// Check for ctrl+c to propagate
 		kernelCtrlCSend();
 
+		// Run hardware device tick functions.
+		hwDeviceTick();
+
 		// Run each process for 1 tick, and delay if we have spare time (PC wrapper only - pointless on Arduino)
 		#ifndef ARDUINO
 		uint32_t t=ktimeGetMs();
@@ -308,7 +311,7 @@ void kernelBoot(void) {
 	kernelLogSetLevel(LogLevelWarning);
 
 	// Initialise SPI devices ASAP
-	spiDeviceInit();
+	hwDeviceInit();
 
 	// Init SPI bus (ready to map to /dev/spi).
 	spiInit(SpiClockSpeedDiv64);
@@ -746,9 +749,9 @@ bool kernelDevDigitalPinCanReadFunctor(void *userData) {
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
 
-	// Forbid writes from user space to SPI device pins (unless associated device has type SpiDeviceTypeRaw).
-	SpiDeviceId spiDeviceId=spiDeviceGetDeviceForPin(pinNum);
-	if (spiDeviceId!=SpiDeviceIdMax && spiDeviceGetType(spiDeviceId)!=SpiDeviceTypeRaw)
+	// Forbid writes from user space to SPI device pins (unless associated device has type HwDeviceTypeRaw).
+	HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
+	if (hwDeviceId!=HwDeviceIdMax && hwDeviceGetType(hwDeviceId)!=HwDeviceTypeRaw)
 		return 0;
 
 	// Simply write last of values given (considered as a boolean),
