@@ -129,9 +129,10 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 			pinSetMode(hwDevicePinPairs[id].dataPin, PinModeInput);
 			pinWrite(hwDevicePinPairs[id].powerPin, true);
 
-			// Grab initial temperature and humitity values, updating timestamp with it.
-			if (!hwDeviceDht22Read(id))
-				goto error;
+			// Set initial values (we have to wait at least 2s after powering on to read values, so this is the best we can do).
+			hwDevices[id].d.dht22.temperature=0; // indicate we need to read again ASAP
+			hwDevices[id].d.dht22.humitity=0; // indicate we need to read again ASAP
+			hwDevices[id].d.dht22.lastReadTime=0; // indicate we need to read again ASAP
 		break;
 	}
 
