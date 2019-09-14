@@ -54,8 +54,8 @@ const SyscallIdMemMove 1538
 const SyscallIdHwDeviceRegister 1792
 const SyscallIdHwDeviceDeregister 1793
 const SyscallIdHwDeviceGetType 1794
-const BytecodeSyscallIdHwDeviceSdCardReaderMount 1795
-const BytecodeSyscallIdHwDeviceSdCardReaderUnmount 1796
+const SyscallIdHwDeviceSdCardReaderMount 1795
+const SyscallIdHwDeviceSdCardReaderUnmount 1796
 const SyscallIdHwDeviceDht22GetTemperature 1797
 const SyscallIdHwDeviceDht22GetHumidity 1798
 

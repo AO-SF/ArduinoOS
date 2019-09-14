@@ -32,7 +32,7 @@ skipneqz r0
 jmp usage ; id is not popped from stack but no harm
 
 ; Use syscall to mount
-mov r0 BytecodeSyscallIdHwDeviceSdCardReaderMount
+mov r0 SyscallIdHwDeviceSdCardReaderMount
 pop8 r1
 mov r2 argBuf
 syscall
