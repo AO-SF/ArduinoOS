@@ -4,7 +4,7 @@ NAME
       signal - send a signal to a process
 
 SYNOPSIS
-      signal <pid> <signalid>
+      signal pid signalid
 
 DESCRIPTION
       Send the given signal to the process represented by the given pid.

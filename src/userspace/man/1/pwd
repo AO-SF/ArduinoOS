@@ -4,7 +4,7 @@ NAME
       pwd - print present working directory
 
 SYNOPSIS
-      pwd [ignored command line arguments]
+      pwd
 
 DESCRIPTION
       Prints current working directory.

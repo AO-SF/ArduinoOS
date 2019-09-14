@@ -4,7 +4,7 @@ NAME
       kill - kill a process
 
 SYNOPSIS
-      kill <pid>
+      kill pid
 
 DESCRIPTION
       Kill the process referred to by the given pid.
