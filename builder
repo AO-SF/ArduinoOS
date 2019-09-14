@@ -73,6 +73,7 @@ echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/hwsdmnt.s ./tmp/mockups/usrbinmockup/hwsdmnt
 ./bin/assembler ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
+./bin/assembler ./src/userspace/bin/watch.s ./tmp/mockups/usrbinmockup/watch
 
 echo "	Creating /usr/games mockup..."
 cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
