@@ -11,6 +11,7 @@
 #include <unistd.h>
 #endif
 
+#include "hwdevice.h"
 #include "kernel.h"
 #include "kernelmount.h"
 #include "ktime.h"
@@ -18,7 +19,6 @@
 #include "pins.h"
 #include "procman.h"
 #include "spi.h"
-#include "spidevice.h"
 
 #define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
 #define procManProcessInstructionsPerTick 160 // generally a higher value causes faster execution, but decreased responsiveness if many processes running
@@ -1825,9 +1825,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 								break;
 							}
 
-							// Forbid mode changes from user space to SPI device pins (even if associated device has type SpiDeviceTypeRaw).
-							SpiDeviceId spiDeviceId=spiDeviceGetDeviceForPin(pinNum);
-							if (spiDeviceId!=SpiDeviceIdMax) {
+							// Forbid mode changes from user space to SPI device pins (even if associated device has type HwDeviceTypeRaw).
+							HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
+							if (hwDeviceId!=HwDeviceIdMax) {
 								kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of SPI device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 								break;
 							}
@@ -1943,31 +1943,31 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			return true;
 		} break;
-		case BytecodeSyscallIdSpiDeviceRegister: {
-			SpiDeviceId id=procData->regs[1];
-			SpiDeviceType type=procData->regs[2];
+		case BytecodeSyscallIdHwDeviceRegister: {
+			HwDeviceId id=procData->regs[1];
+			HwDeviceType type=procData->regs[2];
 
-			procData->regs[0]=spiDeviceRegister(id, type);
-
-			return true;
-		} break;
-		case BytecodeSyscallIdSpiDeviceDeregister: {
-			SpiDeviceId id=procData->regs[1];
-
-			spiDeviceDeregister(id);
+			procData->regs[0]=hwDeviceRegister(id, type);
 
 			return true;
 		} break;
-		case BytecodeSyscallIdSpiDeviceGetType: {
-			SpiDeviceId id=procData->regs[1];
+		case BytecodeSyscallIdHwDeviceDeregister: {
+			HwDeviceId id=procData->regs[1];
 
-			procData->regs[0]=spiDeviceGetType(id);
+			hwDeviceDeregister(id);
 
 			return true;
 		} break;
-		case BytecodeSyscallIdSpiDeviceSdCardReaderMount: {
+		case BytecodeSyscallIdHwDeviceGetType: {
+			HwDeviceId id=procData->regs[1];
+
+			procData->regs[0]=hwDeviceGetType(id);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdHwDeviceSdCardReaderMount: {
 			// Grab arguments
-			SpiDeviceId id=procData->regs[1];
+			HwDeviceId id=procData->regs[1];
 			uint16_t mountPointAddr=procData->regs[2];
 
 			char mountPoint[KernelFsPathMax];
@@ -1978,14 +1978,28 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			kernelFsPathNormalise(mountPoint);
 
 			// Attempt to mount
-			procData->regs[0]=spiDeviceSdCardReaderMount(id, mountPoint);
+			procData->regs[0]=hwDeviceSdCardReaderMount(id, mountPoint);
 
 			return true;
 		} break;
-		case BytecodeSyscallIdSpiDeviceSdCardReaderUnmount: {
-			SpiDeviceId id=procData->regs[1];
+		case BytecodeSyscallIdHwDeviceSdCardReaderUnmount: {
+			HwDeviceId id=procData->regs[1];
 
-			spiDeviceSdCardReaderUnmount(id);
+			hwDeviceSdCardReaderUnmount(id);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdHwDeviceDht22GetTemperature: {
+			HwDeviceId id=procData->regs[1];
+
+			procData->regs[0]=hwDeviceDht22GetTemperature(id);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdHwDeviceDht22GetHumidity: {
+			HwDeviceId id=procData->regs[1];
+
+			procData->regs[0]=hwDeviceDht22GetHumidity(id);
 
 			return true;
 		} break;

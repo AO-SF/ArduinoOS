@@ -2,6 +2,8 @@ requireend lib/std/io/fput.s
 requireend lib/std/io/fputdec.s
 requireend lib/std/proc/exit.s
 
+db commaSpaceStr ', ',0
+
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
 
@@ -24,13 +26,11 @@ cmp r3 r4 r3
 skiplt r3 ; if r4<40000 is true this causes us to skip the next instruction and continue executing the loop
 jmp loopend ; but if false then we end up here and break out of the loop
 
-; Print comma
+; Print comma and space
 push16 r4
 push16 r5
-mov r0 ','
-call putc0
-mov r0 ' '
-call putc0
+mov r0 commaSpaceStr
+call puts0
 pop16 r5
 pop16 r4
 

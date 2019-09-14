@@ -175,6 +175,10 @@ bool processRunNextInstruction(Process *process) {
 					process->memory[process->regs[info.d.memory.destReg]]=process->regs[info.d.memory.srcReg];
 					if (infoInstructions)
 						printf("Info: *r%i=r%i (*%u=%u)\n", info.d.memory.destReg, info.d.memory.srcReg, process->regs[info.d.memory.destReg], process->regs[info.d.memory.srcReg]);
+					if (process->regs[info.d.memory.destReg]<BytecodeMemoryProgmemSize) {
+						printf("Error: store8 with address pointing into read-only region.\n");
+						return false;
+					}
 				break;
 				case BytecodeInstructionMemoryTypeLoad8: {
 					BytecodeWord srcAddr=process->regs[info.d.memory.srcReg];
@@ -296,6 +300,10 @@ bool processRunNextInstruction(Process *process) {
 							process->memory[process->regs[info.d.alu.destReg]+1]=(process->regs[info.d.alu.opAReg]&0xFF);
 							if (infoInstructions)
 								printf("Info: [r%i]=r%i (16 bit) ([%i]=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, process->regs[info.d.alu.destReg], opA);
+							if (process->regs[info.d.alu.destReg]<BytecodeMemoryProgmemSize) {
+								printf("Error: store16 with address pointing into read-only region.\n");
+								return false;
+							}
 						break;
 						case BytecodeInstructionAluExtraTypeLoad16:
 							process->regs[info.d.alu.destReg]=(((BytecodeWord)process->memory[process->regs[info.d.alu.opAReg]])<<8) |
@@ -700,7 +708,7 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [memmove], dest addr=%u, src addr=%u, size=%u\n", syscallId, destAddr, srcAddr, size);
 						} break;
-						case BytecodeSyscallIdSpiDeviceRegister: {
+						case BytecodeSyscallIdHwDeviceRegister: {
 							// Always fail
 							uint16_t id=process->regs[1];
 							uint16_t type=process->regs[2];
@@ -710,14 +718,14 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [spideviceregister], id=%u, type=%u\n", syscallId, id, type);
 						} break;
-						case BytecodeSyscallIdSpiDeviceDeregister: {
+						case BytecodeSyscallIdHwDeviceDeregister: {
 							// Nothing to do - cannot register such devices in the first place
 							uint16_t id=process->regs[1];
 
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [spidevicederegister], id=%u\n", syscallId, id);
 						} break;
-						case BytecodeSyscallIdSpiDeviceGetType: {
+						case BytecodeSyscallIdHwDeviceGetType: {
 							// Must be unused - cannot register such devices in the first place
 							uint16_t id=process->regs[1];
 							process->regs[0]=0; // TODO: fix magic number 0 with typeunused constant from somewhere
@@ -725,7 +733,7 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [spidevicegettype], id=%u\n", syscallId, id);
 						} break;
-						case BytecodeSyscallIdSpiDeviceSdCardReaderMount: {
+						case BytecodeSyscallIdHwDeviceSdCardReaderMount: {
 							// SPI devices are unsupported
 							uint16_t id=process->regs[1];
 							process->regs[0]=0;
@@ -733,12 +741,30 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [spidevicesdcardreadermount], id=%u\n", syscallId, id);
 						} break;
-						case BytecodeSyscallIdSpiDeviceSdCardReaderUnmount: {
+						case BytecodeSyscallIdHwDeviceSdCardReaderUnmount: {
 							// SPI devices are unsupported
 							uint16_t id=process->regs[1];
 
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [spidevicesdcardreaderunmount], id=%u\n", syscallId, id);
+						} break;
+						case BytecodeSyscallIdHwDeviceDht22GetTemperature: {
+							// SPI devices are unsupported
+							uint16_t id=process->regs[1];
+
+							process->regs[0]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [spidevicedht22gettemperature], id=%u\n", syscallId, id);
+						} break;
+						case BytecodeSyscallIdHwDeviceDht22GetHumidity: {
+							// SPI devices are unsupported
+							uint16_t id=process->regs[1];
+
+							process->regs[0]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [spidevicedht22gethumidity], id=%u\n", syscallId, id);
 						} break;
 						default:
 							if (infoSyscalls)

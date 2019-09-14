@@ -16,7 +16,7 @@ jmp lockwaitloopstart
 pop16 r0 ; restore stack
 ret
 
-label lockwaittry ; r0=lock ptr, tries to grab lock returning immedaitely. If lock was taken 1 is returned, otherwise 0.
+label lockwaittry ; r0=lock ptr, tries to grab lock returning immediately. If lock was taken 1 is returned, otherwise 0.
 ; swap 1 into lock to either take or preserve taken status
 mov r1 1
 xchg8 r0 r1

@@ -9,7 +9,7 @@ arduino: CPP = avr-gcc
 pc: ALL
 arduino: ALL
 
-OBJS = avrlib.o bytecode.o circbuf.o fat.o kernel.o kernelfs.o kstr.o log.o minifs.o pins.o kernelmount.o procman.o sd.o spi.o spidevice.o uart.o ktime.o util.o
+OBJS = avrlib.o bytecode.o circbuf.o fat.o hwdevice.o kernel.o kernelfs.o kstr.o log.o minifs.o pins.o kernelmount.o procman.o sd.o spi.o uart.o ktime.o
 
 ALL: $(OBJS)
 	$(CPP) $(CFLAGS) $(OBJS) -o ../../bin/kernel $(LFLAGS)

@@ -23,6 +23,7 @@ mkdir -p ./tmp/mockups/usrgamesmockup
 echo "	Creating /bin mockup..."
 ./bin/assembler ./src/userspace/bin/cat.s ./tmp/mockups/binmockup/cat
 ./bin/assembler ./src/userspace/bin/cp.s ./tmp/mockups/binmockup/cp
+./bin/assembler ./src/userspace/bin/dht22read.s ./tmp/mockups/binmockup/dht22read
 ./bin/assembler ./src/userspace/bin/echo.s ./tmp/mockups/binmockup/echo
 ./bin/assembler ./src/userspace/bin/false.s ./tmp/mockups/binmockup/false
 ./bin/assembler ./src/userspace/bin/init.s ./tmp/mockups/binmockup/init
@@ -66,10 +67,10 @@ echo "	Creating /usr/bin mockup..."
 ./bin/assembler ./src/userspace/bin/ps.s ./tmp/mockups/usrbinmockup/ps
 ./bin/assembler ./src/userspace/bin/reset.s ./tmp/mockups/usrbinmockup/reset
 ./bin/assembler ./src/userspace/bin/setpin.s ./tmp/mockups/usrbinmockup/setpin
-./bin/assembler ./src/userspace/bin/spidereg.s ./tmp/mockups/usrbinmockup/spidereg
-./bin/assembler ./src/userspace/bin/spiinfo.s ./tmp/mockups/usrbinmockup/spiinfo
-./bin/assembler ./src/userspace/bin/spireg.s ./tmp/mockups/usrbinmockup/spireg
-./bin/assembler ./src/userspace/bin/spisdmnt.s ./tmp/mockups/usrbinmockup/spisdmnt
+./bin/assembler ./src/userspace/bin/hwdereg.s ./tmp/mockups/usrbinmockup/hwdereg
+./bin/assembler ./src/userspace/bin/hwinfo.s ./tmp/mockups/usrbinmockup/hwinfo
+./bin/assembler ./src/userspace/bin/hwreg.s ./tmp/mockups/usrbinmockup/hwreg
+./bin/assembler ./src/userspace/bin/hwsdmnt.s ./tmp/mockups/usrbinmockup/hwsdmnt
 ./bin/assembler ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/assembler ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
 
@@ -82,6 +83,7 @@ echo "	Formatting static PROGMEM data files from userspace files and mockups..."
 
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/curses" "_lib_curses" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/pin" "_lib_pin" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/dht22" "_lib_std_dht22" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/io" "_lib_std_io" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/math" "_lib_std_math" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/mem" "_lib_std_mem" "./tmp/progmemdata"

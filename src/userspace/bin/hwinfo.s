@@ -7,6 +7,7 @@ requireend lib/std/proc/exit.s
 db typeStrUnused 'unused',0
 db typeStrRaw 'raw',0
 db typeStrSdCardReader 'SD card reader',0
+db typeStrDht22 'DHT22 Sensor',0
 db typeStrUnknown 'unknown',0
 
 ; Register simple suicide handler
@@ -29,7 +30,7 @@ pop8 r1
 
 ; Get type and print associated string
 push8 r1
-mov r0 SyscallIdSpiDeviceGetType
+mov r0 SyscallIdHwDeviceGetType
 syscall
 
 cmp r1 r0 r0
@@ -45,6 +46,11 @@ mov r1 2
 cmp r1 r0 r1
 skipneq r1
 jmp printTypeSdCardReader
+
+mov r1 3
+cmp r1 r0 r1
+skipneq r1
+jmp printTypeDht22
 
 mov r0 typeStrUnknown
 call puts0
@@ -65,6 +71,11 @@ mov r0 typeStrSdCardReader
 call puts0
 jmp printTypeEnd
 
+label printTypeDht22
+mov r0 typeStrDht22
+call puts0
+jmp printTypeEnd
+
 label printTypeEnd
 
 ; Print newline
@@ -74,7 +85,7 @@ call putc0
 ; Increment device id and check for max
 pop8 r1
 inc r1
-mov r4 SyscallSpiDeviceIdMax
+mov r4 SyscallHwDeviceIdMax
 cmp r4 r1 r4
 skiplt r4
 jmp loopend

@@ -91,7 +91,7 @@ BytecodeInstruction2Byte bytecodeInstructionCreateAlu(BytecodeInstructionAluType
 
 BytecodeInstruction2Byte bytecodeInstructionCreateAluIncDecValue(BytecodeInstructionAluType type, BytecodeRegister destReg, uint8_t incDecValue) {
 	assert(type==BytecodeInstructionAluTypeInc || type==BytecodeInstructionAluTypeDec);
-	assert(incDecValue>0 && incDecValue<64);
+	assert(incDecValue>0 && incDecValue<=64);
 
 	BytecodeRegister opAReg=(incDecValue-1)>>3;
 	BytecodeRegister opBReg=(incDecValue-1)&7;
