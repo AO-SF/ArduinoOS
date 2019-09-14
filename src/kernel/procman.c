@@ -1989,6 +1989,20 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdHwDeviceDht22GetTemperature: {
+			HwDeviceId id=procData->regs[1];
+
+			procData->regs[0]=hwDeviceDht22GetTemperature(id);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdHwDeviceDht22GetHumidity: {
+			HwDeviceId id=procData->regs[1];
+
+			procData->regs[0]=hwDeviceDht22GetHumidity(id);
+
+			return true;
+		} break;
 	}
 
 	kernelLog(LogTypeWarning, kstrP("invalid syscall id=%i, process %u (%s), killing\n"), syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));

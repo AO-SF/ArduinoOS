@@ -748,6 +748,24 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [spidevicesdcardreaderunmount], id=%u\n", syscallId, id);
 						} break;
+						case BytecodeSyscallIdHwDeviceDht22GetTemperature: {
+							// SPI devices are unsupported
+							uint16_t id=process->regs[1];
+
+							process->regs[0]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [spidevicedht22gettemperature], id=%u\n", syscallId, id);
+						} break;
+						case BytecodeSyscallIdHwDeviceDht22GetHumidity: {
+							// SPI devices are unsupported
+							uint16_t id=process->regs[1];
+
+							process->regs[0]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [spidevicedht22gethumidity], id=%u\n", syscallId, id);
+						} break;
 						default:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unknown])\n", syscallId);

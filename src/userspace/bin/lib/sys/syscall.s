@@ -56,6 +56,8 @@ const SyscallIdHwDeviceDeregister 1793
 const SyscallIdHwDeviceGetType 1794
 const BytecodeSyscallIdHwDeviceSdCardReaderMount 1795
 const BytecodeSyscallIdHwDeviceSdCardReaderUnmount 1796
+const SyscallIdHwDeviceDht22GetTemperature 1797
+const SyscallIdHwDeviceDht22GetHumidity 1798
 
 ; WaitPid special return values
 const SyscallWaitpidStatusSuccess 0

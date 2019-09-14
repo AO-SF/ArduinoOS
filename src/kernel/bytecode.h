@@ -95,6 +95,8 @@ typedef enum {
 	BytecodeSyscallIdHwDeviceGetType=(1792|2),
 	BytecodeSyscallIdHwDeviceSdCardReaderMount=(1792|3),
 	BytecodeSyscallIdHwDeviceSdCardReaderUnmount=(1792|4),
+	BytecodeSyscallIdHwDeviceDht22GetTemperature=(1792|5),
+	BytecodeSyscallIdHwDeviceDht22GetHumidity=(1792|6),
 } BytecodeSyscallId;
 
 typedef enum {
