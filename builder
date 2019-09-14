@@ -23,6 +23,7 @@ mkdir -p ./tmp/mockups/usrgamesmockup
 echo "	Creating /bin mockup..."
 ./bin/assembler ./src/userspace/bin/cat.s ./tmp/mockups/binmockup/cat
 ./bin/assembler ./src/userspace/bin/cp.s ./tmp/mockups/binmockup/cp
+./bin/assembler ./src/userspace/bin/dht22read.s ./tmp/mockups/binmockup/dht22read
 ./bin/assembler ./src/userspace/bin/echo.s ./tmp/mockups/binmockup/echo
 ./bin/assembler ./src/userspace/bin/false.s ./tmp/mockups/binmockup/false
 ./bin/assembler ./src/userspace/bin/init.s ./tmp/mockups/binmockup/init
