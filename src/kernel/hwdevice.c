@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "kernelfs.h"
+#include "ktime.h"
 #include "log.h"
 #include "pins.h"
 #include "sd.h"
@@ -23,6 +24,12 @@ const HwDevicePinPair hwDevicePinPairs[HwDeviceIdMax]={
 };
 
 typedef struct {
+	int16_t temperature;
+	int16_t humitity;
+	uint32_t lastReadTime;
+} HwDeviceDht22Data;
+
+typedef struct {
 	KStr mountPoint;
 	SdCard sdCard; // type set to SdTypeBadCard when none mounted
 	uint8_t *cache; // malloc'd, SdBlockSize in size
@@ -35,6 +42,7 @@ typedef struct {
 	HwDeviceType type;
 	union {
 		HwDeviceSdCardReaderData sdCardReader;
+		HwDeviceDht22Data dht22;
 	} d;
 } HwDevice;
 
@@ -79,6 +87,9 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 	// Write to log
 	kernelLog(LogTypeInfo, kstrP("registered SPI device id=%u type=%u\n"), id, type);
 
+	// Set type to mark slot as used
+	hwDevices[id].type=type;
+
 	// Type-specific logic
 	switch(type) {
 		case HwDeviceTypeUnused:
@@ -88,15 +99,28 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 		case HwDeviceTypeSdCardReader:
 			hwDevices[id].d.sdCardReader.cache=malloc(SdBlockSize);
 			if (hwDevices[id].d.sdCardReader.cache==NULL)
-				return false;
+				goto error;
 			hwDevices[id].d.sdCardReader.sdCard.type=SdTypeBadCard;
+		break;
+		case HwDeviceTypeDht22:
+			// Set data pin to input mode and then turn on power pin to enable device
+			pinWrite(hwDevicePinPairs[id].dataPin, false);
+			pinSetMode(hwDevicePinPairs[id].dataPin, PinModeInput);
+			pinWrite(hwDevicePinPairs[id].powerPin, true);
+
+			// Grab initial temperature and humitity values, updating timestamp with it.
+			if (!hwDeviceDht22Read(id))
+				goto error;
 		break;
 	}
 
-	// Set type to mark slot as used
-	hwDevices[id].type=type;
-
 	return true;
+
+	error:
+	hwDevices[id].type=HwDeviceTypeUnused;
+	pinWrite(hwDevicePinPairs[id].powerPin, false);
+	pinWrite(hwDevicePinPairs[id].dataPin, true);
+	return false;
 }
 
 void hwDeviceDeregister(HwDeviceId id) {
@@ -120,6 +144,9 @@ void hwDeviceDeregister(HwDeviceId id) {
 
 			// Free memory
 			free(hwDevices[id].d.sdCardReader.cache);
+		break;
+		case HwDeviceTypeDht22:
+			// Nothing to do (power pin is turned off below which disables the device)
 		break;
 	}
 
@@ -234,6 +261,39 @@ void hwDeviceSdCardReaderUnmount(HwDeviceId id) {
 
 	// Free memory
 	kstrFree(&hwDevices[id].d.sdCardReader.mountPoint);
+}
+
+int16_t hwDeviceDht22GetTemperature(HwDeviceId id) {
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
+		return 0;
+	return hwDevices[id].d.dht22.temperature;
+}
+
+int16_t hwDeviceDht22GetHumidity(HwDeviceId id) {
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
+		return 0;
+	return hwDevices[id].d.dht22.humitity;
+}
+
+uint32_t hwDeviceDht22GetLastReadTime(HwDeviceId id) {
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
+		return 0;
+	return hwDevices[id].d.dht22.lastReadTime;
+}
+
+bool hwDeviceDht22Read(HwDeviceId id) {
+	// Check device is actually registered as a DHT22 sensor
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
+		return false;
+
+	// TODO: Actually read from sensor using data pin to communicate with sensor
+	hwDevices[id].d.dht22.temperature=21*10; // 21 degrees
+	hwDevices[id].d.dht22.humitity=60*10; // 60%
+
+	// Update last read time
+	hwDevices[id].d.dht22.lastReadTime=ktimeGetMs();
+
+	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

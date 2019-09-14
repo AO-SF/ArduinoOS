@@ -8,6 +8,7 @@ typedef enum {
 	HwDeviceTypeUnused,
 	HwDeviceTypeRaw, // let the user write to the two associated pins
 	HwDeviceTypeSdCardReader,
+	HwDeviceTypeDht22, // DHT22 moisture and humidity sensor
 } HwDeviceType;
 
 typedef uint8_t HwDeviceId;
@@ -24,5 +25,10 @@ HwDeviceId hwDeviceGetDeviceForPin(uint8_t pinNum); // returns HwDeviceIdMax if 
 
 bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint);
 void hwDeviceSdCardReaderUnmount(HwDeviceId id);
+
+int16_t hwDeviceDht22GetTemperature(HwDeviceId id);
+int16_t hwDeviceDht22GetHumidity(HwDeviceId id);
+uint32_t hwDeviceDht22GetLastReadTime(HwDeviceId id);
+bool hwDeviceDht22Read(HwDeviceId id);
 
 #endif
