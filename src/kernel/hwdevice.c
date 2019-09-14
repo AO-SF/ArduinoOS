@@ -75,6 +75,27 @@ void hwDeviceInit(void) {
 	}
 }
 
+void hwDeviceTick(void) {
+	for(unsigned i=0; i<HwDeviceIdMax; ++i) {
+		HwDevice *device=&hwDevices[i];
+		switch(device->type) {
+			case HwDeviceTypeUnused:
+			case HwDeviceTypeRaw:
+			case HwDeviceTypeSdCardReader:
+				// Nothing to do
+			break;
+			case HwDeviceTypeDht22: {
+				// Not yet time to read values again?
+				if (ktimeGetMs()-device->d.dht22.lastReadTime<2000) // wait at least 2s between reads
+					break;
+
+				// Update values
+				hwDeviceDht22Read(i);
+			} break;
+		}
+	}
+}
+
 bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 	// Bad id or type?
 	if (id>=HwDeviceIdMax || type==HwDeviceTypeUnused)

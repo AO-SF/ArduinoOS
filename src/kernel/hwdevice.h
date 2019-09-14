@@ -15,6 +15,7 @@ typedef uint8_t HwDeviceId;
 #define HwDeviceIdMax 4
 
 void hwDeviceInit(void); // should be one of the very first things to be called during kernelBoot (used to ensure pins are output and have the correct state asap)
+void hwDeviceTick(void); // ticks all hardware devices which need it
 
 bool hwDeviceRegister(HwDeviceId id, HwDeviceType type);
 void hwDeviceDeregister(HwDeviceId id);
