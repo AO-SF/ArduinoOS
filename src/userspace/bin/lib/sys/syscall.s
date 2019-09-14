@@ -65,7 +65,7 @@ const SyscallWaitpidStatusKilled 65534
 const SyscallWaitpidStatusTimeout 65535
 
 ; SPI device constants
-const SyscallHwDeviceIdMax 2
+const SyscallHwDeviceIdMax 4
 
 ; Mount type/format constants
 const SyscallMountFormatCustomMiniFs 0
