@@ -13,8 +13,6 @@ typedef enum {
 	KernelStateShutdown,
 } KernelState;
 
-#define kernelTickMinTimeMs 10
-
 #ifdef ARDUINO
 extern volatile bool kernelDevTtyS0EchoFlag;
 extern volatile bool kernelDevTtyS0BlockingFlag;

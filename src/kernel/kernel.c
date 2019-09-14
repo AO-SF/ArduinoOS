@@ -176,18 +176,8 @@ int main(void) {
 		// Run hardware device tick functions.
 		hwDeviceTick();
 
-		// Run each process for 1 tick, and delay if we have spare time (PC wrapper only - pointless on Arduino)
-		#ifndef ARDUINO
-		uint32_t t=ktimeGetMs();
-		#endif
-
+		// Run each process for 1 tick
 		procManTickAll();
-
-		#ifndef ARDUINO
-		t=ktimeGetMs()-t;
-		if (t<kernelTickMinTimeMs)
-			ktimeDelayMs(kernelTickMinTimeMs-t);
-		#endif
 	}
 
 	// Quit
