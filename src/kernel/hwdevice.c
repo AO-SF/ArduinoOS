@@ -308,11 +308,59 @@ bool hwDeviceDht22Read(HwDeviceId id) {
 	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
 		return false;
 
-	// TODO: Actually read from sensor using data pin to communicate with sensor
-	hwDevices[id].d.dht22.temperature=21*10+3; // 21.1 degrees
-	hwDevices[id].d.dht22.humitity=65*10+0; // 65.0%
+	// Attempt to read data
+	uint8_t pin=hwDevicePinPairs[id].dataPin;
 
-	// Update last read time
+	pinWrite(pin, false);
+	pinSetMode(pin, PinModeOutput);
+	ktimeDelayUs(600);
+	pinSetMode(pin, PinModeInput);
+
+	ktimeDelayUs(70);
+	if (pinRead(pin))
+		return false;
+
+	ktimeDelayUs(80);
+	if (!pinRead(pin))
+		return false;
+
+	uint8_t buffer[5];
+	for(uint8_t b=0; b<5; ++b) {
+		uint8_t inByte=0;
+		for (uint8_t i=0; i<8; ++i)	{
+			uint8_t toCount=0;
+			while(pinRead(pin)) {
+				ktimeDelayUs(2);
+				if (toCount++>25)
+					return false;
+			}
+			ktimeDelayUs(5);
+
+			toCount=0;
+			while(!pinRead(pin)) {
+				ktimeDelayUs(2);
+				if (toCount++>28)
+					return false;
+			}
+			ktimeDelayUs(50);
+
+			inByte<<=1;
+			if (pinRead(pin)) // read bit
+				inByte|=1;
+		}
+		buffer[b]=inByte;
+	}
+
+	// Verify checksum is correct
+	uint8_t checksum=buffer[0]+buffer[1]+buffer[2]+buffer[3];
+	if (buffer[4]!=checksum)
+		return false;
+
+	// Read humidity and temperature values
+	hwDevices[id].d.dht22.humitity=(((uint16_t)buffer[0])<<8)|buffer[1]; // note: datasheet is very misleading here
+	hwDevices[id].d.dht22.temperature=(((uint16_t)buffer[2])<<8)|buffer[3];
+
+	// Successful read - update last read time
 	hwDevices[id].d.dht22.lastReadTime=ktimeGetMs();
 
 	return true;
