@@ -12,14 +12,14 @@
 
 typedef struct {
 	uint8_t powerPin;
-	uint8_t slaveSelectPin;
+	uint8_t dataPin;
 } HwDevicePinPair;
 
 const HwDevicePinPair hwDevicePinPairs[HwDeviceIdMax]={
-	{.powerPin=PinD42, .slaveSelectPin=PinD43},
-	{.powerPin=PinD44, .slaveSelectPin=PinD45},
-	{.powerPin=PinD46, .slaveSelectPin=PinD47},
-	{.powerPin=PinD48, .slaveSelectPin=PinD49},
+	{.powerPin=PinD42, .dataPin=PinD43},
+	{.powerPin=PinD44, .dataPin=PinD45},
+	{.powerPin=PinD46, .dataPin=PinD47},
+	{.powerPin=PinD48, .dataPin=PinD49},
 };
 
 typedef struct {
@@ -52,13 +52,13 @@ KernelFsFileOffset hwDeviceSdCardReaderWriteFunctor(KernelFsFileOffset addr, con
 ////////////////////////////////////////////////////////////////////////////////
 
 void hwDeviceInit(void) {
-	// Set all pins as output, with power pins low (no power) and slave select pins high (disabled).
+	// Set all pins as output, with power pins low (no power) and data pins high (disabled for SPI slave select pins).
 	for(unsigned i=0; i<HwDeviceIdMax; ++i) {
 		pinSetMode(hwDevicePinPairs[i].powerPin, PinModeOutput);
 		pinWrite(hwDevicePinPairs[i].powerPin, false);
 
-		pinSetMode(hwDevicePinPairs[i].slaveSelectPin, PinModeOutput);
-		pinWrite(hwDevicePinPairs[i].slaveSelectPin, true);
+		pinSetMode(hwDevicePinPairs[i].dataPin, PinModeOutput);
+		pinWrite(hwDevicePinPairs[i].dataPin, true);
 	}
 
 	// Clear device table
@@ -125,7 +125,7 @@ void hwDeviceDeregister(HwDeviceId id) {
 
 	// Force pins back to default to be safe
 	pinWrite(hwDevicePinPairs[id].powerPin, false);
-	pinWrite(hwDevicePinPairs[id].slaveSelectPin, true);
+	pinWrite(hwDevicePinPairs[id].dataPin, true);
 
 	// Write to log
 	kernelLog(LogTypeInfo, kstrP("deregistered SPI device id=%u type=%u\n"), id, hwDevices[id].type);
@@ -143,7 +143,7 @@ HwDeviceType hwDeviceGetType(HwDeviceId id) {
 
 HwDeviceId hwDeviceGetDeviceForPin(uint8_t pinNum) {
 	for(unsigned i=0; i<HwDeviceIdMax; ++i)
-		if (pinNum==hwDevicePinPairs[i].powerPin || pinNum==hwDevicePinPairs[i].slaveSelectPin)
+		if (pinNum==hwDevicePinPairs[i].powerPin || pinNum==hwDevicePinPairs[i].dataPin)
 			return i;
 	return HwDeviceIdMax;
 }
@@ -168,7 +168,7 @@ bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
 	}
 
 	// Attempt to power on and initialise SD card
-	SdInitResult sdInitRes=sdInit(&hwDevices[id].d.sdCardReader.sdCard, hwDevicePinPairs[id].powerPin, hwDevicePinPairs[id].slaveSelectPin);
+	SdInitResult sdInitRes=sdInit(&hwDevices[id].d.sdCardReader.sdCard, hwDevicePinPairs[id].powerPin, hwDevicePinPairs[id].dataPin);
 	if (sdInitRes!=SdInitResultOk) {
 		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: sd init failed with %u (id=%u, mountPoint='%s')\n"), sdInitRes, id, mountPoint);
 		return false;
