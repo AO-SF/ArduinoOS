@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <inttypes.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "kernelfs.h"
@@ -22,7 +23,7 @@ const HwDevicePinPair hwDevicePinPairs[HwDeviceIdMax]={
 typedef struct {
 	KStr mountPoint;
 	SdCard sdCard; // type set to SdTypeBadCard when none mounted
-	uint8_t cache[SdBlockSize];
+	uint8_t *cache; // malloc'd, SdBlockSize in size
 	uint32_t cacheIsValid:1; // if false, cacheBlock field is undefined as is the data in the cache array
 	uint32_t cacheIsDirty:1; // if cache is valid, then this represents whether the cache array has been modified since reading
 	uint32_t cacheBlock:30; // Note: using only 30 bits is safe as some bits of addresses are 'used up' by the fixed size 512 byte blocks, so not all 32 bits are needed (only 32-9=23 strictly needed)
@@ -76,9 +77,6 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 	// Write to log
 	kernelLog(LogTypeInfo, kstrP("registered SPI device id=%u type=%u\n"), id, type);
 
-	// Set type to mark slot as used
-	hwDevices[id].type=type;
-
 	// Type-specific logic
 	switch(type) {
 		case HwDeviceTypeUnused:
@@ -86,9 +84,15 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 		case HwDeviceTypeRaw:
 		break;
 		case HwDeviceTypeSdCardReader:
+			hwDevices[id].d.sdCardReader.cache=malloc(SdBlockSize);
+			if (hwDevices[id].d.sdCardReader.cache==NULL)
+				return false;
 			hwDevices[id].d.sdCardReader.sdCard.type=SdTypeBadCard;
 		break;
 	}
+
+	// Set type to mark slot as used
+	hwDevices[id].type=type;
 
 	return true;
 }
@@ -111,6 +115,9 @@ void hwDeviceDeregister(HwDeviceId id) {
 		case HwDeviceTypeSdCardReader:
 			// We may have to unmount an SD card
 			hwDeviceSdCardReaderUnmount(id);
+
+			// Free memory
+			free(hwDevices[id].d.sdCardReader.cache);
 		break;
 	}
 
