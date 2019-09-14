@@ -15,6 +15,41 @@ db emptyStr 0
 ab cmdBuf ArgLenMax
 ab cmdArg1Buf ArgLenMax
 aw delayTime 1
+ab childPid 1
+ab quitFlag 1
+
+jmp start
+
+; Suicide handler - here as handlers must be in first 256 bytes
+label suicideHandler
+; Protect regs
+push16 r0
+push16 r1
+push16 r2
+; Set quit flag so that after child dies we stop looping
+mov r0 quitFlag
+mov r1 1
+store8 r0 r1
+; Check for child
+mov r1 childPid
+load8 r1 r1
+mov r2 PidMax
+cmp r2 r1 r2
+skipneq r2
+jmp suicideHandlerEnd
+; Pass suicide signal onto child
+mov r0 SyscallIdSignal
+mov r2 SignalIdSuicide
+syscall
+; Restore regs
+label suicideHandlerEnd
+pop16 r2
+pop16 r1
+pop16 r0
+ret
+
+; Start of execution
+label start
 
 ; Check argument count (need at least 3 arguments)
 mov r0 SyscallIdArgc
@@ -23,6 +58,22 @@ mov r1 3
 cmp r0 r0 r1
 skipge r0
 jmp usage
+
+; Store invalid PID in childPid in case suicide handle is invoked before we fork
+mov r0 childPid
+mov r1 PidMax
+store8 r0 r1
+
+; Set quit flag to false now before we register suicide hander
+mov r0 quitFlag
+mov r1 0
+store8 r0 r1
+
+; Register suicide handler (to exit fast)
+mov r0 SyscallIdRegisterSignalHandler
+mov r1 SignalIdSuicide
+mov r2 suicideHandler
+syscall
 
 ; Grab delay time
 mov r0 SyscallIdArgvN
@@ -53,6 +104,13 @@ syscall
 ; Attempt to run command
 label runCommand
 
+; Told to quit by suicide handler?
+mov r0 quitFlag
+load8 r0 r0
+cmp r0 r0 r0
+skipeqz r0
+jmp done
+
 ; Call fork
 mov r0 SyscallIdFork
 syscall
@@ -77,8 +135,24 @@ call runpath
 jmp done
 
 label forkParent
+; Store childs PID
+mov r1 childPid
+store8 r1 r0
+
 ; Wait for child to die
 call waitpid ; childs PID is in r0 already
+
+; Clear stored child PID
+mov r0 childPid
+mov r1 PidMax
+store8 r0 r1
+
+; Told to quit by suicide handler?
+mov r0 quitFlag
+load8 r0 r0
+cmp r0 r0 r0
+skipeqz r0
+jmp done
 
 ; Wait for given delay
 mov r0 delayTime
