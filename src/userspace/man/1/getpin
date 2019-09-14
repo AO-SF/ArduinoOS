@@ -4,7 +4,12 @@ NAME
       getpin - get Arduino pin states
 
 SYNOPSIS
-      getpin pinnum
+      getpin pin
 
 DESCRIPTION
       Prints 'on'/'off' based on current state of given pin.
+
+      pin can be of the following forms:
+      * Ax - analogue pin, where x is in range [0,15]
+      * Dx - digital pin, where x is in range [0,53]
+      * x - raw pin number, where x is in range [0,127] but not all values are valid
