@@ -287,8 +287,8 @@ bool hwDeviceDht22Read(HwDeviceId id) {
 		return false;
 
 	// TODO: Actually read from sensor using data pin to communicate with sensor
-	hwDevices[id].d.dht22.temperature=21*10; // 21 degrees
-	hwDevices[id].d.dht22.humitity=60*10; // 60%
+	hwDevices[id].d.dht22.temperature=21*10+3; // 21.1 degrees
+	hwDevices[id].d.dht22.humitity=65*10+0; // 65.0%
 
 	// Update last read time
 	hwDevices[id].d.dht22.lastReadTime=ktimeGetMs();
