@@ -4,7 +4,7 @@ NAME
       watch - run a program repeatedly with a delay
 
 SYNOPSIS
-      watch interval program [programarg]
+      watch interval program [programarg1 [programarg2 ...]]
 
 DESCRIPTION
       Runs the given program (with the given arg, if present) immediately, and again every interval seconds thereafter.
