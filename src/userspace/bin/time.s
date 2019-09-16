@@ -13,6 +13,38 @@ db forkErrorStr 'could not fork\n', 0
 db emptyStr 0
 
 aw startTime 1
+ab childPid 1
+
+jmp start
+
+; Suicide handler - here as handlers must be in first 256 bytes
+label suicideHandler
+; No child?
+mov r0 childPid
+load8 r0 r0
+mov r1 PidMax
+cmp r1 r0 r1
+skipneq r1
+ret
+; Child running - pass on suicide signal
+mov r0 SyscallIdSignal
+mov r2 SignalIdSuicide
+syscall
+ret
+
+; Program start
+label start
+
+; Set childs pid to invalid in case suicide handler fires before we fork
+mov r0 PidMax
+mov r1 childPid
+store8 r1 r0
+
+; Register suicide handler (to exit fast)
+mov r0 SyscallIdRegisterSignalHandler
+mov r1 SignalIdSuicide
+mov r2 suicideHandler
+syscall
 
 ; Get start time and store into variable
 call gettimemonotonic
@@ -43,6 +75,10 @@ syscall
 jmp done
 
 label forkParent
+; Store child PID
+mov r1 childPid
+store8 r1 r0
+
 ; Wait for child to die
 call waitpid ; childs PID is in r0 already
 jmp childFinished
