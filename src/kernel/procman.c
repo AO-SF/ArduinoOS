@@ -138,9 +138,11 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 void procManResetInstructionCounters(void);
 
 char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n);
+const char *procManArgvStringGetArgNConst(uint8_t argc, const char *argvStart, uint8_t n);
 int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart); // total size used for entire combined string, including all null bytes
 void procManArgvStringPathNormaliseArg0(uint8_t argc, char *argvStart);
 void procManArgvUpdateForInterpreter(uint8_t *argc, char *argvStart, const char *interpreterPath);
+void procManArgvDebug(uint8_t argc, const char *argvStart);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -2355,6 +2357,18 @@ char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n) {
 	return argvStart;
 }
 
+const char *procManArgvStringGetArgNConst(uint8_t argc, const char *argvStart, uint8_t n) {
+	// Check n is in range
+	if (n>=argc)
+		return NULL;
+
+	// Look for argument by looping over all that come before it.
+	while(n>0)
+		n-=(*argvStart++=='\0');
+
+	return argvStart;
+}
+
 int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart) {
 	int len=0;
 	while(argc>0)
@@ -2422,4 +2436,12 @@ bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *proces
 	// Grab from cache
 	*value=pd->buffer[addr-pd->baseAddr];
 	return true;
+}
+
+void procManArgvDebug(uint8_t argc, const char *argvStart) {
+	kernelLog(LogTypeInfo, kstrP("Argv Debug: argc=%u, arg0='%s'\n"), argc, argvStart);
+	for(int i=1; i<argc; ++i) {
+		const char *arg=procManArgvStringGetArgNConst(argc, argvStart, i);
+		kernelLog(LogTypeInfo, kstrP("Argv Debug:         arg%u='%s'\n"), i, arg);
+	}
 }
