@@ -21,12 +21,23 @@ int16_t vfprintf_PF(FILE *stream, uint_farptr_t format, va_list ap) {
 	uint8_t byte;
 	for(; (byte=pgm_read_byte_far(format))!='\0'; ++format) {
 		if (byte=='\\') {
-			// TODO: Support more, e.g. \t
 			byte=pgm_read_byte_far(++format);
 			if (byte=='\0')
 				break;
-			if (byte=='n')
-				written+=(fputc('\n', stream)!=EOF);
+			switch(byte) {
+				case 'r':
+					written+=(fputc('\r', stream)!=EOF);
+				break;
+				case 'n':
+					written+=(fputc('\n', stream)!=EOF);
+				break;
+				case 't':
+					written+=(fputc('\t', stream)!=EOF);
+				break;
+				case '\\':
+					written+=(fputc('\\', stream)!=EOF);
+				break;
+			}
 		} else if (byte=='%') {
 			// TODO: Support more than single-digit length strings
 			byte=pgm_read_byte_far(++format);
