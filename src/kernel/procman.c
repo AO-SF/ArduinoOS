@@ -130,6 +130,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 void procManProcessFork(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData); // Returns false only on critical error (e.g. segfault), i.e. may return true even though exec operation itself failed
+bool procManProcessExec2(ProcManProcess *process, ProcManProcessProcData *procData); // See procManProcessExec
+bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t argc, char *argv);
 
 KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart, const char *envPath, const char *envPwd); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsFdInvalid on failure)
 
@@ -1306,6 +1308,14 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdExec2: {
+			if (!procManProcessExec2(process, procData)) {
+				kernelLog(LogTypeWarning, kstrP("failed during exec2 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
 		case BytecodeSyscallIdGetPidRam: {
 			BytecodeWord pid=procData->regs[1];
 			ProcManProcess *qProcess=procManGetProcessByPid(pid);
@@ -2050,9 +2060,6 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData) {
 #define argv ((char *)procManScratchBuf256)
-#define tempPwd procManScratchBufPath0
-#define tempPath procManScratchBufPath1
-#define ramPath procManScratchBufPath2
 
 	// Grab arg and write to log
 	uint8_t argc=procData->regs[1];
@@ -2075,6 +2082,55 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	}
 	assert(argvTotalSize==procManArgvStringGetTotalSize(argc, argv));
 
+	// Call common function to do rest of the work
+	return procManProcessExecCommon(process, procData, argc, argv);
+
+#undef argv
+}
+
+bool procManProcessExec2(ProcManProcess *process, ProcManProcessProcData *procData) {
+#define argv ((char *)procManScratchBuf256)
+
+	uint8_t start=procData->regs[1];
+	uint8_t argc=procData->regs[2];
+
+	// Invalid values given?
+	if (start>=procData->argc || argc<1) {
+		kernelLog(LogTypeInfo, kstrP("exec in %u failed - bad start/count arguments (%u,%u)\n"), procManGetPidFromProcess(process), start, argc);
+		return true;
+	}
+
+	// Clamp argc if needed
+	if (start+argc>procData->argc)
+		argc=procData->argc-start;
+	assert(argc>0);
+
+	// Write to log
+	kernelLog(LogTypeInfo, kstrP("exec in %u - argc=%u\n"), procManGetPidFromProcess(process), argc);
+
+	// Create argv string by reading existing kernel space argv string
+	KernelFsFileOffset argvOffset=0;
+	for(unsigned i=0; i<argc; ++i) {
+		if (!procManProcessGetArgvN(process, procData, start+i, argv+argvOffset)) {
+			kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read argv[%u]\n"), procManGetPidFromProcess(process), start+i);
+			return false;
+		}
+
+		argvOffset+=strlen(argv+argvOffset)+1;
+	}
+
+	// Call common function to do rest of the work
+	return procManProcessExecCommon(process, procData, argc, argv);
+
+#undef argv
+}
+
+bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t argc, char *argv) {
+#define tempPwd procManScratchBufPath0
+#define tempPath procManScratchBufPath1
+#define ramPath procManScratchBufPath2
+
+	// Write to log
 	kernelLog(LogTypeInfo, kstrP("exec in %u - argv:\n"), procManGetPidFromProcess(process), argc);
 	for(int i=0; i<argc; ++i) {
 		const char *arg=procManArgvStringGetArgN(argc, argv, i);
@@ -2102,7 +2158,7 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 		return true;
 	}
 
-	argvTotalSize=procManArgvStringGetTotalSize(argc, argv); // needs recomputing after above call
+	int argvTotalSize=procManArgvStringGetTotalSize(argc, argv);
 
 	// Close old fd (if not shared)
 	ProcManPid pid=procManGetPidFromProcess(process);
@@ -2175,7 +2231,6 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 
 	return true;
 
-#undef argv
 #undef tempPwd
 #undef tempPath
 #undef ramPath

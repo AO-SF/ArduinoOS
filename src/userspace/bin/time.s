@@ -13,34 +13,6 @@ db forkErrorStr 'could not fork\n', 0
 db emptyStr 0
 
 aw startTime 1
-ab arg1Buf ArgLenMax
-ab arg2Buf ArgLenMax
-ab arg3Buf ArgLenMax
-ab cmdBuf ArgLenMax
-
-; Grab arguments
-mov r0 SyscallIdArgvN
-mov r1 1
-mov r2 arg1Buf
-mov r3 ArgLenMax
-syscall
-
-mov r0 SyscallIdArgvN
-mov r1 2
-mov r2 arg2Buf
-mov r3 ArgLenMax
-syscall
-
-mov r0 SyscallIdArgvN
-mov r1 3
-mov r2 arg3Buf
-mov r3 ArgLenMax
-syscall
-
-; Copy command path
-mov r0 cmdBuf
-mov r1 arg1Buf
-call strcpy
 
 ; Get start time and store into variable
 call gettimemonotonic
@@ -61,12 +33,11 @@ jmp forkError
 jmp forkParent
 
 label forkChild
-; Exec given argument
-mov r0 cmdBuf
-mov r1 arg2Buf
-mov r2 arg3Buf
-mov r3 emptyStr
-call runpath
+; Exec using exec2 to pass on our own argv arguments
+mov r0 SyscallIdExec2
+mov r1 1
+mov r2 ArgMax ; pass all arguments
+syscall
 
 ; Exec only returns on error
 jmp done

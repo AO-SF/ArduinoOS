@@ -13,6 +13,7 @@ const SyscallIdKill 10
 const SyscallIdGetPidRam 11
 const SyscallIdSignal 12
 const SyscallIdGetPidFdN 13
+const SyscallIdExec2 14
 
 const SyscallIdRead 256
 const SyscallIdWrite 257

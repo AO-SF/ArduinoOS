@@ -485,6 +485,13 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [getpidfdn] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
+						case BytecodeSyscallIdExec2:
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [exec2] (unimplemented)\n", syscallId);
+
+							// This is not implemented - simply return false
+							process->regs[0]=0;
+						break;
 						case BytecodeSyscallIdRead:
 							if (process->regs[1]==process->envVars.stdinFd) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
