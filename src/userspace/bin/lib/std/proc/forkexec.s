@@ -27,12 +27,12 @@ call exit
 ; success in the parent - restore stack and return success (r0 already contains PID of new child)
 label forkexecsuccess
 pop16 r2
-pop16 r1
+pop8 r1
 ret
 
 ; error forking in the parent - restore stack and return failure
 label forkexecerror
 pop16 r2
-pop16 r1
+pop8 r1
 mov r0 0
 ret
