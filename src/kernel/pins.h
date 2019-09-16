@@ -76,12 +76,16 @@
 #define PinD52 9
 #define PinD53 8
 
+#define PinMax 96
+
 #define PinLed PinD13
 
 typedef enum {
 	PinModeInput=0,
 	PinModeOutput=1,
 } PinMode;
+
+bool pinIsValid(uint8_t pinNum);
 
 void pinSetMode(uint8_t pinNum, PinMode mode);
 bool pinRead(uint8_t pinNum);

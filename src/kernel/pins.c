@@ -6,8 +6,7 @@
 #include "log.h"
 #include "pins.h"
 
-#define PinNB 96
-const uint8_t pinsValidArray[PinNB]={
+const uint8_t pinsValidArray[PinMax]={
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, //  0-15
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, // 16-31
 	1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, // 32-47
@@ -27,12 +26,18 @@ volatile uint8_t *pinsArrayPort[PinsGroupMax]={&PORTA, &PORTB, &PORTC, &PORTD, &
 
 #else
 
-bool pinStates[PinNB]={0};
+bool pinStates[PinMax]={0};
 
 #endif
 
+bool pinIsValid(uint8_t pinNum) {
+	if (pinNum>=PinMax)
+		return false;
+	return pinsValidArray[pinNum];
+}
+
 void pinSetMode(uint8_t pinNum, PinMode mode) {
-	if (pinNum>=PinNB) {
+	if (!pinIsValid(pinNum)) {
 		kernelLog(LogTypeWarning, kstrP("bad pin %u in setmode\n"), pinNum);
 		return;
 	}
@@ -50,7 +55,7 @@ void pinSetMode(uint8_t pinNum, PinMode mode) {
 }
 
 bool pinRead(uint8_t pinNum) {
-	if (pinNum>=PinNB) {
+	if (!pinIsValid(pinNum)) {
 		kernelLog(LogTypeWarning, kstrP("bad pin %u in read\n"), pinNum);
 		return false;
 	}
@@ -62,7 +67,7 @@ bool pinRead(uint8_t pinNum) {
 }
 
 bool pinWrite(uint8_t pinNum, bool value) {
-	if (pinNum>=PinNB) {
+	if (!pinIsValid(pinNum)) {
 		kernelLog(LogTypeWarning, kstrP("bad pin %u in write\n"), pinNum);
 		return false;
 	}
