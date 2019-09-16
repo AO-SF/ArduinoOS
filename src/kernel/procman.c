@@ -2102,6 +2102,8 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 		return true;
 	}
 
+	argvTotalSize=procManArgvStringGetTotalSize(argc, argv); // needs recomputing after above call
+
 	// Close old fd (if not shared)
 	ProcManPid pid=procManGetPidFromProcess(process);
 	KernelFsFd oldProgmemFd=procManData.processes[pid].progmemFd;
