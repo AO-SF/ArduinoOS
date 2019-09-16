@@ -1,0 +1,10 @@
+HWSDMNT(1) - User Commands
+
+NAME
+      hwsdmnt - Mount an SD using a registered HW device
+
+SYNOPSIS
+      hwsdmnt id mountpoint
+
+DESCRIPTION
+      Attempts to mount an SD card to the given mount point, using the HW device with the given id. Requires that said HW device has been registered as an SD card reader.

@@ -1,0 +1,14 @@
+HWDEREG(1) - User Commands
+
+NAME
+      hwdereg - Deregister HW devices
+
+SYNOPSIS
+      hwdereg id
+
+DESCRIPTION
+      Deregisters the hardware device in the slot determined by the given id.
+
+      Slot should be in the range 0-3.
+
+      See HWREG(1) for more information.
