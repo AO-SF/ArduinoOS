@@ -2267,6 +2267,9 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 
 		if (magicBytes[0]==BytecodeMagicByte1 && magicBytes[1]==BytecodeMagicByte2) {
 			// A standard native executable - no special handling required (the magic bytes run as harmless instructions)
+
+			// Write to log
+			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '//' detected, assuming native executable (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
 			break;
 		} else if (magicBytes[0]=='#' && magicBytes[1]=='!') {
 			// An interpreter (with path following after '#!') should be used instead to run this file.
