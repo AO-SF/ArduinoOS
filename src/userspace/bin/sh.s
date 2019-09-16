@@ -31,9 +31,7 @@ const inputBufLen 128
 ab inputBuf inputBufLen
 ab absBuf PathMax
 ab pwdBuf PathMax
-aw arg1Ptr 1
-aw arg2Ptr 1
-aw arg3Ptr 1
+ab argc 1
 
 ab interactiveMode 1
 ab inputFd 1
@@ -238,14 +236,10 @@ mov r0 1 ; continue
 ret
 label shellRunFdInputNoEof
 
-; Parse input - clear arg pointers
-mov r1 emptyStr
-mov r0 arg1Ptr
-store16 r0 r1
-mov r0 arg2Ptr
-store16 r0 r1
-mov r0 arg3Ptr
-store16 r0 r1
+; Parse input - clear argc
+mov r0 argc
+mov r1 1 ; initially set to 1 as we always require a command (so can avoid an increment operation)
+store8 r0 r1
 
 ; Parse input - trim trailing newline
 mov r0 inputBuf
@@ -297,57 +291,49 @@ store8 r0 r1
 label shellRunFdInputBackgroundCheckEnd
 
 ; Parse input - check for first space implying at least one argument
-mov r0 inputBuf
+mov r0 inputBuf ; search for space
 mov r1 ' '
 call strchr
 
-cmp r1 r0 r0
+cmp r1 r0 r0 ; no space?
 skipneqz r1
 jmp shellRunFdExecInput
 
-mov r1 0
+mov r1 0 ; add null terminator (which acts as separator in argv string)
 store8 r0 r1
-
 inc r0
-mov r1 arg1Ptr
-store16 r1 r0
 
-; check another arg (2nd after cmd)
+mov r1 argc ; inc argc
+load8 r2 r1
+inc r2
+store8 r1 r2
+
+; check for another arg
 ; r0 already contains ptr to previous arg
-mov r1 ' '
+label shellCheckNextArg
+
+mov r1 ' ' ; search for space
 call strchr
 
-cmp r1 r0 r0
+cmp r1 r0 r0 ; no space?
 skipneqz r1
 jmp shellRunFdExecInput
 
-mov r1 0
+mov r1 0 ; add null terminator (which acts as separator in argv string)
 store8 r0 r1
-
 inc r0
-mov r1 arg2Ptr
-store16 r1 r0
 
-; check another arg (3rd after cmd)
-; r0 already contains ptr to previous arg
-mov r1 ' '
-call strchr
+mov r1 argc ; inc argc
+load8 r2 r1
+inc r2
+store8 r1 r2
 
-cmp r1 r0 r0
-skipneqz r1
-jmp shellRunFdExecInput
+jmp shellCheckNextArg
 
-mov r1 0
-store8 r0 r1
-
-inc r0
-mov r1 arg3Ptr
-store16 r1 r0
-
-; Exec input (inputBuf contains executable path)
+; Exec input (inputBuf contains argv combined string)
 label shellRunFdExecInput
 
-; Check for builtin
+; Check for cd builtin
 mov r0 inputBuf
 mov r1 cdStr
 call strequal
@@ -358,6 +344,7 @@ call shellCd
 jmp shellRunFdInputLoopStart
 label shellRunFdBuiltinNoCd
 
+; Check for exit builtin
 mov r0 inputBuf
 mov r1 exitStr
 call strequal
@@ -391,13 +378,9 @@ jmp shellForkExecForkParent
 
 label shellForkExecForkChild
 ; Call exec
-mov r0 inputBuf
-mov r1 arg1Ptr
-load16 r1 r1
-mov r2 arg2Ptr
-load16 r2 r2
-mov r3 arg3Ptr
-load16 r3 r3
+mov r0 argc
+load8 r0 r0
+mov r1 inputBuf
 call runpath
 
 ; exec only returns in error
