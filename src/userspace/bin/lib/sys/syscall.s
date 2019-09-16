@@ -59,6 +59,10 @@ const SyscallIdHwDeviceSdCardReaderUnmount 1796
 const SyscallIdHwDeviceDht22GetTemperature 1797
 const SyscallIdHwDeviceDht22GetHumidity 1798
 
+; Exec flags
+const SyscallExecPathFlagLiteral 0
+const SyscallExecPathFlagSearch 1
+
 ; WaitPid special return values
 const SyscallWaitpidStatusSuccess 0
 const SyscallWaitpidStatusInterrupted 65531

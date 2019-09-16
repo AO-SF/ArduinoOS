@@ -131,7 +131,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 void procManProcessFork(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData); // Returns false only on critical error (e.g. segfault), i.e. may return true even though exec operation itself failed
 
-KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsFdInvalid on failure)
+KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart, const char *envPath, const char *envPwd); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsFdInvalid on failure)
 
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData);
 
@@ -213,7 +213,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 	char argvStart[2*KernelFsPathMax]; // spare space is due to potential interpreter path added by procManProcessLoadProgmemFile
 	strcpy(argvStart, programPath);
 
-	procManData.processes[pid].progmemFd=procManProcessLoadProgmemFile(&procManData.processes[pid], &argc, argvStart);
+	procManData.processes[pid].progmemFd=procManProcessLoadProgmemFile(&procManData.processes[pid], &argc, argvStart, NULL, NULL);
 	if (procManData.processes[pid].progmemFd==KernelFsFdInvalid) {
 		kernelLog(LogTypeWarning, kstrP("could not create new process - could not open progmem file ('%s')\n"), argvStart);
 		goto error;
@@ -2093,7 +2093,8 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	kernelFsPathNormalise(tempPath);
 
 	// Load program (handling magic bytes)
-	KernelFsFd newProgmemFd=procManProcessLoadProgmemFile(process, &argc, argv);
+	bool pathSearchFlag=procData->regs[3];
+	KernelFsFd newProgmemFd=procManProcessLoadProgmemFile(process, &argc, argv, (pathSearchFlag ? tempPath : NULL), (pathSearchFlag ? tempPwd : NULL));
 	if (newProgmemFd==KernelFsFdInvalid) {
 		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not open progmem file ('%s')\n"), procManGetPidFromProcess(process), argv);
 		return true;
@@ -2176,19 +2177,68 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 #undef ramPath
 }
 
-KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart) {
+KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart, const char *envPath, const char *envPwd) {
 	assert(process!=NULL);
 
-	// Normalise path and then check if valid
-	procManArgvStringPathNormaliseArg0(*argc, argvStart);
+	// Grab a copy of the exec path so we can modify it
+	char originalExecPath[KernelFsPathMax];
+	strcpy(originalExecPath, argvStart);
 
-	if (!kernelFsPathIsValid(argvStart)) {
-		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' not valid\n"), procManGetPidFromProcess(process), argvStart);
+	// Normalise path
+	kernelFsPathNormalise(originalExecPath);
+
+	// If no slashes and asked, Search through PATH for matching executables.
+	if (envPath!=NULL && strchr(originalExecPath, '/')==NULL) {
+		const char *envPathPtr=envPath;
+		while(1) {
+			// End of PATH string?
+			if (*envPathPtr=='\0')
+				break;
+
+			// Grab next directory part from PATH string
+			const char *colonPtr=strchr(envPathPtr, ':');
+			if (colonPtr!=NULL) {
+				memcpy(originalExecPath, envPathPtr, colonPtr-envPathPtr);
+				originalExecPath[colonPtr-envPathPtr]='\0';
+				envPathPtr+=colonPtr-envPathPtr+1;
+			} else {
+				strcpy(originalExecPath, envPathPtr);
+				envPathPtr+=strlen(originalExecPath);
+			}
+			if (strlen(originalExecPath)==0)
+				continue;
+
+			// Add slash and given name
+			strcat(originalExecPath, "/");
+			strcat(originalExecPath, argvStart);
+
+			// Noramlise and check for existence
+			kernelFsPathNormalise(originalExecPath);
+			if (kernelFsFileExists(originalExecPath))
+				break;
+
+			// Restore originalExecPath
+			strcpy(originalExecPath, argvStart);
+			kernelFsPathNormalise(originalExecPath);
+		}
+	}
+
+	// If no slash at start and asked, make path absolute.
+	if (envPwd!=NULL && originalExecPath[0]!='/') {
+		strcpy(originalExecPath, envPwd);
+		strcat(originalExecPath, "/");
+		strcat(originalExecPath, argvStart); // argvStart has not been modified yet so we can use it
+		kernelFsPathNormalise(originalExecPath);
+	}
+
+	// Check path is valid
+	if (!kernelFsPathIsValid(originalExecPath)) {
+		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' not valid\n"), procManGetPidFromProcess(process), originalExecPath);
 		return KernelFsFdInvalid;
 	}
 
-	if (kernelFsFileIsDir(argvStart)) {
-		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' is a directory\n"), procManGetPidFromProcess(process), argvStart);
+	if (kernelFsFileIsDir(originalExecPath)) {
+		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' is a directory\n"), procManGetPidFromProcess(process), originalExecPath);
 		return KernelFsFdInvalid;
 	}
 
@@ -2196,17 +2246,19 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 	KernelFsFd newProgmemFd=KernelFsFdInvalid;
 	uint8_t magicByteRecursionCount, magicByteRecursionCountMax=8;
 	for(magicByteRecursionCount=0; magicByteRecursionCount<magicByteRecursionCountMax; ++magicByteRecursionCount) {
+		const char *loopExecFile=(magicByteRecursionCount>0 ? argvStart : originalExecPath);
+
 		// Attempt to open program file
-		newProgmemFd=kernelFsFileOpen(argvStart);
+		newProgmemFd=kernelFsFileOpen(loopExecFile);
 		if (newProgmemFd==KernelFsFdInvalid) {
-			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not open program at '%s'\n"), procManGetPidFromProcess(process), argvStart);
+			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not open program at '%s'\n"), procManGetPidFromProcess(process), loopExecFile);
 			return KernelFsFdInvalid;
 		}
 
 		// Read first two bytes to decide how to execute
 		uint8_t magicBytes[2];
 		if (kernelFsFileRead(newProgmemFd, magicBytes, 2)!=2) {
-			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not read 2 magic bytes at start of '%s', fd %u\n"), procManGetPidFromProcess(process), argvStart, newProgmemFd);
+			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not read 2 magic bytes at start of '%s', fd %u\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
 			kernelFsFileClose(newProgmemFd);
 			return KernelFsFdInvalid;
 		}
@@ -2225,7 +2277,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 			// Look for newline and if found terminate string here
 			char *newlinePtr=strchr(interpreterPath, '\n');
 			if (newlinePtr==NULL) {
-				kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - '#!' not followed by interpreter path (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), argvStart, newProgmemFd);
+				kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - '#!' not followed by interpreter path (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
 				kernelFsFileClose(newProgmemFd);
 				return KernelFsFdInvalid;
 			}
@@ -2233,7 +2285,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 
 			// Write to log
 			kernelFsPathNormalise(interpreterPath);
-			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '#!' detected, using interpreter '%s' (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), interpreterPath, argvStart, newProgmemFd);
+			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '#!' detected, using interpreter '%s' (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), interpreterPath, loopExecFile, newProgmemFd);
 
 			// Close the original progmem file
 			kernelFsFileClose(newProgmemFd);
@@ -2243,7 +2295,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 
 			// Loop again in an attempt to load interpreter
 		} else {
-			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - unknown magic byte sequence 0x%02X%02X at start of '%s', fd %u\n"), procManGetPidFromProcess(process), magicBytes[0], magicBytes[1], argvStart, newProgmemFd);
+			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - unknown magic byte sequence 0x%02X%02X at start of '%s', fd %u\n"), procManGetPidFromProcess(process), magicBytes[0], magicBytes[1], loopExecFile, newProgmemFd);
 			kernelFsFileClose(newProgmemFd);
 			return KernelFsFdInvalid;
 		}

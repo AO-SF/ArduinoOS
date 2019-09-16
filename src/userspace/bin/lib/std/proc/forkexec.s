@@ -20,6 +20,7 @@ label forkexecchild
 mov r0 SyscallIdExec
 pop16 r2
 pop8 r1
+mov r3 SyscallExecPathFlagLiteral
 syscall
 ; exec only returns on failure
 mov r0 1
