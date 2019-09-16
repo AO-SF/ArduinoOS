@@ -423,30 +423,38 @@ call puts0
 ret
 
 label shellCd
-
-; If path is empty, use '/home'
-mov r0 arg1Ptr
-load16 r0 r0
-call strlen
-
+; If path is missing or empty, use '/home'
+mov r0 argc ; check if we have more than 0 args
+load8 r0 r0
 cmp r0 r0 r0
-skipeqz r0
-jmp shellCdNotHome
+skipneqz r0
+jmp shellCdHome
 
+mov r0 inputBuf ; grab path
+inc3 r0 ; skip 'cd '
+call strlen
+cmp r0 r0 r0
+skipneqz r0
+jmp shellCdHome
+
+; Otherwise use given argument
+jmp shellCdMakeAbs
+
+label shellCdHome
 mov r0 absBuf
 mov r1 homeDir
 call strcpy
-jmp shellCdHome
+jmp shellCdIsDir
 
 ; Make sure path is absolute
-label shellCdNotHome
+label shellCdMakeAbs
 mov r0 absBuf
-mov r1 arg1Ptr
-load16 r1 r1
+mov r1 inputBuf
+inc3 r1
 call getabspath
 
-label shellCdHome
 ; Ensure path is a directory
+label shellCdIsDir
 mov r0 SyscallIdIsDir
 mov r1 absBuf
 syscall
