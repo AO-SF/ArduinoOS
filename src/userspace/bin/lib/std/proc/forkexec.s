@@ -1,8 +1,8 @@
 require ../../sys/sys.s
 
-label forkexec ; takes path in r0 to exec in a forked process, with arguments in r1-r3, and returns childs PID in r0 (in the parent), or 0 on failure
-; save path and arguments
-push16 r0
+label forkexec ; takes argc in r0 and argv string in r1 to exec in a forked process, and returns childs PID in r0 (in the parent), or 0 on failure
+; save argc and argv
+push8 r0
 push16 r1
 ; call fork
 mov r0 SyscallIdFork
@@ -18,10 +18,8 @@ jmp forkexecsuccess
 ; child - exec given program with given args
 label forkexecchild
 mov r0 SyscallIdExec
-mov r4 r3
-mov r3 r2
 pop16 r2
-pop16 r1
+pop8 r1
 syscall
 ; exec only returns on failure
 mov r0 1

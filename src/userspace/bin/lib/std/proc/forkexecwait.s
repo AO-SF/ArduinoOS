@@ -1,7 +1,7 @@
 require ../../sys/syscall.s
 requireend forkexec.s
 
-label forkexecwait ; takes path in r0 to exec in a forked process, with arguments in r1-r3, waiting until it completes before returning in the parent
+label forkexecwait ; takes argc in r0 and argv in r1 to exec in a forked process, waiting until it completes before returning in the parent
 ; call forkexec to start the child
 call forkexec
 ; check for bad fork
