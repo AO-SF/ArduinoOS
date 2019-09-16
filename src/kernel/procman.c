@@ -2056,6 +2056,10 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	uint8_t argc=procData->regs[1];
 	kernelLog(LogTypeInfo, kstrP("exec in %u - argc=%u\n"), procManGetPidFromProcess(process), argc);
 
+	if (argc<1) {
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - no arguments\n"), procManGetPidFromProcess(process));
+		return false;
+	}
 	// Create argv string by reading argv from user space one arg at a time
 	uint8_t argvPtr=procData->regs[2];
 	int argvTotalSize=0;
