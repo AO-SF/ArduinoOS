@@ -37,7 +37,7 @@ typedef enum {
 	ProcManProcessStateExiting,
 } ProcManProcessState;
 
-#define ARGVMAX 4
+#define ARGVMAX 255 // this is due to using 8 bits for argc
 
 struct ProcManProcessProcData {
 	// Process data
@@ -54,7 +54,8 @@ struct ProcManProcessProcData {
 
 	// The following fields are pointers into the start of the ramFd file.
 	// The arguments are fixed, but pwd and path may be updated later by the process itself to point to new strings, beyond the initial read-only section (and so need a full 16 bit offset).
-	uint8_t argv[ARGVMAX];
+	uint8_t argc; // argument count
+	uint8_t argvStart; // ptr to start of char array representing 1st arg, followed directly by one for 2nd arg, etc
 	uint16_t pwd; // set to '/' when init is called
 	uint16_t path; // set to '/usr/games:/usr/bin:/bin:' when init is called
 };
@@ -130,11 +131,16 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 void procManProcessFork(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData); // Returns false only on critical error (e.g. segfault), i.e. may return true even though exec operation itself failed
 
-KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGVMAX][ProcManArgLenMax]); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsFdInvalid on failure)
+KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsFdInvalid on failure)
 
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData);
 
 void procManResetInstructionCounters(void);
+
+char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n);
+int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart); // total size used for entire combined string, including all null bytes
+void procManArgvStringPathNormaliseArg0(uint8_t argc, char *argvStart);
+void procManArgvUpdateForInterpreter(uint8_t *argc, char *argvStart, const char *interpreterPath);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -203,14 +209,13 @@ ProcManPid procManProcessNew(const char *programPath) {
 	sprintf(ramPath, "/tmp/ram%u", pid);
 
 	// Load program (handling magic bytes)
-	char args[ARGVMAX][ProcManArgLenMax];
-	strcpy(args[0], programPath);
-	for(uint8_t i=1; i<ARGVMAX; ++i)
-		strcpy(args[i], "");
+	uint8_t argc=1;
+	char argvStart[2*KernelFsPathMax]; // spare space is due to potential interpreter path added by procManProcessLoadProgmemFile
+	strcpy(argvStart, programPath);
 
-	procManData.processes[pid].progmemFd=procManProcessLoadProgmemFile(&procManData.processes[pid], args);
+	procManData.processes[pid].progmemFd=procManProcessLoadProgmemFile(&procManData.processes[pid], &argc, argvStart);
 	if (procManData.processes[pid].progmemFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, kstrP("could not create new process - could not open progmem file ('%s')\n"), args[0]);
+		kernelLog(LogTypeWarning, kstrP("could not create new process - could not open progmem file ('%s')\n"), argvStart);
 		goto error;
 	}
 
@@ -231,11 +236,11 @@ ProcManPid procManProcessNew(const char *programPath) {
 	strcpy(envVarData+envVarDataLen, tempPath);
 	envVarDataLen+=strlen(tempPath)+1;
 
-	for(uint8_t i=0; i<ARGVMAX; ++i) {
-		procData.argv[i]=envVarDataLen;
-		strcpy(envVarData+envVarDataLen, args[i]);
-		envVarDataLen+=strlen(args[i])+1;
-	}
+	procData.argc=argc;
+	procData.argvStart=envVarDataLen;
+	int argvTotalSize=procManArgvStringGetTotalSize(argc, argvStart);
+	memcpy(envVarData+envVarDataLen, argvStart, argvTotalSize);
+	envVarDataLen+=argvTotalSize;
 
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(procPath, sizeof(ProcManProcessProcData))) {
@@ -841,23 +846,32 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 	char *dest=str;
 
 	// Check n is sensible
-	if (n>=ARGVMAX) {
+	if (n>=ARGVMAX || n>=procData->argc) {
 		*dest='\0';
 		return true;
 	}
 
 	// Grab argument
-	uint16_t index=procData->argv[n];
+	// Note that we have to loop over all args to find the one in question
+	uint16_t index=procData->argvStart;
 	while(1) {
+		// Read a character
 		uint8_t c;
 		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1, false)!=1) {
 			kernelLog(LogTypeWarning, kstrP("corrupt argvdata or ram file more generally? Process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			return false;
 		}
-		*dest++=c;
-		if (c=='\0')
-			break;
+
+		// Is this character part of the arg that was asked for?
+		if (n==0) {
+			*dest++=c;
+			if (c=='\0')
+				break;
+		}
+
+		// Advance to next character, potentially updating n if we have read a whole argument
 		++index;
+		n-=(c=='\0');
 	}
 
 	return true;
@@ -1123,25 +1137,16 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			procData->regs[0]=procManGetPidFromProcess(process);
 			return true;
 		break;
-		case BytecodeSyscallIdGetArgC: {
-			procData->regs[0]=0;
-			for(uint8_t i=0; i<ARGVMAX; ++i) {
-				char arg[ProcManArgLenMax];
-				if (!procManProcessGetArgvN(process, procData, i, arg)) {
-					kernelLog(LogTypeWarning, kstrP("failed during getargc syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
-				procData->regs[0]+=(strlen(arg)>0);
-			}
-
+		case BytecodeSyscallIdGetArgC:
+			procData->regs[0]=procData->argc;
 			return true;
-		} break;
+		break;
 		case BytecodeSyscallIdGetArgVN: {
 			uint8_t n=procData->regs[1];
 			BytecodeWord bufAddr=procData->regs[2];
 			// TODO: Use this: BytecodeWord bufLen=procData->regs[3];
 
-			if (n>ARGVMAX)
+			if (n>=procData->argc)
 				procData->regs[0]=0;
 			else {
 				char arg[ProcManArgLenMax];
@@ -2042,30 +2047,32 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 }
 
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData) {
+#define argv ((char *)procManScratchBuf256)
 #define tempPwd procManScratchBufPath0
 #define tempPath procManScratchBufPath1
 #define ramPath procManScratchBufPath2
-#define args ((char (*)[ProcManArgLenMax])procManScratchBuf256)
 
-	kernelLog(LogTypeInfo, kstrP("exec in %u\n"), procManGetPidFromProcess(process));
+	// Grab arg and write to log
+	uint8_t argc=procData->regs[1];
+	kernelLog(LogTypeInfo, kstrP("exec in %u - argc=%u\n"), procManGetPidFromProcess(process), argc);
 
-	// Grab path and args (if any)
-	for(uint8_t i=0; i<ARGVMAX; ++i)
-		args[i][0]='\0';
-
-	if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], args[0], KernelFsPathMax)) {
-		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read path argument\n"), procManGetPidFromProcess(process));
-		return false;
+	// Create argv string by reading argv from user space one arg at a time
+	uint8_t argvPtr=procData->regs[2];
+	int argvTotalSize=0;
+	for(int i=0; i<argc; ++i) {
+		if (!procManProcessMemoryReadStr(process, procData, argvPtr, argv+argvTotalSize, KernelFsPathMax)) {
+			kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read argv string\n"), procManGetPidFromProcess(process));
+			return false;
+		}
+		argvTotalSize+=strlen(argv+argvTotalSize)+1;
 	}
+	assert(argvTotalSize==procManArgvStringGetTotalSize(argc, argv));
 
-	for(uint8_t i=1; i<ARGVMAX; ++i)
-		if (procData->regs[i+1]!=0)
-			if (!procManProcessMemoryReadStr(process, procData, procData->regs[i+1], args[i], KernelFsPathMax)) {
-				kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read argument %u\n"), procManGetPidFromProcess(process), i);
-				return false;
-			}
-
-	kernelLog(LogTypeInfo, kstrP("exec in %u - raw path '%s', arg1='%s', arg2='%s', arg3='%s'\n"), procManGetPidFromProcess(process), args[0], args[1], args[2], args[3]); // TODO: Avoid hardcoded number of arguments
+	kernelLog(LogTypeInfo, kstrP("exec in %u - argv:\n"), procManGetPidFromProcess(process), argc);
+	for(int i=0; i<argc; ++i) {
+		const char *arg=procManArgvStringGetArgN(argc, argv, i);
+		kernelLog(LogTypeInfo, kstrP("	%u = '%s'\n"), i, arg);
+	}
 
 	// Grab pwd and path env vars as these may now point into general ram, which is about to be cleared when we resize
 	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, tempPwd, KernelFsPathMax)) {
@@ -2081,9 +2088,9 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	kernelFsPathNormalise(tempPath);
 
 	// Load program (handling magic bytes)
-	KernelFsFd newProgmemFd=procManProcessLoadProgmemFile(process, args);
+	KernelFsFd newProgmemFd=procManProcessLoadProgmemFile(process, &argc, argv);
 	if (newProgmemFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not open progmem file ('%s')\n"), procManGetPidFromProcess(process), args[0]);
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not open progmem file ('%s')\n"), procManGetPidFromProcess(process), argv);
 		return true;
 	}
 
@@ -2110,11 +2117,9 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	procData->path=procData->envVarDataLen;
 	procData->envVarDataLen+=strlen(tempPath)+1;
 
-	for(uint8_t i=0; i<ARGVMAX; ++i) {
-		uint16_t argLen=strlen(args[i]);
-		procData->argv[i]=procData->envVarDataLen;
-		procData->envVarDataLen+=argLen+1; // +1 for null terminator
-	}
+	procData->argc=argc;
+	procData->argvStart=procData->envVarDataLen;
+	procData->envVarDataLen+=argvTotalSize;
 
 	// Resize ram file (clear data and add new arguments)
 	procData->ramLen=0; // no ram needed initially
@@ -2141,12 +2146,9 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 		return false;
 	}
 
-	for(uint8_t i=0; i<ARGVMAX; ++i) {
-		uint16_t argSize=strlen(args[i])+1;
-		if (kernelFsFileWriteOffset(procData->ramFd, procData->argv[i], (const uint8_t *)(args[i]), argSize)!=argSize) {
-			kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not write args into new processes memory\n"), procManGetPidFromProcess(process));
-			return false;
-		}
+	if (kernelFsFileWriteOffset(procData->ramFd, procData->argvStart, (const uint8_t *)(argv), argvTotalSize)!=argvTotalSize) {
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not write argv into new processes memory\n"), procManGetPidFromProcess(process));
+		return false;
 	}
 
 	// Clear any registered signal handlers.
@@ -2162,25 +2164,26 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 	kernelLog(LogTypeInfo, kstrP("exec in %u succeeded\n"), procManGetPidFromProcess(process));
 
 	return true;
+
+#undef argv
 #undef tempPwd
 #undef tempPath
 #undef ramPath
-#undef args
 }
 
-KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGVMAX][ProcManArgLenMax]) {
+KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart) {
 	assert(process!=NULL);
 
 	// Normalise path and then check if valid
-	kernelFsPathNormalise(args[0]);
+	procManArgvStringPathNormaliseArg0(*argc, argvStart);
 
-	if (!kernelFsPathIsValid(args[0])) {
-		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' not valid\n"), procManGetPidFromProcess(process), args[0]);
+	if (!kernelFsPathIsValid(argvStart)) {
+		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' not valid\n"), procManGetPidFromProcess(process), argvStart);
 		return KernelFsFdInvalid;
 	}
 
-	if (kernelFsFileIsDir(args[0])) {
-		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' is a directory\n"), procManGetPidFromProcess(process), args[0]);
+	if (kernelFsFileIsDir(argvStart)) {
+		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - path '%s' is a directory\n"), procManGetPidFromProcess(process), argvStart);
 		return KernelFsFdInvalid;
 	}
 
@@ -2189,16 +2192,16 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 	uint8_t magicByteRecursionCount, magicByteRecursionCountMax=8;
 	for(magicByteRecursionCount=0; magicByteRecursionCount<magicByteRecursionCountMax; ++magicByteRecursionCount) {
 		// Attempt to open program file
-		newProgmemFd=kernelFsFileOpen(args[0]);
+		newProgmemFd=kernelFsFileOpen(argvStart);
 		if (newProgmemFd==KernelFsFdInvalid) {
-			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not open program at '%s'\n"), procManGetPidFromProcess(process), args[0]);
+			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not open program at '%s'\n"), procManGetPidFromProcess(process), argvStart);
 			return KernelFsFdInvalid;
 		}
 
 		// Read first two bytes to decide how to execute
 		uint8_t magicBytes[2];
 		if (kernelFsFileRead(newProgmemFd, magicBytes, 2)!=2) {
-			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not read 2 magic bytes at start of '%s', fd %u\n"), procManGetPidFromProcess(process), args[0], newProgmemFd);
+			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not read 2 magic bytes at start of '%s', fd %u\n"), procManGetPidFromProcess(process), argvStart, newProgmemFd);
 			kernelFsFileClose(newProgmemFd);
 			return KernelFsFdInvalid;
 		}
@@ -2217,7 +2220,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 			// Look for newline and if found terminate string here
 			char *newlinePtr=strchr(interpreterPath, '\n');
 			if (newlinePtr==NULL) {
-				kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - '#!' not followed by interpreter path (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), args[0], newProgmemFd);
+				kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - '#!' not followed by interpreter path (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), argvStart, newProgmemFd);
 				kernelFsFileClose(newProgmemFd);
 				return KernelFsFdInvalid;
 			}
@@ -2225,27 +2228,24 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, char args[ARGV
 
 			// Write to log
 			kernelFsPathNormalise(interpreterPath);
-			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '#!' detected, using interpreter '%s' (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), interpreterPath, args[0], newProgmemFd);
+			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '#!' detected, using interpreter '%s' (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), interpreterPath, argvStart, newProgmemFd);
 
 			// Close the original progmem file
 			kernelFsFileClose(newProgmemFd);
 
-			// Update args
-			strcpy(args[1], args[0]);
-			strcpy(args[0], interpreterPath);
-			for(uint8_t i=2; i<ARGVMAX; ++i)
-				strcpy(args[i], "");
+			// Update args - move program executable path to 2nd arg, and set interpreter path as 1st (clearing all others)
+			procManArgvUpdateForInterpreter(argc, argvStart, interpreterPath);
 
 			// Loop again in an attempt to load interpreter
 		} else {
-			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - unknown magic byte sequence 0x%02X%02X at start of '%s', fd %u\n"), procManGetPidFromProcess(process), magicBytes[0], magicBytes[1], args[0], newProgmemFd);
+			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - unknown magic byte sequence 0x%02X%02X at start of '%s', fd %u\n"), procManGetPidFromProcess(process), magicBytes[0], magicBytes[1], argvStart, newProgmemFd);
 			kernelFsFileClose(newProgmemFd);
 			return KernelFsFdInvalid;
 		}
 	}
 
 	if (newProgmemFd==KernelFsFdInvalid || magicByteRecursionCount==magicByteRecursionCountMax) {
-		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not open progmem file (shebang infinite recursion perhaps?) ('%s', fd %u)\n"), procManGetPidFromProcess(process), args[0], newProgmemFd);
+		kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not open progmem file (shebang infinite recursion perhaps?) ('%s', fd %u)\n"), procManGetPidFromProcess(process), argvStart, newProgmemFd);
 		return KernelFsFdInvalid;
 	}
 
@@ -2284,6 +2284,62 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 void procManResetInstructionCounters(void) {
 	for(ProcManPid i=0; i<ProcManPidMax; ++i)
 		procManData.processes[i].instructionCounter=0;
+}
+
+char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n) {
+	// Check n is in range
+	if (n>=argc)
+		return NULL;
+
+	// Look for argument by looping over all that come before it.
+	while(n>0)
+		n-=(*argvStart++=='\0');
+
+	return argvStart;
+}
+
+int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart) {
+	int len=0;
+	while(argc>0)
+		argc-=(argvStart[len++]=='\0');
+	return len;
+}
+
+void procManArgvStringPathNormaliseArg0(uint8_t argc, char *argvStart) {
+	// Ensure argc is sensible
+	if (argc<1)
+		return;
+
+	// Grab total size before we lose this info after normalise call.
+	int preTotalSize=procManArgvStringGetTotalSize(argc, argvStart);
+
+	// Normalise path, making a note of the size reduction
+	// We note sizes because normalise may shorten the first argument,
+	// which causes issues as 2nd arg should start straight after.
+	int preSize=strlen(argvStart)+1;
+	kernelFsPathNormalise(argvStart);
+	int postSize=strlen(argvStart)+1;
+	assert(postSize<=preSize);
+
+	// Move down all other arguments (skip if no other args or no change)
+	if (argc<2 || postSize==preSize)
+		return;
+
+	memmove(argvStart+postSize, argvStart+preSize, preTotalSize-preSize);
+}
+
+void procManArgvUpdateForInterpreter(uint8_t *argc, char *argvStart, const char *interpreterPath) {
+	int interpreterPathSize=strlen(interpreterPath)+1;
+	int arg0Size=strlen(argvStart)+1;
+
+	// Move original executable path to 2nd argument
+	memmove(argvStart+interpreterPathSize, argvStart, arg0Size);
+
+	// Place interpreter path in 1st argument
+	memcpy(argvStart, interpreterPath, interpreterPathSize);
+
+	// Finally adjust argc
+	*argc=2;
 }
 
 void procManPrefetchDataClear(ProcManPrefetchData *pd) {
