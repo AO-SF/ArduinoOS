@@ -12,11 +12,10 @@ db usageStr 'usage: watch interval cmd cmdArg\n', 0
 db forkErrorStr 'could not fork\n', 0
 db emptyStr 0
 
-ab cmdBuf ArgLenMax
-ab cmdArg1Buf ArgLenMax
 aw delayTime 1
 ab childPid 1
 ab quitFlag 1
+ab argBuf ArgLenMax
 
 jmp start
 
@@ -78,28 +77,15 @@ syscall
 ; Grab delay time
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 cmdBuf ; use this as a scratch buffer for now
+mov r2 argBuf ; use this as a scratch buffer for now
 mov r3 ArgLenMax
 syscall
 
-mov r0 cmdBuf
+mov r0 argBuf
 call strtoint
 
 mov r1 delayTime
 store16 r1 r0
-
-; Grab command and argument (we can only have 4 arguments ourselves and use 2, and the command itself needs one, so this only leaves a single argument to pass onto the command)
-mov r0 SyscallIdArgvN
-mov r1 2
-mov r2 cmdBuf
-mov r3 ArgLenMax
-syscall
-
-mov r0 SyscallIdArgvN
-mov r1 3
-mov r2 cmdArg1Buf
-mov r3 ArgLenMax
-syscall
 
 ; Attempt to run command
 label runCommand
@@ -124,12 +110,11 @@ jmp forkError
 jmp forkParent
 
 label forkChild
-; Exec given argument
-mov r0 cmdBuf
-mov r1 cmdArg1Buf
-mov r2 emptyStr
-mov r3 emptyStr
-call runpath
+; Exec using exec2 to pass on our own argv arguments
+mov r0 SyscallIdExec2
+mov r1 2
+mov r2 ArgMax ; pass all arguments
+syscall
 
 ; Exec only returns on error
 jmp done

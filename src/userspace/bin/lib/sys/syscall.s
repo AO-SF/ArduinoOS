@@ -13,6 +13,7 @@ const SyscallIdKill 10
 const SyscallIdGetPidRam 11
 const SyscallIdSignal 12
 const SyscallIdGetPidFdN 13
+const SyscallIdExec2 14
 
 const SyscallIdRead 256
 const SyscallIdWrite 257
@@ -58,6 +59,10 @@ const SyscallIdHwDeviceSdCardReaderMount 1795
 const SyscallIdHwDeviceSdCardReaderUnmount 1796
 const SyscallIdHwDeviceDht22GetTemperature 1797
 const SyscallIdHwDeviceDht22GetHumidity 1798
+
+; Exec flags
+const SyscallExecPathFlagLiteral 0
+const SyscallExecPathFlagSearch 1
 
 ; WaitPid special return values
 const SyscallWaitpidStatusSuccess 0

@@ -59,6 +59,7 @@ typedef enum {
 	BytecodeSyscallIdGetPidRam=(0|11),
 	BytecodeSyscallIdSignal=(0|12),
 	BytecodeSyscallIdGetPidFdN=(0|13),
+	BytecodeSyscallIdExec2=(0|14),
 	BytecodeSyscallIdRead=(256|0),
 	BytecodeSyscallIdWrite=(256|1),
 	BytecodeSyscallIdOpen=(256|2),

@@ -13,10 +13,8 @@ jmp start
 ; signal handler labels must be within first 256 bytes of executable, so put this function first
 label suicideHandler
 ; call forkexecwait to run shutdown file and wait for it to complete
-mov r0 shutdownPath
-mov r1 0
-mov r2 0
-mov r3 0
+mov r0 1
+mov r1 shutdownPath
 call forkexecwait
 ; Exit ASAP
 mov r0 0
@@ -37,17 +35,13 @@ mov r2 suicideHandler
 syscall
 
 ; call forkexecwait to run startup file and wait for it to complete
-mov r0 startupPath
-mov r1 0
-mov r2 0
-mov r3 0
+mov r0 1
+mov r1 startupPath
 call forkexecwait
 
 ; call forkexec to start shell
-mov r0 shellPath
-mov r1 0
-mov r2 0
-mov r3 0
+mov r0 1
+mov r1 shellPath
 call forkexec
 
 ; error forking?
