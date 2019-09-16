@@ -76,8 +76,7 @@ mov r1 SignalIdInterrupt
 mov r2 interruptHandlerTrampoline
 syscall
 
-; Is stdinfd already sensible?
-; TODO: We should probably check both stdin and stdout
+; Is stdinfd already sensible? (we simply ignore stdout)
 mov r0 handlingStdio
 mov r1 0
 store8 r0 r1
@@ -505,7 +504,7 @@ pop16 r0
 ret
 
 label interruptHandler
-; TODO: Fix hack
+; TODO: Fix hack - we assume lock functions only modify r0 and r1 (and call modifies r2, r5)
 push16 r0
 push16 r1
 push16 r2
@@ -533,7 +532,6 @@ mov r0 SyscallIdWaitPid
 mov r2 5
 syscall
 ; interrupted by another signal? if so, try again
-; TODO: if interrupted repeatedly we may never exit
 mov r2 SyscallWaitpidStatusInterrupted
 cmp r2 r0 r2
 skipneq r2

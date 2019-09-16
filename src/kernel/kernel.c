@@ -347,7 +347,7 @@ void kernelBoot(void) {
 
 	// PC only - register sigint handler so we can pass this signal onto e.g. the shell
 #ifndef ARDUINO
-    signal(SIGINT, kernelSigIntHandler); // TODO: Check return.
+    signal(SIGINT, kernelSigIntHandler);
 #endif
 
 	// Non-arduino-only: create pretend EEPROM storage in a local file
@@ -426,7 +426,6 @@ void kernelBoot(void) {
 		kernelLog(LogTypeWarning, kstrP("fs init failure: /dev\n"));
 
 	// ... optional pin device files
-	// TODO: add analogue pins, with slightly different read/write logic
 #define ADDDEVDIGITALPIN(path,pinNum) (pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP(path), &kernelDevDigitalPinReadFunctor, &kernelDevDigitalPinCanReadFunctor, &kernelDevDigitalPinWriteFunctor, false, (void *)(uintptr_t)(pinNum)),++pinsTarget)
 
 	uint8_t pinsAdded=0, pinsTarget=0;
@@ -511,7 +510,7 @@ void kernelShutdownFinal(void) {
 	// Non-arduino-only: close pretend EEPROM storage file
 #ifndef ARDUINO
 	kernelLog(LogTypeInfo, kstrP("closing pseudo EEPROM storage file (PC wrapper)\n"));
-	fclose(kernelFakeEepromFile); // TODO: Check return
+	fclose(kernelFakeEepromFile);
 #endif
 
 	// Halt

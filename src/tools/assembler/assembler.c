@@ -345,24 +345,24 @@ int main(int argc, char **argv) {
 
 	// Add a couple of lines to put magic bytes at the front of the file
 	sprintf(autoLine, "%s ; magic header byte 1", BytecodeMagicByte1AsmInstructionStr);
-	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+	assemblerLine=malloc(sizeof(AssemblerLine));
 	assemblerLine->lineNum=autoLineNext+1;
-	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
+	assemblerLine->file=malloc(strlen(autoFile)+1);
 	strcpy(assemblerLine->file, autoFile);
-	assemblerLine->original=malloc(strlen(autoLine)+1); // TODO: Check return
+	assemblerLine->original=malloc(strlen(autoLine)+1);
 	strcpy(assemblerLine->original, autoLine);
-	assemblerLine->modified=malloc(strlen(autoLine)+1); // TODO: Check return
+	assemblerLine->modified=malloc(strlen(autoLine)+1);
 	strcpy(assemblerLine->modified, autoLine);
 	assemblerInsertLine(program, assemblerLine, autoLineNext++);
 
 	sprintf(autoLine, "%s ; magic header byte 2", BytecodeMagicByte2AsmInstructionStr);
-	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+	assemblerLine=malloc(sizeof(AssemblerLine));
 	assemblerLine->lineNum=autoLineNext+1;
-	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
+	assemblerLine->file=malloc(strlen(autoFile)+1);
 	strcpy(assemblerLine->file, autoFile);
-	assemblerLine->original=malloc(strlen(autoLine)+1); // TODO: Check return
+	assemblerLine->original=malloc(strlen(autoLine)+1);
 	strcpy(assemblerLine->original, autoLine);
-	assemblerLine->modified=malloc(strlen(autoLine)+1); // TODO: Check return
+	assemblerLine->modified=malloc(strlen(autoLine)+1);
 	strcpy(assemblerLine->modified, autoLine);
 	assemblerInsertLine(program, assemblerLine, autoLineNext++);
 
@@ -371,13 +371,13 @@ int main(int argc, char **argv) {
 	if (!program->noStack) {
 		sprintf(autoLine, "mov r%u 65535 ; setup stack", BytecodeRegisterSP);
 
-		assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+		assemblerLine=malloc(sizeof(AssemblerLine));
 		assemblerLine->lineNum=autoLineNext+1;
-		assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
+		assemblerLine->file=malloc(strlen(autoFile)+1);
 		strcpy(assemblerLine->file, autoFile);
-		assemblerLine->original=malloc(strlen(autoLine)+1); // TODO: Check return
+		assemblerLine->original=malloc(strlen(autoLine)+1);
 		strcpy(assemblerLine->original, autoLine);
-		assemblerLine->modified=malloc(strlen(autoLine)+1); // TODO: Check return
+		assemblerLine->modified=malloc(strlen(autoLine)+1);
 		strcpy(assemblerLine->modified, autoLine);
 		assemblerInsertLine(program, assemblerLine, autoLineNext);
 		stackSetLineIndex=autoLineNext++;
@@ -528,14 +528,14 @@ bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *path, i
 			line[strlen(line)-1]='\0';
 
 		// Begin creating structure to represent this line
-		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine));
 
 		assemblerLine->lineNum=lineNum;
-		assemblerLine->file=malloc(strlen(path)+1); // TODO: Check return
+		assemblerLine->file=malloc(strlen(path)+1);
 		strcpy(assemblerLine->file, path);
-		assemblerLine->original=malloc(strlen(line)+1); // TODO: Check return
+		assemblerLine->original=malloc(strlen(line)+1);
 		strcpy(assemblerLine->original, line);
-		assemblerLine->modified=malloc(strlen(line)+1); // TODO: Check return
+		assemblerLine->modified=malloc(strlen(line)+1);
 		strcpy(assemblerLine->modified, line);
 
 		assemblerInsertLine(program, assemblerLine, offset++);
@@ -788,7 +788,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			continue;
 
 		// Parse operation
-		char *lineCopy=malloc(strlen(assemblerLine->modified)+1); // TODO: Check return
+		char *lineCopy=malloc(strlen(assemblerLine->modified)+1);
 		strcpy(lineCopy, assemblerLine->modified);
 
 		char *savePtr;

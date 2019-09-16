@@ -106,7 +106,7 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 
 	// CMD55+ACMD41 initialise attempt loop
 	unsigned i;
-	for(i=0; i<1024; ++i) { // TODO: think about this constant
+	for(i=0; i<1024; ++i) {
 		// Send CMD55 - ACMD command prefix
 		sdWriteCommand(0x77, 0x00, 0x00, 0x00, 0x00, 0x65, 0xFF);
 		responseByte=sdWaitForResponse(16);
@@ -210,7 +210,6 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 	responseByte=spiReadByte(); // read data byte  0 [120:127]
 	SdCsdVersion csdVersion=(responseByte>>6);
 	if (csdVersion==SdCsdVersion1) {
-		// TODO: handle this case
 		kernelLog(LogTypeWarning, kstrP("sdInit failed: unsupported CSD version 1.0 (powerPin=%u, slaveSelectPin=%u)\n"), powerPin, slaveSelectPin);
 		result=SdInitResultUnsupportedCard;
 		goto error;

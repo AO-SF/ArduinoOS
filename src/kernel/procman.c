@@ -119,7 +119,7 @@ bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcDa
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str);
 bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const uint8_t *data, uint16_t len); // Note: addr with len should not cross over the boundary between the two parts of memory.
 
-bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.  TODO: Avoid hardcoded limit
+bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.
 
 bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstruction3Byte *instruction);
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstruction3Byte instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
@@ -194,7 +194,7 @@ ProcManPid procManProcessNew(const char *programPath) {
 #define procPath procManScratchBufPath0
 #define ramPath procManScratchBufPath1
 #define tempPath procManScratchBufPath2
-#define envVarData procManScratchBuf256 // TODO: Should be larger for worst-case (roughly (argvmax+2)*pathmax~=380)
+#define envVarData procManScratchBuf256 // TODO: Should be larger for worst-case
 	KernelFsFd ramFd=KernelFsFdInvalid;
 	ProcManProcessProcData procData;
 
@@ -208,7 +208,6 @@ ProcManPid procManProcessNew(const char *programPath) {
 	}
 
 	// Construct tmp paths
-	// TODO: Try others if exist
 	sprintf(procPath, "/tmp/proc%u", pid);
 	sprintf(ramPath, "/tmp/ram%u", pid);
 
@@ -1963,7 +1962,6 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	ProcManProcess *child=&(procManData.processes[childPid]);
 
 	// Construct proc file path
-	// TODO: Try others if exists
 	sprintf(childProcPath, "/tmp/proc%u", childPid);
 	sprintf(childRamPath, "/tmp/ram%u", childPid);
 

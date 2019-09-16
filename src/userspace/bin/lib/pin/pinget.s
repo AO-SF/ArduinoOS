@@ -9,7 +9,6 @@ push8 r0
 mov r1 PinModeInput
 call pinsetmode
 ; read byte
-; TODO: Check number of bytes read is 1
 mov r0 SyscallIdRead
 pop8 r1
 mov r2 0

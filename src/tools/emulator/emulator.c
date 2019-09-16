@@ -444,19 +444,16 @@ bool processRunNextInstruction(Process *process) {
 							}
 						} break;
 						case BytecodeSyscallIdGetPidPath:
-							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdGetPidState:
-							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidstate] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdGetAllCpuCounts:
-							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getallcpucounts] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
@@ -471,7 +468,6 @@ bool processRunNextInstruction(Process *process) {
 							}
 						} break;
 						case BytecodeSyscallIdGetPidRam:
-							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidram] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
@@ -530,7 +526,6 @@ bool processRunNextInstruction(Process *process) {
 							}
 						} break;
 						case BytecodeSyscallIdOpen:
-							// TODO: file syscalls long term (handling fds etc)
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [open] (unimplemented)\n", syscallId);
 
@@ -538,53 +533,44 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdClose:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [close] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdDirGetChildN:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [dirgetchildn] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdGetPath: {
-							// TODO: see open (we could technically support stdiofd, returning /dev/ttyS0)
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						} break;
 						case BytecodeSyscallIdResizeFile:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [resizefile] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdFileGetLen:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [filegetlen] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdTryReadByte:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [tryreadbyte] (unimplemented)\n", syscallId);
 							process->regs[0]=256;
 						break;
 						case BytecodeSyscallIdIsDir:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [isdir] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdFileExists:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [fileexists] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdDelete:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [delete] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
@@ -600,22 +586,18 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [envsetstdinfd], new fd %u\n", syscallId, process->envVars.stdinFd);
 						break;
 						case BytecodeSyscallIdEnvGetPwd:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdEnvSetPwd:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdEnvGetPath:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdEnvSetPath:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
@@ -630,45 +612,37 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [envsetstdoutfd], new fd %u\n", syscallId, process->envVars.stdoutFd);
 						break;
 						case BytecodeSyscallIdTimeMonotonic:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [timemonotonic] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdRegisterSignalHandler:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [registersignalhandler] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdShutdown:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [shutdown] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdMount:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [mount] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdUnmount:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unmount] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdIoctl:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [ioctl] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdGetLogLevel:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getloglevel] (unimplemented)\n", syscallId);
 							process->regs[0]=3; // i.e. none
 						break;
 						case BytecodeSyscallIdSetLogLevel:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [setloglevel] (unimplemented)\n", syscallId);
 						break;
