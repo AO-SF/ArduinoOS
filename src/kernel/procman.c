@@ -2060,11 +2060,12 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 		kernelLog(LogTypeWarning, kstrP("exec in %u failed - no arguments\n"), procManGetPidFromProcess(process));
 		return false;
 	}
+
 	// Create argv string by reading argv from user space one arg at a time
-	uint8_t argvPtr=procData->regs[2];
+	KernelFsFileOffset argvPtr=procData->regs[2];
 	int argvTotalSize=0;
 	for(int i=0; i<argc; ++i) {
-		if (!procManProcessMemoryReadStr(process, procData, argvPtr, argv+argvTotalSize, KernelFsPathMax)) {
+		if (!procManProcessMemoryReadStr(process, procData, argvPtr+argvTotalSize, argv+argvTotalSize, KernelFsPathMax)) {
 			kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read argv string\n"), procManGetPidFromProcess(process));
 			return false;
 		}
