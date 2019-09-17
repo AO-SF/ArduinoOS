@@ -5,14 +5,17 @@
 
 #include "log.h"
 #include "pins.h"
+#include "util.h"
 
-const uint8_t pinsValidArray[PinMax]={
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, //  0-15
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, // 16-31
-	1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, // 32-47
-	1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, // 48-63
-	0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, // 64-79
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 80-95
+// Note: in the following array we pack 8 pins into each byte (lower number pins toward LSB)
+STATICASSERT(PinMax%8==0);
+const uint8_t pinsValidArray[PinMax/8]={
+	0xFF, 0xFF, //  0-15
+	0xFF, 0x8F, // 16-31
+	0x3B, 0xFF, // 32-47
+	0x27, 0x7B, // 48-63
+	0x00, 0x03, // 64-79
+	0xFF, 0xFF, // 80-95
 };
 
 #ifdef ARDUINO
@@ -33,7 +36,7 @@ bool pinStates[PinMax]={0};
 bool pinIsValid(uint8_t pinNum) {
 	if (pinNum>=PinMax)
 		return false;
-	return pinsValidArray[pinNum];
+	return (pinsValidArray[pinNum/8]>>(pinNum%8))&1;
 }
 
 void pinSetMode(uint8_t pinNum, PinMode mode) {
