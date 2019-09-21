@@ -242,6 +242,10 @@ bool kernelFsFileIsOpen(const char *path) {
 	return false;
 }
 
+bool kernelFsFileIsOpenByFd(KernelFsFd fd) {
+	return !kstrIsNull(kernelFsData.fdt[fd]);
+}
+
 bool kernelFsFileIsDir(const char *path) {
 	// Currently directories can only exist as device files
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
