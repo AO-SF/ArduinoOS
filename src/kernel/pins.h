@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define PinGroupMax 12
+#define PinNumGetGroup(pinNum) ((pinNum)>>3)
+#define PinNumGetShift(pinNum) ((pinNum)&7)
+#define PinMax 96
+
 #define PinA0 40
 #define PinA1 41
 #define PinA2 42
@@ -75,8 +80,6 @@
 #define PinD51 10
 #define PinD52 9
 #define PinD53 8
-
-#define PinMax 96
 
 #define PinLed PinD13
 
