@@ -400,7 +400,11 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 	process->state=ProcManProcessStateUnused;
 	process->instructionCounter=0;
 
-	kernelLog(LogTypeInfo, kstrP("killed process %u\n"), pid);
+	// Write to log
+	if (procData!=NULL)
+		kernelLog(LogTypeInfo, kstrP("killed process %u (post-IP=%u)\n"), pid, procData->regs[BytecodeRegisterIP]);
+	else
+		kernelLog(LogTypeInfo, kstrP("killed process %u\n"), pid);
 
 	// Check if any processes are waiting due to waitpid syscall
 	for(ProcManPid waiterPid=0; waiterPid<ProcManPidMax; ++waiterPid) {
