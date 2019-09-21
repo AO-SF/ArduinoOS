@@ -1,6 +1,10 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#ifndef ARDUINO
+#define PROGMEM
+#endif
+
 #define _unused(x) ((void)(x))
 
 #define STATICASSERT4(COND,MSG) typedef char static_assertion_##MSG[(!!(COND))*2-1]
