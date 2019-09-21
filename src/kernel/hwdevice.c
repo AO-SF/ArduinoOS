@@ -2,6 +2,10 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef ARDUINO
+#include <avr/pgmspace.h>
+#include <stddef.h>
+#endif
 
 #include "kernelfs.h"
 #include "ktime.h"
@@ -16,7 +20,7 @@ typedef struct {
 	uint8_t dataPin;
 } HwDevicePinPair;
 
-const HwDevicePinPair hwDevicePinPairs[HwDeviceIdMax]={
+static const HwDevicePinPair hwDevicePinPairs[HwDeviceIdMax] PROGMEM ={
 	{.powerPin=PinD42, .dataPin=PinD43},
 	{.powerPin=PinD44, .dataPin=PinD45},
 	{.powerPin=PinD46, .dataPin=PinD47},
@@ -193,14 +197,22 @@ uint8_t hwDeviceGetPowerPin(HwDeviceId id) {
 	if (id>=HwDeviceIdMax)
 		return PinInvalid;
 
+#ifdef ARDUINO
+	return pgm_read_byte_far(pgm_get_far_address(hwDevicePinPairs)+id*sizeof(HwDevicePinPair)+offsetof(HwDevicePinPair,powerPin));
+#else
 	return hwDevicePinPairs[id].powerPin;
+#endif
 }
 
 uint8_t hwDeviceGetDataPin(HwDeviceId id) {
 	if (id>=HwDeviceIdMax)
 		return PinInvalid;
 
+#ifdef ARDUINO
+	return pgm_read_byte_far(pgm_get_far_address(hwDevicePinPairs)+id*sizeof(HwDevicePinPair)+offsetof(HwDevicePinPair,dataPin));
+#else
 	return hwDevicePinPairs[id].dataPin;
+#endif
 }
 
 HwDeviceId hwDeviceGetDeviceForPin(uint8_t pinNum) {
