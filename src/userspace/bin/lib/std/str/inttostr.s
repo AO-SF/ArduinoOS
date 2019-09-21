@@ -32,9 +32,8 @@ mov r2 10000
 div r3 r1 r2
 mul r4 r3 r2
 sub r1 r1 r4
-mov r2 '0'
-add r2 r3 r2
-store8 r0 r2
+inc48 r3 ; add '0' ascii offset
+store8 r0 r3
 inc r0
 ; print thousands digit
 label inttostrprint3
@@ -42,9 +41,8 @@ mov r2 1000
 div r3 r1 r2
 mul r4 r3 r2
 sub r1 r1 r4
-mov r2 '0'
-add r2 r3 r2
-store8 r0 r2
+inc48 r3 ; add '0' ascii offset
+store8 r0 r3
 inc r0
 ; print hundreds digit
 label inttostrprint2
@@ -52,9 +50,8 @@ mov r2 100
 div r3 r1 r2
 mul r4 r3 r2
 sub r1 r1 r4
-mov r2 '0'
-add r2 r3 r2
-store8 r0 r2
+inc48 r3 ; add '0' ascii offset
+store8 r0 r3
 inc r0
 ; print tens digit
 label inttostrprint1
@@ -62,16 +59,14 @@ mov r2 10
 div r3 r1 r2
 mul r4 r3 r2
 sub r1 r1 r4
-mov r2 '0'
-add r2 r3 r2
-store8 r0 r2
+inc48 r3 ; add '0' ascii offset
+store8 r0 r3
 inc r0
 ; print units digit
 label inttostrprint0
 ; divisor is one - nothing to do
-mov r2 '0'
-add r2 r1 r2
-store8 r0 r2
+inc48 r1 ; add '0' ascii offset
+store8 r0 r1
 inc r0
 ; add null terminator
 mov r2 0
