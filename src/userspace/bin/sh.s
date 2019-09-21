@@ -289,26 +289,8 @@ store8 r0 r1
 
 label shellRunFdInputBackgroundCheckEnd
 
-; Parse input - check for first space implying at least one argument
+; Parse input - check for first/next arg
 mov r0 inputBuf ; search for space
-mov r1 ' '
-call strchr
-
-cmp r1 r0 r0 ; no space?
-skipneqz r1
-jmp shellRunFdExecInput
-
-mov r1 0 ; add null terminator (which acts as separator in argv string)
-store8 r0 r1
-inc r0
-
-mov r1 argc ; inc argc
-load8 r2 r1
-inc r2
-store8 r1 r2
-
-; check for another arg
-; r0 already contains ptr to previous arg
 label shellCheckNextArg
 
 mov r1 ' ' ; search for space

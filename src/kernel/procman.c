@@ -7,6 +7,7 @@
 #ifdef ARDUINO
 #include <alloca.h>
 #else
+#include <libgen.h>
 #include <termios.h>
 #include <unistd.h>
 #endif
@@ -18,6 +19,7 @@
 #include "log.h"
 #include "pins.h"
 #include "procman.h"
+#include "profile.h"
 #include "spi.h"
 
 #define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
@@ -66,6 +68,9 @@ typedef struct {
 	KernelFsFd progmemFd, procFd;
 	uint8_t state;
 	uint8_t waitingData8;
+#ifndef ARDUINO
+	ProfileCounter profilingCounts[BytecodeMemoryProgmemSize];
+#endif
 } ProcManProcess;
 
 typedef struct {
@@ -271,6 +276,9 @@ ProcManPid procManProcessNew(const char *programPath) {
 	// Initialise state
 	procManData.processes[pid].state=ProcManProcessStateActive;
 	procManData.processes[pid].instructionCounter=0;
+#ifndef ARDUINO
+	memset(procManData.processes[pid].profilingCounts, 0, sizeof(procManData.processes[pid].profilingCounts[0])*BytecodeMemoryProgmemSize);
+#endif
 
 	// Initialise proc file (and env var data in ram file)
 	procData.regs[BytecodeRegisterIP]=0;
@@ -333,6 +341,31 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 		kernelLog(LogTypeWarning, kstrP("could not kill process %u - no such process\n"), pid);
 		return;
 	}
+
+#ifndef ARDUINO
+	// Save profiling counts to file before we start clearing things
+	char profilingFilePath[1024]; // TODO: this better
+	char profilingExecBaseNameRaw[1024]="unknown"; // TODO: better
+	char *profilingExecBaseName=profilingExecBaseNameRaw;
+	if (process->progmemFd!=KernelFsFdInvalid) {
+		kstrStrcpy(profilingExecBaseNameRaw, kernelFsGetFilePath(process->progmemFd));
+		profilingExecBaseName=basename(profilingExecBaseNameRaw);
+	}
+	sprintf(profilingFilePath, "profile.%u.%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
+	FILE *profilingFile=fopen(profilingFilePath, "w");
+	if (profilingFile!=NULL) {
+		// Determine highest address instruction that was executed
+		// (this usually greatly reduces output file size)
+		BytecodeWord profilingFinal=0;
+		for(BytecodeWord i=0; i<BytecodeMemoryProgmemSize; ++i)
+			if (procManData.processes[pid].profilingCounts[i]>0)
+				profilingFinal=i;
+
+		// Write data and close file
+		fwrite(procManData.processes[pid].profilingCounts, sizeof(ProfileCounter), profilingFinal+1, profilingFile);
+		fclose(profilingFile);
+	}
+#endif
 
 	// Attempt to get/load proc data, but note this is not critical (after all, we may be here precisely because we could not read the proc data file).
 	const ProcManProcessProcData *procData=NULL;
@@ -399,8 +432,15 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 	// Reset state
 	process->state=ProcManProcessStateUnused;
 	process->instructionCounter=0;
+#ifndef ARDUINO
+	memset(process->profilingCounts, 0, sizeof(process->profilingCounts[0])*BytecodeMemoryProgmemSize);
+#endif
 
-	kernelLog(LogTypeInfo, kstrP("killed process %u\n"), pid);
+	// Write to log
+	if (procData!=NULL)
+		kernelLog(LogTypeInfo, kstrP("killed process %u (post-IP=%u)\n"), pid, procData->regs[BytecodeRegisterIP]);
+	else
+		kernelLog(LogTypeInfo, kstrP("killed process %u\n"), pid);
 
 	// Check if any processes are waiting due to waitpid syscall
 	for(ProcManPid waiterPid=0; waiterPid<ProcManPidMax; ++waiterPid) {
@@ -487,6 +527,12 @@ void procManProcessTick(ProcManPid pid) {
 	ProcManPrefetchData prefetchData;
 	procManPrefetchDataClear(&prefetchData);
 	for(uint16_t instructionNum=0; instructionNum<procManProcessInstructionsPerTick; ++instructionNum) {
+#ifndef ARDUINO
+		// Update profiling info (before we update IP register)
+		if (procData.regs[BytecodeRegisterIP]<BytecodeMemoryProgmemSize)
+			++procManData.processes[pid].profilingCounts[procData.regs[BytecodeRegisterIP]];
+#endif
+
 		// Run a single instruction
 		BytecodeInstruction3Byte instruction;
 		if (!procManProcessGetInstruction(process, &procData, &prefetchData, &instruction)) {
@@ -1335,6 +1381,13 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdRead: {
 			KernelFsFd fd=procData->regs[1];
 
+			// Check for bad fd
+			if (!kernelFsFileIsOpenByFd(fd)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Check if would block
 			if (!kernelFsFileCanRead(fd)) {
 				// Reading would block - so enter waiting state until data becomes available.
 				process->state=ProcManProcessStateWaitingRead;
@@ -1355,6 +1408,13 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			uint16_t bufAddr=procData->regs[3];
 			KernelFsFileOffset len=procData->regs[4];
 
+			// Check for bad fd
+			if (!kernelFsFileIsOpenByFd(fd)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Write block at a time
 			KernelFsFileOffset i=0;
 			while(i<len) {
 				KernelFsFileOffset chunkSize=len-i;
@@ -1512,7 +1572,13 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdTryReadByte: {
 			KernelFsFd fd=procData->regs[1];
 
-			// save terminal settings and change to avoid waiting for newline
+			// Check for bad fd
+			if (!kernelFsFileIsOpenByFd(fd)) {
+				procData->regs[0]=256;
+				return true;
+			}
+
+			// Save terminal settings and change to avoid waiting for newline
 			#ifdef ARDUINO
 			bool oldBlocking=kernelDevTtyS0BlockingFlag;
 			kernelDevTtyS0BlockingFlag=false;
@@ -1525,18 +1591,18 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			tcsetattr(STDIN_FILENO, TCSANOW, &termNew);
 			#endif
 
-			// attempt to read
+			// Attempt to read
 			uint8_t value;
 			KernelFsFileOffset readResult=kernelFsFileReadOffset(fd, 0, &value, 1, false);
 
-			// restore terminal settings
+			// Restore terminal settings
 			#ifdef ARDUINO
 			kernelDevTtyS0BlockingFlag=oldBlocking;
 			#else
 			tcsetattr(STDIN_FILENO, TCSANOW, &termOld);
 			#endif
 
-			// set result in r0
+			// Set result in r0
 			if (readResult==1)
 				procData->regs[0]=value;
 			else
@@ -1993,6 +2059,9 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	child->state=ProcManProcessStateActive;
 	child->progmemFd=procManData.processes[parentPid].progmemFd;
 	child->instructionCounter=0;
+#ifndef ARDUINO
+	memset(child->profilingCounts, 0, sizeof(child->profilingCounts[0])*BytecodeMemoryProgmemSize);
+#endif
 
 	// Initialise proc file
 	KernelFsFd savedFd=procData->ramFd;

@@ -8,6 +8,7 @@
 #define PinNumGetGroup(pinNum) ((pinNum)>>3)
 #define PinNumGetShift(pinNum) ((pinNum)&7)
 #define PinMax 96
+#define PinInvalid 255
 
 #define PinA0 40
 #define PinA1 41

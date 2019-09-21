@@ -54,6 +54,7 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsBlockDeviceFormat forma
 
 bool kernelFsFileExists(const char *path);
 bool kernelFsFileIsOpen(const char *path);
+bool kernelFsFileIsOpenByFd(KernelFsFd fd);
 bool kernelFsFileIsDir(const char *path);
 bool kernelFsFileIsDirEmpty(const char *path);
 KernelFsFileOffset kernelFsFileGetLen(const char *path);
