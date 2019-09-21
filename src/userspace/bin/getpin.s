@@ -1,6 +1,7 @@
 require lib/sys/sys.s
 
 requireend lib/pin/pinget.s
+requireend lib/pin/pinvalid.s
 requireend lib/pin/strtopin.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
@@ -26,10 +27,12 @@ mov r0 argBuf
 call strtopin
 
 ; Bad pin?
-mov r1 PinInvalid
-cmp r1 r0 r1
-skipneq r1
-jmp badPin
+push8 r0
+call pinvalid
+cmp r0 r0 r0
+skipneqz r0
+jmp badPin ; no need to restore stack as we exit shortly after
+pop8 r0
 
 ; Use pin library to get current state
 call pinget
