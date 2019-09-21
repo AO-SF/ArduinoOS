@@ -1335,6 +1335,13 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdRead: {
 			KernelFsFd fd=procData->regs[1];
 
+			// Check for bad fd
+			if (!kernelFsFileIsOpenByFd(fd)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Check if would block
 			if (!kernelFsFileCanRead(fd)) {
 				// Reading would block - so enter waiting state until data becomes available.
 				process->state=ProcManProcessStateWaitingRead;
@@ -1355,6 +1362,13 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			uint16_t bufAddr=procData->regs[3];
 			KernelFsFileOffset len=procData->regs[4];
 
+			// Check for bad fd
+			if (!kernelFsFileIsOpenByFd(fd)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Write block at a time
 			KernelFsFileOffset i=0;
 			while(i<len) {
 				KernelFsFileOffset chunkSize=len-i;
@@ -1512,7 +1526,13 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdTryReadByte: {
 			KernelFsFd fd=procData->regs[1];
 
-			// save terminal settings and change to avoid waiting for newline
+			// Check for bad fd
+			if (!kernelFsFileIsOpenByFd(fd)) {
+				procData->regs[0]=256;
+				return true;
+			}
+
+			// Save terminal settings and change to avoid waiting for newline
 			#ifdef ARDUINO
 			bool oldBlocking=kernelDevTtyS0BlockingFlag;
 			kernelDevTtyS0BlockingFlag=false;
@@ -1525,18 +1545,18 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			tcsetattr(STDIN_FILENO, TCSANOW, &termNew);
 			#endif
 
-			// attempt to read
+			// Attempt to read
 			uint8_t value;
 			KernelFsFileOffset readResult=kernelFsFileReadOffset(fd, 0, &value, 1, false);
 
-			// restore terminal settings
+			// Restore terminal settings
 			#ifdef ARDUINO
 			kernelDevTtyS0BlockingFlag=oldBlocking;
 			#else
 			tcsetattr(STDIN_FILENO, TCSANOW, &termOld);
 			#endif
 
-			// set result in r0
+			// Set result in r0
 			if (readResult==1)
 				procData->regs[0]=value;
 			else
