@@ -21,6 +21,8 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type);
 void hwDeviceDeregister(HwDeviceId id);
 
 HwDeviceType hwDeviceGetType(HwDeviceId id);
+uint8_t hwDeviceGetPowerPin(HwDeviceId id); // returns PinInvalid on failure (bad id)
+uint8_t hwDeviceGetDataPin(HwDeviceId id); // returns PinInvalid on failure (bad id)
 
 HwDeviceId hwDeviceGetDeviceForPin(uint8_t pinNum); // returns HwDeviceIdMax if given pin is not associated with any device (used or unused)
 
