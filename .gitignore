@@ -4,3 +4,4 @@ eeprom
 *.log
 tmp/*
 screenlog.*
+profile.*
