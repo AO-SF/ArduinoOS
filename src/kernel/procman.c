@@ -351,7 +351,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 		kstrStrcpy(profilingExecBaseNameRaw, kernelFsGetFilePath(process->progmemFd));
 		profilingExecBaseName=basename(profilingExecBaseNameRaw);
 	}
-	sprintf(profilingFilePath, "profile.%u.%s.%u.%u", ktimeGetMs(), profilingExecBaseName, pid);
+	sprintf(profilingFilePath, "profile.%u.%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
 	FILE *profilingFile=fopen(profilingFilePath, "w");
 	if (profilingFile!=NULL) {
 		// Determine highest address instruction that was executed
