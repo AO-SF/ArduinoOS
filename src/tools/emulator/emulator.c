@@ -711,14 +711,14 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spideviceregister], id=%u, type=%u\n", syscallId, id, type);
+								printf("Info: syscall(id=%i [hwdeviceregister], id=%u, type=%u\n", syscallId, id, type);
 						} break;
 						case BytecodeSyscallIdHwDeviceDeregister: {
 							// Nothing to do - cannot register such devices in the first place
 							uint16_t id=process->regs[1];
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicederegister], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicederegister], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceGetType: {
 							// Must be unused - cannot register such devices in the first place
@@ -726,7 +726,7 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0; // TODO: fix magic number 0 with typeunused constant from somewhere
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicegettype], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicegettype], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceSdCardReaderMount: {
 							// SPI devices are unsupported
@@ -734,14 +734,14 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicesdcardreadermount], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicesdcardreadermount], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceSdCardReaderUnmount: {
 							// SPI devices are unsupported
 							uint16_t id=process->regs[1];
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicesdcardreaderunmount], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicesdcardreaderunmount], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceDht22GetTemperature: {
 							// SPI devices are unsupported
@@ -750,7 +750,7 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicedht22gettemperature], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicedht22gettemperature], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceDht22GetHumidity: {
 							// SPI devices are unsupported
@@ -759,7 +759,7 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicedht22gethumidity], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicedht22gethumidity], id=%u\n", syscallId, id);
 						} break;
 						default:
 							if (infoSyscalls)
