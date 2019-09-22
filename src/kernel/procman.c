@@ -2002,6 +2002,39 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			return true;
 		} break;
+		case ByteCodeSyscallIdStrcmp: {
+			uint16_t p1Addr=procData->regs[1];
+			uint16_t p2Addr=procData->regs[2];
+
+			procData->regs[0]=0; // set here in case of empty strings
+
+			uint16_t i=0;
+			while(1) {
+				// Decide on chunk size
+				// Note: we have to limit this due to using 256 byte buffer
+				KernelFsFileOffset chunkSize=128;
+
+				// Read from two pointers
+				if (!procManProcessMemoryReadStr(process, procData, p1Addr+i, ((char *)procManScratchBuf256)+0*chunkSize, chunkSize)) {
+					kernelLog(LogTypeWarning, kstrP("failed during strcmp syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+				if (!procManProcessMemoryReadStr(process, procData, p2Addr+i, ((char *)procManScratchBuf256)+1*chunkSize, chunkSize)) {
+					kernelLog(LogTypeWarning, kstrP("failed during strcmp syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+
+				// Compare bytes
+				procData->regs[0]=strncmp(((char *)procManScratchBuf256)+0*chunkSize, ((char *)procManScratchBuf256)+1*chunkSize, chunkSize);
+				if (procData->regs[0]!=0 || memchr(((char *)procManScratchBuf256)+0*chunkSize, '\0', chunkSize)!=NULL)
+					break;
+
+				// Move onto next chunk
+				i+=chunkSize;
+			}
+
+			return true;
+		} break;
 		case BytecodeSyscallIdHwDeviceRegister: {
 			HwDeviceId id=procData->regs[1];
 			HwDeviceType type=procData->regs[2];

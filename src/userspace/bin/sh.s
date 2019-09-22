@@ -12,7 +12,7 @@ requireend lib/std/proc/thread.s
 requireend lib/std/proc/waitpid.s
 requireend lib/std/str/strchr.s
 requireend lib/std/str/strrchr.s
-requireend lib/std/str/strequal.s
+requireend lib/std/str/strcmp.s
 requireend lib/std/str/strtrimlast.s
 
 db stdinPath '/dev/ttyS0', 0
@@ -317,20 +317,19 @@ label shellRunFdExecInput
 ; Check for cd builtin
 mov r0 inputBuf
 mov r1 cdStr
-call strequal
+call strcmp
 cmp r0 r0 r0
-skipneqz r0
+skipeqz r0
 jmp shellRunFdBuiltinNoCd
 call shellCd
 jmp shellRunFdInputLoopStart
 label shellRunFdBuiltinNoCd
-
 ; Check for exit builtin
 mov r0 inputBuf
 mov r1 exitStr
-call strequal
+call strcmp
 cmp r0 r0 r0
-skipneqz r0
+skipeqz r0
 jmp shellRunFdBuiltinNoExit
 mov r0 0 ; exit
 ret

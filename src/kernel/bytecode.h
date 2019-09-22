@@ -93,6 +93,7 @@ typedef enum {
 	BytecodeSyscallIdMemmove=(1536|2),
 	ByteCodeSyscallIdMemcmp=(1536|3),
 	ByteCodeSyscallIdStrrchr=(1536|4),
+	ByteCodeSyscallIdStrcmp=(1536|5),
 	BytecodeSyscallIdHwDeviceRegister=(1792|0),
 	BytecodeSyscallIdHwDeviceDeregister=(1792|1),
 	BytecodeSyscallIdHwDeviceGetType=(1792|2),
