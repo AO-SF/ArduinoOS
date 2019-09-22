@@ -689,6 +689,17 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [memmove], dest addr=%u, src addr=%u, size=%u\n", syscallId, destAddr, srcAddr, size);
 						} break;
+						case ByteCodeSyscallIdMemcmp: {
+							// TODO: Check arguments better
+							uint16_t p1Addr=process->regs[1];
+							uint16_t p2Addr=process->regs[2];
+							uint16_t size=process->regs[3];
+
+							process->regs[0]=memcmp(process->memory+p1Addr, process->memory+p2Addr, size);
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [memcmp], p1 addr=%u, p2 addr=%u, size=%u, ret %i\n", syscallId, p1Addr, p2Addr, size, process->regs[0]);
+						} break;
 						case ByteCodeSyscallIdStrrchr: {
 							// TODO: Check arguments better
 							uint16_t strAddr=process->regs[1];

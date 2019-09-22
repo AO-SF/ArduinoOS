@@ -1945,6 +1945,42 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			return true;
 		} break;
+		case ByteCodeSyscallIdMemcmp: {
+			uint16_t p1Addr=procData->regs[1];
+			uint16_t p2Addr=procData->regs[2];
+			uint16_t size=procData->regs[3];
+
+			procData->regs[0]=0; // set here in case of size=0
+
+			uint16_t i=0;
+			while(i<size) {
+				// Decide on chunk size
+				// Note: we have to limit this due to using 256 byte buffer
+				KernelFsFileOffset chunkSize=size-i;
+				if (chunkSize>128)
+					chunkSize=128;
+
+				// Read from two pointers
+				if (!procManProcessMemoryReadBlock(process, procData, p1Addr+i, ((uint8_t *)procManScratchBuf256)+0*chunkSize, chunkSize, true)) {
+					kernelLog(LogTypeWarning, kstrP("failed during memcmp syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+				if (!procManProcessMemoryReadBlock(process, procData, p2Addr+i, ((uint8_t *)procManScratchBuf256)+1*chunkSize, chunkSize, true)) {
+					kernelLog(LogTypeWarning, kstrP("failed during memcmp syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+
+				// Compare bytes
+				procData->regs[0]=memcmp(((uint8_t *)procManScratchBuf256)+0*chunkSize, ((uint8_t *)procManScratchBuf256)+1*chunkSize, chunkSize);
+				if (procData->regs[0]!=0)
+					break;
+
+				// Move onto next chunk
+				i+=chunkSize;
+			}
+
+			return true;
+		} break;
 		case ByteCodeSyscallIdStrrchr: {
 			uint16_t strAddr=procData->regs[1];
 			uint16_t c=procData->regs[2];
