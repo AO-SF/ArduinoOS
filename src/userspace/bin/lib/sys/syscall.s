@@ -51,6 +51,7 @@ const SyscallIdSetLogLevel 1285
 const SyscallIdStrChr 1536
 const SyscallIdStrChrNul 1537
 const SyscallIdMemMove 1538
+const SyscallIdStrRChr 1540
 
 const SyscallIdHwDeviceRegister 1792
 const SyscallIdHwDeviceDeregister 1793

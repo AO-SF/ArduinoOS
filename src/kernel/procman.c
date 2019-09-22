@@ -1945,6 +1945,27 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			return true;
 		} break;
+		case ByteCodeSyscallIdStrrchr: {
+			uint16_t strAddr=procData->regs[1];
+			uint16_t c=procData->regs[2];
+
+			procData->regs[0]=0;
+			while(1) {
+				uint8_t value;
+				if (!procManProcessMemoryReadByte(process, procData, strAddr, &value)) {
+					kernelLog(LogTypeWarning, kstrP("failed during strrchr syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+
+				if (value==c)
+					procData->regs[0]=strAddr;
+				if (value=='\0')
+					break;
+
+				strAddr++;
+			}
+			return true;
+		} break;
 		case BytecodeSyscallIdHwDeviceRegister: {
 			HwDeviceId id=procData->regs[1];
 			HwDeviceType type=procData->regs[2];
