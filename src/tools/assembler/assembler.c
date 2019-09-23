@@ -2117,10 +2117,10 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 								printf("%s=[%s] (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
 							break;
 							case BytecodeInstructionAluExtraTypePush16:
-								printf("[%s]=%s,%s+=2 (16 bit push) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.dest, line->file, line->lineNum, line->original);
+								printf("[r%u]=%s,r%u+=2 (16 bit push) (%s:%u '%s')\n", BytecodeRegisterSP, instruction->d.alu.dest, BytecodeRegisterSP, line->file, line->lineNum, line->original);
 							break;
 							case BytecodeInstructionAluExtraTypePop16:
-								printf("%s-=2,%s=[%s] (16 bit pop) (%s:%u '%s')\n", instruction->d.alu.opA, instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
+								printf("r%u-=2,%s=[r%u] (16 bit pop) (%s:%u '%s')\n", BytecodeRegisterSP, instruction->d.alu.dest, BytecodeRegisterSP, line->file, line->lineNum, line->original);
 							break;
 							case BytecodeInstructionAluExtraTypeCall:
 								// This should never be reached.
