@@ -2483,7 +2483,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 			// A standard native executable - no special handling required (the magic bytes run as harmless instructions)
 
 			// Write to log
-			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '//' detected, assuming native executable (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
+			kernelLog(LogTypeInfo, kstrP("loading executable in %u - magic bytes '//' detected, assuming native executable (prev exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
 			break;
 		} else if (magicBytes[0]=='#' && magicBytes[1]=='!') {
 			// An interpreter (with path following after '#!') should be used instead to run this file.
@@ -2496,7 +2496,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 			// Look for newline and if found terminate string here
 			char *newlinePtr=strchr(interpreterPath, '\n');
 			if (newlinePtr==NULL) {
-				kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - '#!' not followed by interpreter path (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
+				kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - '#!' not followed by interpreter path (prev exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
 				kernelFsFileClose(newProgmemFd);
 				return KernelFsFdInvalid;
 			}
@@ -2504,7 +2504,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 
 			// Write to log
 			kernelFsPathNormalise(interpreterPath);
-			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '#!' detected, using interpreter '%s' (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), interpreterPath, loopExecFile, newProgmemFd);
+			kernelLog(LogTypeInfo, kstrP("loading executable in %u - magic bytes '#!' detected, using interpreter '%s' (prev exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), interpreterPath, loopExecFile, newProgmemFd);
 
 			// Close the original progmem file
 			kernelFsFileClose(newProgmemFd);
