@@ -799,6 +799,11 @@ bool processRunNextInstruction(Process *process) {
 					printf("Error: illegal instruction encountered\n");
 					return false;
 				break;
+				case BytecodeInstructionMiscTypeDebug:
+					if (infoInstructions)
+						printf("Info: debug\n");
+					processDebug(process);
+				break;
 				case BytecodeInstructionMiscTypeSet8:
 					process->regs[info.d.misc.d.set8.destReg]=info.d.misc.d.set8.value;
 					if (infoInstructions)

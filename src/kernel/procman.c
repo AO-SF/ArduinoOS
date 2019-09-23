@@ -1166,6 +1166,10 @@ bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessPr
 			procManPrefetchDataClear(prefetchData);
 			return true;
 		break;
+		case BytecodeInstructionMiscTypeDebug:
+			procManProcessDebug(process, procData);
+			return true;
+		break;
 		case BytecodeInstructionMiscTypeSet8:
 			procData->regs[info->d.misc.d.set8.destReg]=info->d.misc.d.set8.value;
 			return true;
