@@ -201,6 +201,7 @@ typedef enum {
 	BytecodeInstructionMiscTypeNop,
 	BytecodeInstructionMiscTypeSyscall,
 	BytecodeInstructionMiscTypeClearInstructionCache,
+	BytecodeInstructionMiscTypeIllegal,
 	BytecodeInstructionMiscTypeSet8,
 	BytecodeInstructionMiscTypeSet16,
 } BytecodeInstructionMiscType;
@@ -242,6 +243,7 @@ BytecodeInstruction2Byte bytecodeInstructionCreateAluIncDecValue(BytecodeInstruc
 BytecodeInstruction1Byte bytecodeInstructionCreateMiscNop(void);
 BytecodeInstruction1Byte bytecodeInstructionCreateMiscSyscall(void);
 BytecodeInstruction1Byte bytecodeInstructionCreateMiscClearInstructionCache(void);
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscIllegal(void);
 BytecodeInstruction2Byte bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
 void bytecodeInstructionCreateMiscSet16(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value);
 

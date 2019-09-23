@@ -1158,6 +1158,10 @@ bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessPr
 				return false;
 			return true;
 		break;
+		case BytecodeInstructionMiscTypeIllegal:
+			kernelLog(LogTypeWarning, kstrP("illegal instruction, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			return false;
+		break;
 		case BytecodeInstructionMiscTypeClearInstructionCache:
 			procManPrefetchDataClear(prefetchData);
 			return true;

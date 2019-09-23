@@ -793,6 +793,12 @@ bool processRunNextInstruction(Process *process) {
 				case BytecodeInstructionMiscTypeClearInstructionCache:
 					// We do not use an instruction cache so nothing to do
 				break;
+				case BytecodeInstructionMiscTypeIllegal:
+					if (infoInstructions)
+						printf("Info: illegal\n");
+					printf("Error: illegal instruction encountered\n");
+					return false;
+				break;
 				case BytecodeInstructionMiscTypeSet8:
 					process->regs[info.d.misc.d.set8.destReg]=info.d.misc.d.set8.value;
 					if (infoInstructions)

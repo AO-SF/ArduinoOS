@@ -173,6 +173,9 @@ int main(int argc, char **argv) {
 					case BytecodeInstructionMiscTypeClearInstructionCache:
 						disassemblerPrint(addr, instruction, "clear icache");
 					break;
+					case BytecodeInstructionMiscTypeIllegal:
+						disassemblerPrint(addr, instruction, "illegal");
+					break;
 					case BytecodeInstructionMiscTypeSet8:
 						disassemblerPrint(addr, instruction, "r%u=%u", info.d.misc.d.set8.destReg, info.d.misc.d.set8.value);
 					break;
