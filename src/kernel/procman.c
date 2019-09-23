@@ -144,6 +144,8 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 
 void procManResetInstructionCounters(void);
 
+void procManProcessDebug(ProcManProcess *process, ProcManProcessProcData *procData);
+
 char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n);
 const char *procManArgvStringGetArgNConst(uint8_t argc, const char *argvStart, uint8_t n);
 int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart); // total size used for entire combined string, including all null bytes
@@ -2561,6 +2563,11 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 void procManResetInstructionCounters(void) {
 	for(ProcManPid i=0; i<ProcManPidMax; ++i)
 		procManData.processes[i].instructionCounter=0;
+}
+
+void procManProcessDebug(ProcManProcess *process, ProcManProcessProcData *procData) {
+	// Simply print PID and register values
+	kernelLog(LogTypeInfo, kstrP("Process %u debug: r0=%u, r1=%u, r2=%u, r3=%u, r4=%u, r5=%u, r6=%u, r7=%u\n"), procManGetPidFromProcess(process), procData->regs[0], procData->regs[1], procData->regs[2], procData->regs[3], procData->regs[4], procData->regs[5], procData->regs[6], procData->regs[7]);
 }
 
 char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n) {
