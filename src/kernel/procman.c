@@ -1149,6 +1149,7 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	switch(info->d.misc.type) {
 		case BytecodeInstructionMiscTypeNop:
+			return true;
 		break;
 		case BytecodeInstructionMiscTypeSyscall:
 			if (!procManProcessExecSyscall(process, procData, exitStatus))
