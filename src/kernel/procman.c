@@ -2291,11 +2291,12 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 #define ramPath procManScratchBufPath2
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("exec in %u - argv:\n"), procManGetPidFromProcess(process), argc);
+	kernelLog(LogTypeInfo, kstrP("exec in %u - argv:"), procManGetPidFromProcess(process), argc);
 	for(int i=0; i<argc; ++i) {
 		const char *arg=procManArgvStringGetArgN(argc, argv, i);
-		kernelLog(LogTypeInfo, kstrP("	%u = '%s'\n"), i, arg);
+		kernelLogAppend(LogTypeInfo, kstrP(" [%u]='%s'"), i, arg);
 	}
+	kernelLogAppend(LogTypeInfo, kstrP("\n"));
 
 	// Grab pwd and path env vars as these may now point into general ram, which is about to be cleared when we resize
 	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, tempPwd, KernelFsPathMax)) {
