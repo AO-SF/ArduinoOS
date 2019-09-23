@@ -67,6 +67,40 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 	kstrFree(&format);
 }
 
+void kernelLogAppend(LogType type, KStr format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	kernelLogAppendV(type, format, ap);
+	va_end(ap);
+}
+
+void kernelLogAppendV(LogType type, KStr format, va_list ap) {
+	// No need to print this type at the current logging level?
+	if ((LogLevel)type<kernelLogGetLevel()) {
+		kstrFree(&format);
+		return;
+	}
+
+	// Open file if needed
+	#ifdef ARDUINO
+	FILE *file=stdout;
+	#else
+	FILE *file=fopen("kernel.log", "a");
+	#endif
+
+	if (file!=NULL) {
+		// Print user string
+		kstrVfprintf(file, format, ap);
+
+		// Close file if needed
+		#ifndef ARDUINO
+		fclose(file);
+		#endif
+	}
+
+	kstrFree(&format);
+}
+
 static const char *logTypeToStringArray[]={
 	[LogTypeInfo]="INFO",
 	[LogTypeWarning]="WARNING",
