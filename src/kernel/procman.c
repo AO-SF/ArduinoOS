@@ -789,7 +789,7 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 
 bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose) {
 	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
-	if (offset+len<ramTotalSize) {
+	if (offset+len<=ramTotalSize) {
 		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len, false)!=len) {
 			if (verbose)
 				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len);
