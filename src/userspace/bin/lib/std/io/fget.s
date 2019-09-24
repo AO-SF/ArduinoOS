@@ -13,14 +13,14 @@ mov r0 SyscallIdRead
 mov r4 1
 syscall
 ; Check for failure
-cmp r4 r0 r4
-skipeq r4
+cmp r0 r0 r0
+skipeq r0
 jmp fgetsLoopEnd
 ; Check for newline
 load8 r4 r3
 mov r0 '\n'
-cmp r4 r4 r0
-skipeq r4
+cmp r0 r4 r0
+skipeq r0
 jmp fgetsLoopNext ; no newline, prepare for next iteration
 ; Newline
 inc r3 ; advance buffer pointer so null terminator does not overwrite it
@@ -33,8 +33,8 @@ jmp fgetsLoopStart
 ; End of reading loop
 label fgetsLoopEnd
 ; Add null terminator
-mov r4 0
-store8 r3 r4
+mov r0 0
+store8 r3 r0
 ; Return length
 pop16 r4 ; pop original buffer pointer from stack
 sub r0 r3 r4 ; subtract original from current
