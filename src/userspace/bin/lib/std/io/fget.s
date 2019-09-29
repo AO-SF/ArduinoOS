@@ -1,3 +1,17 @@
+require ../../sys/syscall.s
+
+; r=gets0(buf=r0, len=r1)=fgets(stdin, 0, buf, len)
+label gets0
+; Prepare registers for fgets
+mov r2 r0
+mov r3 r1
+mov r1 0
+; Load stdin fd into r0
+mov r0 SyscallIdEnvGetStdinFd
+syscall
+; Jump to fgets to do most of the work
+jmp fgets ; ret in fgets will return us correctly
+
 ; r=fgets(fd=r0, offset=r1, buf=r2, len=r3) reads up to and including first newline, always null-terminates buf (potentially to be 0 length if could not read), returns number of bytes read from file
 ; TODO: Support length limit from r3
 label fgets
