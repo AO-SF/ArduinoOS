@@ -2,7 +2,8 @@ requireend ../std/io/fput.s
 requireend ../std/io/fputdec.s
 require ../sys/syscall.s
 
-db cursesEscSeqStrClear 27, '[2J', 0
+db cursesEscSeqStrClearScreen 27, '[2J', 0
+db cursesEscSeqStrClearLine 27, '[2K', 0
 db cursesEscSeqStrSetRgb 27, '[38;2;', 0
 db cursesEscSeqStrResetAttributes 27, '[0m', 0
 db cursesEscSeqStrCursorShow 27, '[?25h', 0
@@ -21,7 +22,13 @@ ret
 
 ; cursesClearScreen
 label cursesClearScreen
-mov r0 cursesEscSeqStrClear
+mov r0 cursesEscSeqStrClearScreen
+call puts0
+ret
+
+; cursesClearLine - clears current line
+label cursesClearLine
+mov r0 cursesEscSeqStrClearLine
 call puts0
 ret
 
