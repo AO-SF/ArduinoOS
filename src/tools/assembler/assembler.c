@@ -1035,10 +1035,10 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 						if (tempIntegerNext>tempInteger) {
 							// Append integer
 							*tempIntegerNext++='\0';
-							unsigned value=atoi(tempInteger);
+							int16_t value=atoi(tempInteger);
 							switch(instruction->d.define.membSize) {
 								case 1:
-									instruction->d.define.data[instruction->d.define.len++]=value;
+									instruction->d.define.data[instruction->d.define.len++]=(int8_t)value;
 								break;
 								case 2:
 									instruction->d.define.data[instruction->d.define.len*instruction->d.define.membSize]=(value>>8);
@@ -1051,7 +1051,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 							}
 							tempIntegerNext=tempInteger;
 						}
-					} else if (isdigit(*dataChar)) {
+					} else if (isdigit(*dataChar) || *dataChar=='-') { // FIXME: allows minus sign anywhere in constant
 						// Add digit to integer
 						// TODO: Handle this better - we currently simply ignore non-numeric characters
 						*tempIntegerNext++=*dataChar;
@@ -1060,13 +1060,14 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 
 				++dataChar;
 			}
+
 			if (tempIntegerNext>tempInteger) {
 				// Append integer
 				*tempIntegerNext++='\0';
-				unsigned value=atoi(tempInteger);
+				int16_t value=atoi(tempInteger);
 				switch(instruction->d.define.membSize) {
 					case 1:
-						instruction->d.define.data[instruction->d.define.len++]=value;
+						instruction->d.define.data[instruction->d.define.len++]=(int8_t)value;
 					break;
 					case 2:
 						instruction->d.define.data[instruction->d.define.len*instruction->d.define.membSize]=(value>>8);
