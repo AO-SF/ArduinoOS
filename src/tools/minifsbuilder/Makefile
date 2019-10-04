@@ -5,7 +5,7 @@ LFLAGS = -lm
 OBJS = minifsbuilder.o minifsextra.o ../../kernel/minifs.o
 
 ALL: $(OBJS)
-	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/minifsbuilder $(LFLAGS)
+	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/aosf-minifsbuilder $(LFLAGS)
 
 %.o: %.c %.h
 	$(CPP) $(CFLAGS) -c -o $@ $<

@@ -1,0 +1,11 @@
+SOKOBAN(1) - User Commands
+
+NAME
+      sokoban - box pushing game
+
+SYNOPSIS
+      sokoban LEVELPATH
+
+DESCRIPTION
+      An implementation of the Sokoban 'box pushing' game. Use wasd to move and q to quit.
+
