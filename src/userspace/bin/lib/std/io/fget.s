@@ -31,17 +31,13 @@ skip0 r0
 jmp fgetsLoopEnd
 ; Check for newline
 load8 r4 r3
+inc r3 ; we can advance r3 now as we will need to do it in either case
 mov r0 '\n'
 cmp r0 r4 r0
-skipeq r0
-jmp fgetsLoopNext ; no newline, prepare for next iteration
-; Newline
-inc r3 ; advance buffer pointer so null terminator does not overwrite it
+skipneq r0
 jmp fgetsLoopEnd
-; Loop to read next character
-label fgetsLoopNext
+; No newline, prepare for next iteration
 inc r2 ; inc read offset
-inc r3 ; advance buffer pointer
 jmp fgetsLoopStart
 ; End of reading loop
 label fgetsLoopEnd
