@@ -5,7 +5,7 @@ LFLAGS = -lm
 OBJS = emulator.o ../../kernel/bytecode.o
 
 ALL: $(OBJS)
-	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/emulator $(LFLAGS)
+	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/aosf-emu $(LFLAGS)
 
 %.o: %.c %.h
 	$(CPP) $(CFLAGS) -c -o $@ $<

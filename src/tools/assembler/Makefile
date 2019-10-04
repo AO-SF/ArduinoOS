@@ -5,7 +5,7 @@ LFLAGS = -lm
 OBJS = assembler.o util.o ../../kernel/bytecode.o
 
 ALL: $(OBJS)
-	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/assembler $(LFLAGS)
+	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/aosf-asm $(LFLAGS)
 
 %.o: %.c %.h
 	$(CPP) $(CFLAGS) -c -o $@ $<
