@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cp ./main "$1tmp/mockups/usrbinmockup/editor"
+cp ./man "$1tmp/mockups/usrman1mockup/editor"

@@ -1,0 +1,11 @@
+EDITOR(1) - User Commands
+
+NAME
+      editor - interactive text editor
+
+SYNOPSIS
+      editor FILE
+
+DESCRIPTION
+      Provides an interface to create and edit text files.
+
