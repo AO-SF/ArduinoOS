@@ -243,8 +243,6 @@ bool kernelFsFileExists(const char *path) {
 		}
 	}
 
-	// TODO: Others
-
 	// No suitable node found
 	return false;
 }
@@ -258,6 +256,10 @@ bool kernelFsFileIsOpen(const char *path) {
 			return true;
 	}
 	return false;
+}
+
+bool kernelFsFileIsOpenByFd(KernelFsFd fd) {
+	return !kstrIsNull(kernelFsData.fdt[fd]);
 }
 
 bool kernelFsFileIsDir(const char *path) {

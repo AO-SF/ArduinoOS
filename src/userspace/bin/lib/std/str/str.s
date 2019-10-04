@@ -3,7 +3,7 @@ require strcat.s
 require strchr.s
 require strrchr.s
 require strcpy.s
-require strequal.s
+require strcmp.s
 require strlen.s
 require strpad.s
 require strtoint.s

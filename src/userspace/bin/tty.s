@@ -5,8 +5,7 @@ requireend lib/std/proc/exit.s
 
 ab pathBuf PathMax
 
-; Grab stdout fd and check for invalid fd
-; TODO: What about stdin?
+; Grab stdout fd and check for invalid fd (we ignore stdin)
 mov r0 SyscallIdEnvGetStdoutFd
 syscall
 

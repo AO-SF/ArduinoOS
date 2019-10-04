@@ -13,6 +13,7 @@ const SyscallIdKill 10
 const SyscallIdGetPidRam 11
 const SyscallIdSignal 12
 const SyscallIdGetPidFdN 13
+const SyscallIdExec2 14
 
 const SyscallIdRead 256
 const SyscallIdWrite 257
@@ -50,6 +51,9 @@ const SyscallIdSetLogLevel 1285
 const SyscallIdStrChr 1536
 const SyscallIdStrChrNul 1537
 const SyscallIdMemMove 1538
+const SyscallIdMemCmp 1539
+const SyscallIdStrRChr 1540
+const SyscallIdStrCmp 1541
 
 const SyscallIdHwDeviceRegister 1792
 const SyscallIdHwDeviceDeregister 1793
@@ -59,6 +63,10 @@ const SyscallIdHwDeviceSdCardReaderUnmount 1796
 const SyscallIdHwDeviceDht22GetTemperature 1797
 const SyscallIdHwDeviceDht22GetHumidity 1798
 
+; Exec flags
+const SyscallExecPathFlagLiteral 0
+const SyscallExecPathFlagSearch 1
+
 ; WaitPid special return values
 const SyscallWaitpidStatusSuccess 0
 const SyscallWaitpidStatusInterrupted 65531
@@ -66,8 +74,13 @@ const SyscallWaitpidStatusNoProcess 65532
 const SyscallWaitpidStatusKilled 65534
 const SyscallWaitpidStatusTimeout 65535
 
-; SPI device constants
+; HW device constants
 const SyscallHwDeviceIdMax 4
+
+const SyscallHwDeviceTypeUnused 0
+const SyscallHwDeviceTypeRaw 1
+const SyscallHwDeviceTypeSdCardReader 2
+const SyscallHwDeviceTypeDht22 3
 
 ; Mount type/format constants
 const SyscallMountFormatCustomMiniFs 0

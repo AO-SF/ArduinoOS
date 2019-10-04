@@ -5,7 +5,7 @@ LFLAGS = -lm
 OBJS = disassembler.o ../../kernel/bytecode.o
 
 ALL: $(OBJS)
-	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/disassembler $(LFLAGS)
+	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/aosf-disassembler $(LFLAGS)
 
 %.o: %.c %.h
 	$(CPP) $(CFLAGS) -c -o $@ $<

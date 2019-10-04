@@ -1,0 +1,17 @@
+HWREG(1) - User Commands
+
+NAME
+      hwreg - Register HW devices
+
+SYNOPSIS
+      hwreg slot type
+
+DESCRIPTION
+      Registers a hardware device of the given kind in the given slot.
+
+      Type can be one of:
+      * raw - allows user space access to associated pins
+      * sdcardreader - for SPI based SD card readers
+      * dht22 - for DHT22 temperature and humidity sensors
+
+      Slot should be in the range 0-3.

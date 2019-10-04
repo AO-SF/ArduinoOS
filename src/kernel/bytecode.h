@@ -59,6 +59,7 @@ typedef enum {
 	BytecodeSyscallIdGetPidRam=(0|11),
 	BytecodeSyscallIdSignal=(0|12),
 	BytecodeSyscallIdGetPidFdN=(0|13),
+	BytecodeSyscallIdExec2=(0|14),
 	BytecodeSyscallIdRead=(256|0),
 	BytecodeSyscallIdWrite=(256|1),
 	BytecodeSyscallIdOpen=(256|2),
@@ -90,6 +91,9 @@ typedef enum {
 	BytecodeSyscallIdStrchr=(1536|0),
 	BytecodeSyscallIdStrchrnul=(1536|1),
 	BytecodeSyscallIdMemmove=(1536|2),
+	ByteCodeSyscallIdMemcmp=(1536|3),
+	ByteCodeSyscallIdStrrchr=(1536|4),
+	ByteCodeSyscallIdStrcmp=(1536|5),
 	BytecodeSyscallIdHwDeviceRegister=(1792|0),
 	BytecodeSyscallIdHwDeviceDeregister=(1792|1),
 	BytecodeSyscallIdHwDeviceGetType=(1792|2),
@@ -197,6 +201,8 @@ typedef enum {
 	BytecodeInstructionMiscTypeNop,
 	BytecodeInstructionMiscTypeSyscall,
 	BytecodeInstructionMiscTypeClearInstructionCache,
+	BytecodeInstructionMiscTypeIllegal,
+	BytecodeInstructionMiscTypeDebug,
 	BytecodeInstructionMiscTypeSet8,
 	BytecodeInstructionMiscTypeSet16,
 } BytecodeInstructionMiscType;
@@ -238,6 +244,8 @@ BytecodeInstruction2Byte bytecodeInstructionCreateAluIncDecValue(BytecodeInstruc
 BytecodeInstruction1Byte bytecodeInstructionCreateMiscNop(void);
 BytecodeInstruction1Byte bytecodeInstructionCreateMiscSyscall(void);
 BytecodeInstruction1Byte bytecodeInstructionCreateMiscClearInstructionCache(void);
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscIllegal(void);
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscDebug(void);
 BytecodeInstruction2Byte bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value);
 void bytecodeInstructionCreateMiscSet16(BytecodeInstruction3Byte instruction, BytecodeRegister destReg, uint16_t value);
 

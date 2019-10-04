@@ -37,6 +37,55 @@ const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeInc, .str="inc13", .ops=0, .incDecValue=13},
 	{.type=BytecodeInstructionAluTypeInc, .str="inc14", .ops=0, .incDecValue=14},
 	{.type=BytecodeInstructionAluTypeInc, .str="inc15", .ops=0, .incDecValue=15},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc16", .ops=0, .incDecValue=16},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc17", .ops=0, .incDecValue=17},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc18", .ops=0, .incDecValue=18},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc19", .ops=0, .incDecValue=19},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc20", .ops=0, .incDecValue=20},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc21", .ops=0, .incDecValue=21},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc22", .ops=0, .incDecValue=22},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc23", .ops=0, .incDecValue=23},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc24", .ops=0, .incDecValue=24},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc25", .ops=0, .incDecValue=25},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc26", .ops=0, .incDecValue=26},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc27", .ops=0, .incDecValue=27},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc28", .ops=0, .incDecValue=28},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc29", .ops=0, .incDecValue=29},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc30", .ops=0, .incDecValue=30},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc31", .ops=0, .incDecValue=31},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc32", .ops=0, .incDecValue=32},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc33", .ops=0, .incDecValue=33},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc34", .ops=0, .incDecValue=34},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc35", .ops=0, .incDecValue=35},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc36", .ops=0, .incDecValue=36},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc37", .ops=0, .incDecValue=37},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc38", .ops=0, .incDecValue=38},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc39", .ops=0, .incDecValue=39},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc40", .ops=0, .incDecValue=40},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc41", .ops=0, .incDecValue=41},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc42", .ops=0, .incDecValue=42},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc43", .ops=0, .incDecValue=43},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc44", .ops=0, .incDecValue=44},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc45", .ops=0, .incDecValue=45},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc46", .ops=0, .incDecValue=46},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc47", .ops=0, .incDecValue=47},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc48", .ops=0, .incDecValue=48},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc49", .ops=0, .incDecValue=49},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc50", .ops=0, .incDecValue=50},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc51", .ops=0, .incDecValue=51},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc52", .ops=0, .incDecValue=52},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc53", .ops=0, .incDecValue=53},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc54", .ops=0, .incDecValue=54},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc55", .ops=0, .incDecValue=55},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc56", .ops=0, .incDecValue=56},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc57", .ops=0, .incDecValue=57},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc58", .ops=0, .incDecValue=58},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc59", .ops=0, .incDecValue=59},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc60", .ops=0, .incDecValue=60},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc61", .ops=0, .incDecValue=61},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc62", .ops=0, .incDecValue=62},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc63", .ops=0, .incDecValue=63},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc64", .ops=0, .incDecValue=64},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec", .ops=0, .incDecValue=1},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec2", .ops=0, .incDecValue=2},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec3", .ops=0, .incDecValue=3},
@@ -52,6 +101,55 @@ const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeDec, .str="dec13", .ops=0, .incDecValue=13},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec14", .ops=0, .incDecValue=14},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec15", .ops=0, .incDecValue=15},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec16", .ops=0, .incDecValue=16},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec17", .ops=0, .incDecValue=17},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec18", .ops=0, .incDecValue=18},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec19", .ops=0, .incDecValue=19},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec20", .ops=0, .incDecValue=20},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec21", .ops=0, .incDecValue=21},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec22", .ops=0, .incDecValue=22},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec23", .ops=0, .incDecValue=23},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec24", .ops=0, .incDecValue=24},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec25", .ops=0, .incDecValue=25},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec26", .ops=0, .incDecValue=26},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec27", .ops=0, .incDecValue=27},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec28", .ops=0, .incDecValue=28},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec29", .ops=0, .incDecValue=29},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec30", .ops=0, .incDecValue=30},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec31", .ops=0, .incDecValue=31},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec32", .ops=0, .incDecValue=32},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec33", .ops=0, .incDecValue=33},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec34", .ops=0, .incDecValue=34},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec35", .ops=0, .incDecValue=35},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec36", .ops=0, .incDecValue=36},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec37", .ops=0, .incDecValue=37},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec38", .ops=0, .incDecValue=38},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec39", .ops=0, .incDecValue=39},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec40", .ops=0, .incDecValue=40},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec41", .ops=0, .incDecValue=41},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec42", .ops=0, .incDecValue=42},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec43", .ops=0, .incDecValue=43},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec44", .ops=0, .incDecValue=44},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec45", .ops=0, .incDecValue=45},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec46", .ops=0, .incDecValue=46},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec47", .ops=0, .incDecValue=47},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec48", .ops=0, .incDecValue=48},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec49", .ops=0, .incDecValue=49},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec50", .ops=0, .incDecValue=50},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec51", .ops=0, .incDecValue=51},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec52", .ops=0, .incDecValue=52},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec53", .ops=0, .incDecValue=53},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec54", .ops=0, .incDecValue=54},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec55", .ops=0, .incDecValue=55},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec56", .ops=0, .incDecValue=56},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec57", .ops=0, .incDecValue=57},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec58", .ops=0, .incDecValue=58},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec59", .ops=0, .incDecValue=59},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec60", .ops=0, .incDecValue=60},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec61", .ops=0, .incDecValue=61},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec62", .ops=0, .incDecValue=62},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec63", .ops=0, .incDecValue=63},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec64", .ops=0, .incDecValue=64},
 	{.type=BytecodeInstructionAluTypeAdd, .str="add", .ops=2},
 	{.type=BytecodeInstructionAluTypeSub, .str="sub", .ops=2},
 	{.type=BytecodeInstructionAluTypeMul, .str="mul", .ops=2},
@@ -92,6 +190,7 @@ typedef enum {
 	AssemblerInstructionTypeLabel,
 	AssemblerInstructionTypeSyscall,
 	AssemblerInstructionTypeClearInstructionCache,
+	AssemblerInstructionTypeDebug,
 	AssemblerInstructionTypeAlu,
 	AssemblerInstructionTypeJmp,
 	AssemblerInstructionTypePush8,
@@ -345,24 +444,24 @@ int main(int argc, char **argv) {
 
 	// Add a couple of lines to put magic bytes at the front of the file
 	sprintf(autoLine, "%s ; magic header byte 1", BytecodeMagicByte1AsmInstructionStr);
-	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+	assemblerLine=malloc(sizeof(AssemblerLine));
 	assemblerLine->lineNum=autoLineNext+1;
-	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
+	assemblerLine->file=malloc(strlen(autoFile)+1);
 	strcpy(assemblerLine->file, autoFile);
-	assemblerLine->original=malloc(strlen(autoLine)+1); // TODO: Check return
+	assemblerLine->original=malloc(strlen(autoLine)+1);
 	strcpy(assemblerLine->original, autoLine);
-	assemblerLine->modified=malloc(strlen(autoLine)+1); // TODO: Check return
+	assemblerLine->modified=malloc(strlen(autoLine)+1);
 	strcpy(assemblerLine->modified, autoLine);
 	assemblerInsertLine(program, assemblerLine, autoLineNext++);
 
 	sprintf(autoLine, "%s ; magic header byte 2", BytecodeMagicByte2AsmInstructionStr);
-	assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+	assemblerLine=malloc(sizeof(AssemblerLine));
 	assemblerLine->lineNum=autoLineNext+1;
-	assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
+	assemblerLine->file=malloc(strlen(autoFile)+1);
 	strcpy(assemblerLine->file, autoFile);
-	assemblerLine->original=malloc(strlen(autoLine)+1); // TODO: Check return
+	assemblerLine->original=malloc(strlen(autoLine)+1);
 	strcpy(assemblerLine->original, autoLine);
-	assemblerLine->modified=malloc(strlen(autoLine)+1); // TODO: Check return
+	assemblerLine->modified=malloc(strlen(autoLine)+1);
 	strcpy(assemblerLine->modified, autoLine);
 	assemblerInsertLine(program, assemblerLine, autoLineNext++);
 
@@ -371,13 +470,13 @@ int main(int argc, char **argv) {
 	if (!program->noStack) {
 		sprintf(autoLine, "mov r%u 65535 ; setup stack", BytecodeRegisterSP);
 
-		assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+		assemblerLine=malloc(sizeof(AssemblerLine));
 		assemblerLine->lineNum=autoLineNext+1;
-		assemblerLine->file=malloc(strlen(autoFile)+1); // TODO: Check return
+		assemblerLine->file=malloc(strlen(autoFile)+1);
 		strcpy(assemblerLine->file, autoFile);
-		assemblerLine->original=malloc(strlen(autoLine)+1); // TODO: Check return
+		assemblerLine->original=malloc(strlen(autoLine)+1);
 		strcpy(assemblerLine->original, autoLine);
-		assemblerLine->modified=malloc(strlen(autoLine)+1); // TODO: Check return
+		assemblerLine->modified=malloc(strlen(autoLine)+1);
 		strcpy(assemblerLine->modified, autoLine);
 		assemblerInsertLine(program, assemblerLine, autoLineNext);
 		stackSetLineIndex=autoLineNext++;
@@ -528,14 +627,14 @@ bool assemblerInsertLinesFromFile(AssemblerProgram *program, const char *path, i
 			line[strlen(line)-1]='\0';
 
 		// Begin creating structure to represent this line
-		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine)); // TODO: Check return
+		AssemblerLine *assemblerLine=malloc(sizeof(AssemblerLine));
 
 		assemblerLine->lineNum=lineNum;
-		assemblerLine->file=malloc(strlen(path)+1); // TODO: Check return
+		assemblerLine->file=malloc(strlen(path)+1);
 		strcpy(assemblerLine->file, path);
-		assemblerLine->original=malloc(strlen(line)+1); // TODO: Check return
+		assemblerLine->original=malloc(strlen(line)+1);
 		strcpy(assemblerLine->original, line);
-		assemblerLine->modified=malloc(strlen(line)+1); // TODO: Check return
+		assemblerLine->modified=malloc(strlen(line)+1);
 		strcpy(assemblerLine->modified, line);
 
 		assemblerInsertLine(program, assemblerLine, offset++);
@@ -788,7 +887,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			continue;
 
 		// Parse operation
-		char *lineCopy=malloc(strlen(assemblerLine->modified)+1); // TODO: Check return
+		char *lineCopy=malloc(strlen(assemblerLine->modified)+1);
 		strcpy(lineCopy, assemblerLine->modified);
 
 		char *savePtr;
@@ -936,10 +1035,10 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 						if (tempIntegerNext>tempInteger) {
 							// Append integer
 							*tempIntegerNext++='\0';
-							unsigned value=atoi(tempInteger);
+							int16_t value=atoi(tempInteger);
 							switch(instruction->d.define.membSize) {
 								case 1:
-									instruction->d.define.data[instruction->d.define.len++]=value;
+									instruction->d.define.data[instruction->d.define.len++]=(int8_t)value;
 								break;
 								case 2:
 									instruction->d.define.data[instruction->d.define.len*instruction->d.define.membSize]=(value>>8);
@@ -952,7 +1051,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 							}
 							tempIntegerNext=tempInteger;
 						}
-					} else if (isdigit(*dataChar)) {
+					} else if (isdigit(*dataChar) || *dataChar=='-') { // FIXME: allows minus sign anywhere in constant
 						// Add digit to integer
 						// TODO: Handle this better - we currently simply ignore non-numeric characters
 						*tempIntegerNext++=*dataChar;
@@ -961,13 +1060,14 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 
 				++dataChar;
 			}
+
 			if (tempIntegerNext>tempInteger) {
 				// Append integer
 				*tempIntegerNext++='\0';
-				unsigned value=atoi(tempInteger);
+				int16_t value=atoi(tempInteger);
 				switch(instruction->d.define.membSize) {
 					case 1:
-						instruction->d.define.data[instruction->d.define.len++]=value;
+						instruction->d.define.data[instruction->d.define.len++]=(int8_t)value;
 					break;
 					case 2:
 						instruction->d.define.data[instruction->d.define.len*instruction->d.define.membSize]=(value>>8);
@@ -1052,6 +1152,11 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeClearInstructionCache;
+		} else if (strcmp(first, "debug")==0) {
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeDebug;
 		} else if (strcmp(first, "jmp")==0) {
 			char *addr=strtok_r(NULL, " ", &savePtr);
 			if (addr==NULL) {
@@ -1441,6 +1546,10 @@ bool assemblerProgramCalculateInitialMachineCodeLengths(AssemblerProgram *progra
 				instruction->machineCodeLen=1;
 				instruction->machineCodeInstructions=1;
 			break;
+			case AssemblerInstructionTypeDebug:
+				instruction->machineCodeLen=1;
+				instruction->machineCodeInstructions=1;
+			break;
 			case AssemblerInstructionTypeAlu:
 				instruction->machineCodeLen=2; // all ALU instructions take 2 bytes
 				instruction->machineCodeInstructions=1;
@@ -1584,6 +1693,9 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 			break;
 			case AssemblerInstructionTypeClearInstructionCache:
 				instruction->machineCode[0]=bytecodeInstructionCreateMiscClearInstructionCache();
+			break;
+			case AssemblerInstructionTypeDebug:
+				instruction->machineCode[0]=bytecodeInstructionCreateMiscDebug();
 			break;
 			case AssemblerInstructionTypeAlu: {
 				// Special case for push16 and pop16 as these require the stack register - fail if we cannot use it
@@ -1960,6 +2072,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			case AssemblerInstructionTypeClearInstructionCache:
 				printf("clricache (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 			break;
+			case AssemblerInstructionTypeDebug:
+				printf("debug (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+			break;
 			case AssemblerInstructionTypeAlu:
 				switch(instruction->d.alu.type) {
 					case BytecodeInstructionAluTypeInc:
@@ -2019,10 +2134,10 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 								printf("%s=[%s] (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
 							break;
 							case BytecodeInstructionAluExtraTypePush16:
-								printf("[%s]=%s,%s+=2 (16 bit push) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.dest, line->file, line->lineNum, line->original);
+								printf("[r%u]=%s,r%u+=2 (16 bit push) (%s:%u '%s')\n", BytecodeRegisterSP, instruction->d.alu.dest, BytecodeRegisterSP, line->file, line->lineNum, line->original);
 							break;
 							case BytecodeInstructionAluExtraTypePop16:
-								printf("%s-=2,%s=[%s] (16 bit pop) (%s:%u '%s')\n", instruction->d.alu.opA, instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
+								printf("r%u-=2,%s=[r%u] (16 bit pop) (%s:%u '%s')\n", BytecodeRegisterSP, instruction->d.alu.dest, BytecodeRegisterSP, line->file, line->lineNum, line->original);
 							break;
 							case BytecodeInstructionAluExtraTypeCall:
 								// This should never be reached.

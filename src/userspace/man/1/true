@@ -4,7 +4,7 @@ NAME
       true - do nothing, successfully
 
 SYNOPSIS
-      true [ignored command line arguments]
+      true
 
 DESCRIPTION
       Exit with a status code indicating success.

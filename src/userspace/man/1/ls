@@ -4,7 +4,7 @@ NAME
       ls - display directory contents
 
 SYNOPSIS
-      ls
+      ls [dir]
 
 DESCRIPTION
-      List files in present working directory.
+      List files in given directory, or present working directory if no directory given.

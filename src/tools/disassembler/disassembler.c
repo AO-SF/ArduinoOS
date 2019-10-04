@@ -6,20 +6,24 @@
 #include <string.h>
 
 #include "bytecode.h"
+#include "profile.h"
+
+// Global hacks for ease
+FILE *inputFile=NULL;
+FILE *profileFile=NULL;
 
 void disassemblerPrint(uint16_t addr, BytecodeInstruction3Byte instruction, const char *fmt, ...);
 void disassemblerPrintV(uint16_t addr, BytecodeInstruction3Byte instruction, const char *fmt, va_list ap);
 
 int main(int argc, char **argv) {
-	FILE *inputFile=NULL;
-
 	// Parse arguments
-	if (argc!=2) {
-		printf("Usage: %s inputfile\n", argv[0]);
+	if (argc!=2 && argc!=3) {
+		printf("Usage: %s inputfile [profilefile]\n", argv[0]);
 		goto done;
 	}
 
 	const char *inputPath=argv[1];
+	const char *profilePath=(argc==3 ? argv[2] : NULL);
 
 	// Read input file
 	inputFile=fopen(inputPath, "r");
@@ -28,6 +32,14 @@ int main(int argc, char **argv) {
 		goto done;
 	}
 
+	// Read profile file if given
+	if (profilePath!=NULL) {
+		profileFile=fopen(profilePath, "r");
+		if (profileFile==NULL)
+			printf("Warning: Could not open profile file '%s' for reading\n", profilePath);
+	}
+
+	// Parse instructions
 	printf("       Addr Instruction Description\n");
 	unsigned addr=0;
 	int c;
@@ -161,6 +173,12 @@ int main(int argc, char **argv) {
 					case BytecodeInstructionMiscTypeClearInstructionCache:
 						disassemblerPrint(addr, instruction, "clear icache");
 					break;
+					case BytecodeInstructionMiscTypeIllegal:
+						disassemblerPrint(addr, instruction, "illegal");
+					break;
+					case BytecodeInstructionMiscTypeDebug:
+						disassemblerPrint(addr, instruction, "debug");
+					break;
 					case BytecodeInstructionMiscTypeSet8:
 						disassemblerPrint(addr, instruction, "r%u=%u", info.d.misc.d.set8.destReg, info.d.misc.d.set8.value);
 					break;
@@ -179,6 +197,8 @@ int main(int argc, char **argv) {
 	done:
 	if (inputFile!=NULL)
 		fclose(inputFile);
+	if (profileFile!=NULL)
+		fclose(profileFile);
 
 	return 0;
 }
@@ -191,6 +211,7 @@ void disassemblerPrint(uint16_t addr, BytecodeInstruction3Byte instruction, cons
 }
 
 void disassemblerPrintV(uint16_t addr, BytecodeInstruction3Byte instruction, const char *fmt, va_list ap) {
+	// Print instruction
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(instruction);
 	char c0=(isgraph(instruction[0]) ? (instruction[0]) : '.');
 	char c1=(isgraph(instruction[1]) ? (instruction[1]) : '.');
@@ -207,7 +228,19 @@ void disassemblerPrintV(uint16_t addr, BytecodeInstruction3Byte instruction, con
 		break;
 	}
 
+	// Read profiling byte if file open
+	if (profileFile!=NULL) {
+		if (fseek(profileFile, sizeof(ProfileCounter)*addr, SEEK_SET)==0) {
+			ProfileCounter profileCount=0;
+			if (fread(&profileCount, sizeof(ProfileCounter), 1, profileFile)==1) {
+				printf("%4ux ", profileCount);
+			}
+		}
+	}
+
+	// Print user string
 	vprintf(fmt, ap);
 
+	// Terminate with new line
 	printf("\n");
 }

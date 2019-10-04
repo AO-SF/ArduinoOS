@@ -1,0 +1,12 @@
+HWINFO(1) - User Commands
+
+NAME
+      hwinfo - Print information on HW devices
+
+SYNOPSIS
+      hwinfo
+
+DESCRIPTION
+      Prints a line for each hardware device slot with information about it - primarily the current type of device using it (or unused if none).
+
+      See HWREG(1) for more information.

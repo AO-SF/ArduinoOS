@@ -3,7 +3,7 @@ require lib/sys/sys.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getpath.s
-requireend lib/std/str/strequal.s
+requireend lib/std/str/strcmp.s
 
 db typeStrCustomMiniFs 'customminifs',0
 db typeStrFlatFile 'flatfile',0
@@ -28,16 +28,16 @@ syscall
 
 mov r0 typeArg
 mov r1 typeStrCustomMiniFs
-call strequal
+call strcmp
 cmp r0 r0 r0
-skipeqz r0
+skipneqz r0
 jmp foundTypeCustomMiniFs
 
 mov r0 typeArg
 mov r1 typeStrFlatFile
-call strequal
+call strcmp
 cmp r0 r0 r0
-skipeqz r0
+skipneqz r0
 jmp foundTypeFlatFile
 
 mov r0 typeArg

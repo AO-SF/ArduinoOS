@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cp ./main "$1tmp/mockups/usrgamesmockup/chess"
+cp ./man "$1tmp/mockups/usrman6mockup/chess"

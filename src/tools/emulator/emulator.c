@@ -444,19 +444,16 @@ bool processRunNextInstruction(Process *process) {
 							}
 						} break;
 						case BytecodeSyscallIdGetPidPath:
-							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdGetPidState:
-							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidstate] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdGetAllCpuCounts:
-							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getallcpucounts] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
@@ -471,7 +468,6 @@ bool processRunNextInstruction(Process *process) {
 							}
 						} break;
 						case BytecodeSyscallIdGetPidRam:
-							// TODO: we could do this for init and our own PIDs
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpidram] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
@@ -485,9 +481,16 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [getpidfdn] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
+						case BytecodeSyscallIdExec2:
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [exec2] (unimplemented)\n", syscallId);
+
+							// This is not implemented - simply return false
+							process->regs[0]=0;
+						break;
 						case BytecodeSyscallIdRead:
 							if (process->regs[1]==process->envVars.stdinFd) {
-								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[2]], process->regs[3]);
+								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[3]], process->regs[4]);
 								if (result>=0)
 									process->regs[0]=result;
 								else
@@ -496,10 +499,10 @@ bool processRunNextInstruction(Process *process) {
 								process->regs[0]=0;
 
 							if (infoSyscalls) {
-								printf("Info: syscall(id=%i [read], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[2]);
+								printf("Info: syscall(id=%i [read], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[3]);
 								for(int i=0; i<process->regs[0]; ++i)
-									printf("%c", process->memory[process->regs[2]+i]);
-								printf("], len=%u, read=%u)\n", process->regs[3], process->regs[0]);
+									printf("%c", process->memory[process->regs[3]+i]);
+								printf("], len=%u, read=%u)\n", process->regs[4], process->regs[0]);
 							}
 						break;
 						case BytecodeSyscallIdWrite: {
@@ -511,6 +514,7 @@ bool processRunNextInstruction(Process *process) {
 							if (fd==process->envVars.stdoutFd) {
 								for(int i=0; i<bufLen; ++i)
 									printf("%c", process->memory[bufAddr+i]);
+								fflush(stdout);
 								process->regs[0]=bufLen;
 							} else
 								process->regs[0]=0;
@@ -523,7 +527,6 @@ bool processRunNextInstruction(Process *process) {
 							}
 						} break;
 						case BytecodeSyscallIdOpen:
-							// TODO: file syscalls long term (handling fds etc)
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [open] (unimplemented)\n", syscallId);
 
@@ -531,53 +534,44 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdClose:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [close] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdDirGetChildN:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [dirgetchildn] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdGetPath: {
-							// TODO: see open (we could technically support stdiofd, returning /dev/ttyS0)
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getpath] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						} break;
 						case BytecodeSyscallIdResizeFile:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [resizefile] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdFileGetLen:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [filegetlen] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdTryReadByte:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [tryreadbyte] (unimplemented)\n", syscallId);
 							process->regs[0]=256;
 						break;
 						case BytecodeSyscallIdIsDir:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [isdir] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdFileExists:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [fileexists] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdDelete:
-							// TODO: see open
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [delete] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
@@ -593,22 +587,18 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [envsetstdinfd], new fd %u\n", syscallId, process->envVars.stdinFd);
 						break;
 						case BytecodeSyscallIdEnvGetPwd:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdEnvSetPwd:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdEnvGetPath:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdEnvSetPath:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
 						break;
@@ -623,45 +613,37 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [envsetstdoutfd], new fd %u\n", syscallId, process->envVars.stdoutFd);
 						break;
 						case BytecodeSyscallIdTimeMonotonic:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [timemonotonic] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdRegisterSignalHandler:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [registersignalhandler] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdShutdown:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [shutdown] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdMount:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [mount] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdUnmount:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [unmount] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdIoctl:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [ioctl] (unimplemented)\n", syscallId);
 						break;
 						case BytecodeSyscallIdGetLogLevel:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [getloglevel] (unimplemented)\n", syscallId);
 							process->regs[0]=3; // i.e. none
 						break;
 						case BytecodeSyscallIdSetLogLevel:
-							// TODO: this
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [setloglevel] (unimplemented)\n", syscallId);
 						break;
@@ -708,6 +690,41 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [memmove], dest addr=%u, src addr=%u, size=%u\n", syscallId, destAddr, srcAddr, size);
 						} break;
+						case ByteCodeSyscallIdMemcmp: {
+							// TODO: Check arguments better
+							uint16_t p1Addr=process->regs[1];
+							uint16_t p2Addr=process->regs[2];
+							uint16_t size=process->regs[3];
+
+							process->regs[0]=memcmp(process->memory+p1Addr, process->memory+p2Addr, size);
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [memcmp], p1 addr=%u, p2 addr=%u, size=%u, ret %i\n", syscallId, p1Addr, p2Addr, size, process->regs[0]);
+						} break;
+						case ByteCodeSyscallIdStrrchr: {
+							// TODO: Check arguments better
+							uint16_t strAddr=process->regs[1];
+							uint16_t c=process->regs[2];
+
+							process->regs[0]=0;
+							uint16_t i;
+							for(i=strAddr; process->memory[i]!=0; ++i)
+								if (process->memory[i]==c)
+									process->regs[0]=i;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [strrchr], str addr=%u, c=%u, result=%u\n", syscallId, strAddr, c, process->regs[0]);
+						} break;
+						case ByteCodeSyscallIdStrcmp: {
+							// TODO: Check arguments better
+							uint16_t p1Addr=process->regs[1];
+							uint16_t p2Addr=process->regs[2];
+
+							process->regs[0]=strcmp((const char *)(process->memory+p1Addr), (const char *)(process->memory+p2Addr));
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [strcmp], p1 addr=%u, p2 addr=%u, ret %i\n", syscallId, p1Addr, p2Addr, process->regs[0]);
+						} break;
 						case BytecodeSyscallIdHwDeviceRegister: {
 							// Always fail
 							uint16_t id=process->regs[1];
@@ -716,14 +733,14 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spideviceregister], id=%u, type=%u\n", syscallId, id, type);
+								printf("Info: syscall(id=%i [hwdeviceregister], id=%u, type=%u\n", syscallId, id, type);
 						} break;
 						case BytecodeSyscallIdHwDeviceDeregister: {
 							// Nothing to do - cannot register such devices in the first place
 							uint16_t id=process->regs[1];
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicederegister], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicederegister], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceGetType: {
 							// Must be unused - cannot register such devices in the first place
@@ -731,7 +748,7 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0; // TODO: fix magic number 0 with typeunused constant from somewhere
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicegettype], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicegettype], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceSdCardReaderMount: {
 							// SPI devices are unsupported
@@ -739,14 +756,14 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicesdcardreadermount], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicesdcardreadermount], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceSdCardReaderUnmount: {
 							// SPI devices are unsupported
 							uint16_t id=process->regs[1];
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicesdcardreaderunmount], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicesdcardreaderunmount], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceDht22GetTemperature: {
 							// SPI devices are unsupported
@@ -755,7 +772,7 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicedht22gettemperature], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicedht22gettemperature], id=%u\n", syscallId, id);
 						} break;
 						case BytecodeSyscallIdHwDeviceDht22GetHumidity: {
 							// SPI devices are unsupported
@@ -764,7 +781,7 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [spidevicedht22gethumidity], id=%u\n", syscallId, id);
+								printf("Info: syscall(id=%i [hwdevicedht22gethumidity], id=%u\n", syscallId, id);
 						} break;
 						default:
 							if (infoSyscalls)
@@ -776,6 +793,17 @@ bool processRunNextInstruction(Process *process) {
 				} break;
 				case BytecodeInstructionMiscTypeClearInstructionCache:
 					// We do not use an instruction cache so nothing to do
+				break;
+				case BytecodeInstructionMiscTypeIllegal:
+					if (infoInstructions)
+						printf("Info: illegal\n");
+					printf("Error: illegal instruction encountered\n");
+					return false;
+				break;
+				case BytecodeInstructionMiscTypeDebug:
+					if (infoInstructions)
+						printf("Info: debug\n");
+					processDebug(process);
 				break;
 				case BytecodeInstructionMiscTypeSet8:
 					process->regs[info.d.misc.d.set8.destReg]=info.d.misc.d.set8.value;

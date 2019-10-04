@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define PinInvalid 255
+
 #define PinA0 40
 #define PinA1 41
 #define PinA2 42

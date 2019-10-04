@@ -1,0 +1,10 @@
+HEXDUMP(1) - User Commands
+
+NAME
+      hexdump - Print file contents in hex
+
+SYNOPSIS
+      hexdump [FILE1 [FILE2 ...]]
+
+DESCRIPTION
+      For each file given, print its contents as a series of pairs of hexadecimal values - each representing a single byte - each separated by a single space.

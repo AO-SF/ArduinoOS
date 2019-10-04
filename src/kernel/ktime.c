@@ -81,7 +81,7 @@ uint32_t ktimeGetMsRaw(void) {
 	return ms;
 	#else
 	struct timeval tv;
-	gettimeofday(&tv, NULL); // TODO: Check return value.
+	gettimeofday(&tv, NULL);
 	return tv.tv_sec*1000llu+tv.tv_usec/1000llu;
 	#endif
 }

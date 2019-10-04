@@ -4,7 +4,7 @@ NAME
       tty - print path of file representing the terminal
 
 SYNOPSIS
-      tty [ignored command line arguments]
+      tty
 
 DESCRIPTION
       Prints the path of the virtual device file which representing the terminal (generally /dev/ttyS0).

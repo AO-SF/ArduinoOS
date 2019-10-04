@@ -33,21 +33,22 @@ push8 r1
 mov r0 SyscallIdHwDeviceGetType
 syscall
 
-cmp r1 r0 r0
-skipneqz r1
+mov r1 SyscallHwDeviceTypeUnused
+cmp r1 r0 r1
+skipneq r1
 jmp printTypeUnused
 
-mov r1 1
+mov r1 SyscallHwDeviceTypeRaw
 cmp r1 r0 r1
 skipneq r1
 jmp printTypeRaw
 
-mov r1 2
+mov r1 SyscallHwDeviceTypeSdCardReader
 cmp r1 r0 r1
 skipneq r1
 jmp printTypeSdCardReader
 
-mov r1 3
+mov r1 SyscallHwDeviceTypeDht22
 cmp r1 r0 r1
 skipneq r1
 jmp printTypeDht22

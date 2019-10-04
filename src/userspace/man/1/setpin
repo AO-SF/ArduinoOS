@@ -4,7 +4,9 @@ NAME
       setpin - set Arduino pin states
 
 SYNOPSIS
-      setpin pinnum state
+      setpin pin state
 
 DESCRIPTION
       Sets given pin to given state (1/0 for on/off).
+
+      See GETPIN(1) for details on pin argument.

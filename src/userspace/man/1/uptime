@@ -4,7 +4,7 @@ NAME
       uptime - indicate how long the system has been running
 
 SYNOPSIS
-      uptime [ignored command line arguments]
+      uptime
 
 DESCRIPTION
       Prints human-readable time since boot.

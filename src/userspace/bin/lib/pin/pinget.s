@@ -4,12 +4,14 @@ requireend pinsetmode.s
 label pinget ; num=r0, returns boolean on/off result in r0
 ; open pin device file
 call pinopen
+cmp r1 r0 r0
+skipneqz r1
+jmp pingetBadFile
 push8 r0
 ; set to input
 mov r1 PinModeInput
 call pinsetmode
 ; read byte
-; TODO: Check number of bytes read is 1
 mov r0 SyscallIdRead
 pop8 r1
 mov r2 0
@@ -21,4 +23,7 @@ mov r0 SyscallIdClose
 syscall
 ; return read byte
 load8 r0 r6
+ret
+label pingetBadFile
+mov r0 0
 ret
