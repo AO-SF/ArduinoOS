@@ -1,0 +1,11 @@
+HIGHLOW(6) - User Commands
+
+NAME
+      highlow - number guessing game
+
+SYNOPSIS
+      highlow LEVELPATH
+
+DESCRIPTION
+      Implementation of classic high/low guessing game.
+
