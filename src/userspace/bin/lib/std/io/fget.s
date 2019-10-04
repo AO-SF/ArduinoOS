@@ -26,9 +26,8 @@ label fgetsLoopStart
 mov r0 SyscallIdRead
 mov r4 1
 syscall
-; Check for failure
-cmp r0 r0 r0
-skipeq r0
+; Check for failure (note r0 can only be 0 or 1 so can simply inspect lowest bit)
+skip0 r0
 jmp fgetsLoopEnd
 ; Check for newline
 load8 r4 r3
