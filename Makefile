@@ -31,6 +31,14 @@ pc:
 	@echo "Compiling kernel..."
 	@cd src/kernel && make --quiet pc
 
+install:
+	@mkdir -p /usr/include/aosf-stdlib
+	@cp -f -r src/userspace/bin/lib /usr/include/aosf-stdlib
+	@cp bin/aosf-asm /usr/local/bin
+	@cp bin/aosf-disassembler /usr/local/bin
+	@cp bin/aosf-emu /usr/local/bin
+	@cp bin/aosf-minifsbuilder /usr/local/bin
+
 upload:
 	avrdude -Cavrdude.conf -v -patmega2560 -cwiring -P/dev/ttyACM0 -b115200 -D -Uflash:w:./bin/kernel.hex -U eeprom:w:eeprom
 
