@@ -12,20 +12,20 @@ rm -rf ./tmp/mockups/usrbinmockup/*
 rm -rf ./tmp/mockups/homemockup/*
 rm -rf ./tmp/mockups/etcmockup/*
 rm -rf ./tmp/mockups/usrgamesmockup/*
-rm -rf ./tmp/mockups/man1mockup/*
-rm -rf ./tmp/mockups/man2mockup/*
-rm -rf ./tmp/mockups/man3mockup/*
-rm -rf ./tmp/mockups/man6mockup/*
+rm -rf ./tmp/mockups/usrman1mockup/*
+rm -rf ./tmp/mockups/usrman2mockup/*
+rm -rf ./tmp/mockups/usrman3mockup/*
+rm -rf ./tmp/mockups/usrman6mockup/*
 mkdir -p ./tmp/progmemdata
 mkdir -p ./tmp/mockups/binmockup
 mkdir -p ./tmp/mockups/usrbinmockup
 mkdir -p ./tmp/mockups/homemockup
 mkdir -p ./tmp/mockups/etcmockup
 mkdir -p ./tmp/mockups/usrgamesmockup
-mkdir -p ./tmp/mockups/man1mockup
-mkdir -p ./tmp/mockups/man2mockup
-mkdir -p ./tmp/mockups/man3mockup
-mkdir -p ./tmp/mockups/man6mockup
+mkdir -p ./tmp/mockups/usrman1mockup
+mkdir -p ./tmp/mockups/usrman2mockup
+mkdir -p ./tmp/mockups/usrman3mockup
+mkdir -p ./tmp/mockups/usrman6mockup
 
 # Fill mock directories
 echo "	Creating /bin mockup..."
@@ -88,10 +88,10 @@ cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/assembler ./src/userspace/bin/sokoban.s ./tmp/mockups/usrgamesmockup/sokoban
 
 echo "	Creating /usr/man mockups..."
-cp ./src/userspace/man/1/* ./tmp/mockups/man1mockup
-cp ./src/userspace/man/2/* ./tmp/mockups/man2mockup
-cp ./src/userspace/man/3/* ./tmp/mockups/man3mockup
-cp ./src/userspace/man/6/* ./tmp/mockups/man6mockup
+cp ./src/userspace/man/1/* ./tmp/mockups/usrman1mockup
+cp ./src/userspace/man/2/* ./tmp/mockups/usrman2mockup
+cp ./src/userspace/man/3/* ./tmp/mockups/usrman3mockup
+cp ./src/userspace/man/6/* ./tmp/mockups/usrman6mockup
 
 # Build progmem volumes
 echo "	Formatting static PROGMEM data files from userspace files and mockups..."
@@ -107,10 +107,10 @@ echo "	Formatting static PROGMEM data files from userspace files and mockups..."
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/str" "_lib_std_str" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/std/time" "_lib_std_time" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./src/userspace/bin/lib/sys" "_lib_sys" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./tmp/mockups/man1mockup" "_usr_man_1" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./tmp/mockups/man2mockup" "_usr_man_2" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./tmp/mockups/man3mockup" "_usr_man_3" "./tmp/progmemdata"
-./bin/minifsbuilder -fcheader "./tmp/mockups/man6mockup" "_usr_man_6" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrman1mockup" "_usr_man_1" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrman2mockup" "_usr_man_2" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrman3mockup" "_usr_man_3" "./tmp/progmemdata"
+./bin/minifsbuilder -fcheader "./tmp/mockups/usrman6mockup" "_usr_man_6" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./tmp/mockups/binmockup" "_bin" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "_usr_bin" "./tmp/progmemdata"
 ./bin/minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "_usr_games" "./tmp/progmemdata"
