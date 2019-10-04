@@ -111,6 +111,14 @@ BytecodeInstruction1Byte bytecodeInstructionCreateMiscClearInstructionCache(void
 	return 0xC2;
 }
 
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscIllegal(void) {
+	return 0xC3;
+}
+
+BytecodeInstruction1Byte bytecodeInstructionCreateMiscDebug(void) {
+	return 0xC4;
+}
+
 BytecodeInstruction2Byte bytecodeInstructionCreateMiscSet8(BytecodeRegister destReg, uint8_t value) {
 	return (((uint16_t)(0xD0|destReg))<<8)|value;
 }

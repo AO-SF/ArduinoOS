@@ -1,0 +1,11 @@
+CHESS(6) - User Commands
+
+NAME
+      chess - chess game with AI
+
+SYNOPSIS
+      chess
+
+DESCRIPTION
+      Provides an interface to play a standard game of chess. Moves can be manually entered or be generated.
+

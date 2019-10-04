@@ -39,3 +39,22 @@ call fputs
 ; restore stack
 dec6 r6
 ret
+
+; putdecsigned(x=r0) - signed 16 bit version of putdec
+label putdecsigned
+; Positive (upper bit 0)?
+mov r1 32768
+and r1 r0 r1
+cmp r1 r1 r1
+skipneqz r1
+jmp putdec; this will return from this function as well
+; Negative - print minus sign
+push16 r0
+mov r0 '-'
+call putc0
+pop16 r0
+; Invert number
+not r0 r0
+inc r0
+; Use standard putdec to print remaining positive value
+jmp putdec

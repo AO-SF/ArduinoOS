@@ -2,7 +2,7 @@ require lib/sys/sys.s
 
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
-requireend lib/std/str/strequal.s
+requireend lib/std/str/strcmp.s
 requireend lib/std/str/strtoint.s
 
 db usageStr 'usage: id type\n',0
@@ -39,23 +39,23 @@ jmp usage ; id is not popped from stack but no harm
 ; Convert type arg to integer
 mov r0 argBuf
 mov r1 typeStrRaw
-call strequal
+call strcmp
 cmp r0 r0 r0
-skipeqz r0
+skipneqz r0
 jmp typeIsRaw
 
 mov r0 argBuf
 mov r1 typeStrSdCardReader
-call strequal
+call strcmp
 cmp r0 r0 r0
-skipeqz r0
+skipneqz r0
 jmp typeIsSdCardReader
 
 mov r0 argBuf
 mov r1 typeStrDht22
-call strequal
+call strcmp
 cmp r0 r0 r0
-skipeqz r0
+skipneqz r0
 jmp typeIsDht22
 
 jmp badType

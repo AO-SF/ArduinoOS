@@ -5,6 +5,8 @@ requireend lib/std/io/fputdec.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strtoint.s
 
+db primes 2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,199,211,223,227,229,233,239,241,251,0
+
 db separator ': ', 0
 ab argBuf ArgLenMax
 
@@ -55,44 +57,60 @@ mov r0 separator
 call puts0
 pop16 r0
 
-; Trial division loop
-mov r4 2 ; // trial divisor
+; Division loop
+; r0 contains value to factor
+mov r1 primes ; // primes array ptr
 label factorArgNLoopStart
-; Number less than divisor? (or 1 initially)
-cmp r1 r0 r4
-skipge r1
+; Number reduced to less than 2?
+mov r2 2
+cmp r2 r0 r2
+skipge r2
 jmp factorArgNLoopEnd
 
-; Trial division
-div r1 r0 r4
-mul r2 r1 r4
-cmp r2 r2 r0
-skipeq r2
+; Load prime factor
+load8 r2 r1
+cmp r3 r2 r2
+skipneqz r3
+jmp factorArgNLoopEndPrint
+
+; Test if prime is a factor
+div r3 r0 r2
+mul r3 r3 r2
+cmp r3 r0 r3
+skipeq r3
 jmp factorArgNLoopNext
 
-; We have found a factor, print it
+; Factor found - divide number
+div r0 r0 r2
+
+; Print factor
 push16 r0
-push16 r4
-mov r0 r4
+push16 r1
+mov r0 r2
 call putdec
 mov r0 ' '
 call putc0
-pop16 r4
+pop16 r1
 pop16 r0
 
-; Divide number and decrement divisor so next time we try the same one again
-div r0 r0 r4
-dec r4
+; Loop to try this divisor again
+jmp factorArgNLoopStart
 
 ; Try next divisor
 label factorArgNLoopNext
-inc r4
+inc r1 ; advance to next prime
 jmp factorArgNLoopStart
+
+; Print remaining value
+label factorArgNLoopEndPrint
+call putdec
+
 label factorArgNLoopEnd
 
 ; Print newline
 mov r0 '\n'
 call putc0
 
+; Done
 label factorArgNRet
 ret

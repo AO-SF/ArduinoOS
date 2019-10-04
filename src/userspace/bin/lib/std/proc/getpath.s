@@ -59,14 +59,8 @@ pop16 r0
 skipneqz r4
 jmp getpathMakeAbsoluteStackRestore
 ; colon found - replace with null byte
-push16 r0
-push16 r1
-push16 r2
 mov r4 0
 store8 r3 r4
-pop16 r2
-pop16 r1
-pop16 r0
 
 ; create combined string from PATH dir and src string
 push16 r3

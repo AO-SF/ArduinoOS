@@ -144,6 +144,8 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 
 void procManResetInstructionCounters(void);
 
+void procManProcessDebug(ProcManProcess *process, ProcManProcessProcData *procData);
+
 char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n);
 const char *procManArgvStringGetArgNConst(uint8_t argc, const char *argvStart, uint8_t n);
 int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart); // total size used for entire combined string, including all null bytes
@@ -787,7 +789,7 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 
 bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose) {
 	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
-	if (offset+len<ramTotalSize) {
+	if (offset+len<=ramTotalSize) {
 		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len, false)!=len) {
 			if (verbose)
 				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len);
@@ -1149,14 +1151,23 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
 	switch(info->d.misc.type) {
 		case BytecodeInstructionMiscTypeNop:
+			return true;
 		break;
 		case BytecodeInstructionMiscTypeSyscall:
 			if (!procManProcessExecSyscall(process, procData, exitStatus))
 				return false;
 			return true;
 		break;
+		case BytecodeInstructionMiscTypeIllegal:
+			kernelLog(LogTypeWarning, kstrP("illegal instruction, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			return false;
+		break;
 		case BytecodeInstructionMiscTypeClearInstructionCache:
 			procManPrefetchDataClear(prefetchData);
+			return true;
+		break;
+		case BytecodeInstructionMiscTypeDebug:
+			procManProcessDebug(process, procData);
 			return true;
 		break;
 		case BytecodeInstructionMiscTypeSet8:
@@ -1945,6 +1956,96 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			return true;
 		} break;
+		case ByteCodeSyscallIdMemcmp: {
+			uint16_t p1Addr=procData->regs[1];
+			uint16_t p2Addr=procData->regs[2];
+			uint16_t size=procData->regs[3];
+
+			procData->regs[0]=0; // set here in case of size=0
+
+			uint16_t i=0;
+			while(i<size) {
+				// Decide on chunk size
+				// Note: we have to limit this due to using 256 byte buffer
+				KernelFsFileOffset chunkSize=size-i;
+				if (chunkSize>128)
+					chunkSize=128;
+
+				// Read from two pointers
+				if (!procManProcessMemoryReadBlock(process, procData, p1Addr+i, ((uint8_t *)procManScratchBuf256)+0*chunkSize, chunkSize, true)) {
+					kernelLog(LogTypeWarning, kstrP("failed during memcmp syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+				if (!procManProcessMemoryReadBlock(process, procData, p2Addr+i, ((uint8_t *)procManScratchBuf256)+1*chunkSize, chunkSize, true)) {
+					kernelLog(LogTypeWarning, kstrP("failed during memcmp syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+
+				// Compare bytes
+				procData->regs[0]=memcmp(((uint8_t *)procManScratchBuf256)+0*chunkSize, ((uint8_t *)procManScratchBuf256)+1*chunkSize, chunkSize);
+				if (procData->regs[0]!=0)
+					break;
+
+				// Move onto next chunk
+				i+=chunkSize;
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdStrrchr: {
+			uint16_t strAddr=procData->regs[1];
+			uint16_t c=procData->regs[2];
+
+			procData->regs[0]=0;
+			while(1) {
+				uint8_t value;
+				if (!procManProcessMemoryReadByte(process, procData, strAddr, &value)) {
+					kernelLog(LogTypeWarning, kstrP("failed during strrchr syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+
+				if (value==c)
+					procData->regs[0]=strAddr;
+				if (value=='\0')
+					break;
+
+				strAddr++;
+			}
+			return true;
+		} break;
+		case ByteCodeSyscallIdStrcmp: {
+			uint16_t p1Addr=procData->regs[1];
+			uint16_t p2Addr=procData->regs[2];
+
+			procData->regs[0]=0; // set here in case of empty strings
+
+			uint16_t i=0;
+			while(1) {
+				// Decide on chunk size
+				// Note: we have to limit this due to using 256 byte buffer
+				KernelFsFileOffset chunkSize=128;
+
+				// Read from two pointers
+				if (!procManProcessMemoryReadStr(process, procData, p1Addr+i, ((char *)procManScratchBuf256)+0*chunkSize, chunkSize)) {
+					kernelLog(LogTypeWarning, kstrP("failed during strcmp syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+				if (!procManProcessMemoryReadStr(process, procData, p2Addr+i, ((char *)procManScratchBuf256)+1*chunkSize, chunkSize)) {
+					kernelLog(LogTypeWarning, kstrP("failed during strcmp syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+
+				// Compare bytes
+				procData->regs[0]=strncmp(((char *)procManScratchBuf256)+0*chunkSize, ((char *)procManScratchBuf256)+1*chunkSize, chunkSize);
+				if (procData->regs[0]!=0 || memchr(((char *)procManScratchBuf256)+0*chunkSize, '\0', chunkSize)!=NULL)
+					break;
+
+				// Move onto next chunk
+				i+=chunkSize;
+			}
+
+			return true;
+		} break;
 		case BytecodeSyscallIdHwDeviceRegister: {
 			HwDeviceId id=procData->regs[1];
 			HwDeviceType type=procData->regs[2];
@@ -2198,11 +2299,12 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 #define ramPath procManScratchBufPath2
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("exec in %u - argv:\n"), procManGetPidFromProcess(process), argc);
+	kernelLog(LogTypeInfo, kstrP("exec in %u - argv:"), procManGetPidFromProcess(process), argc);
 	for(int i=0; i<argc; ++i) {
 		const char *arg=procManArgvStringGetArgN(argc, argv, i);
-		kernelLog(LogTypeInfo, kstrP("	%u = '%s'\n"), i, arg);
+		kernelLogAppend(LogTypeInfo, kstrP(" [%u]='%s'"), i, arg);
 	}
+	kernelLogAppend(LogTypeInfo, kstrP("\n"));
 
 	// Grab pwd and path env vars as these may now point into general ram, which is about to be cleared when we resize
 	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, tempPwd, KernelFsPathMax)) {
@@ -2393,7 +2495,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 			// A standard native executable - no special handling required (the magic bytes run as harmless instructions)
 
 			// Write to log
-			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '//' detected, assuming native executable (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
+			kernelLog(LogTypeInfo, kstrP("loading executable in %u - magic bytes '//' detected, assuming native executable (prev exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
 			break;
 		} else if (magicBytes[0]=='#' && magicBytes[1]=='!') {
 			// An interpreter (with path following after '#!') should be used instead to run this file.
@@ -2406,7 +2508,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 			// Look for newline and if found terminate string here
 			char *newlinePtr=strchr(interpreterPath, '\n');
 			if (newlinePtr==NULL) {
-				kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - '#!' not followed by interpreter path (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
+				kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - '#!' not followed by interpreter path (prev exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), loopExecFile, newProgmemFd);
 				kernelFsFileClose(newProgmemFd);
 				return KernelFsFdInvalid;
 			}
@@ -2414,7 +2516,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 
 			// Write to log
 			kernelFsPathNormalise(interpreterPath);
-			kernelLog(LogTypeInfo, kstrP("loading exeutable in %u - magic bytes '#!' detected, using interpreter '%s' (original exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), interpreterPath, loopExecFile, newProgmemFd);
+			kernelLog(LogTypeInfo, kstrP("loading executable in %u - magic bytes '#!' detected, using interpreter '%s' (prev exec path '%s', fd %u)\n"), procManGetPidFromProcess(process), interpreterPath, loopExecFile, newProgmemFd);
 
 			// Close the original progmem file
 			kernelFsFileClose(newProgmemFd);
@@ -2470,6 +2572,11 @@ bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procDat
 void procManResetInstructionCounters(void) {
 	for(ProcManPid i=0; i<ProcManPidMax; ++i)
 		procManData.processes[i].instructionCounter=0;
+}
+
+void procManProcessDebug(ProcManProcess *process, ProcManProcessProcData *procData) {
+	// Simply print PID and register values
+	kernelLog(LogTypeInfo, kstrP("Process %u debug: r0=%u, r1=%u, r2=%u, r3=%u, r4=%u, r5=%u, r6=%u, r7=%u\n"), procManGetPidFromProcess(process), procData->regs[0], procData->regs[1], procData->regs[2], procData->regs[3], procData->regs[4], procData->regs[5], procData->regs[6], procData->regs[7]);
 }
 
 char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n) {

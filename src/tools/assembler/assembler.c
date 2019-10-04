@@ -190,6 +190,7 @@ typedef enum {
 	AssemblerInstructionTypeLabel,
 	AssemblerInstructionTypeSyscall,
 	AssemblerInstructionTypeClearInstructionCache,
+	AssemblerInstructionTypeDebug,
 	AssemblerInstructionTypeAlu,
 	AssemblerInstructionTypeJmp,
 	AssemblerInstructionTypePush8,
@@ -1034,10 +1035,10 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 						if (tempIntegerNext>tempInteger) {
 							// Append integer
 							*tempIntegerNext++='\0';
-							unsigned value=atoi(tempInteger);
+							int16_t value=atoi(tempInteger);
 							switch(instruction->d.define.membSize) {
 								case 1:
-									instruction->d.define.data[instruction->d.define.len++]=value;
+									instruction->d.define.data[instruction->d.define.len++]=(int8_t)value;
 								break;
 								case 2:
 									instruction->d.define.data[instruction->d.define.len*instruction->d.define.membSize]=(value>>8);
@@ -1050,7 +1051,7 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 							}
 							tempIntegerNext=tempInteger;
 						}
-					} else if (isdigit(*dataChar)) {
+					} else if (isdigit(*dataChar) || *dataChar=='-') { // FIXME: allows minus sign anywhere in constant
 						// Add digit to integer
 						// TODO: Handle this better - we currently simply ignore non-numeric characters
 						*tempIntegerNext++=*dataChar;
@@ -1059,13 +1060,14 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 
 				++dataChar;
 			}
+
 			if (tempIntegerNext>tempInteger) {
 				// Append integer
 				*tempIntegerNext++='\0';
-				unsigned value=atoi(tempInteger);
+				int16_t value=atoi(tempInteger);
 				switch(instruction->d.define.membSize) {
 					case 1:
-						instruction->d.define.data[instruction->d.define.len++]=value;
+						instruction->d.define.data[instruction->d.define.len++]=(int8_t)value;
 					break;
 					case 2:
 						instruction->d.define.data[instruction->d.define.len*instruction->d.define.membSize]=(value>>8);
@@ -1150,6 +1152,11 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeClearInstructionCache;
+		} else if (strcmp(first, "debug")==0) {
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeDebug;
 		} else if (strcmp(first, "jmp")==0) {
 			char *addr=strtok_r(NULL, " ", &savePtr);
 			if (addr==NULL) {
@@ -1539,6 +1546,10 @@ bool assemblerProgramCalculateInitialMachineCodeLengths(AssemblerProgram *progra
 				instruction->machineCodeLen=1;
 				instruction->machineCodeInstructions=1;
 			break;
+			case AssemblerInstructionTypeDebug:
+				instruction->machineCodeLen=1;
+				instruction->machineCodeInstructions=1;
+			break;
 			case AssemblerInstructionTypeAlu:
 				instruction->machineCodeLen=2; // all ALU instructions take 2 bytes
 				instruction->machineCodeInstructions=1;
@@ -1682,6 +1693,9 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 			break;
 			case AssemblerInstructionTypeClearInstructionCache:
 				instruction->machineCode[0]=bytecodeInstructionCreateMiscClearInstructionCache();
+			break;
+			case AssemblerInstructionTypeDebug:
+				instruction->machineCode[0]=bytecodeInstructionCreateMiscDebug();
 			break;
 			case AssemblerInstructionTypeAlu: {
 				// Special case for push16 and pop16 as these require the stack register - fail if we cannot use it
@@ -2058,6 +2072,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			case AssemblerInstructionTypeClearInstructionCache:
 				printf("clricache (%s:%u '%s')\n", line->file, line->lineNum, line->original);
 			break;
+			case AssemblerInstructionTypeDebug:
+				printf("debug (%s:%u '%s')\n", line->file, line->lineNum, line->original);
+			break;
 			case AssemblerInstructionTypeAlu:
 				switch(instruction->d.alu.type) {
 					case BytecodeInstructionAluTypeInc:
@@ -2117,10 +2134,10 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 								printf("%s=[%s] (16 bit) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
 							break;
 							case BytecodeInstructionAluExtraTypePush16:
-								printf("[%s]=%s,%s+=2 (16 bit push) (%s:%u '%s')\n", instruction->d.alu.dest, instruction->d.alu.opA, instruction->d.alu.dest, line->file, line->lineNum, line->original);
+								printf("[r%u]=%s,r%u+=2 (16 bit push) (%s:%u '%s')\n", BytecodeRegisterSP, instruction->d.alu.dest, BytecodeRegisterSP, line->file, line->lineNum, line->original);
 							break;
 							case BytecodeInstructionAluExtraTypePop16:
-								printf("%s-=2,%s=[%s] (16 bit pop) (%s:%u '%s')\n", instruction->d.alu.opA, instruction->d.alu.dest, instruction->d.alu.opA, line->file, line->lineNum, line->original);
+								printf("r%u-=2,%s=[r%u] (16 bit pop) (%s:%u '%s')\n", BytecodeRegisterSP, instruction->d.alu.dest, BytecodeRegisterSP, line->file, line->lineNum, line->original);
 							break;
 							case BytecodeInstructionAluExtraTypeCall:
 								// This should never be reached.
