@@ -93,6 +93,13 @@ cp ./src/userspace/man/2/* ./tmp/mockups/usrman2mockup
 cp ./src/userspace/man/3/* ./tmp/mockups/usrman3mockup
 cp ./src/userspace/man/6/* ./tmp/mockups/usrman6mockup
 
+# Install packages
+for filename in ./packages/*; do
+	cd $filename
+	./install "../../"
+	cd ../../
+done
+
 # Build progmem volumes
 echo "	Formatting static PROGMEM data files from userspace files and mockups..."
 
