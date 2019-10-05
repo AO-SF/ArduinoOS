@@ -2,7 +2,7 @@ require lib/sys/sys.s
 
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputdec.s
-requireend lib/std/math/int32.s
+requireend lib/std/int32/int32.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strpad.s
 
@@ -120,7 +120,7 @@ load16 r1 r1
 call int32div16
 
 mov r0 psPidInt32
-call int32get16
+call int32getLower16
 call putdecpad
 mov r0 ' '
 call putc0
