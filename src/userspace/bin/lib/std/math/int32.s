@@ -1,4 +1,4 @@
-aw int32ScratchInt32 2 ; TODO: use stack to store these four bytes instead
+aw int32ScratchInt32 2
 
 ; 32 bit operands require pointers to 4 bytes (or 2 words), with first 2 bytes representing upper half, and second 2 bytes representing lower half
 
