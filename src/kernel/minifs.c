@@ -436,11 +436,12 @@ bool miniFsIsConsistent(const MiniFs *fs) {
 
 	// Verify files
 	uint8_t prevOffsetFactor=0;
-	for(uint8_t i=0; i<MINIFSMAXFILES; ++i) {
+	uint8_t i=0;
+	while(i<MINIFSMAXFILES) {
 		// Grab offset factor from header
 		uint8_t fileOffsetFactor=miniFsFileGetBaseOffsetFactorFromIndex(fs, i);
 		if (fileOffsetFactor==0)
-			continue;
+			break; // end of file list
 
 		// Check the file offset does not overlap the header
 		if (fileOffsetFactor<MINIFSFILEMINOFFSETFACTOR)
@@ -449,7 +450,20 @@ bool miniFsIsConsistent(const MiniFs *fs) {
 		// Check the file is located after the one in the previous slot.
 		if (fileOffsetFactor<prevOffsetFactor)
 			return false;
+
+		// Update prev variable for next iteration
 		prevOffsetFactor=fileOffsetFactor;
+		++i;
+	}
+
+	// Verify subsequent header entries are unused
+	while(i<MINIFSMAXFILES) {
+		// Grab offset factor from header and check if used
+		uint8_t fileOffsetFactor=miniFsFileGetBaseOffsetFactorFromIndex(fs, i);
+		if (fileOffsetFactor!=0)
+			return false;
+
+		++i;
 	}
 
 	return true;
@@ -709,7 +723,7 @@ uint8_t miniFsGetSizeFactorForTotalLength(uint16_t totalLen) {
 }
 
 void miniFsResortFileOffsets(MiniFs *fs) {
-	// Bubble sort
+	// Bubble sort - should be fast due to small entry count (MINIFSMAXFILES max but typically much smaller) and being mostly ordered due to last sort
 
 	uint8_t max=MINIFSMAXFILES;
 
@@ -720,7 +734,7 @@ void miniFsResortFileOffsets(MiniFs *fs) {
 		for(uint8_t i=1; i<max; ++i) {
 			uint8_t factorA=miniFsFileGetBaseOffsetFactorFromIndex(fs, i-1);
 			uint8_t factorB=miniFsFileGetBaseOffsetFactorFromIndex(fs, i);
-			if (factorA>factorB) {
+			if (factorB!=0 && (factorA==0 || factorA>factorB)) { // pushes zeros to the end, but otherwise sorts ascending
 				// Swap
 				change=true;
 				miniFsWriteByte(fs, MINIFSHEADERFILEBASEADDR+i-1, factorB);
