@@ -519,7 +519,7 @@ uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
 		if (filenameOffset==0)
 			continue;
 
-		// Check filename matches
+		// Check if filename matches
 		bool match=true;
 		for(const char *trueChar=filename; 1; ++trueChar) {
 			char testChar=miniFsReadByte(fs, filenameOffset++);
@@ -580,7 +580,7 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor) {
 
 	// No files?
 	if (firstFileIndex==MINIFSMAXFILES) {
-		// Check for insufficent space in volumeminiFsGetTotalSizeFactorMinusOne(fs)-MINIFSHEADERSIZE/MINIFSFACTOR+1);
+		// Check for insufficent space in volume
 		if (sizeFactor>miniFsGetTotalSizeFactorMinusOne(fs)-MINIFSHEADERSIZE/MINIFSFACTOR+1)
 			return 0;
 		return MINIFSFILEMINOFFSETFACTOR;
@@ -598,7 +598,7 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor) {
 		if (secondFileOffsetFactor==0)
 			continue;
 
-		// Calculate space this file and the last
+		// Calculate space between this file and the last
 		uint8_t firstFileOffsetFactor=miniFsFileGetBaseOffsetFactorFromIndex(fs, firstFileIndex);
 		uint8_t firstFileSizeFactor=miniFsFileGetSizeFactorFromIndex(fs, firstFileIndex);
 		if (sizeFactor<=secondFileOffsetFactor-(firstFileOffsetFactor+firstFileSizeFactor))
