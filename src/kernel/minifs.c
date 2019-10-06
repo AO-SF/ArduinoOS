@@ -54,6 +54,16 @@ uint16_t miniFsFileGetContentOffsetFromIndex(const MiniFs *fs, uint8_t index);
 uint16_t miniFsFileGetContentLenFromIndex(const MiniFs *fs, uint8_t index);
 uint16_t miniFsGetFileTotalLengthFromIndex(const MiniFs *fs, uint8_t index);
 
+uint16_t miniFsFileGetLengthOffsetFromBaseOffset(const MiniFs *fs, uint16_t baseOffset);
+uint16_t miniFsFileGetSizeFactorOffsetFromBaseOffset(const MiniFs *fs, uint16_t baseOffset);
+uint8_t miniFsFileGetSizeFactorFromBaseOffset(const MiniFs *fs, uint16_t baseOffset);
+uint16_t miniFsFileGetSizeFromBaseOffset(const MiniFs *fs, uint16_t baseOffset);
+uint16_t miniFsFileGetFilenameOffsetFromBaseOffset(const MiniFs *fs, uint16_t baseOffset);
+uint16_t miniFsFileGetFilenameLenFromBaseOffset(const MiniFs *fs, uint16_t baseOffset);
+uint16_t miniFsFileGetContentOffsetFromBaseOffset(const MiniFs *fs, uint16_t baseOffset);
+uint16_t miniFsFileGetContentLenFromBaseOffset(const MiniFs *fs, uint16_t baseOffset);
+uint16_t miniFsGetFileTotalLengthFromBaseOffset(const MiniFs *fs, uint16_t baseOffset);
+
 void miniFsSetFileTotalLengthForIndex(MiniFs *fs, uint8_t index, uint16_t newTotalLen);
 void miniFsSetFileSizeFactorForIndex(MiniFs *fs, uint8_t index, uint8_t newSizeFactor);
 
@@ -620,42 +630,82 @@ uint16_t miniFsFileGetBaseOffsetFromIndex(const MiniFs *fs, uint8_t index) {
 
 uint16_t miniFsFileGetLengthOffsetFromIndex(const MiniFs *fs, uint8_t index) {
 	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
-	if (baseOffset==0)
-		return 0;
-	return baseOffset+0;
+	return miniFsFileGetLengthOffsetFromBaseOffset(fs, baseOffset);
 }
 
 uint16_t miniFsFileGetSizeFactorOffsetFromIndex(const MiniFs *fs, uint8_t index) {
 	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	return miniFsFileGetSizeFactorOffsetFromBaseOffset(fs, baseOffset);
+}
+
+uint8_t miniFsFileGetSizeFactorFromIndex(const MiniFs *fs, uint8_t index) {
+	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	return miniFsFileGetSizeFactorFromBaseOffset(fs, baseOffset);
+}
+
+uint16_t miniFsFileGetSizeFromIndex(const MiniFs *fs, uint8_t index) {
+	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	return miniFsFileGetSizeFromBaseOffset(fs, baseOffset);
+}
+
+uint16_t miniFsFileGetFilenameOffsetFromIndex(const MiniFs *fs, uint8_t index) {
+	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	return miniFsFileGetFilenameOffsetFromBaseOffset(fs, baseOffset);
+}
+
+uint16_t miniFsFileGetFilenameLenFromIndex(const MiniFs *fs, uint8_t index) {
+	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	return miniFsFileGetFilenameLenFromBaseOffset(fs, baseOffset);
+}
+
+uint16_t miniFsFileGetContentOffsetFromIndex(const MiniFs *fs, uint8_t index) {
+	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	return miniFsFileGetContentOffsetFromBaseOffset(fs, baseOffset);
+}
+
+uint16_t miniFsFileGetContentLenFromIndex(const MiniFs *fs, uint8_t index) {
+	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	return miniFsFileGetContentLenFromBaseOffset(fs, baseOffset);
+}
+
+uint16_t miniFsGetFileTotalLengthFromIndex(const MiniFs *fs, uint8_t index) {
+	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	return miniFsGetFileTotalLengthFromBaseOffset(fs, baseOffset);
+}
+
+uint16_t miniFsFileGetLengthOffsetFromBaseOffset(const MiniFs *fs, uint16_t baseOffset) {
+	return baseOffset;
+}
+
+uint16_t miniFsFileGetSizeFactorOffsetFromBaseOffset(const MiniFs *fs, uint16_t baseOffset) {
 	if (baseOffset==0)
 		return 0;
 	return baseOffset+2;
 }
 
-uint8_t miniFsFileGetSizeFactorFromIndex(const MiniFs *fs, uint8_t index) {
-	uint16_t sizeFactorOffset=miniFsFileGetSizeFactorOffsetFromIndex(fs, index);
+uint8_t miniFsFileGetSizeFactorFromBaseOffset(const MiniFs *fs, uint16_t baseOffset) {
+	uint16_t sizeFactorOffset=miniFsFileGetSizeFactorOffsetFromBaseOffset(fs, baseOffset);
 	if (sizeFactorOffset==0)
 		return 0;
 
 	return miniFsReadByte(fs, sizeFactorOffset);
 }
 
-uint16_t miniFsFileGetSizeFromIndex(const MiniFs *fs, uint8_t index) {
-	uint16_t sizeFactor=miniFsFileGetSizeFactorFromIndex(fs, index);
+uint16_t miniFsFileGetSizeFromBaseOffset(const MiniFs *fs, uint16_t baseOffset) {
+	uint16_t sizeFactor=miniFsFileGetSizeFactorFromBaseOffset(fs, baseOffset);
 	if (sizeFactor==0)
 		return 0;
 	return sizeFactor*MINIFSFACTOR;
 }
 
-uint16_t miniFsFileGetFilenameOffsetFromIndex(const MiniFs *fs, uint8_t index) {
-	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+uint16_t miniFsFileGetFilenameOffsetFromBaseOffset(const MiniFs *fs, uint16_t baseOffset) {
 	if (baseOffset==0)
 		return 0;
 	return baseOffset+3;
 }
 
-uint16_t miniFsFileGetFilenameLenFromIndex(const MiniFs *fs, uint8_t index) {
-	uint16_t filenameOffset=miniFsFileGetFilenameOffsetFromIndex(fs, index);
+uint16_t miniFsFileGetFilenameLenFromBaseOffset(const MiniFs *fs, uint16_t baseOffset) {
+	uint16_t filenameOffset=miniFsFileGetFilenameOffsetFromBaseOffset(fs, baseOffset);
 	uint16_t filenameLen;
 	for(filenameLen=0; ; ++filenameLen) {
 		uint8_t c=miniFsReadByte(fs, filenameOffset+filenameLen);
@@ -665,23 +715,22 @@ uint16_t miniFsFileGetFilenameLenFromIndex(const MiniFs *fs, uint8_t index) {
 	return filenameLen;
 }
 
-uint16_t miniFsFileGetContentOffsetFromIndex(const MiniFs *fs, uint8_t index) {
+uint16_t miniFsFileGetContentOffsetFromBaseOffset(const MiniFs *fs, uint16_t baseOffset) {
 	// Get filename offset and offset by filename length
-	uint16_t fileOffset=miniFsFileGetFilenameOffsetFromIndex(fs, index);
+	uint16_t fileOffset=miniFsFileGetFilenameOffsetFromBaseOffset(fs, baseOffset);
 	if (fileOffset==0)
 		return 0;
-	return fileOffset+miniFsFileGetFilenameLenFromIndex(fs, index)+1;
+	return fileOffset+miniFsFileGetFilenameLenFromBaseOffset(fs, baseOffset)+1;
 }
 
-uint16_t miniFsFileGetContentLenFromIndex(const MiniFs *fs, uint8_t index) {
-	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
-	uint16_t total=miniFsGetFileTotalLengthFromIndex(fs, index);
-	uint16_t offset=miniFsFileGetContentOffsetFromIndex(fs, index);
+uint16_t miniFsFileGetContentLenFromBaseOffset(const MiniFs *fs, uint16_t baseOffset) {
+	uint16_t total=miniFsGetFileTotalLengthFromBaseOffset(fs, baseOffset);
+	uint16_t offset=miniFsFileGetContentOffsetFromBaseOffset(fs, baseOffset);
 	return baseOffset+total-offset;
 }
 
-uint16_t miniFsGetFileTotalLengthFromIndex(const MiniFs *fs, uint8_t index) {
-	uint16_t lengthFileOffset=miniFsFileGetLengthOffsetFromIndex(fs, index);
+uint16_t miniFsGetFileTotalLengthFromBaseOffset(const MiniFs *fs, uint16_t baseOffset) {
+	uint16_t lengthFileOffset=miniFsFileGetLengthOffsetFromBaseOffset(fs, baseOffset);
 	if (lengthFileOffset==0)
 		return 0;
 
