@@ -36,6 +36,7 @@ void miniFsWriteByte(MiniFs *fs, uint16_t addr, uint8_t value);
 bool miniFsGetFilenameFromIndex(const MiniFs *fs, uint8_t index, char filename[MiniFsPathMax]);
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename); // Returns MINIFSMAXFILES if no such file exists
 bool miniFsReadFileInfoFromIndex(const MiniFs *fs, MiniFsFileInfo *info, uint8_t index);
+bool miniFsReadFileInfoFromBaseOffset(const MiniFs *fs, MiniFsFileInfo *info, uint16_t baseOffset);
 bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index);
 uint8_t miniFsGetEmptyIndex(const MiniFs *fs); // return MINIFSMAXFILES on failure
 
@@ -548,21 +549,27 @@ uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
 
 bool miniFsReadFileInfoFromIndex(const MiniFs *fs, MiniFsFileInfo *info, uint8_t index) {
 	// Is there even a file in this slot?
-	info->offset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	uint16_t baseOffset=miniFsFileGetBaseOffsetFromIndex(fs, index);
+	return miniFsReadFileInfoFromBaseOffset(fs, info, baseOffset);
+}
+
+bool miniFsReadFileInfoFromBaseOffset(const MiniFs *fs, MiniFsFileInfo *info, uint16_t baseOffset) {
+	// Is there even a file in this slot?
+	info->offset=baseOffset;
 	if (info->offset==0)
 		return false;
 
 	// Compute total size allocated
-	info->size=miniFsFileGetSizeFromIndex(fs, index);
+	info->size=miniFsFileGetSizeFromBaseOffset(fs, baseOffset);
 
 	// Compute filename length
-	info->filenameLen=miniFsFileGetFilenameLenFromIndex(fs, index);
+	info->filenameLen=miniFsFileGetFilenameLenFromBaseOffset(fs, baseOffset);
 
 	// Compute content length
-	info->contentLen=miniFsFileGetContentLenFromIndex(fs, index);
+	info->contentLen=miniFsFileGetContentLenFromBaseOffset(fs, baseOffset);
 
 	// Compute spare space
-	info->spare=info->size-miniFsGetFileTotalLengthFromIndex(fs, index);
+	info->spare=info->size-miniFsGetFileTotalLengthFromBaseOffset(fs, baseOffset);
 
 	return true;
 }
