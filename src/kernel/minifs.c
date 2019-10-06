@@ -137,19 +137,17 @@ bool miniFsGetChildN(const MiniFs *fs, unsigned childNum, char childPath[MiniFsP
 
 uint8_t miniFsGetChildCount(const MiniFs *fs) {
 	uint8_t count=0;
-	for(uint8_t i=0; i<MINIFSMAXFILES; ++i)
-		count+=!miniFsIsFileSlotEmpty(fs, i);
+	for(uint8_t i=0; i<MINIFSMAXFILES; ++i) {
+		if (miniFsIsFileSlotEmpty(fs, i))
+			break; // end of file list
+		++count;
+	}
 	return count;
 }
 
 bool miniFsIsEmpty(const MiniFs *fs) {
-	for(uint8_t i=0; i<MINIFSMAXFILES; ++i)
-		if (!miniFsIsFileSlotEmpty(fs, i)) {
-			assert(miniFsGetChildCount(fs)>0);
-			return false;
-		}
-	assert(miniFsGetChildCount(fs)==0);
-	return true;
+	// As the file header list is sorted, we can simply check if the first entry is empty or not.
+	return miniFsIsFileSlotEmpty(fs, 0);
 }
 
 void miniFsDebug(const MiniFs *fs) {
@@ -517,7 +515,7 @@ uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename) {
 		// Is there even a file using this slot?
 		uint16_t filenameOffset=miniFsFileGetFilenameOffsetFromIndex(fs, index);
 		if (filenameOffset==0)
-			continue;
+			break; // end of list
 
 		// Check if filename matches
 		bool match=true;
@@ -571,15 +569,9 @@ uint8_t miniFsGetEmptyIndex(const MiniFs *fs) {
 }
 
 uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor) {
-	// Find first file
-	uint8_t firstFileIndex;
-	for(firstFileIndex=0; firstFileIndex<MINIFSMAXFILES; ++firstFileIndex) {
-		if (miniFsFileGetBaseOffsetFactorFromIndex(fs, firstFileIndex)!=0)
-			break;
-	}
-
 	// No files?
-	if (firstFileIndex==MINIFSMAXFILES) {
+	uint8_t firstFileIndex=0; // due to sorting
+	if (miniFsFileGetBaseOffsetFactorFromIndex(fs, firstFileIndex)==0) {
 		// Check for insufficent space in volume
 		if (sizeFactor>miniFsGetTotalSizeFactorMinusOne(fs)-MINIFSHEADERSIZE/MINIFSFACTOR+1)
 			return 0;
@@ -596,7 +588,7 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor) {
 		// Grab current file's offset and length
 		uint8_t secondFileOffsetFactor=miniFsFileGetBaseOffsetFactorFromIndex(fs, secondFileIndex);
 		if (secondFileOffsetFactor==0)
-			continue;
+			break; // end of file list
 
 		// Calculate space between this file and the last
 		uint8_t firstFileOffsetFactor=miniFsFileGetBaseOffsetFactorFromIndex(fs, firstFileIndex);
