@@ -685,7 +685,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 					if (!block && !device->character.canReadFunctor(device->common.userData))
 						break;
 					int16_t c=device->character.readFunctor(device->common.userData);
-					if (c==-1)
+					if (c<0 || c>=256)
 						break;
 					data[read]=c;
 				}
