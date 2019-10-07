@@ -786,9 +786,12 @@ bool kernelFsFileCanRead(KernelFsFd fd) {
 		return false;
 
 	// Is this a virtual character device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd]);
-	if (device!=NULL && device->common.type==KernelFsDeviceTypeCharacter)
+	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
+	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
+		assert(device==kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 		return device->character.canReadFunctor(device->common.userData);
+	}
+	assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 
 	// Otherwise all other file types never block
 	return true;
