@@ -809,9 +809,12 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return 0;
 
-	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path);
-	if (device!=NULL) {
+	// Is this a virtual device file, or is it the child of one?
+	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
+	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
+		assert(device==kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
+
+		// This fd IS the device cached in the fdt (rather than a child of it)
 		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
 				switch(device->block.format) {
@@ -841,23 +844,24 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 			case KernelFsDeviceTypeNB:
 			break;
 		}
-	}
+	} else {
+		assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 
-	// Check for being a child of a virtual block device
-	char *dirname, *basename;
-	kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
+		// This fd is a child of the devices cached in the fdt
+		char *dirname, *basename;
+		kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
 
-	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
-	if (parentDevice!=NULL) {
-		switch(parentDevice->common.type) {
+		assert(device==kernelFsGetDeviceFromPath(dirname));
+
+		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
-				switch(parentDevice->block.format) {
+				switch(device->block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						if (offset>=UINT16_MAX)
 							return false;
 						if (dataLen>=UINT16_MAX)
 							dataLen=UINT16_MAX;
-						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (parentDevice->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
+						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (device->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), device);
 						KernelFsFileOffset res=miniFsFileWrite(&kernelFsScratchMiniFs, basename, offset, data, dataLen);
 						miniFsUnmount(&kernelFsScratchMiniFs);
 						return res;
