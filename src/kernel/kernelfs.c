@@ -410,11 +410,11 @@ bool kernelFsFileDelete(const char *path) {
 		return false;
 
 	// If this is a directory, check if empty
-	if (kernelFsFileIsDir(path) && !kernelFsFileIsDirEmpty(path))
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device!=NULL && kernelFsDeviceIsDir(device) && !kernelFsDeviceIsDirEmpty(device))
 		return false;
 
 	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
 	if (device!=NULL) {
 		// Type-specific logic
 		switch(device->common.type) {
@@ -500,13 +500,8 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
 	if (kernelFsFileIsOpen(path))
 		return false;
 
-	// If this is a directory, cannot resize
-	if (kernelFsFileIsDir(path))
-		return false;
-
 	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
-	if (device!=NULL) {
+	if (kernelFsGetDeviceFromPath(path)!=NULL) {
 		// Cannot resize virtual devices
 		return false;
 	}
