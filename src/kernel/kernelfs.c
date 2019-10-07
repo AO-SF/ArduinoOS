@@ -1235,9 +1235,7 @@ uint16_t kernelFsMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t
 	KernelFsDevice *device=(KernelFsDevice *)userData;
 	assert(device->common.type==KernelFsDeviceTypeBlock);
 	assert(device->block.format==KernelFsBlockDeviceFormatCustomMiniFs);
-
-	if (device->block.writeFunctor==NULL)
-		return 0;
+	assert(device->block.writeFunctor!=NULL);
 
 	return device->block.writeFunctor(addr, data, len, device->common.userData);
 }
