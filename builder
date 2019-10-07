@@ -60,7 +60,6 @@ cp ./src/userspace/home/* ./tmp/mockups/homemockup
 ./bin/aosf-asm ./src/userspace/bin/tree.s ./tmp/mockups/homemockup/tree
 ./bin/aosf-asm ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/aosf-asm ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
-./bin/aosf-asm ./src/userspace/bin/blinkfast.s ./tmp/mockups/homemockup/blinkfast
 
 echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/burn.s ./tmp/mockups/usrbinmockup/burn
