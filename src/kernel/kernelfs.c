@@ -789,9 +789,12 @@ bool kernelFsFileCanRead(KernelFsFd fd) {
 	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
 	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
 		assert(device==kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
-		return device->character.canReadFunctor(device->common.userData);
+
+		if (device->common.type==KernelFsDeviceTypeCharacter)
+			return device->character.canReadFunctor(device->common.userData);
+	} else {
+		assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 	}
-	assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 
 	// Otherwise all other file types never block
 	return true;
