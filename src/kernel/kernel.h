@@ -19,6 +19,7 @@ typedef enum {
 extern volatile bool kernelDevTtyS0EchoFlag;
 extern volatile bool kernelDevTtyS0BlockingFlag;
 #else
+extern bool kernelFlagProfile;
 #endif
 
 void kernelShutdownBegin(void);

@@ -58,6 +58,7 @@ FILE *kernelFakeEepromFile=NULL;
 
 int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too often causing us to think no data is waiting
 
+bool kernelFlagProfile=false;
 #endif
 
 volatile uint8_t kernelCtrlCWaiting=false;
@@ -155,7 +156,20 @@ ISR(USART0_RX_vect) {
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
+#ifdef ARDUINO
 int main(void) {
+#else
+int main(int argc, char **argv) {
+	// Handle arguments
+	kernelFlagProfile=false;
+	for(int i=1; i<argc; ++i) {
+		if (strcmp(argv[i], "--profile")==0)
+			kernelFlagProfile=true;
+		else
+			printf("Warning: Unknown option '%s'\n", argv[i]);
+	}
+#endif
+
 	// Init
 	kernelBoot();
 

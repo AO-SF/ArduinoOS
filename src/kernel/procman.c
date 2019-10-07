@@ -346,26 +346,28 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 
 #ifndef ARDUINO
 	// Save profiling counts to file before we start clearing things
-	char profilingFilePath[1024]; // TODO: this better
-	char profilingExecBaseNameRaw[1024]="unknown"; // TODO: better
-	char *profilingExecBaseName=profilingExecBaseNameRaw;
-	if (process->progmemFd!=KernelFsFdInvalid) {
-		kstrStrcpy(profilingExecBaseNameRaw, kernelFsGetFilePath(process->progmemFd));
-		profilingExecBaseName=basename(profilingExecBaseNameRaw);
-	}
-	sprintf(profilingFilePath, "profile.%u.%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
-	FILE *profilingFile=fopen(profilingFilePath, "w");
-	if (profilingFile!=NULL) {
-		// Determine highest address instruction that was executed
-		// (this usually greatly reduces output file size)
-		BytecodeWord profilingFinal=0;
-		for(BytecodeWord i=0; i<BytecodeMemoryProgmemSize; ++i)
-			if (procManData.processes[pid].profilingCounts[i]>0)
-				profilingFinal=i;
+	if (kernelFlagProfile) {
+		char profilingFilePath[1024]; // TODO: this better
+		char profilingExecBaseNameRaw[1024]="unknown"; // TODO: better
+		char *profilingExecBaseName=profilingExecBaseNameRaw;
+		if (process->progmemFd!=KernelFsFdInvalid) {
+			kstrStrcpy(profilingExecBaseNameRaw, kernelFsGetFilePath(process->progmemFd));
+			profilingExecBaseName=basename(profilingExecBaseNameRaw);
+		}
+		sprintf(profilingFilePath, "profile.%u.%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
+		FILE *profilingFile=fopen(profilingFilePath, "w");
+		if (profilingFile!=NULL) {
+			// Determine highest address instruction that was executed
+			// (this usually greatly reduces output file size)
+			BytecodeWord profilingFinal=0;
+			for(BytecodeWord i=0; i<BytecodeMemoryProgmemSize; ++i)
+				if (procManData.processes[pid].profilingCounts[i]>0)
+					profilingFinal=i;
 
-		// Write data and close file
-		fwrite(procManData.processes[pid].profilingCounts, sizeof(ProfileCounter), profilingFinal+1, profilingFile);
-		fclose(profilingFile);
+			// Write data and close file
+			fwrite(procManData.processes[pid].profilingCounts, sizeof(ProfileCounter), profilingFinal+1, profilingFile);
+			fclose(profilingFile);
+		}
 	}
 #endif
 
