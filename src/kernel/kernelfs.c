@@ -80,6 +80,7 @@ bool kernelFsPathIsDevice(const char *path);
 bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
+KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device);
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, void *userData, KernelFsDeviceType type);
 void kernelFsRemoveDeviceFile(KernelFsDevice *device);
@@ -1092,6 +1093,12 @@ KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path) {
 			return device;
 	}
 	return NULL;
+}
+
+KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device) {
+	if (device==NULL)
+		return KernelFsDevicesMax;
+	return (((const uint8_t *)device)-((const uint8_t *)kernelFsData.devices))/sizeof(KernelFsDevice);
 }
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, void *userData, KernelFsDeviceType type) {
