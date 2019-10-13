@@ -1993,7 +1993,7 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 		}
 
 		// Check if we have ended up using less bytes than we thought for this instruction.
-		if (instruction->machineCodeLen>0) {
+		if (instruction->machineCodeLen>0 && instruction->type!=AssemblerInstructionTypeDefine) {
 			// Calculate actual number of btyes we ended up using for this instruction.
 			unsigned actualLen=0;
 			while(actualLen<AssemblerInstructionMachineCodeMax) {
@@ -2015,8 +2015,7 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 					break;
 				}
 			}
-		} else
-			assert(instruction->machineCode[0]==ByteCodeIllegalInstructionByte);
+		}
 	}
 
 	return true;
