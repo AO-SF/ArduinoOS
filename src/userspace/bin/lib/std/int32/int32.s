@@ -8,4 +8,5 @@ requireend int32div.s
 requireend int32get.s
 requireend int32mul.s
 requireend int32set.s
+requireend int32str.s
 requireend int32sub.s
