@@ -25,3 +25,22 @@ shl r3 r1 r2
 store16 r0 r3
 ret
 
+; int32set1616(dest=r0, srcUpper=r1, srcLower=r2) - sets 32 bit dest to (r1<<16)|r2
+label int32set1616
+store16 r0 r1
+inc2 r0
+store16 r0 r2
+ret
+
+; int32set32(dest=r0, src=r1) - copies 32 bit src pointed to by r1 into 32 bit dest pointed to by r0
+label int32set32
+; Copy upper half
+load16 r2 r1
+store16 r0 r2
+; Advance pointers
+inc2 r0
+inc2 r1
+; Copy lower half
+load16 r2 r1
+store16 r0 r2
+ret
