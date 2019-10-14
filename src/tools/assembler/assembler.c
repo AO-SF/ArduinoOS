@@ -200,6 +200,7 @@ typedef enum {
 	AssemblerInstructionTypeStore8,
 	AssemblerInstructionTypeLoad8,
 	AssemblerInstructionTypeXchg8,
+	AssemblerInstructionTypeClz,
 	AssemblerInstructionTypeConst,
 	AssemblerInstructionTypeNop,
 } AssemblerInstructionType;
@@ -268,6 +269,10 @@ typedef struct {
 } AssemblerInstructionXchg8;
 
 typedef struct {
+	const char *destReg, *srcReg;
+} AssemblerInstructionClz;
+
+typedef struct {
 	const char *symbol;
 	BytecodeWord value;
 } AssemblerInstructionConst;
@@ -290,6 +295,7 @@ typedef struct {
 		AssemblerInstructionStore8 store8;
 		AssemblerInstructionLoad8 load8;
 		AssemblerInstructionXchg8 xchg8;
+		AssemblerInstructionClz clz;
 		AssemblerInstructionConst constSymbol;
 	} d;
 
@@ -1267,6 +1273,25 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 			instruction->type=AssemblerInstructionTypeXchg8;
 			instruction->d.xchg8.addrReg=addrReg;
 			instruction->d.xchg8.srcDestReg=srcDestReg;
+		} else if (strcmp(first, "clz")==0) {
+			char *destReg=strtok_r(NULL, " ", &savePtr);
+			if (destReg==NULL) {
+				printf("error - expected dest register after '%s' (%s:%u '%s')\n", first, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			char *srcReg=strtok_r(NULL, " ", &savePtr);
+			if (srcReg==NULL) {
+				printf("error - expected src register after '%s' (%s:%u '%s')\n", destReg, assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+				return false;
+			}
+
+			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
+			instruction->lineIndex=i;
+			instruction->modifiedLineCopy=lineCopy;
+			instruction->type=AssemblerInstructionTypeClz;
+			instruction->d.clz.destReg=destReg;
+			instruction->d.clz.srcReg=srcReg;
 		} else if (strcmp(first, "const")==0) {
 			char *symbol=strtok_r(NULL, " ", &savePtr);
 			if (symbol==NULL) {
@@ -1583,6 +1608,10 @@ bool assemblerProgramCalculateInitialMachineCodeLengths(AssemblerProgram *progra
 				instruction->machineCodeInstructions=1;
 			break;
 			case AssemblerInstructionTypeXchg8:
+				instruction->machineCodeLen=2;
+				instruction->machineCodeInstructions=1;
+			break;
+			case AssemblerInstructionTypeClz:
 				instruction->machineCodeLen=2;
 				instruction->machineCodeInstructions=1;
 			break;
@@ -1985,6 +2014,25 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 				instruction->machineCode[0]=(xchg8Op>>8);
 				instruction->machineCode[1]=(xchg8Op&0xFF);
 			} break;
+			case AssemblerInstructionTypeClz: {
+				// Verify dest and src are valid registers
+				BytecodeRegister destReg=assemblerRegisterFromStr(instruction->d.clz.destReg);
+				if (destReg==BytecodeRegisterNB) {
+					printf("error - expected register (r0-r7) as dest reg, instead got '%s' (%s:%u '%s')\n", instruction->d.clz.destReg, line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				BytecodeRegister srcReg=assemblerRegisterFromStr(instruction->d.clz.srcReg);
+				if (srcReg==BytecodeRegisterNB) {
+					printf("error - expected register (r0-r7) as src reg, instead got '%s' (%s:%u '%s')\n", instruction->d.clz.srcReg, line->file, line->lineNum, line->original);
+					return false;
+				}
+
+				// Create instruction
+				BytecodeInstruction2Byte clzOp=bytecodeInstructionCreateAlu(BytecodeInstructionAluTypeExtra, destReg, srcReg, (BytecodeRegister)BytecodeInstructionAluExtraTypeClz);
+				instruction->machineCode[0]=(clzOp>>8);
+				instruction->machineCode[1]=(clzOp&0xFF);
+			} break;
 			case AssemblerInstructionTypeConst:
 			break;
 			case AssemblerInstructionTypeNop:
@@ -2171,6 +2219,9 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 			break;
 			case AssemblerInstructionTypeXchg8:
 				printf("xchg8 *%s %s (%s:%u '%s')\n", instruction->d.xchg8.addrReg, instruction->d.xchg8.srcDestReg, line->file, line->lineNum, line->original);
+			break;
+			case AssemblerInstructionTypeClz:
+				printf("clz %s %s (%s:%u '%s')\n", instruction->d.clz.destReg, instruction->d.clz.srcReg, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeConst:
 				printf("const %s=%u (%s:%u '%s')\n", instruction->d.constSymbol.symbol, instruction->d.constSymbol.value, line->file, line->lineNum, line->original);

@@ -21,6 +21,7 @@
 #include "procman.h"
 #include "profile.h"
 #include "spi.h"
+#include "util.h"
 
 #define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
 #define procManProcessInstructionsPerTick 160 // generally a higher value causes faster execution, but decreased responsiveness if many processes running
@@ -1137,6 +1138,11 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 						return false;
 					}
 					procData->regs[info->d.alu.opAReg]=memValue;
+					return true;
+				} break;
+				case BytecodeInstructionAluExtraTypeClz: {
+					BytecodeWord srcValue=procData->regs[info->d.alu.opAReg];
+					procData->regs[info->d.alu.destReg]=clz16(srcValue);
 					return true;
 				} break;
 			}
