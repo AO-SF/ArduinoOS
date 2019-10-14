@@ -27,19 +27,23 @@ label int32LessThan
 load16 r2 r0
 load16 r3 r1
 cmp r4 r2 r3
-skipge r4
-jmp int32LessThanFalse
-; Compare lower halves
+skiple r4
+jmp int32LessThanFalse ; upper half of opA is greater than upper half of opB, thus opA>opB
+skipeq r4
+jmp int32LessThanTrue ; upper half of opA is less than upper half of opB, thus opA<opB
+; Upper halves equal - compare lower halves
 inc2 r0
 inc2 r1
 load16 r2 r0
 load16 r3 r1
 cmp r4 r2 r3
-skipge r4
+skiplt r4
 jmp int32LessThanFalse
 ; Equal
-mov r1 1
+label int32LessThanTrue
+mov r0 1
 ret
+; False case
 label int32LessThanFalse
 mov r0 0
 ret
@@ -50,19 +54,23 @@ label int32LessEqual
 load16 r2 r0
 load16 r3 r1
 cmp r4 r2 r3
-skipgt r4
-jmp int32LessEqualFalse
-; Compare lower halves
+skiple r4
+jmp int32LessEqualFalse ; upper half of opA is greater than upper half of opB, thus opA>opB
+skipeq r4
+jmp int32LessEqualTrue ; upper half of opA is less than upper half of opB, thus opA<opB
+; Upper halves equal - compare lower halves
 inc2 r0
 inc2 r1
 load16 r2 r0
 load16 r3 r1
 cmp r4 r2 r3
-skipgt r4
+skiple r4
 jmp int32LessEqualFalse
 ; Equal
-mov r1 1
+label int32LessEqualTrue
+mov r0 1
 ret
+; False case
 label int32LessEqualFalse
 mov r0 0
 ret
