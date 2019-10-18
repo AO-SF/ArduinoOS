@@ -1,5 +1,7 @@
 require int32common.s
 
+aw int32mulScratchInt32 2
+
 ; int32mul1616(dest=r0, opA=r1, opB=r2) - stores product of two 16-bit values opA and opB into 32-bit dest ptr
 label int32mul1616
 ; Multiply two lower halves to get lower half of product, and set lower part of dest
@@ -29,13 +31,13 @@ mul r3 r3 r4 ; r3 now contains ah*bl
 push16 r2
 push16 r1
 push16 r0
-mov r0 int32ScratchInt32
+mov r0 int32mulScratchInt32
 mov r1 r3
 mov r2 8
 call int32set16shift
 pop16 r0
 push16 r0
-mov r1 int32ScratchInt32
+mov r1 int32mulScratchInt32
 call int32add32
 pop16 r0
 pop16 r1
@@ -49,13 +51,13 @@ mul r3 r3 r4 ; r3 now contains al*bh
 push16 r2
 push16 r1
 push16 r0
-mov r0 int32ScratchInt32
+mov r0 int32mulScratchInt32
 mov r1 r3
 mov r2 8
 call int32set16shift
 pop16 r0
 push16 r0
-mov r1 int32ScratchInt32
+mov r1 int32mulScratchInt32
 call int32add32
 pop16 r0
 pop16 r1
