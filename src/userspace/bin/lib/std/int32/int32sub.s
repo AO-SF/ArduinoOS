@@ -26,6 +26,7 @@ store16 r0 r2
 ret
 
 ; int32sub32(dest=r0, opA=r1) - both arguments pointers to 32 bit values
+label int32sub32
 ; Subtract upper half of opA from dest
 load16 r2 r0
 load16 r3 r1
