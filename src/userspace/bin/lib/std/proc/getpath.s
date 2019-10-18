@@ -84,14 +84,10 @@ pop16 r3
 ; test if combined path exists
 push16 r0
 push16 r1
-push16 r2
-push16 r3
 mov r0 SyscallIdFileExists
 mov r1 getpathScratchBuf
 syscall
 cmp r4 r0 r0
-pop16 r3
-pop16 r2
 pop16 r1
 pop16 r0
 skipneqz r4
