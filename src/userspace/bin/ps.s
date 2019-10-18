@@ -14,7 +14,7 @@ ab psPidPid 1
 ab psPidStateBuf PathMax ; PathMax due to also using scratch buf with it, which is itself used for a path
 ab psPidScratchBuf PathMax
 
-ab psPidInt32 4
+ab psCpuLoadInt32 4
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -110,17 +110,17 @@ add r0 r0 r1
 load16 r0 r0
 
 mov r1 r0
-mov r0 psPidInt32
+mov r0 psCpuLoadInt32
 mov r2 100
 call int32mul1616
 
-mov r0 psPidInt32
+mov r0 psCpuLoadInt32
 mov r1 cpuTotal
 load16 r1 r1
 call int32div16
 
-mov r0 psPidInt32
-call int32getLower16
+mov r0 psCpuLoadInt32
+call int32getLower16 ; we can simply print lower 16 bits as we know value is <=100, rather than resorting to much slower 32 bit print routine
 call putdecpad
 mov r0 ' '
 call putc0
