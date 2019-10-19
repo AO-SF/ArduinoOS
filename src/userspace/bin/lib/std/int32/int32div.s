@@ -16,13 +16,13 @@ call int32set16
 pop16 r1 ; restore divisor ptr
 pop16 r0 ; restore dest ptr
 ; Call standard 32 bit division function
-call int32div
+call int32div32
 ; Restore stack
 dec4 r6
 ret
 
-; int32div(r0=dest, r1=divisor) - divide 32 bit quantity at r0 by 32 bit divisor at r1
-label int32div
+; int32div32(r0=dest, r1=divisor) - divide 32 bit quantity at r0 by 32 bit divisor at r1
+label int32div32
 ; TODO: Use a better algorithm
 ; Use scratch int32 as result counter, initially set to 0
 push16 r0
@@ -32,7 +32,7 @@ mov r1 0
 call int32set16
 pop16 r1
 pop16 r0
-label int32divloopstart
+label int32div32loopstart
 ; Is the value smaller than the divisor?
 push16 r0
 push16 r1
@@ -51,7 +51,7 @@ mov r0 int32divScratchInt32
 call int32inc
 pop16 r1
 pop16 r0
-jmp int32divloopstart
+jmp int32div32loopstart
 ; Done - copy result value into dest
 label int32divloopend
 mov r1 int32divScratchInt32
