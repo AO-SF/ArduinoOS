@@ -1,5 +1,5 @@
 ALL:
-	@echo "Error expected argument - try 'make arduino', 'make pc' or 'make clean'"
+	@echo "Error expected argument - try 'make arduino', 'make pc', 'make upload', 'make install' or 'make clean'"
 	@exit
 
 arduino:

@@ -21,6 +21,7 @@
 #include "procman.h"
 #include "profile.h"
 #include "spi.h"
+#include "util.h"
 
 #define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
 #define procManProcessInstructionsPerTick 160 // generally a higher value causes faster execution, but decreased responsiveness if many processes running
@@ -346,26 +347,28 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 
 #ifndef ARDUINO
 	// Save profiling counts to file before we start clearing things
-	char profilingFilePath[1024]; // TODO: this better
-	char profilingExecBaseNameRaw[1024]="unknown"; // TODO: better
-	char *profilingExecBaseName=profilingExecBaseNameRaw;
-	if (process->progmemFd!=KernelFsFdInvalid) {
-		kstrStrcpy(profilingExecBaseNameRaw, kernelFsGetFilePath(process->progmemFd));
-		profilingExecBaseName=basename(profilingExecBaseNameRaw);
-	}
-	sprintf(profilingFilePath, "profile.%u.%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
-	FILE *profilingFile=fopen(profilingFilePath, "w");
-	if (profilingFile!=NULL) {
-		// Determine highest address instruction that was executed
-		// (this usually greatly reduces output file size)
-		BytecodeWord profilingFinal=0;
-		for(BytecodeWord i=0; i<BytecodeMemoryProgmemSize; ++i)
-			if (procManData.processes[pid].profilingCounts[i]>0)
-				profilingFinal=i;
+	if (kernelFlagProfile) {
+		char profilingFilePath[1024]; // TODO: this better
+		char profilingExecBaseNameRaw[1024]="unknown"; // TODO: better
+		char *profilingExecBaseName=profilingExecBaseNameRaw;
+		if (process->progmemFd!=KernelFsFdInvalid) {
+			kstrStrcpy(profilingExecBaseNameRaw, kernelFsGetFilePath(process->progmemFd));
+			profilingExecBaseName=basename(profilingExecBaseNameRaw);
+		}
+		sprintf(profilingFilePath, "profile.%u.%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
+		FILE *profilingFile=fopen(profilingFilePath, "w");
+		if (profilingFile!=NULL) {
+			// Determine highest address instruction that was executed
+			// (this usually greatly reduces output file size)
+			BytecodeWord profilingFinal=0;
+			for(BytecodeWord i=0; i<BytecodeMemoryProgmemSize; ++i)
+				if (procManData.processes[pid].profilingCounts[i]>0)
+					profilingFinal=i;
 
-		// Write data and close file
-		fwrite(procManData.processes[pid].profilingCounts, sizeof(ProfileCounter), profilingFinal+1, profilingFile);
-		fclose(profilingFile);
+			// Write data and close file
+			fwrite(procManData.processes[pid].profilingCounts, sizeof(ProfileCounter), profilingFinal+1, profilingFile);
+			fclose(profilingFile);
+		}
 	}
 #endif
 
@@ -1135,6 +1138,11 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 						return false;
 					}
 					procData->regs[info->d.alu.opAReg]=memValue;
+					return true;
+				} break;
+				case BytecodeInstructionAluExtraTypeClz: {
+					BytecodeWord srcValue=procData->regs[info->d.alu.opAReg];
+					procData->regs[info->d.alu.destReg]=clz16(srcValue);
 					return true;
 				} break;
 			}

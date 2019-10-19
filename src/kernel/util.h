@@ -2,6 +2,7 @@
 #define UTIL_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifndef ARDUINO
 #define PROGMEM
@@ -19,5 +20,8 @@
 #endif
 
 bool isPow2(unsigned x);
+
+int clz8(uint8_t x); // returns 8 if x=0
+int clz16(uint16_t x); // returns 16 if x=0
 
 #endif

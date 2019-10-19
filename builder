@@ -60,7 +60,6 @@ cp ./src/userspace/home/* ./tmp/mockups/homemockup
 ./bin/aosf-asm ./src/userspace/bin/tree.s ./tmp/mockups/homemockup/tree
 ./bin/aosf-asm ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/aosf-asm ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
-./bin/aosf-asm ./src/userspace/bin/blinkfast.s ./tmp/mockups/homemockup/blinkfast
 
 echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/burn.s ./tmp/mockups/usrbinmockup/burn
@@ -86,6 +85,7 @@ echo "	Creating /usr/bin mockup..."
 echo "	Creating /usr/games mockup..."
 cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/aosf-asm ./src/userspace/bin/sokoban.s ./tmp/mockups/usrgamesmockup/sokoban
+./bin/aosf-asm ./src/userspace/bin/highlow.s ./tmp/mockups/usrgamesmockup/highlow
 
 echo "	Creating /usr/man mockups..."
 cp ./src/userspace/man/1/* ./tmp/mockups/usrman1mockup
@@ -106,10 +106,12 @@ echo "	Formatting static PROGMEM data files from userspace files and mockups..."
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/curses" "_lib_curses" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/pin" "_lib_pin" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/dht22" "_lib_std_dht22" "./tmp/progmemdata"
+./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/int32" "_lib_std_int32" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/io" "_lib_std_io" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/math" "_lib_std_math" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/mem" "_lib_std_mem" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/proc" "_lib_std_proc" "./tmp/progmemdata"
+./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/rand" "_lib_std_rand" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/spi" "_lib_std_spi" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/str" "_lib_std_str" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./src/userspace/bin/lib/std/time" "_lib_std_time" "./tmp/progmemdata"

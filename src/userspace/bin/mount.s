@@ -42,9 +42,9 @@ jmp foundTypeFlatFile
 
 mov r0 typeArg
 mov r1 typeStrFat
-call strequal
+call strcmp
 cmp r0 r0 r0
-skipeqz r0
+skipneqz r0
 jmp foundTypeFat
 
 mov r0 badTypeErrorStr

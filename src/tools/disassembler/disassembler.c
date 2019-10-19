@@ -152,6 +152,9 @@ int main(int argc, char **argv) {
 							case BytecodeInstructionAluExtraTypeXchg8:
 								disassemblerPrint(addr, instruction, "xchg8 *r%u r%u", info.d.alu.destReg, info.d.alu.opAReg);
 							break;
+							case BytecodeInstructionAluExtraTypeClz:
+								disassemblerPrint(addr, instruction, "clz r%u r%u", info.d.alu.destReg, info.d.alu.opAReg);
+							break;
 							default:
 								disassemblerPrint(addr, instruction, "unknown ALU extra operation (type %u)", info.d.alu.opBReg);
 							break;

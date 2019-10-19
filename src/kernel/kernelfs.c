@@ -62,7 +62,12 @@ typedef union {
 } KernelFsDevice;
 
 typedef struct {
-	KStr fdt[KernelFsFdMax];
+	KStr path;
+	KernelFsDeviceIndex deviceIndex;
+} KernelFsFdtEntry;
+
+typedef struct {
+	KernelFsFdtEntry fdt[KernelFsFdMax];
 
 	KernelFsDevice devices[KernelFsDevicesMax];
 } KernelFsData;
@@ -84,11 +89,15 @@ bool kernelFsPathIsDevice(const char *path);
 bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
+KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device);
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, void *userData, KernelFsDeviceType type);
 void kernelFsRemoveDeviceFile(KernelFsDevice *device);
 
 bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
+
+bool kernelFsDeviceIsDir(const KernelFsDevice *device);
+bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device);
 
 uint16_t kernelFsMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
 uint16_t kernelFsMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
@@ -102,8 +111,10 @@ uint32_t kernelFsFatWriteWrapper(uint32_t addr, const uint8_t *data, uint32_t le
 
 void kernelFsInit(void) {
 	// Clear file descriptor table
-	for(KernelFsFd i=0; i<KernelFsFdMax; ++i)
-		kernelFsData.fdt[i]=kstrNull();
+	for(KernelFsFd i=0; i<KernelFsFdMax; ++i) {
+		kernelFsData.fdt[i].path=kstrNull();
+		kernelFsData.fdt[i].deviceIndex=KernelFsDevicesMax;
+	}
 
 	// Clear virtual device array
 	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i)
@@ -112,8 +123,10 @@ void kernelFsInit(void) {
 
 void kernelFsQuit(void) {
 	// Free memory used in file descriptor table.
-	for(KernelFsFd i=0; i<KernelFsFdMax; ++i)
-		kstrFree(&kernelFsData.fdt[i]);
+	for(KernelFsFd i=0; i<KernelFsFdMax; ++i) {
+		kstrFree(&kernelFsData.fdt[i].path);
+		kernelFsData.fdt[i].deviceIndex=KernelFsDevicesMax;
+	}
 
 	// Free virtual device array
 	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
@@ -252,14 +265,14 @@ bool kernelFsFileIsOpen(const char *path) {
 		if (i==KernelFsFdInvalid)
 			continue;
 
-		if (!kstrIsNull(kernelFsData.fdt[i]) && kstrStrcmp(path, kernelFsData.fdt[i])==0)
+		if (!kstrIsNull(kernelFsData.fdt[i].path) && kstrStrcmp(path, kernelFsData.fdt[i].path)==0)
 			return true;
 	}
 	return false;
 }
 
 bool kernelFsFileIsOpenByFd(KernelFsFd fd) {
-	return !kstrIsNull(kernelFsData.fdt[fd]);
+	return !kstrIsNull(kernelFsData.fdt[fd].path);
 }
 
 bool kernelFsFileIsDir(const char *path) {
@@ -268,39 +281,8 @@ bool kernelFsFileIsDir(const char *path) {
 	if (device==NULL)
 		return false;
 
-	// Only block and directory type devices operate as directories
-	switch(device->common.type) {
-		case KernelFsDeviceTypeBlock:
-			switch(device->block.format) {
-				case KernelFsBlockDeviceFormatCustomMiniFs:
-					return true;
-				break;
-				case KernelFsBlockDeviceFormatFlatFile:
-					return false;
-				break;
-				case KernelFsBlockDeviceFormatFat:
-					// TODO: this for Fat file system support .....
-					return false;
-				break;
-				case KernelFsBlockDeviceFormatNB:
-					assert(false);
-					return false;
-				break;
-			}
-		break;
-		case KernelFsDeviceTypeCharacter:
-			return false;
-		break;
-		case KernelFsDeviceTypeDirectory:
-			return true;
-		break;
-		case KernelFsDeviceTypeNB:
-			assert(false);
-			return false;
-		break;
-	}
-
-	return false;
+	// So check if this device is a directory.
+	return kernelFsDeviceIsDir(device);
 }
 
 bool kernelFsFileIsDirEmpty(const char *path) {
@@ -309,55 +291,8 @@ bool kernelFsFileIsDirEmpty(const char *path) {
 	if (device==NULL)
 		return false;
 
-	// Only block and directory type devices operate as directories
-	switch(device->common.type) {
-		case KernelFsDeviceTypeBlock:
-			switch(device->block.format) {
-				case KernelFsBlockDeviceFormatCustomMiniFs:
-					miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (device->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), device);
-					bool res=miniFsIsEmpty(&kernelFsScratchMiniFs);
-					miniFsUnmount(&kernelFsScratchMiniFs);
-					return res;
-				break;
-				case KernelFsBlockDeviceFormatFlatFile:
-					// These are not directories
-					return false;
-				break;
-				case KernelFsBlockDeviceFormatFat:
-					// TODO: this for Fat file system support .....
-					return false;
-				break;
-				case KernelFsBlockDeviceFormatNB:
-					assert(false);
-					return false;
-				break;
-			}
-		break;
-		case KernelFsDeviceTypeCharacter:
-			return false;
-		break;
-		case KernelFsDeviceTypeDirectory: {
-			// Check explicit virtual devices as children
-			for(uint8_t i=0; i<KernelFsDevicesMax; ++i) {
-				KernelFsDevice *childDevice=&kernelFsData.devices[i];
-				if (childDevice->common.type==KernelFsDeviceTypeNB)
-					continue;
-
-				if (kernelFsDeviceIsChildOfPath(childDevice, path))
-					// Not empty
-					return false;
-			}
-
-			// Empty
-			return true;
-		} break;
-		case KernelFsDeviceTypeNB:
-			assert(false);
-			return false;
-		break;
-	}
-
-	return false;
+	// So check if this device is a directory, and if it is empty.
+	return kernelFsDeviceIsDirEmpty(device);
 }
 
 KernelFsFileOffset kernelFsFileGetLen(const char *path) {
@@ -503,11 +438,11 @@ bool kernelFsFileDelete(const char *path) {
 		return false;
 
 	// If this is a directory, check if empty
-	if (kernelFsFileIsDir(path) && !kernelFsFileIsDirEmpty(path))
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device!=NULL && kernelFsDeviceIsDir(device) && !kernelFsDeviceIsDirEmpty(device))
 		return false;
 
 	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
 	if (device!=NULL) {
 		// Type-specific logic
 		switch(device->common.type) {
@@ -600,13 +535,8 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
 	if (kernelFsFileIsOpen(path))
 		return false;
 
-	// If this is a directory, cannot resize
-	if (kernelFsFileIsDir(path))
-		return false;
-
 	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
-	if (device!=NULL) {
+	if (kernelFsGetDeviceFromPath(path)!=NULL) {
 		// Cannot resize virtual devices
 		return false;
 	}
@@ -671,9 +601,9 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 		if (i==KernelFsFdInvalid)
 			continue;
 
-		if (kstrIsNull(kernelFsData.fdt[i]))
+		if (kstrIsNull(kernelFsData.fdt[i].path))
 			newFd=i; // If we suceed we can use this slot
-		else if (kstrStrcmp(path, kernelFsData.fdt[i])==0)
+		else if (kstrStrcmp(path, kernelFsData.fdt[i].path)==0)
 			alreadyOpen=true;
 	}
 
@@ -682,20 +612,40 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 		return KernelFsFdInvalid;
 
 	// Update file descriptor table.
-	kernelFsData.fdt[newFd]=kstrC(path);
-	if (kstrIsNull(kernelFsData.fdt[newFd]))
+	kernelFsData.fdt[newFd].path=kstrC(path);
+	if (kstrIsNull(kernelFsData.fdt[newFd].path))
 		return KernelFsFdInvalid; // Out of memory
+
+	// Grab device index to save doing this repeatedly in the future
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device==NULL) {
+		// Must be child of a device file
+		char *dirname, *basename;
+		kernelFsPathSplitStatic(path, &dirname, &basename);
+
+		device=kernelFsGetDeviceFromPath(dirname);
+
+		// Still no device?
+		if (device==NULL) {
+			// File shouldn't have passed earlier kernelFsFileExists test but this code is here for safety.
+			kernelFsData.fdt[newFd].path=kstrNull();
+			return KernelFsFdInvalid;
+		}
+	}
+
+	kernelFsData.fdt[newFd].deviceIndex=kernelFsGetDeviceIndexFromDevice(device);
 
 	return newFd;
 }
 
 void kernelFsFileClose(KernelFsFd fd) {
 	// Clear from file descriptor table.
-	kstrFree(&kernelFsData.fdt[fd]);
+	kstrFree(&kernelFsData.fdt[fd].path);
+	kernelFsData.fdt[fd].deviceIndex=KernelFsDevicesMax;
 }
 
 KStr kernelFsGetFilePath(KernelFsFd fd) {
-	return kernelFsData.fdt[fd];
+	return kernelFsData.fdt[fd].path;
 }
 
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen) {
@@ -704,12 +654,15 @@ KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOf
 
 KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen, bool block) {
 	// Invalid fd?
-	if (kstrIsNull(kernelFsData.fdt[fd]))
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return 0;
 
-	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd]);
-	if (device!=NULL) {
+	// Is this a virtual device file, or is it the child of one?
+	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
+	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
+		assert(device==kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
+
+		// This fd IS the device cached in the fdt (rather than a child of it)
 		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
 				switch(device->block.format) {
@@ -736,7 +689,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 					if (!block && !device->character.canReadFunctor(device->common.userData))
 						break;
 					int16_t c=device->character.readFunctor(device->common.userData);
-					if (c==-1)
+					if (c<0 || c>=256)
 						break;
 					data[read]=c;
 				}
@@ -749,23 +702,24 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 			case KernelFsDeviceTypeNB:
 			break;
 		}
-	}
+	} else {
+		assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 
-	// Check for being a child of a virtual block device
-	char *dirname, *basename;
-	kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
+		// This fd is a child of the devices cached in the fdt
+		char *dirname, *basename;
+		kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
 
-	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
-	if (parentDevice!=NULL) {
-		switch(parentDevice->common.type) {
+		assert(device==kernelFsGetDeviceFromPath(dirname));
+
+		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
-				switch(parentDevice->block.format) {
+				switch(device->block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						if (offset>=UINT16_MAX)
 							return 0;
 						if (dataLen>=UINT16_MAX)
 							dataLen=UINT16_MAX;
-						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (parentDevice->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
+						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (device->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), device);
 						uint16_t read=miniFsFileRead(&kernelFsScratchMiniFs, basename, offset, data, dataLen);
 						miniFsUnmount(&kernelFsScratchMiniFs);
 						return read;
@@ -803,13 +757,19 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 
 bool kernelFsFileCanRead(KernelFsFd fd) {
 	// Invalid fd?
-	if (kstrIsNull(kernelFsData.fdt[fd]))
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return false;
 
 	// Is this a virtual character device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd]);
-	if (device!=NULL && device->common.type==KernelFsDeviceTypeCharacter)
-		return device->character.canReadFunctor(device->common.userData);
+	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
+	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
+		assert(device==kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
+
+		if (device->common.type==KernelFsDeviceTypeCharacter)
+			return device->character.canReadFunctor(device->common.userData);
+	} else {
+		assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
+	}
 
 	// Otherwise all other file types never block
 	return true;
@@ -821,12 +781,15 @@ KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelF
 
 KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset offset, const uint8_t *data, KernelFsFileOffset dataLen) {
 	// Invalid fd?
-	if (kstrIsNull(kernelFsData.fdt[fd]))
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return 0;
 
-	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd]);
-	if (device!=NULL) {
+	// Is this a virtual device file, or is it the child of one?
+	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
+	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
+		assert(device==kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
+
+		// This fd IS the device cached in the fdt (rather than a child of it)
 		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
 				switch(device->block.format) {
@@ -860,23 +823,24 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 			case KernelFsDeviceTypeNB:
 			break;
 		}
-	}
+	} else {
+		assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 
-	// Check for being a child of a virtual block device
-	char *dirname, *basename;
-	kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
+		// This fd is a child of the devices cached in the fdt
+		char *dirname, *basename;
+		kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
 
-	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
-	if (parentDevice!=NULL) {
-		switch(parentDevice->common.type) {
+		assert(device==kernelFsGetDeviceFromPath(dirname));
+
+		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
-				switch(parentDevice->block.format) {
+				switch(device->block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						if (offset>=UINT16_MAX)
 							return false;
 						if (dataLen>=UINT16_MAX)
 							dataLen=UINT16_MAX;
-						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (parentDevice->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
+						miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (device->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), device);
 						KernelFsFileOffset res=miniFsFileWrite(&kernelFsScratchMiniFs, basename, offset, data, dataLen);
 						miniFsUnmount(&kernelFsScratchMiniFs);
 						return res;
@@ -914,19 +878,21 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 
 bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelFsPathMax]) {
 	// Invalid fd?
-	if (kstrIsNull(kernelFsData.fdt[fd]))
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return false;
 
 	// Is this a virtual device file?
-	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd]);
-	if (device!=NULL) {
+	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
+	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
+		assert(device==kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
+
 		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
 				switch(device->block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
 						KernelFsFd j=0;
 						for(KernelFsFd i=0; i<MINIFSMAXFILES; ++i) {
-							kstrStrcpy(childPath, kernelFsData.fdt[fd]);
+							kstrStrcpy(childPath, kernelFsData.fdt[fd].path);
 							strcat(childPath, "/");
 							miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (device->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), device);
 							bool res=miniFsGetChildN(&kernelFsScratchMiniFs, i, childPath+strlen(childPath));
@@ -965,7 +931,7 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 					if (childDevice->common.type==KernelFsDeviceTypeNB)
 						continue;
 
-					kstrStrcpy(childPath, kernelFsData.fdt[fd]); // Borrow childPath as a generic buffer temporarily
+					kstrStrcpy(childPath, kernelFsData.fdt[fd].path); // Borrow childPath as a generic buffer temporarily
 					if (kernelFsDeviceIsChildOfPath(childDevice, childPath)) {
 						if (foundCount==childNum) {
 							kstrStrcpy(childPath, childDevice->common.mountPoint);
@@ -1169,6 +1135,12 @@ KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path) {
 	return NULL;
 }
 
+KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device) {
+	if (device==NULL)
+		return KernelFsDevicesMax;
+	return (((const uint8_t *)device)-((const uint8_t *)kernelFsData.devices))/sizeof(KernelFsDevice);
+}
+
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, void *userData, KernelFsDeviceType type) {
 	assert(!kstrIsNull(mountPoint));
 	assert(type<KernelFsDeviceTypeNB);
@@ -1242,6 +1214,88 @@ bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir) 
 	return (strcmp(dirname, parentDir)==0);
 }
 
+bool kernelFsDeviceIsDir(const KernelFsDevice *device) {
+	// Only block and directory type devices operate as directories
+	switch(device->common.type) {
+		case KernelFsDeviceTypeBlock:
+			switch(device->block.format) {
+				case KernelFsBlockDeviceFormatCustomMiniFs:
+					return true;
+				break;
+				case KernelFsBlockDeviceFormatFlatFile:
+					return false;
+				break;
+				case KernelFsBlockDeviceFormatNB:
+					assert(false);
+					return false;
+				break;
+			}
+		break;
+		case KernelFsDeviceTypeCharacter:
+			return false;
+		break;
+		case KernelFsDeviceTypeDirectory:
+			return true;
+		break;
+		case KernelFsDeviceTypeNB:
+			assert(false);
+			return false;
+		break;
+	}
+
+	return false;
+}
+
+bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device) {
+	// Only block and directory type devices operate as directories
+	switch(device->common.type) {
+		case KernelFsDeviceTypeBlock:
+			switch(device->block.format) {
+				case KernelFsBlockDeviceFormatCustomMiniFs:
+					miniFsMountFast(&kernelFsScratchMiniFs, &kernelFsMiniFsReadWrapper, (device->block.writeFunctor!=NULL ? &kernelFsMiniFsWriteWrapper : NULL), (KernelFsDevice *)device);
+					bool res=miniFsIsEmpty(&kernelFsScratchMiniFs);
+					miniFsUnmount(&kernelFsScratchMiniFs);
+					return res;
+				break;
+				case KernelFsBlockDeviceFormatFlatFile:
+					// These are not directories
+					return false;
+				break;
+				case KernelFsBlockDeviceFormatNB:
+					assert(false);
+					return false;
+				break;
+			}
+		break;
+		case KernelFsDeviceTypeCharacter:
+			return false;
+		break;
+		case KernelFsDeviceTypeDirectory: {
+			// Check explicit virtual devices as children
+			for(uint8_t i=0; i<KernelFsDevicesMax; ++i) {
+				KernelFsDevice *childDevice=&kernelFsData.devices[i];
+				if (childDevice->common.type==KernelFsDeviceTypeNB)
+					continue;
+
+				char path[KernelFsPathMax];
+				kstrStrcpy(path, device->common.mountPoint);
+				if (kernelFsDeviceIsChildOfPath(childDevice, path))
+					// Not empty
+					return false;
+			}
+
+			// Empty
+			return true;
+		} break;
+		case KernelFsDeviceTypeNB:
+			assert(false);
+			return false;
+		break;
+	}
+
+	return false;
+}
+
 uint16_t kernelFsMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData) {
 	assert(userData!=NULL);
 
@@ -1258,12 +1312,7 @@ uint16_t kernelFsMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t
 	KernelFsDevice *device=(KernelFsDevice *)userData;
 	assert(device->common.type==KernelFsDeviceTypeBlock);
 	assert(device->block.format==KernelFsBlockDeviceFormatCustomMiniFs);
-
-	if (device->block.writeFunctor==NULL) {
-		// Error as we should never have passed a write functor into mount call.
-		assert(false);
-		return 0;
-	}
+	assert(device->block.writeFunctor!=NULL);
 
 	return device->block.writeFunctor(addr, data, len, device->common.userData);
 }
@@ -1284,12 +1333,7 @@ uint32_t kernelFsFatWriteWrapper(uint32_t addr, const uint8_t *data, uint32_t le
 	KernelFsDevice *device=(KernelFsDevice *)userData;
 	assert(device->common.type==KernelFsDeviceTypeBlock);
 	assert(device->block.format==KernelFsBlockDeviceFormatFat);
-
-	if (device->block.writeFunctor==NULL) {
-		// Error as we should never have passed a write functor into mount call.
-		assert(false);
-		return 0;
-	}
+	assert(device->block.writeFunctor!=NULL);
 
 	return device->block.writeFunctor(addr, data, len, device->common.userData);
 }
