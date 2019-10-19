@@ -48,6 +48,9 @@ int exitStatus=EXIT_SUCCESS;
 bool processRunNextInstruction(Process *process);
 void processDebug(const Process *process);
 
+int emulatorClz8(uint8_t x);
+int emulatorClz16(uint16_t x);
+
 int main(int argc, char **argv) {
 	FILE *inputFile=NULL;
 
@@ -351,6 +354,14 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[srcDestReg]=memValue;
 							if (infoInstructions)
 								printf("Info: xchg *r%i r%i\n", info.d.alu.destReg, srcDestReg);
+						} break;
+						case BytecodeInstructionAluExtraTypeClz: {
+							BytecodeRegister destReg=info.d.alu.destReg;
+							BytecodeWord srcValue=process->regs[info.d.alu.opAReg];
+							process->regs[destReg]=emulatorClz16(srcValue);
+
+							if (infoInstructions)
+								printf("Info: clz r%i r%i (=clz(%u)=%u)\n", destReg, info.d.alu.opAReg, srcValue, process->regs[destReg]);
 						} break;
 						default:
 							printf("Error: Unknown alu extra instruction with type %i\n", info.d.alu.opBReg);
@@ -834,4 +845,18 @@ void processDebug(const Process *process) {
 	for(int i=0; i<8; ++i)
 		printf(" r%i=%u", i, process->regs[i]);
 	printf("\n");
+}
+
+int emulatorClz8(uint8_t x) {
+	const int array[256]={8,7,6,6,5,5,5,5,4,4,4,4,4,4,4,4,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	return array[x];
+}
+
+int emulatorClz16(uint16_t x) {
+	uint8_t upper=x>>8;
+	if (upper!=0)
+		return emulatorClz8(upper);
+
+	uint8_t lower=x&255;
+	return emulatorClz8(lower)+8;
 }

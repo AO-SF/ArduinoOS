@@ -1,3 +1,3 @@
 require abs.s
-require int32.s
+require log.s
 require mod.s

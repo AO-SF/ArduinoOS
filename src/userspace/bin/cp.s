@@ -4,6 +4,7 @@ requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
+requireend lib/std/proc/getpath.s
 requireend lib/std/proc/openpath.s
 
 db usageStr 'usage: cp SOURCE DEST\n', 0
