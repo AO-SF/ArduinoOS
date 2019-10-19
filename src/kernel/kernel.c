@@ -324,7 +324,7 @@ void kernelBoot(void) {
 	// Set logging level to warnings and errors only
 	kernelLogSetLevel(LogLevelWarning);
 
-	// Initialise SPI devices ASAP
+	// Initialise HW devices ASAP
 	hwDeviceInit();
 
 	// Init SPI bus (ready to map to /dev/spi).
@@ -762,7 +762,7 @@ bool kernelDevDigitalPinCanReadFunctor(void *userData) {
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
 
-	// Forbid writes from user space to SPI device pins (unless associated device has type HwDeviceTypeRaw).
+	// Forbid writes from user space to HW device pins (unless associated device has type HwDeviceTypeRaw).
 	HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
 	if (hwDeviceId!=HwDeviceIdMax && hwDeviceGetType(hwDeviceId)!=HwDeviceTypeRaw)
 		return 0;
