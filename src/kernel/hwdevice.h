@@ -9,6 +9,7 @@ typedef enum {
 	HwDeviceTypeRaw, // let the user write to the two associated pins
 	HwDeviceTypeSdCardReader,
 	HwDeviceTypeDht22, // DHT22 moisture and humidity sensor
+	HwDeviceTypeAtWinc1500, // ATWINC1500 wireless module
 } HwDeviceType;
 
 typedef uint8_t HwDeviceId;

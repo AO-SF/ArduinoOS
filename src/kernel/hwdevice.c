@@ -95,6 +95,9 @@ void hwDeviceTick(void) {
 				// Update values
 				hwDeviceDht22Read(i);
 			} break;
+			case HwDeviceTypeAtWinc1500:
+				// TODO: this
+			break;
 		}
 	}
 }
@@ -137,6 +140,9 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 			hwDevices[id].d.dht22.humitity=0; // indicate we need to read again ASAP
 			hwDevices[id].d.dht22.lastReadTime=0; // indicate we need to read again ASAP
 		break;
+		case HwDeviceTypeAtWinc1500:
+			// TODO: this
+		break;
 	}
 
 	return true;
@@ -172,6 +178,9 @@ void hwDeviceDeregister(HwDeviceId id) {
 		break;
 		case HwDeviceTypeDht22:
 			// Nothing to do (power pin is turned off below which disables the device)
+		break;
+		case HwDeviceTypeAtWinc1500:
+			// TODO: this
 		break;
 	}
 
