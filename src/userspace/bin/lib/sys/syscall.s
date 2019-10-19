@@ -81,6 +81,7 @@ const SyscallHwDeviceTypeUnused 0
 const SyscallHwDeviceTypeRaw 1
 const SyscallHwDeviceTypeSdCardReader 2
 const SyscallHwDeviceTypeDht22 3
+const SyscallHwDeviceTypeAtWinc1500 4
 
 ; Mount type/format constants
 const SyscallMountFormatCustomMiniFs 0

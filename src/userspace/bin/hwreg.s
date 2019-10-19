@@ -10,6 +10,7 @@ db badTypeStr 'Bad type\n',0
 db typeStrRaw 'raw',0
 db typeStrSdCardReader 'sdcardreader',0
 db typeStrDht22 'dht22',0
+db typeStrAtWinc1500 'atwinc1500',0
 
 ab argBuf ArgLenMax
 
@@ -58,6 +59,13 @@ cmp r0 r0 r0
 skipneqz r0
 jmp typeIsDht22
 
+mov r0 argBuf
+mov r1 typeStrAtWinc1500
+call strcmp
+cmp r0 r0 r0
+skipneqz r0
+jmp typeIsAtWinc1500
+
 jmp badType
 
 label typeIsRaw
@@ -70,6 +78,10 @@ jmp doSyscall
 
 label typeIsDht22
 mov r2 SyscallHwDeviceTypeDht22
+jmp doSyscall
+
+label typeIsAtWinc1500
+mov r2 SyscallHwDeviceTypeAtWinc1500
 jmp doSyscall
 
 ; Use syscall to register device

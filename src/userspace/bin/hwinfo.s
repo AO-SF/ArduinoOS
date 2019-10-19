@@ -8,6 +8,7 @@ db typeStrUnused 'unused',0
 db typeStrRaw 'raw',0
 db typeStrSdCardReader 'SD card reader',0
 db typeStrDht22 'DHT22 Sensor',0
+db typeStrAtWinc1500 'ATWINC1500 wireless module',0
 db typeStrUnknown 'unknown',0
 
 ; Register simple suicide handler
@@ -53,6 +54,11 @@ cmp r1 r0 r1
 skipneq r1
 jmp printTypeDht22
 
+mov r1 SyscallHwDeviceTypeAtWinc1500
+cmp r1 r0 r1
+skipneq r1
+jmp printTypeAtWinc1500
+
 mov r0 typeStrUnknown
 call puts0
 jmp printTypeEnd
@@ -74,6 +80,11 @@ jmp printTypeEnd
 
 label printTypeDht22
 mov r0 typeStrDht22
+call puts0
+jmp printTypeEnd
+
+label printTypeAtWinc1500
+mov r0 typeStrAtWinc1500
 call puts0
 jmp printTypeEnd
 
