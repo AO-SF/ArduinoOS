@@ -4,7 +4,6 @@ const int32toStrBufSize 12 ; includes space for null terminator and potential mi
 label int32toStr
 ; TODO: this
 ; Add null terminator
-label temptemp
 mov r1 0
 store8 r0 r1
 ; Return
