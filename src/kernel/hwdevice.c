@@ -109,7 +109,7 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 		return false;
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("registered SPI device id=%u type=%u\n"), id, type);
+	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u\n"), id, type);
 
 	// Set type to mark slot as used
 	hwDevices[id].type=type;
@@ -180,7 +180,7 @@ void hwDeviceDeregister(HwDeviceId id) {
 	pinWrite(hwDeviceGetDataPin(id), true);
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("deregistered SPI device id=%u type=%u\n"), id, hwDevices[id].type);
+	kernelLog(LogTypeInfo, kstrP("deregistered HW device id=%u type=%u\n"), id, hwDevices[id].type);
 
 	// Clear type to mark slot as unused
 	hwDevices[id].type=HwDeviceTypeUnused;
@@ -225,26 +225,26 @@ HwDeviceId hwDeviceGetDeviceForPin(uint8_t pinNum) {
 bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
 	// Bad id?
 	if (id>=HwDeviceIdMax) {
-		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: bad id (id=%u, mountPoint='%s')\n"), id, mountPoint);
+		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: bad id (id=%u, mountPoint='%s')\n"), id, mountPoint);
 		return false;
 	}
 
 	// Device slot not used for an SD card reader?
 	if (hwDeviceGetType(id)!=HwDeviceTypeSdCardReader) {
-		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: bad device type (id=%u, mountPoint='%s')\n"), id, mountPoint);
+		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: bad device type (id=%u, mountPoint='%s')\n"), id, mountPoint);
 		return false;
 	}
 
 	// Already have a card mounted using this device?
 	if (hwDevices[id].d.sdCardReader.sdCard.type!=SdTypeBadCard) {
-		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: card already mounted (id=%u, mountPoint='%s')\n"), id, mountPoint);
+		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: card already mounted (id=%u, mountPoint='%s')\n"), id, mountPoint);
 		return false;
 	}
 
 	// Attempt to power on and initialise SD card
 	SdInitResult sdInitRes=sdInit(&hwDevices[id].d.sdCardReader.sdCard, hwDeviceGetPowerPin(id), hwDeviceGetDataPin(id));
 	if (sdInitRes!=SdInitResultOk) {
-		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: sd init failed with %u (id=%u, mountPoint='%s')\n"), sdInitRes, id, mountPoint);
+		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: sd init failed with %u (id=%u, mountPoint='%s')\n"), sdInitRes, id, mountPoint);
 		return false;
 	}
 
@@ -256,13 +256,13 @@ bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
 
 	KernelFsFileOffset size=hwDevices[id].d.sdCardReader.sdCard.blockCount;
 	if (size>=maxBlockCount) {
-		kernelLog(LogTypeWarning, kstrP("SPI device SD card reader mount: block count too large, reducing from %"PRIu32" to %"PRIu32" (id=%u, mountPoint='%s')\n"), size, maxBlockCount-1, id, mountPoint);
+		kernelLog(LogTypeWarning, kstrP("HW device SD card reader mount: block count too large, reducing from %"PRIu32" to %"PRIu32" (id=%u, mountPoint='%s')\n"), size, maxBlockCount-1, id, mountPoint);
 		size=maxBlockCount-1;
 	}
 	size*=SdBlockSize;
 
 	if (!kernelFsAddBlockDeviceFile(kstrC(mountPoint), KernelFsBlockDeviceFormatFlatFile, size, &hwDeviceSdCardReaderReadFunctor, &hwDeviceSdCardReaderWriteFunctor, (void *)(uintptr_t)id)) {
-		kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount failed: could not add block device to VFS (id=%u, mountPoint='%s', size=%"PRIu32")\n"), id, mountPoint, size);
+		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: could not add block device to VFS (id=%u, mountPoint='%s', size=%"PRIu32")\n"), id, mountPoint, size);
 		sdQuit(&hwDevices[id].d.sdCardReader.sdCard);
 		return false;
 	}
@@ -271,7 +271,7 @@ bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
 	hwDevices[id].d.sdCardReader.mountPoint=kstrC(mountPoint);
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("SPI device SD card reader mount success (id=%u, mountPoint='%s', size=%"PRIu32")\n"), id, mountPoint, size);
+	kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount success (id=%u, mountPoint='%s', size=%"PRIu32")\n"), id, mountPoint, size);
 
 	return true;
 }
@@ -295,10 +295,10 @@ void hwDeviceSdCardReaderUnmount(HwDeviceId id) {
 
 	// Write out cached block if valid but dirty
 	if (hwDevices[id].d.sdCardReader.cacheIsValid && hwDevices[id].d.sdCardReader.cacheIsDirty && !sdWriteBlock(&hwDevices[id].d.sdCardReader.sdCard, hwDevices[id].d.sdCardReader.cacheBlock, hwDevices[id].d.sdCardReader.cache))
-		kernelLog(LogTypeWarning, kstrP("SPI device SD card reader unmount: failed to write back dirty block %"PRIu32" (id=%u, mountPoint='%s')\n"), hwDevices[id].d.sdCardReader.cacheBlock, id, mountPoint);
+		kernelLog(LogTypeWarning, kstrP("HW device SD card reader unmount: failed to write back dirty block %"PRIu32" (id=%u, mountPoint='%s')\n"), hwDevices[id].d.sdCardReader.cacheBlock, id, mountPoint);
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("SPI device SD card reader unmount (id=%u, mountPoint='%s')\n"), id, mountPoint);
+	kernelLog(LogTypeInfo, kstrP("HW device SD card reader unmount (id=%u, mountPoint='%s')\n"), id, mountPoint);
 
 	// Remove virtual device file representing the card
 	kernelFsFileDelete(mountPoint);
