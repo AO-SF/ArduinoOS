@@ -59,7 +59,6 @@ inc r0
 call int32exp10 ; r0 now contains pointer to 10^(first guess + 1)
 pop16 r1 ; restore x pointer into r1
 call int32LessEqual
-debug
 pop8 r1 ; restore first guess
 ; r0 now contains 1 if first guess needs incrementing, 0 if not
 add r0 r0 r1
