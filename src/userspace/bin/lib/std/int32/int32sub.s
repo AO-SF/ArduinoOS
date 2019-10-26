@@ -25,35 +25,44 @@ sub r2 r2 r1
 store16 r0 r2
 ret
 
-; int32sub32(dest=r0, opA=r1) - both arguments pointers to 32 bit values
+; int32sub32(dest=r0, opA=r1) - performs dest=dest-opA, where both arguments are pointers to 32 bit values
 label int32sub32
-; Subtract upper half of opA from dest
-load16 r2 r0
-load16 r3 r1
-sub r2 r2 r3
-store16 r0 r2
-; Do we need to borrow to subtract the lower halves?
+; Are we able to subtract lower parts,
+; or do we need to borrow/carry from upper?
 inc2 r0
 inc2 r1
 load16 r2 r0
 load16 r3 r1
 cmp r4 r2 r3
-skipge r4
-jmp int32sub32Borrow
-; Standard case - subtract lower half of opA from dest
-sub r2 r2 r3
-store16 r0 r2
-ret
-; Borrow case
-label int32sub32Borrow (lower half of dest in r2, lower half of opA in r3)
-; Compute 2^16-opAlow and add this to dest lower half instead
+skiplt r4
+jmp int32sub32NoBorrow
+; Need to borrow/carry from upper part of dest
+; Note: instead of doing (64k+dest.lower)-opA.lower -
+; which would overflow our 16 bit registers -
+; we do (64k-opA.lower)+dest.lower
 mov r4 65535
-xor r3 r3 r4
-add r2 r2 r3
-store16 r0 r2
-; Decrement upper half of dest (this is the 'borrow')
+dec r3
+xor r4 r3 r4 ; calculate 64k-opA.lower
+add r4 r4 r2 ; add dest.lower
+store16 r0 r4 ; update dest.lower
+; Also decrement dest.upper
 dec2 r0
 load16 r2 r0
 dec r2
 store16 r0 r2
+jmp int32sub32UpperHalves
+; No need to borrow - dest.lower is at least opA.lower,
+; so simply subtract lower halves
+label int32sub32NoBorrow
+sub r4 r2 r3
+store16 r0 r4
+; Move onto upper halves (nothing to borrow from here)
+dec2 r0
+label int32sub32UpperHalves
+dec2 r1
+load16 r2 r0
+load16 r3 r1
+sub r4 r2 r3
+store16 r0 r4
+; Done
 ret
