@@ -40,3 +40,21 @@ call fputs
 mov r4 int32toStrBufSize
 sub r6 r6 r4
 ret
+
+; int32debug(x=r0) - prints 32 bit integer pointed to by x in the form: "{upper,lower}", with upper and lower in decimal.
+label int32debug
+push16 r0
+mov r0 '{'
+call putc0
+pop16 r0
+push16 r0
+call int32getUpper16
+call putdec
+mov r0 ','
+call putc0
+pop16 r0
+call int32getLower16
+call putdec
+mov r0 '}'
+call putc0
+ret
