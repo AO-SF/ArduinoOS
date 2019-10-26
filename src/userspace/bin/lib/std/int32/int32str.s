@@ -4,19 +4,18 @@ requireend int32log.s
 
 const int32toStrBufSize 12 ; includes space for null terminator and potential minus sign
 
-aw int32toStrScratchInt32A 2
-aw int32toStrScratchInt32B 2
+aw int32toStrScratchInt32 2
 
 ; int32toStr(str=r0, x=r1) - write 32 bit value pointed to by x in decimal into given str buffer. buffer should hold at least int32toStrBufSize bytes
 label int32toStr
 ; Copy x into scratch int so we can modify
 push16 r0
-mov r0 int32toStrScratchInt32A
+mov r0 int32toStrScratchInt32
 call int32set32
 pop16 r0
 ; Calculate log10(x)+1 to get length in decimal (log10 handles x=0 case in our favour)
 push16 r0
-mov r0 int32toStrScratchInt32A
+mov r0 int32toStrScratchInt32
 call int32log10
 inc r0
 mov r1 r0
@@ -31,12 +30,15 @@ dec r0
 label int32toStrLoopStart
 ; Divide x by 10 while making note of the remainder.
 push16 r0
-mov r0 int32toStrScratchInt32A
+mov r0 int32toStrScratchInt32
 mov r1 Int32Const1E1
-mov r2 int32toStrScratchInt32B
+mov r2 r6 ; use stack to store remainder
+inc4 r6
 call int32div32rem
-mov r0 int32toStrScratchInt32B
+mov r0 r6
+dec4 r0
 call int32getLower16
+dec4 r6 ; restore stack as we are finished with the remainder
 mov r1 r0
 pop16 r0
 ; Print digit to str (str ptr in r0, digit in r1)
@@ -45,7 +47,7 @@ store8 r0 r1
 dec r0
 ; If remaining value is greater than 0, loop again to print next digit
 push16 r0
-mov r0 int32toStrScratchInt32A
+mov r0 int32toStrScratchInt32
 mov r1 Int32Const0
 call int32Equal
 cmp r1 r0 r0
