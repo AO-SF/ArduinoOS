@@ -1,4 +1,6 @@
 requireend ../io/fput.s
+
+requireend int32get.s
 requireend int32str.s
 
 ; int32put0(x=r0) - equivalent to int32fput0(x, stdout)

@@ -1,6 +1,7 @@
 require int32common.s
 
 requireend int32cmp.s
+requireend int32exp.s
 
 ; Array used to lookup first guess to log10(x) based on clz(x)
 ; note: first two entries should be 9 in theory,
