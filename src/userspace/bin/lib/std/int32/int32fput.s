@@ -1,4 +1,7 @@
 requireend ../io/fput.s
+requireend ../io/fputdec.s
+
+requireend int32get.s
 requireend int32str.s
 
 ; int32put0(x=r0) - equivalent to int32fput0(x, stdout)
@@ -39,4 +42,22 @@ call fputs
 ; Restore stack
 mov r4 int32toStrBufSize
 sub r6 r6 r4
+ret
+
+; int32debug(x=r0) - prints 32 bit integer pointed to by x in the form: "{upper,lower}", with upper and lower in decimal.
+label int32debug
+push16 r0
+mov r0 '{'
+call putc0
+pop16 r0
+push16 r0
+call int32getUpper16
+call putdec
+mov r0 ','
+call putc0
+pop16 r0
+call int32getLower16
+call putdec
+mov r0 '}'
+call putc0
 ret
