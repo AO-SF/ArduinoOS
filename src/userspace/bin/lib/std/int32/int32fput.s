@@ -1,4 +1,5 @@
 requireend ../io/fput.s
+requireend ../io/fputdec.s
 
 requireend int32get.s
 requireend int32str.s
