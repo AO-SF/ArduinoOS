@@ -28,9 +28,9 @@ static const HwDevicePinPair hwDevicePinPairs[HwDeviceIdMax] PROGMEM ={
 };
 
 typedef struct {
+	uint64_t lastReadTime;
 	int16_t temperature;
 	int16_t humitity;
-	uint32_t lastReadTime;
 } HwDeviceDht22Data;
 
 typedef struct {
