@@ -2,7 +2,9 @@ require lib/sys/sys.s
 
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputdec.s
-requireend lib/std/int32/int32.s
+requireend lib/std/int32/int32div.s
+requireend lib/std/int32/int32get.s
+requireend lib/std/int32/int32mul.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strpad.s
 
