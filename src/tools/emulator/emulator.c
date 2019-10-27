@@ -551,6 +551,7 @@ bool processRunNextInstruction(Process *process) {
 						case BytecodeSyscallIdDirGetChildN:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [dirgetchildn] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdGetPath: {
 							if (infoSyscalls)
