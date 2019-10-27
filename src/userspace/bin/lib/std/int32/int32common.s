@@ -12,3 +12,6 @@ dw Int32Const1E6 15,16960 ; 10^6
 dw Int32Const1E7 152,38528
 dw Int32Const1E8 1525,57600
 dw Int32Const1E9 15258,51712 ; 10^9
+
+; Other
+dw Int32Const2E9 30517,37888 ; 2*10^9

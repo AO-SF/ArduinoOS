@@ -10,9 +10,9 @@
 
 void ktimeInit(void);
 
-uint32_t ktimeGetMs(void); // ms since boot
+uint64_t ktimeGetMs(void); // ms since boot
 
-void ktimeDelayMs(uint32_t ms);
+void ktimeDelayMs(uint64_t ms);
 
 // Note: we have to define ktimeDelayUs this way as the AVR libc function _delay_us needs a compile time constant argument
 #ifdef ARDUINO

@@ -15,7 +15,7 @@ cmp r4 r2 r3
 skipeq r4
 jmp int32EqualFalse
 ; Equal
-mov r1 1
+mov r0 1
 ret
 label int32EqualFalse
 mov r0 0
