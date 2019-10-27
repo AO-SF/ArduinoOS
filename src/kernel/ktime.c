@@ -9,6 +9,7 @@
 
 #include "log.h"
 #include "ktime.h"
+#include "util.h"
 
 uint64_t ktimeBootTime=0;
 

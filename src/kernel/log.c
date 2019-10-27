@@ -13,6 +13,7 @@
 #include "avrlib.h"
 #include "log.h"
 #include "ktime.h"
+#include "util.h"
 
 LogLevel kernelLogLevel=LogLevelInfo;
 
