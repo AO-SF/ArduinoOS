@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -64,11 +65,22 @@ struct ProcManProcessProcData {
 };
 
 typedef struct {
+	uint64_t pid:8;
+	uint64_t timeoutTime:48; // set to 0 if infinite. note: we take the lowest 48 bits of the time, which is zero for the first ~8900 years after the system is booted
+} ProcManProcessStateWaitingWaitpidData;
+
+typedef struct {
+	KernelFsFd fd;
+} ProcManProcessStateWaitingReadData;
+
+typedef struct {
 	uint16_t instructionCounter; // reset regularly
-	uint16_t waitingData16;
 	KernelFsFd progmemFd, procFd;
 	uint8_t state;
-	uint8_t waitingData8;
+	union {
+		ProcManProcessStateWaitingWaitpidData waitingWaitpid;
+		ProcManProcessStateWaitingReadData waitingRead;
+	} stateData;
 #ifndef ARDUINO
 	ProfileCounter profilingCounts[BytecodeMemoryProgmemSize];
 #endif
@@ -355,7 +367,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 			kstrStrcpy(profilingExecBaseNameRaw, kernelFsGetFilePath(process->progmemFd));
 			profilingExecBaseName=basename(profilingExecBaseNameRaw);
 		}
-		sprintf(profilingFilePath, "profile.%u.%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
+		sprintf(profilingFilePath, "profile.%"PRIu64".%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
 		FILE *profilingFile=fopen(profilingFilePath, "w");
 		if (profilingFile!=NULL) {
 			// Determine highest address instruction that was executed
@@ -450,7 +462,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 	// Check if any processes are waiting due to waitpid syscall
 	for(ProcManPid waiterPid=0; waiterPid<ProcManPidMax; ++waiterPid) {
 		ProcManProcess *waiterProcess=procManGetProcessByPid(waiterPid);
-		if (waiterProcess!=NULL && waiterProcess->state==ProcManProcessStateWaitingWaitpid && waiterProcess->waitingData8==pid) {
+		if (waiterProcess!=NULL && waiterProcess->state==ProcManProcessStateWaitingWaitpid && waiterProcess->stateData.waitingWaitpid.pid==pid) {
 			// Bring this process back to life, storing the exit status into r0
 			BytecodeWord r0Value=exitStatus;
 			if (!procManProcessSaveProcDataReg(waiterProcess, 0, r0Value)) {
@@ -488,7 +500,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingWaitpid: {
 			// Is this process waiting for a timeout, and that time has been reached?
-			if (process->waitingData16>0 && ktimeGetMs()/1000>=process->waitingData16) {
+			if (process->stateData.waitingWaitpid.timeoutTime>0 && ktimeGetMs()>=process->stateData.waitingWaitpid.timeoutTime) {
 				// It has - load process data so we can update the state and set r0 to indicate a timeout occured
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (waitpid timeout) - could not load proc data, killing\n"), pid);
@@ -504,7 +516,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingRead: {
 			// Is data now available?
-			if (kernelFsFileCanRead(process->waitingData8)) {
+			if (kernelFsFileCanRead(process->stateData.waitingRead.fd)) {
 				// It is - load process data so we can update the state and read the data
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (read available) - could not load proc data, killing\n"), pid);
@@ -1253,8 +1265,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			} else {
 				// Otherwise indicate process is waiting for this pid to die
 				process->state=ProcManProcessStateWaitingWaitpid;
-				process->waitingData8=waitPid;
-				process->waitingData16=(timeout>0 ? (ktimeGetMs()+999)/1000+timeout : 0); // +999 is to make sure we do not sleep for less than the given number of seconds (as we would if we round the result of millis down)
+				process->stateData.waitingWaitpid.pid=waitPid;
+				process->stateData.waitingWaitpid.timeoutTime=(timeout>0 ? ktimeGetMs()+timeout*1000llu : 0);
 			}
 
 			return true;
@@ -1410,7 +1422,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			if (!kernelFsFileCanRead(fd)) {
 				// Reading would block - so enter waiting state until data becomes available.
 				process->state=ProcManProcessStateWaitingRead;
-				process->waitingData8=fd;
+				process->stateData.waitingRead.fd=fd;
 			} else {
 				// Otherwise read as normal (stopping before we would block)
 				if (!procManProcessRead(process, procData)) {

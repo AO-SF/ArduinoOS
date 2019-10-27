@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,7 @@
 #include "avrlib.h"
 #include "log.h"
 #include "ktime.h"
+#include "util.h"
 
 LogLevel kernelLogLevel=LogLevelInfo;
 
@@ -38,14 +40,16 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 
 	if (file!=NULL) {
 		// Print time
-		uint32_t t=ktimeGetMs();
-		uint16_t h=t/(60lu*60lu*1000lu);
-		t-=h*(60lu*60lu*1000lu);
-		uint16_t m=t/(60lu*1000lu);
-		t-=m*(60lu*1000lu);
-		uint16_t s=t/1000lu;
-		uint16_t ms=t-s*1000lu;
-		fprintf(file, "%3u:%02u:%02u:%03u ", h, m, s, ms);
+		uint64_t t=ktimeGetMs();
+		uint64_t d=t/(24llu*60llu*60llu*1000llu);
+		t-=d*(24llu*60llu*60llu*1000llu);
+		uint16_t h=t/(60llu*60llu*1000llu);
+		t-=h*(60llu*60llu*1000llu);
+		uint16_t m=t/(60llu*1000llu);
+		t-=m*(60llu*1000llu);
+		uint16_t s=t/1000llu;
+		uint16_t ms=t-s*1000llu;
+		fprintf(file, "%4"PRIu64":%02u:%02u:%02u:%03u ", d, h, m, s, ms);
 
 		// Print free memory (arduino only)
 		#ifdef ARDUINO
