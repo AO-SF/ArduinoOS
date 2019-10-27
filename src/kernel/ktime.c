@@ -9,10 +9,11 @@
 
 #include "log.h"
 #include "ktime.h"
+#include "util.h"
 
-uint32_t ktimeBootTime=0;
+uint64_t ktimeBootTime=0;
 
-uint32_t ktimeGetMsRaw(void);
+uint64_t ktimeGetMsRaw(void);
 
 #ifdef ARDUINO
 #define clockCyclesPerMicrosecond (F_CPU/1000000L)
@@ -24,14 +25,14 @@ uint32_t ktimeGetMsRaw(void);
 #define FRACT_INC ((MICROSECONDS_PER_TIMER0_OVERFLOW%1000)>>3)
 #define FRACT_MAX (1000>>3)
 
-volatile unsigned long millisTimerOverflowCount=0;
-volatile unsigned long millisTimerValue=0;
-static unsigned char millisTimerFractional=0;
+volatile uint64_t millisTimerOverflowCount=0;
+volatile uint64_t millisTimerValue=0;
+static uint8_t millisTimerFractional=0;
 
 ISR(TIMER0_OVF_vect) {
 	// Read volatile values
-	unsigned long m=millisTimerValue;
-	unsigned char f=millisTimerFractional;
+	uint64_t m=millisTimerValue;
+	uint8_t f=millisTimerFractional;
 
 	m+=MILLIS_INC;
 	f+=FRACT_INC;
@@ -56,14 +57,14 @@ void ktimeInit(void) {
 #endif
 
 	ktimeBootTime=ktimeGetMsRaw();
-	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %"PRIu32"\n"), ktimeBootTime);
+	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %"PRIu64"\n"), ktimeBootTime);
 }
 
-uint32_t ktimeGetMs(void) {
+uint64_t ktimeGetMs(void) {
 	return ktimeGetMsRaw()-ktimeBootTime;
 }
 
-void ktimeDelayMs(uint32_t ms) {
+void ktimeDelayMs(uint64_t ms) {
 	#ifdef ARDUINO
 	_delay_ms(ms);
 	#else
@@ -71,9 +72,9 @@ void ktimeDelayMs(uint32_t ms) {
 	#endif
 }
 
-uint32_t ktimeGetMsRaw(void) {
+uint64_t ktimeGetMsRaw(void) {
 	#ifdef ARDUINO
-	uint32_t ms;
+	uint64_t ms;
 	uint8_t oldSReg=SREG;
 	cli();
 	ms=millisTimerValue;

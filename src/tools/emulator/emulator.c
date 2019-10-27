@@ -427,7 +427,7 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [fork] (unimplemented)\n", syscallId);
 
-							// This is not implemented - simply return error
+							// The emulator is single-process so simply return error
 							process->regs[0]=ProcManPidMax;
 						break;
 						case BytecodeSyscallIdExec:
@@ -551,6 +551,7 @@ bool processRunNextInstruction(Process *process) {
 						case BytecodeSyscallIdDirGetChildN:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [dirgetchildn] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdGetPath: {
 							if (infoSyscalls)

@@ -67,7 +67,7 @@ KernelFsFd kernelSpiLockFd=KernelFsFdInvalid;
 uint8_t kernelSpiSlaveSelectPin;
 
 KernelState kernelState=KernelStateInvalid;
-uint32_t kernelStateTime=0;
+uint64_t kernelStateTime=0;
 
 #define kernelFatalError(format, ...) do { kernelLog(LogTypeError, format, ##__VA_ARGS__); kernelHalt(); } while(0)
 
@@ -192,7 +192,7 @@ int main(int argc, char **argv) {
 
 		// Run each process for 1 tick, and delay if we have spare time (PC wrapper only - pointless on Arduino)
 		#ifndef ARDUINO
-		uint32_t t=ktimeGetMs();
+		uint64_t t=ktimeGetMs();
 		#endif
 
 		procManTickAll();

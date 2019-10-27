@@ -18,6 +18,14 @@
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 #endif
 
+#ifndef PRIu64
+#ifdef ARDUINO
+#define PRIu64 "llu"
+#else
+#define PRIu64 "lu"
+#endif
+#endif
+
 int clz8(uint8_t x); // returns 8 if x=0
 int clz16(uint16_t x); // returns 16 if x=0
 

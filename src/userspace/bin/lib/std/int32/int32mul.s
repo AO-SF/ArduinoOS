@@ -1,5 +1,8 @@
 require int32common.s
 
+requireend int32add.s
+requireend int32set.s
+
 aw int32mulScratchInt32 2
 
 ; int32mul1616(dest=r0, opA=r1, opB=r2) - stores product of two 16-bit values opA and opB into 32-bit dest ptr
