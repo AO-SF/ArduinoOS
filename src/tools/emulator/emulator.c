@@ -588,6 +588,66 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [delete] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
+						case BytecodeSyscallIdRead32: {
+							// Note: this is identical to 16 bit case as we only support stdin anyway, which ignores offset.
+							if (process->regs[1]==process->envVars.stdinFd) {
+								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[3]], process->regs[4]);
+								if (result>=0)
+									process->regs[0]=result;
+								else
+									process->regs[0]=0;
+							} else
+								process->regs[0]=0;
+
+							if (infoSyscalls) {
+								printf("Info: syscall(id=%i [read], fd=%u, data=%u [", syscallId, process->regs[1], process->regs[3]);
+								for(int i=0; i<process->regs[0]; ++i)
+									printf("%c", process->memory[process->regs[3]+i]);
+								printf("], len=%u, read=%u)\n", process->regs[4], process->regs[0]);
+							}
+						} break;
+						case BytecodeSyscallIdWrite32: {
+							uint8_t fd=process->regs[1];
+							// uint16_t offsetPtr=process->regs[2]; // offsetPtr is ignored as we currently only allow writing to stdout
+							uint16_t bufAddr=process->regs[3];
+							uint16_t bufLen=process->regs[4];
+
+							if (fd==process->envVars.stdoutFd) {
+								for(int i=0; i<bufLen; ++i)
+									printf("%c", process->memory[bufAddr+i]);
+								fflush(stdout);
+								process->regs[0]=bufLen;
+							} else
+								process->regs[0]=0;
+
+							if (infoSyscalls) {
+								printf("Info: syscall(id=%i [write], fd=%u, data addr=%u [", syscallId, fd, bufAddr);
+								for(int i=0; i<bufLen; ++i)
+									printf("%c", process->memory[bufAddr+i]);
+								printf("], len=%u, written=%u)\n", bufLen, process->regs[0]);
+							}
+						} break;
+						case BytecodeSyscallIdResizeFile32:
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [resizefile32] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						break;
+						case BytecodeSyscallIdGetFileLen32: {
+							uint16_t destPtr=process->regs[2];
+							if (destPtr<BytecodeMemoryRamAddr) {
+								printf("Error: getfilelen32 syscall with destPtr in read-only region (destPtr=%u), exiting\n", destPtr);
+								return false;
+							}
+							if (destPtr==BytecodeMemoryTotalSize) {
+								printf("Error: getfilelen32 syscall with destPtr partially beyond end of writable region (destPtr=%u), exiting\n", destPtr);
+								return false;
+							}
+							process->memory[destPtr]=0;
+							process->memory[destPtr+1]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [filegetlen32] (unimplemented)\n", syscallId);
+						} break;
 						case BytecodeSyscallIdEnvGetStdinFd:
 							process->regs[0]=process->envVars.stdinFd;
 							if (infoSyscalls)

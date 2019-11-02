@@ -27,6 +27,10 @@ const SyscallIdTryReadByte 264
 const SyscallIdIsDir 265
 const SyscallIdFileExists 266
 const SyscallIdDelete 267
+const SyscallIdRead32 268
+const SyscallIdWrite32 269
+const SyscallIdResizeFile32 270
+const SyscallIdGetFileLen32 271
 
 const SyscallIdEnvGetStdinFd 512
 const SyscallIdEnvSetStdinFd 513
