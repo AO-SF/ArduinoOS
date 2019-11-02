@@ -1905,9 +1905,32 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		} break;
 		case BytecodeSyscallIdTimeMonotonic16s:
 			procData->regs[0]=(ktimeGetMs()/1000);
-
 			return true;
 		break;
+		case BytecodeSyscallIdTimeMonotonic16ms: {
+			procData->regs[0]=ktimeGetMs();
+			return true;
+		} break;
+		case BytecodeSyscallIdTimeMonotonic32s: {
+			BytecodeWord destPtr=procData->regs[1];
+
+			BytecodeDoubleWord result=(ktimeGetMs()/1000);
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, destPtr, result)) {
+				kernelLog(LogTypeWarning, kstrP("failed during timemonotonic32s syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			return true;
+		} break;
+		case BytecodeSyscallIdTimeMonotonic32ms: {
+			BytecodeWord destPtr=procData->regs[1];
+
+			BytecodeDoubleWord result=ktimeGetMs();
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, destPtr, result)) {
+				kernelLog(LogTypeWarning, kstrP("failed during timemonotonic32ms syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			return true;
+		} break;
 		case BytecodeSyscallIdRegisterSignalHandler: {
 			uint16_t signalId=procData->regs[1];
 			uint16_t handlerAddr=procData->regs[2];

@@ -42,6 +42,9 @@ const SyscallIdEnvGetStdoutFd 518
 const SyscallIdEnvSetStdoutFd 519
 
 const SyscallIdTimeMonotonic16s 768
+const SyscallIdTimeMonotonic16ms 769
+const SyscallIdTimeMonotonic32s 770
+const SyscallIdTimeMonotonic32ms 771
 
 const SyscallIdRegisterSignalHandler 1024
 
