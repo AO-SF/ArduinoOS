@@ -85,7 +85,7 @@ typedef enum {
 	BytecodeSyscallIdEnvSetPath=M(2,5),
 	BytecodeSyscallIdEnvGetStdoutFd=M(2,6),
 	BytecodeSyscallIdEnvSetStdoutFd=M(2,7),
-	BytecodeSyscallIdTimeMonotonic=M(3,0),
+	BytecodeSyscallIdTimeMonotonic16s=M(3,0),
 	BytecodeSyscallIdRegisterSignalHandler=M(4,0),
 	BytecodeSyscallIdShutdown=M(5,0),
 	BytecodeSyscallIdMount=M(5,1),

@@ -1903,7 +1903,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
-		case BytecodeSyscallIdTimeMonotonic:
+		case BytecodeSyscallIdTimeMonotonic16s:
 			procData->regs[0]=(ktimeGetMs()/1000);
 
 			return true;

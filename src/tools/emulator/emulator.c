@@ -684,10 +684,12 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetstdoutfd], new fd %u\n", syscallId, process->envVars.stdoutFd);
 						break;
-						case BytecodeSyscallIdTimeMonotonic:
+						case BytecodeSyscallIdTimeMonotonic16s:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [timemonotonic] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
+						break;
+							.....
 						break;
 						case BytecodeSyscallIdRegisterSignalHandler:
 							if (infoSyscalls)
