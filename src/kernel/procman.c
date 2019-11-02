@@ -1607,12 +1607,12 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
-		case BytecodeSyscallIdFileGetLen: {
+		case BytecodeSyscallIdGetFileLen: {
 			uint16_t pathAddr=procData->regs[1];
 
 			char path[KernelFsPathMax];
 			if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
-				kernelLog(LogTypeWarning, kstrP("failed during filegetlen syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				kernelLog(LogTypeWarning, kstrP("failed during getfilelen syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
 			kernelFsPathNormalise(path);

@@ -563,7 +563,7 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [resizefile] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case BytecodeSyscallIdFileGetLen:
+						case BytecodeSyscallIdGetFileLen:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [filegetlen] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
