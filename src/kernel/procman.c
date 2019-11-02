@@ -126,6 +126,7 @@ bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegist
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value);
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value);
+bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord *value);
 bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, char *str, uint16_t len);
 bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose); // block should not cross split in memory between two types
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value);
@@ -134,6 +135,7 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose);
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value);
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value);
+bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str);
 bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const uint8_t *data, uint16_t len); // Note: addr with len should not cross over the boundary between the two parts of memory.
 
@@ -742,6 +744,16 @@ bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcDat
 	return true;
 }
 
+bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord *value) {
+	uint16_t upper, lower;
+	if (!procManProcessMemoryReadWord(process, procData, addr, &upper))
+		return false;
+	if (!procManProcessMemoryReadWord(process, procData, addr+2, &lower))
+		return false;
+	*value=(((BytecodeDoubleWord)upper)<<16)|((BytecodeDoubleWord)lower);
+	return true;
+}
+
 bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, char *str, uint16_t len) {
 	while(len-->0) {
 		uint8_t c;
@@ -826,6 +838,14 @@ bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcDa
 	if (!procManProcessMemoryWriteByte(process, procData, addr, (value>>8)))
 		return false;
 	if (!procManProcessMemoryWriteByte(process, procData, addr+1, (value&0xFF)))
+		return false;
+	return true;
+}
+
+bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord value) {
+	if (!procManProcessMemoryWriteWord(process, procData, addr, (value>>16)))
+		return false;
+	if (!procManProcessMemoryWriteWord(process, procData, addr+2, (value&0xFFFF)))
 		return false;
 	return true;
 }
