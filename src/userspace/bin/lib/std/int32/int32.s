@@ -15,3 +15,4 @@ requireend int32set.s
 requireend int32shift.s
 requireend int32str.s
 requireend int32sub.s
+requireend int32time.s
