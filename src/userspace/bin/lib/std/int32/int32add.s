@@ -1,7 +1,24 @@
 ; int32inc(dest=r0)=int32add16(dest,1) - increment dest
-label int32inc
-mov r1 1
-jmp int32add16 ; this function will return for us
+; check if lower part will overflow
+inc2 r0
+load16 r1 r0
+mov r2 65535
+cmp r2 r1 r2
+skipneq r2
+jmp int32incOverflow
+; standard case - just increment lower
+inc r1
+store16 r0 r1
+ret
+; overflow case - set lower to 0 and inc upper
+label int32incOverflow
+mov r1 0
+store16 r0 r1
+dec2 r0
+load16 r1 r0
+inc r1
+store16 r0 r1
+ret
 
 ; int32add16(dest=r0, src=r1)
 label int32add16
