@@ -10,6 +10,16 @@
 
 typedef uint64_t KTime;
 
+typedef struct {
+	uint32_t year; // 1970-~584,526,042
+	uint8_t month; // 1-12
+	uint8_t day; // 1-31
+	uint8_t hour; // 0-23
+	uint8_t minute; // 0-59
+	uint8_t second; // 0-59
+	uint16_t ms; // 0-999
+} KDate;
+
 void ktimeInit(void);
 
 KTime ktimeGetMonotonicMs(void); // ms since boot
@@ -25,5 +35,7 @@ void ktimeSetRealMs(KTime ms); // if we get an update of the current real time t
 #else
 #define ktimeDelayUs(us) usleep(us)
 #endif
+
+void ktimeTimeMsToDate(KTime input, KDate *date);
 
 #endif

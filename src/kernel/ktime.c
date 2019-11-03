@@ -107,3 +107,26 @@ KTime ktimeGetRawMs(void) {
 	return tv.tv_sec*1000llu+tv.tv_usec/1000llu;
 	#endif
 }
+
+void ktimeTimeMsToDate(KTime input, KDate *date) {
+	date->ms=input%1000;
+	date->second=(input/1000)%60;
+	date->minute=(input/1000)/60%60;
+	date->hour=(input/1000)/60/60%24;
+
+	unsigned z=(input/1000)/86400; // days since 1st jan 1970
+	z+=719468;
+	unsigned era=z/146097;
+	unsigned doe=(z-era*146097); // [0, 146096]
+	unsigned yoe=(doe-doe/1460+doe/36524-doe/146096)/365; // [0, 399]
+	unsigned y=yoe+era*400;
+	unsigned doy=doe-(365*yoe+yoe/4-yoe/100); // [0, 365]
+	unsigned mp=(5*doy+2)/153; // [0, 11]
+	unsigned d=doy-(153*mp+2)/5+1; // [1, 31]
+	unsigned m=mp+(mp < 10 ? 3 : -9); // [1, 12]
+	y+=(m<=2);
+
+	date->year=y;
+	date->month=m;
+	date->day=d;
+}
