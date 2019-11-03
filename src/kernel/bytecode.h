@@ -77,6 +77,7 @@ typedef enum {
 	BytecodeSyscallIdWrite32=M(1,13),
 	BytecodeSyscallIdResizeFile32=M(1,14),
 	BytecodeSyscallIdGetFileLen32=M(1,15),
+	BytecodeSyscallIdAppend=M(1,16),
 	BytecodeSyscallIdEnvGetStdinFd=M(2,0),
 	BytecodeSyscallIdEnvSetStdinFd=M(2,1),
 	BytecodeSyscallIdEnvGetPwd=M(2,2),

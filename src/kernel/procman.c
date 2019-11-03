@@ -1841,6 +1841,78 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdAppend: {
+			uint16_t pathAddr=procData->regs[1];
+			uint16_t dataAddr=procData->regs[2];
+			uint16_t dataLen=procData->regs[3];
+
+			// Grab path
+			char path[KernelFsPathMax];
+			if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
+				kernelLog(LogTypeWarning, kstrP("failed during append syscall, could not read path, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			kernelFsPathNormalise(path);
+
+			if (!kernelFsPathIsValid(path)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+
+
+			// Grab file's current length
+			KernelFsFileOffset oldFileLen=kernelFsFileGetLen(path);
+
+			// If zero length attempt to create
+			KernelFsFileOffset newFileLen=oldFileLen+dataLen;
+			if (oldFileLen==0) {
+				// Note we do not check return as may already exist but just with 0 length, so this will fail in that case yet we still want to continue.
+				kernelFsFileCreateWithSize(path, newFileLen);
+			}
+
+			// Attempt to resize file (unless character device which has no size but can consume any number of bytes)
+			if (!kernelFsFileIsCharacter(path) && !kernelFsFileResize(path, newFileLen)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Attempt to open file
+			KernelFsFd fd=kernelFsFileOpen(path);
+			if (fd==KernelFsFdInvalid) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Write data to file
+			uint16_t i=0;
+			while(i<dataLen) {
+				KernelFsFileOffset chunkSize=dataLen-i;
+				if (chunkSize>256)
+					chunkSize=256;
+
+				if (!procManProcessMemoryReadBlock(process, procData, dataAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
+					kernelFsFileClose(fd);
+					kernelLog(LogTypeWarning, kstrP("failed during append syscall, could not read data chunk at %u size %u, process %u (%s), killing\n"), dataAddr+i, chunkSize, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+				if (kernelFsFileWriteOffset(fd, oldFileLen+i, (const uint8_t *)procManScratchBuf256, chunkSize)!=chunkSize) {
+					kernelFsFileClose(fd);
+					procData->regs[0]=0;
+					return true;
+				}
+
+				i+=chunkSize;
+			}
+
+			// Close file
+			kernelFsFileClose(fd);
+
+			// Indicate success
+			procData->regs[0]=1;
+
+			return true;
+		} break;
 		case BytecodeSyscallIdEnvGetStdinFd:
 			procData->regs[0]=procData->stdinFd;
 			return true;

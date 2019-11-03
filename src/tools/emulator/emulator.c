@@ -650,6 +650,11 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [filegetlen32] (unimplemented)\n", syscallId);
 						} break;
+						case BytecodeSyscallIdAppend: {
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [append] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						} break;
 						case BytecodeSyscallIdEnvGetStdinFd:
 							process->regs[0]=process->envVars.stdinFd;
 							if (infoSyscalls)
