@@ -1640,7 +1640,14 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				return false;
 			}
 			kernelFsPathNormalise(path);
-			procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileGetLen(path) : 0);
+
+			if (kernelFsPathIsValid(path)) {
+				KernelFsFileOffset fileLen=kernelFsFileGetLen(path);
+				if (fileLen>65535)
+					fileLen=65535;
+				procData->regs[0]=fileLen;
+			} else
+				procData->regs[0]=0;
 
 			return true;
 		} break;
