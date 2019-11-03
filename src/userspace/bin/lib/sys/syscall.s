@@ -46,6 +46,7 @@ const SyscallIdTimeMonotonic16ms 769
 const SyscallIdTimeMonotonic32s 770
 const SyscallIdTimeMonotonic32ms 771
 const SyscallIdTimeReal32s 772
+const SyscallIdTimeToDate32s 773
 
 const SyscallIdRegisterSignalHandler 1024
 

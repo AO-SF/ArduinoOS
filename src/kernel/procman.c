@@ -1941,6 +1941,35 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 			return true;
 		} break;
+		case BytecodeSyscallIdTimeToDate32s: {
+			// Grab arguments
+			BytecodeWord destDatePtr=procData->regs[1];
+			BytecodeWord srcTimePtr=procData->regs[2];
+
+			BytecodeDoubleWord srcTime;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, srcTimePtr, &srcTime)) {
+				kernelLog(LogTypeWarning, kstrP("failed during timetodate32s syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Decompose into date
+			KDate date;
+			ktimeTimeMsToDate(srcTime*((KTime)1000), &date);
+
+			// User space date struct has a slightly different structure.
+			// So have to copy field by field.
+			if (!procManProcessMemoryWriteWord(process, procData, destDatePtr+0, date.year) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+2, date.month) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+3, date.day) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+4, date.hour) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+5, date.minute) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+6, date.second)) {
+				kernelLog(LogTypeWarning, kstrP("failed during timetodate32s syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
 		case BytecodeSyscallIdRegisterSignalHandler: {
 			uint16_t signalId=procData->regs[1];
 			uint16_t handlerAddr=procData->regs[2];

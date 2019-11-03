@@ -9,6 +9,8 @@ requireend int32div.s
 requireend int32get.s
 requireend int32set.s
 
+const int32DateSize 7 ; 2 bytes for year, 1 each for others
+
 aw int32puttimeScratchInt32A 2
 aw int32puttimeScratchInt32B 2
 
@@ -108,4 +110,47 @@ call int32getLower16
 call putdec
 mov r0 's'
 call putc0
+ret
+
+; int32timeToDate(r0=dateDestPtr, r1=srcTimePtr) - decompose 32 bit time in seconds since epoch into a date struct with y/m/d/h/m/s.
+label int32timeToDate
+mov r2 r1
+mov r1 r0
+mov r0 SyscallIdTimeToDate32s
+syscall
+ret
+
+; int32dateGetYear(r0=datePtr) - returns year in r0 for given date
+label int32dateGetYear
+load16 r0 r0
+ret
+
+; int32dateGetMonth(r0=datePtr) - returns month in r0 for given date (1-12)
+label int32dateGetMonth
+inc2 r0
+load8 r0 r0
+ret
+
+; int32dateGetDay(r0=datePtr) - returns day in r0 for given date (1-31)
+label int32dateGetDay
+inc3 r0
+load8 r0 r0
+ret
+
+; int32dateGetHour(r0=datePtr) - returns hour in r0 for given date (0-23)
+label int32dateGetHour
+inc4 r0
+load8 r0 r0
+ret
+
+; int32dateGetMinute(r0=datePtr) - returns minute in r0 for given date (0-59)
+label int32dateGetMinute
+inc5 r0
+load8 r0 r0
+ret
+
+; int32dateGetSecond(r0=datePtr) - returns second in r0 for given date (0-59)
+label int32dateGetSecond
+inc6 r0
+load8 r0 r0
 ret

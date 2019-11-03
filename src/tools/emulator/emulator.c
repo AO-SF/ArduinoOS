@@ -756,6 +756,15 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [timereal32s] (unimplemented)\n", syscallId);
 						} break;
+						case BytecodeSyscallIdTimeToDate32s: {
+							uint16_t destPtr=process->regs[1];
+							uint16_t srcTimePtr=process->regs[1];
+
+							// TODO: at least write all zeros to fields
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [timetodate32s] (unimplemented)\n", syscallId);
+						} break;
 						case BytecodeSyscallIdRegisterSignalHandler:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [registersignalhandler] (unimplemented)\n", syscallId);
