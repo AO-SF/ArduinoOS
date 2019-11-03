@@ -13,7 +13,7 @@
 
 uint64_t ktimeBootTime=0;
 
-uint64_t ktimeGetRawMs(void);
+uint64_t ktimeGetRawMs(void); // like ktimeGetMonotonicMs() but offset by some constant (constant is arbitrary in arduino build, but in pc version it is such that this function returns the same as ktimeGetRealMs())
 
 #ifdef ARDUINO
 #define clockCyclesPerMicrosecond (F_CPU/1000000L)
