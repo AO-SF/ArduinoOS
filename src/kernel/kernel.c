@@ -791,7 +791,7 @@ void kernelCtrlCSend(void) {
 		return;
 
 	// Write to lo
-	kernelLog(LogTypeInfo, kstrP("ctrl+c flagged, sending interrupt to processes with '/dev/ttyS0' open"));
+	kernelLog(LogTypeInfo, kstrP("ctrl+c flagged, sending interrupt to processes with '/dev/ttyS0' open\n"));
 
 	// Loop over all processes looking for those with /dev/ttyS0 open
 	for(ProcManPid pid=0; pid<ProcManPidMax; ++pid) {
