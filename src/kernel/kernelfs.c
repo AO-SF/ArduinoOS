@@ -290,6 +290,10 @@ bool kernelFsFileIsCharacter(const char *path) {
 }
 
 KernelFsFileOffset kernelFsFileGetLen(const char *path) {
+	// Invalid path?
+	if (!kernelFsPathIsValid(path))
+		return 0;
+
 	// Is this a virtual device file?
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
 	if (device!=NULL) {
@@ -506,6 +510,10 @@ bool kernelFsFileDelete(const char *path) {
 }
 
 bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
+	// Invalid path?
+	if (!kernelFsPathIsValid(path))
+		return false;
+
 	// Ensure this file is not open
 	if (kernelFsFileIsOpen(path))
 		return false;
