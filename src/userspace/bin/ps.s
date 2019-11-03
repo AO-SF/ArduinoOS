@@ -8,7 +8,8 @@ requireend lib/std/int32/int32mul.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strpad.s
 
-db header '  PID  %CPU   RAM    STATE COMMAND\n', 0
+db header 'PID CPU RAM     STATE COMMAND\n', 0
+
 aw cpuCounts PidMax
 aw cpuTotal 1
 
@@ -98,7 +99,10 @@ label psPidGotState
 ; Print pid
 mov r0 psPidPid
 load8 r0 r0
+mov r1 2
 call putdecpad
+mov r0 ' '
+call putc0
 mov r0 ' '
 call putc0
 
@@ -123,6 +127,7 @@ call int32div16
 
 mov r0 psCpuLoadInt32
 call int32getLower16 ; we can simply print lower 16 bits as we know value is <=100, rather than resorting to much slower 32 bit print routine
+mov r1 3
 call putdecpad
 mov r0 ' '
 call putc0
@@ -132,6 +137,7 @@ mov r0 SyscallIdGetPidRam
 mov r1 psPidPid
 load8 r1 r1
 syscall
+mov r1 4
 call putdecpad
 mov r0 ' '
 call putc0
