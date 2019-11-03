@@ -377,7 +377,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 			kstrStrcpy(profilingExecBaseNameRaw, kernelFsGetFilePath(process->progmemFd));
 			profilingExecBaseName=basename(profilingExecBaseNameRaw);
 		}
-		sprintf(profilingFilePath, "profile.%"PRIu64".%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
+		sprintf(profilingFilePath, "profile.%"PRIu64".%s.%u", ktimeGetMonotonicMs(), profilingExecBaseName, pid);
 		FILE *profilingFile=fopen(profilingFilePath, "w");
 		if (profilingFile!=NULL) {
 			// Determine highest address instruction that was executed
@@ -510,7 +510,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingWaitpid: {
 			// Is this process waiting for a timeout, and that time has been reached?
-			if (process->stateData.waitingWaitpid.timeoutTime>0 && ktimeGetMs()>=process->stateData.waitingWaitpid.timeoutTime) {
+			if (process->stateData.waitingWaitpid.timeoutTime>0 && ktimeGetMonotonicMs()>=process->stateData.waitingWaitpid.timeoutTime) {
 				// It has - load process data so we can update the state and set r0 to indicate a timeout occured
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (waitpid timeout) - could not load proc data, killing\n"), pid);
@@ -1310,7 +1310,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				// Otherwise indicate process is waiting for this pid to die
 				process->state=ProcManProcessStateWaitingWaitpid;
 				process->stateData.waitingWaitpid.pid=waitPid;
-				process->stateData.waitingWaitpid.timeoutTime=(timeout>0 ? ktimeGetMs()+timeout*1000llu : 0);
+				process->stateData.waitingWaitpid.timeoutTime=(timeout>0 ? ktimeGetMonotonicMs()+timeout*1000llu : 0);
 			}
 
 			return true;
@@ -1904,17 +1904,17 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdTimeMonotonic16s:
-			procData->regs[0]=(ktimeGetMs()/1000);
+			procData->regs[0]=(ktimeGetMonotonicMs()/1000);
 			return true;
 		break;
 		case BytecodeSyscallIdTimeMonotonic16ms: {
-			procData->regs[0]=ktimeGetMs();
+			procData->regs[0]=ktimeGetMonotonicMs();
 			return true;
 		} break;
 		case BytecodeSyscallIdTimeMonotonic32s: {
 			BytecodeWord destPtr=procData->regs[1];
 
-			BytecodeDoubleWord result=(ktimeGetMs()/1000);
+			BytecodeDoubleWord result=(ktimeGetMonotonicMs()/1000);
 			if (!procManProcessMemoryWriteDoubleWord(process, procData, destPtr, result)) {
 				kernelLog(LogTypeWarning, kstrP("failed during timemonotonic32s syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
@@ -1924,7 +1924,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdTimeMonotonic32ms: {
 			BytecodeWord destPtr=procData->regs[1];
 
-			BytecodeDoubleWord result=ktimeGetMs();
+			BytecodeDoubleWord result=ktimeGetMonotonicMs();
 			if (!procManProcessMemoryWriteDoubleWord(process, procData, destPtr, result)) {
 				kernelLog(LogTypeWarning, kstrP("failed during timemonotonic32ms syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;

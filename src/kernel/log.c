@@ -40,7 +40,7 @@ void kernelLogV(LogType type, KStr format, va_list ap) {
 
 	if (file!=NULL) {
 		// Print time
-		uint64_t t=ktimeGetMs();
+		uint64_t t=ktimeGetMonotonicMs();
 		uint64_t d=t/(24llu*60llu*60llu*1000llu);
 		t-=d*(24llu*60llu*60llu*1000llu);
 		uint16_t h=t/(60llu*60llu*1000llu);

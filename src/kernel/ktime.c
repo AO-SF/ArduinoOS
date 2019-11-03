@@ -13,7 +13,7 @@
 
 uint64_t ktimeBootTime=0;
 
-uint64_t ktimeGetMsRaw(void);
+uint64_t ktimeGetRawMs(void);
 
 #ifdef ARDUINO
 #define clockCyclesPerMicrosecond (F_CPU/1000000L)
@@ -56,12 +56,12 @@ void ktimeInit(void) {
 	TIMSK0|=(1u<<TOIE0);
 #endif
 
-	ktimeBootTime=ktimeGetMsRaw();
+	ktimeBootTime=ktimeGetRawMs();
 	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %"PRIu64"\n"), ktimeBootTime);
 }
 
-uint64_t ktimeGetMs(void) {
-	return ktimeGetMsRaw()-ktimeBootTime;
+uint64_t ktimeGetMonotonicMs(void) {
+	return ktimeGetRawMs()-ktimeBootTime;
 }
 
 void ktimeDelayMs(uint64_t ms) {
@@ -72,7 +72,7 @@ void ktimeDelayMs(uint64_t ms) {
 	#endif
 }
 
-uint64_t ktimeGetMsRaw(void) {
+uint64_t ktimeGetRawMs(void) {
 	#ifdef ARDUINO
 	uint64_t ms;
 	uint8_t oldSReg=SREG;

@@ -178,10 +178,10 @@ int main(int argc, char **argv) {
 	while(procManGetProcessCount()>0) {
 		// If we are shutting down, check for all relevant processes dead or a timeout
 		if (kernelGetState()==KernelStateShuttingDownWaitAll &&
-			(procManGetProcessCount()==1 || ktimeGetMs()-kernelStateTime>=30000u)) // 30s timeout
+			(procManGetProcessCount()==1 || ktimeGetMonotonicMs()-kernelStateTime>=30000u)) // 30s timeout
 			kernelShutdownNext();
 
-		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMs()-kernelStateTime>=30000u) // 30s timeout
+		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMonotonicMs()-kernelStateTime>=30000u) // 30s timeout
 			break; // break to call shutdown final
 
 		// Check for ctrl+c to propagate
@@ -192,13 +192,13 @@ int main(int argc, char **argv) {
 
 		// Run each process for 1 tick, and delay if we have spare time (PC wrapper only - pointless on Arduino)
 		#ifndef ARDUINO
-		uint64_t t=ktimeGetMs();
+		uint64_t t=ktimeGetMonotonicMs();
 		#endif
 
 		procManTickAll();
 
 		#ifndef ARDUINO
-		t=ktimeGetMs()-t;
+		t=ktimeGetMonotonicMs()-t;
 		if (t<kernelTickMinTimeMs)
 			ktimeDelayMs(kernelTickMinTimeMs-t);
 		#endif
@@ -293,7 +293,7 @@ void kernelSpiReleaseLock(void) {
 
 void kernelSetState(KernelState newState) {
 	kernelState=newState;
-	kernelStateTime=ktimeGetMs();
+	kernelStateTime=ktimeGetMonotonicMs();
 }
 
 void kernelShutdownNext(void) {

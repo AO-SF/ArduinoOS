@@ -10,7 +10,7 @@
 
 void ktimeInit(void);
 
-uint64_t ktimeGetMs(void); // ms since boot
+uint64_t ktimeGetMonotonicMs(void); // ms since boot
 
 void ktimeDelayMs(uint64_t ms);
 

@@ -89,7 +89,7 @@ void hwDeviceTick(void) {
 			break;
 			case HwDeviceTypeDht22: {
 				// Not yet time to read values again?
-				if (ktimeGetMs()-device->d.dht22.lastReadTime<2000) // wait at least 2s between reads
+				if (ktimeGetMonotonicMs()-device->d.dht22.lastReadTime<2000) // wait at least 2s between reads
 					break;
 
 				// Update values
@@ -386,7 +386,7 @@ bool hwDeviceDht22Read(HwDeviceId id) {
 	hwDevices[id].d.dht22.temperature=(((uint16_t)buffer[2])<<8)|buffer[3];
 
 	// Successful read - update last read time
-	hwDevices[id].d.dht22.lastReadTime=ktimeGetMs();
+	hwDevices[id].d.dht22.lastReadTime=ktimeGetMonotonicMs();
 
 	return true;
 }
