@@ -19,6 +19,13 @@ mov r0 SyscallIdTimeMonotonic32s
 syscall
 ret
 
+; int32gettimereal(r0=dest) - stores number of seconds since 1st Jan 1970 into 32 bit value pointed to by dest
+label int32gettimereal
+mov r1 r0
+mov r0 SyscallIdTimeReal32s
+syscall
+ret
+
 ; int32puttime(r0=time) - prints time in a human readable format, e.g. 5m36s
 label int32puttime
 ; Copy given time to scratch variable that we can modify

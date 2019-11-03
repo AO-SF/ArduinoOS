@@ -12,6 +12,7 @@
 #include "util.h"
 
 uint64_t ktimeBootTime=0;
+uint64_t ktimeRealTimeOffset=0; // offset to add to monotonic time to get real time
 
 uint64_t ktimeGetRawMs(void); // like ktimeGetMonotonicMs() but offset by some constant (constant is arbitrary in arduino build, but in pc version it is such that this function returns the same as ktimeGetRealMs())
 
@@ -59,10 +60,19 @@ void ktimeInit(void) {
 	// Set boot time
 	ktimeBootTime=ktimeGetRawMs();
 	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %"PRIu64"\n"), ktimeBootTime);
+
+	// In PC wrapper we can update real time offset at any time, so might as well do it now.
+	#ifndef ARDUINO
+	ktimeSetRealMs(ktimeGetRawMs());
+	#endif
 }
 
 uint64_t ktimeGetMonotonicMs(void) {
 	return ktimeGetRawMs()-ktimeBootTime;
+}
+
+uint64_t ktimeGetRealMs(void) {
+	return ktimeGetMonotonicMs()+ktimeRealTimeOffset;
 }
 
 void ktimeDelayMs(uint64_t ms) {
@@ -71,6 +81,16 @@ void ktimeDelayMs(uint64_t ms) {
 	#else
 	usleep(ms*1000llu);
 	#endif
+}
+
+void ktimeSetRealMs(uint64_t ms) {
+	// Update real time offset such that ktimeGetRealMs would return ms if called at this moment
+	uint64_t newOffset=ms-ktimeGetMonotonicMs();
+	if (newOffset==ktimeRealTimeOffset)
+		return;
+
+	kernelLog(LogTypeInfo, kstrP("set kernel real time offset to %"PRIu64" (was %"PRIu64")\n"), newOffset, ktimeRealTimeOffset);
+	ktimeRealTimeOffset=newOffset;
 }
 
 uint64_t ktimeGetRawMs(void) {

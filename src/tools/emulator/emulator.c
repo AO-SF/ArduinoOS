@@ -736,6 +736,26 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [timemonotonic32ms] (unimplemented)\n", syscallId);
 						} break;
+						case BytecodeSyscallIdTimeReal32s: {
+							uint16_t destPtr=process->regs[1];
+
+							if (destPtr<BytecodeMemoryRamAddr) {
+								printf("Error: timereal32s syscall with destPtr in read-only region (destPtr=%u), exiting\n", destPtr);
+								return false;
+							}
+							if (destPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: timereal32s syscall with destPtr partially beyond end of writable region (destPtr=%u), exiting\n", destPtr);
+								return false;
+							}
+
+							process->memory[destPtr]=0;
+							process->memory[destPtr+1]=0;
+							process->memory[destPtr+2]=0;
+							process->memory[destPtr+3]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [timereal32s] (unimplemented)\n", syscallId);
+						} break;
 						case BytecodeSyscallIdRegisterSignalHandler:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [registersignalhandler] (unimplemented)\n", syscallId);

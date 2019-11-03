@@ -89,6 +89,7 @@ typedef enum {
 	BytecodeSyscallIdTimeMonotonic16ms=M(3,1),
 	BytecodeSyscallIdTimeMonotonic32s=M(3,2),
 	BytecodeSyscallIdTimeMonotonic32ms=M(3,3),
+	BytecodeSyscallIdTimeReal32s=M(3,4),
 	BytecodeSyscallIdRegisterSignalHandler=M(4,0),
 	BytecodeSyscallIdShutdown=M(5,0),
 	BytecodeSyscallIdMount=M(5,1),
