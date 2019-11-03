@@ -49,13 +49,14 @@ ISR(TIMER0_OVF_vect) {
 #endif
 
 void ktimeInit(void) {
-#ifdef ARDUINO
-	// Set timer 0 prescale factor to 64 and enable overflow interrupt
+	// Arduino only: set timer 0 prescale factor to 64 and enable overflow interrupt
+	#ifdef ARDUINO
 	TCCR0B|=(1u<<CS01);
 	TCCR0B|=(1u<<CS00);
 	TIMSK0|=(1u<<TOIE0);
-#endif
+	#endif
 
+	// Set boot time
 	ktimeBootTime=ktimeGetRawMs();
 	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %"PRIu64"\n"), ktimeBootTime);
 }
