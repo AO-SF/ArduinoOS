@@ -11,10 +11,10 @@
 #include "ktime.h"
 #include "util.h"
 
-uint64_t ktimeBootTime=0;
-uint64_t ktimeRealTimeOffset=0; // offset to add to monotonic time to get real time
+KTime ktimeBootTime=0;
+KTime ktimeRealTimeOffset=0; // offset to add to monotonic time to get real time
 
-uint64_t ktimeGetRawMs(void); // like ktimeGetMonotonicMs() but offset by some constant (constant is arbitrary in arduino build, but in pc version it is such that this function returns the same as ktimeGetRealMs())
+KTime ktimeGetRawMs(void); // like ktimeGetMonotonicMs() but offset by some constant (constant is arbitrary in arduino build, but in pc version it is such that this function returns the same as ktimeGetRealMs())
 
 #ifdef ARDUINO
 #define clockCyclesPerMicrosecond (F_CPU/1000000L)
@@ -26,13 +26,13 @@ uint64_t ktimeGetRawMs(void); // like ktimeGetMonotonicMs() but offset by some c
 #define FRACT_INC ((MICROSECONDS_PER_TIMER0_OVERFLOW%1000)>>3)
 #define FRACT_MAX (1000>>3)
 
-volatile uint64_t millisTimerOverflowCount=0;
-volatile uint64_t millisTimerValue=0;
+volatile KTime millisTimerOverflowCount=0;
+volatile KTime millisTimerValue=0;
 static uint8_t millisTimerFractional=0;
 
 ISR(TIMER0_OVF_vect) {
 	// Read volatile values
-	uint64_t m=millisTimerValue;
+	KTime m=millisTimerValue;
 	uint8_t f=millisTimerFractional;
 
 	m+=MILLIS_INC;
@@ -67,15 +67,15 @@ void ktimeInit(void) {
 	#endif
 }
 
-uint64_t ktimeGetMonotonicMs(void) {
+KTime ktimeGetMonotonicMs(void) {
 	return ktimeGetRawMs()-ktimeBootTime;
 }
 
-uint64_t ktimeGetRealMs(void) {
+KTime ktimeGetRealMs(void) {
 	return ktimeGetMonotonicMs()+ktimeRealTimeOffset;
 }
 
-void ktimeDelayMs(uint64_t ms) {
+void ktimeDelayMs(KTime ms) {
 	#ifdef ARDUINO
 	_delay_ms(ms);
 	#else
@@ -83,9 +83,9 @@ void ktimeDelayMs(uint64_t ms) {
 	#endif
 }
 
-void ktimeSetRealMs(uint64_t ms) {
+void ktimeSetRealMs(KTime ms) {
 	// Update real time offset such that ktimeGetRealMs would return ms if called at this moment
-	uint64_t newOffset=ms-ktimeGetMonotonicMs();
+	KTime newOffset=ms-ktimeGetMonotonicMs();
 	if (newOffset==ktimeRealTimeOffset)
 		return;
 
@@ -93,9 +93,9 @@ void ktimeSetRealMs(uint64_t ms) {
 	ktimeRealTimeOffset=newOffset;
 }
 
-uint64_t ktimeGetRawMs(void) {
+KTime ktimeGetRawMs(void) {
 	#ifdef ARDUINO
-	uint64_t ms;
+	KTime ms;
 	uint8_t oldSReg=SREG;
 	cli();
 	ms=millisTimerValue;
