@@ -279,6 +279,16 @@ bool kernelFsFileIsDirEmpty(const char *path) {
 	return kernelFsDeviceIsDirEmpty(device);
 }
 
+bool kernelFsFileIsCharacter(const char *path) {
+	// Path must at least be a device file
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device==NULL)
+		return false;
+
+	// So check if this device is of the character type.
+	return (device->common.type==KernelFsDeviceTypeCharacter);
+}
+
 KernelFsFileOffset kernelFsFileGetLen(const char *path) {
 	// Is this a virtual device file?
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
