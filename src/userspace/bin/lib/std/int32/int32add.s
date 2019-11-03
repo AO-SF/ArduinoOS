@@ -1,4 +1,5 @@
 ; int32inc(dest=r0)=int32add16(dest,1) - increment dest
+label int32inc
 ; check if lower part will overflow
 inc2 r0
 load16 r1 r0
