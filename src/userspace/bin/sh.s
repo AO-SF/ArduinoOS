@@ -505,7 +505,7 @@ skipneq r0
 jmp interruptHandlerReleaseLock
 ; send child suicide signal
 mov r0 SyscallIdSignal
-mov r2 3 ; suicide
+mov r2 SignalIdSuicide
 syscall
 ; call waitpid with a 5s timeout
 label interruptHandlerWaitPidLoopStart
