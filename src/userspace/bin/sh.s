@@ -61,7 +61,7 @@ store8 r0 r1
 
 ; Clear child PID
 mov r0 childPid
-mov r1 PathMax
+mov r1 PidMax
 store8 r0 r1
 
 ; Register suicide signal handler
