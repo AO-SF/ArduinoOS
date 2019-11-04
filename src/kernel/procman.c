@@ -612,6 +612,12 @@ void procManProcessTick(ProcManPid pid) {
 }
 
 void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId) {
+	// Check pid
+	if (pid>ProcManPidMax) {
+		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, bad pid\n"), signalId, pid);
+		return;
+	}
+
 	// Check signal id
 	if (signalId>BytecodeSignalIdNB) {
 		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, bad signal id\n"), signalId, pid);
@@ -706,6 +712,7 @@ bool procManProcessGetOpenFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManProcess *procManGetProcessByPid(ProcManPid pid) {
+	assert(pid<ProcManPidMax);
 	if (procManData.processes[pid].progmemFd!=KernelFsFdInvalid)
 		return procManData.processes+pid;
 	return NULL;
@@ -1304,7 +1311,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			BytecodeWord timeout=procData->regs[2];
 
 			// If given pid does not represent a process, return immediately
-			if (procManGetProcessByPid(waitPid)==NULL) {
+			if (waitPid>=ProcManPidMax || procManGetProcessByPid(waitPid)==NULL) {
 				procData->regs[0]=ProcManExitStatusNoProcess;
 			} else {
 				// Otherwise indicate process is waiting for this pid to die
@@ -1393,13 +1400,15 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdSignal: {
 			ProcManPid targetPid=procData->regs[1];
 			BytecodeSignalId signalId=procData->regs[2];
-			if (signalId<BytecodeSignalIdNB) {
-				if (targetPid==0 && signalId==BytecodeSignalIdSuicide)
-					kernelLog(LogTypeWarning, kstrP("process %u - warning cannot send signal 'suicide' to init (target pid=%u)\n"), procManGetPidFromProcess(process), targetPid);
-				else
-					procManProcessSendSignal(targetPid, signalId);
-			} else
-				kernelLog(LogTypeWarning, kstrP("process %u - warning bad signalId %u in signal syscall (target pid=%u)\n"), procManGetPidFromProcess(process), signalId, targetPid);
+
+			// Special case for suicide signal sent to init
+			if (targetPid==0 && signalId==BytecodeSignalIdSuicide) {
+				kernelLog(LogTypeWarning, kstrP("process %u - warning cannot send signal 'suicide' to init (target pid=%u)\n"), procManGetPidFromProcess(process), targetPid);
+				return true;
+			}
+
+			// Otherwise standard target and signal
+			procManProcessSendSignal(targetPid, signalId);
 
 			return true;
 		} break;
