@@ -82,6 +82,7 @@ echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
 ./bin/aosf-asm ./src/userspace/bin/watch.s ./tmp/mockups/usrbinmockup/watch
 ./bin/aosf-asm ./src/userspace/bin/date.s ./tmp/mockups/usrbinmockup/date
+./bin/aosf-asm ./src/userspace/bin/fdisk.s ./tmp/mockups/usrbinmockup/fdisk
 
 echo "	Creating /usr/games mockup..."
 cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
