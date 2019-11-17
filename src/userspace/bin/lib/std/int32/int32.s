@@ -5,6 +5,7 @@ require int32common.s
 requireend int32add.s
 requireend int32cmp.s
 requireend int32div.s
+requireend int32endianness.s
 requireend int32exp.s
 requireend int32fput.s
 requireend int32get.s
