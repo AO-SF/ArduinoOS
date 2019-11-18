@@ -11,7 +11,7 @@
 #define MINIFSHEADERFILEBASEADDR (MINIFSHEADERTOTALSIZEADDR+1)
 #define MINIFSHEADERSIZE (1+1+MINIFSMAXFILES) // 64 bytes
 
-#define MINIFSFILEMINOFFSETFACTOR (MINIFSHEADERSIZE/MINIFSFACTOR) // no file can be stored where the header is
+#define MINIFSFILEMINOFFSETFACTOR MINIFSHEADERSIZE/MINIFSFACTOR // no file can be stored where the header is. note this is usually always 1
 #define MINIFSFILEOFFSETINVALID 0 // this would point into the header anyway
 
 typedef struct {
@@ -598,7 +598,7 @@ uint8_t miniFsFindFreeRegionFactor(const MiniFs *fs, uint8_t sizeFactor) {
 	uint8_t firstFileIndex=0; // due to sorting
 	if (miniFsFileGetBaseOffsetFactorFromIndex(fs, firstFileIndex)==0) {
 		// Check for insufficent space in volume
-		if (sizeFactor>miniFsGetTotalSizeFactorMinusOne(fs)-MINIFSHEADERSIZE/MINIFSFACTOR+1)
+		if (sizeFactor>miniFsGetTotalSizeFactorMinusOne(fs)-MINIFSFILEMINOFFSETFACTOR+1)
 			return 0;
 		return MINIFSFILEMINOFFSETFACTOR;
 	}

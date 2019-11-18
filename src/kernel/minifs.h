@@ -4,13 +4,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MINIFSFACTOR 64 // 1<=factor<=256, increasing allows for a greater total volume size, but wastes more space padding small files (so their length is a multiple of the factor)
-#define MINIFSMINSIZE 128 // lcm(factor, 2headersize)=lcm(64,2*64)=128
-#define MINIFSMAXSIZE (MINIFSFACTOR*256) // we use an 8 bit value with a factor to represent the total size (with factor=64 this allows up to 16kb)
+#define MINIFSFACTOR 128u // 1<=factor<=256, increasing allows for a greater total volume size, but wastes more space padding small files (so their length is a multiple of the factor)
+#define MINIFSMINSIZE 128u // lcm(factor, 2headersize)=lcm(128,2*64)=128
+#define MINIFSMAXSIZE (MINIFSFACTOR*256) // we use an 8 bit value with a factor to represent the total size (with factor=128 this allows up to 32kb)
 
-#define MINIFSMAXFILES 62
+#define MINIFSMAXFILES (MINIFSFACTOR-2)
 
-#define MiniFsPathMax 63
+#define MiniFsPathMax (MINIFSFACTOR-1)
 
 typedef uint16_t (MiniFsReadFunctor)(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
 typedef uint16_t (MiniFsWriteFunctor)(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
