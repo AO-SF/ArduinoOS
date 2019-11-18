@@ -61,16 +61,29 @@ mov r0 int32div32remResult
 mov r1 0
 call int32set16
 
-; Shift divisor left until MSB is 1, and shift multiplier by same amount
+; Shift divisor left until MSB is at least that of remainder, and shift multiplier by same amount
 mov r0 int32div32remDivisor
 call int32clz
 mov r1 r0
+push8 r1
+
+mov r0 int32div32remRemainder
+call int32clz
+pop8 r1
+
+cmp r2 r0 r1
+skiplt r2
+jmp int32div32remNoInitialShift
+sub r1 r1 r0
+
 push8 r1
 mov r0 int32div32remDivisor
 call int32ShiftLeft
 pop8 r1
 mov r0 int32div32remMultiplier
 call int32ShiftLeft
+
+label int32div32remNoInitialShift
 
 ; Division loop
 label int32div32remLoopStart
