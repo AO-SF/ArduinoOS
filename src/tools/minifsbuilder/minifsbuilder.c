@@ -75,10 +75,12 @@ int main(int argc, char **argv) {
 
 bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir, MiniFsBuilderFormat format) {
 	// Loop, trying increasing powers of 2 for max volume size until we succeed (if we do at all).
-	uint16_t size;
+	int32_t size; // needs to be 32 bit for loop termination condition to work
 	for(size=MINIFSMINSIZE; size<=MINIFSMAXSIZE; size*=2) {
 		if (buildVolumeExact(name, size, srcDir, destDir, false, format)) {
-			// Otherwise try to shrink with a binary search
+			// We have found a size that works, i.e an upper bound.
+
+			// Try to shrink with a binary search
 			uint16_t minGoodSize=size;
 			uint16_t maxBadSize=(size>MINIFSMINSIZE ? size/2 : MINIFSMINSIZE);
 			while(minGoodSize-MINIFSFACTOR>maxBadSize) {
