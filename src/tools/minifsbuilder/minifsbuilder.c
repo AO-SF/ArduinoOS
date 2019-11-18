@@ -61,10 +61,14 @@ int main(int argc, char **argv) {
 	const char *destDir=argv[argc-1];
 
 	// Build volue
+	bool success;
 	if (maxSize==0)
-		buildVolumeMin(volumeName, srcDir, destDir, outputFormat);
+		success=buildVolumeMin(volumeName, srcDir, destDir, outputFormat);
 	else
-		buildVolumeExact(volumeName, maxSize, srcDir, destDir, outputFormat, true);
+		success=buildVolumeExact(volumeName, maxSize, srcDir, destDir, outputFormat, true);
+
+	if (!success)
+		printf("failed to build volume '%s'\n", volumeName);
 
 	return 0;
 }
