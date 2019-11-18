@@ -1115,11 +1115,11 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 			return true;
 		} break;
 		case BytecodeInstructionAluTypeShiftLeft:
-			procData->regs[info->d.alu.destReg]=opA<<opB;
+			procData->regs[info->d.alu.destReg]=(opB<16 ? opA<<opB : 0);
 			return true;
 		break;
 		case BytecodeInstructionAluTypeShiftRight:
-			procData->regs[info->d.alu.destReg]=opA>>opB;
+			procData->regs[info->d.alu.destReg]=(opB<16 ? opA>>opB : 0);
 			return true;
 		break;
 		case BytecodeInstructionAluTypeSkip: {
