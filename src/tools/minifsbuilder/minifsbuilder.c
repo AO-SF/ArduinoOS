@@ -96,7 +96,7 @@ bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir, M
 	}
 
 	// We have failed - run final size again but with logging turned on.
-	return buildVolumeExact(name, MINIFSMAXSIZE, srcDir, destDir, true, format);
+	return buildVolumeExact(name, MINIFSMAXSIZE, srcDir, destDir, format, true);
 }
 
 bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, MiniFsBuilderFormat format, bool verbose) {
