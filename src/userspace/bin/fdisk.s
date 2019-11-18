@@ -316,7 +316,8 @@ ret
 label fdiskMemPrintKb
 push16 r0
 mov r1 fdiskMemPrintSectorsPerKb
-call int32div32
+mov r2 fdiskMemPrintRemainder
+call int32div32rem
 pop16 r0
 call int32put0
 mov r0 '.'
