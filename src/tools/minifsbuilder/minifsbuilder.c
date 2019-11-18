@@ -97,31 +97,31 @@ bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir, M
 
 bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, MiniFsBuilderFormat format, bool verbose) {
 	MiniFs miniFs;
-	uint8_t dataArray[MINIFSMAXSIZE];
+	uint8_t *dataArray=malloc(MINIFSMAXSIZE); // TODO: check return
 
 	// clear data arary (not strictly necessary but might avoid confusion in the future when e.g. stdio functions are in unused part of the stdmath volume)
 	// setting to 0xFF also matches value stored in uninitialised Arduino EEPROM
-	memset(dataArray, 0xFF, sizeof(dataArray));
+	memset(dataArray, 0xFF, MINIFSMAXSIZE);
 
 	// format
 	if (!miniFsFormat(&writeFunctor, dataArray, size)) {
 		if (verbose)
 			printf("could not format\n");
-		return false;
+		goto error;
 	}
 
 	// mount
 	if (!miniFsMountSafe(&miniFs, &readFunctor, &writeFunctor, dataArray)) {
 		if (verbose)
 			printf("could not mount\n");
-		return false;
+		goto error;
 	}
 
 	// Loop over files in given source dir and write each one to minifs
 	if (!miniFsExtraAddDir(&miniFs, srcDir, verbose)) {
 		if (verbose)
 			printf("could not add dir '%s'\n", srcDir);
-		return false;
+		goto error;
 	}
 
 	// unmount to save any changes
@@ -131,18 +131,24 @@ bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const
 	switch(format) {
 		case MiniFsBuilderFormatCHeader:
 			if (miniFsWriteCHeader(name, size, destDir, dataArray, verbose))
-				return true;
+				goto success;
 		break;
 		case MiniFsBuilderFormatFlatFile:
 			if (miniFsWriteFlatFile(name, size, destDir, dataArray, verbose))
-				return true;
+				goto success;
 		break;
 		case MiniFsBuilderFormatNB:
 			assert(false);
 		break;
 	}
 
+	error:
+	free(dataArray);
 	return false;
+
+	success:
+	free(dataArray);
+	return true;
 }
 
 bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose) {
