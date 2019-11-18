@@ -10,6 +10,7 @@ requireend int32exp.s
 requireend int32fput.s
 requireend int32get.s
 requireend int32log.s
+requireend int32mem.s
 requireend int32mod.s
 requireend int32mul.s
 requireend int32set.s
