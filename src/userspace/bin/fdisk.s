@@ -11,6 +11,10 @@ requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/int32/int32endianness.s
 requireend lib/std/int32/int32fput.s
+requireend lib/std/int32/int32mul.s
+
+const MagicByte0 85 ; 0x55
+const MagicByte1 170 ; 0xAA
 
 db usageStr 'usage: fdisk path\n', 0
 db errorOpenStr 'Could not open disk\n', 0
@@ -22,13 +26,22 @@ db partitionAttributesStr '	Attributes: 0x',0
 db partitionTypeStr '	Type: 0x',0
 db partitionSectorsStr '	Num Sectors: ',0
 db partitionStartSectorStr '	Start Sector: ',0
+db partitionSizeStr '	Size: ',0
+
+dw fdiskMemPrintSectorsPerKb 0,2
+dw fdiskMemPrintSectorsPerMb 0,2048
+dw fdiskMemPrintSectorsPerGb 32,0
+
+db fdiskMemPrintBytesStr 'b',0
+db fdiskMemPrintKbStr 'kb',0
+db fdiskMemPrintMbStr 'mb',0
+db fdiskMemPrintGbStr 'gb',0
+
+aw fdiskMemPrintRemainder 2
 
 ab scratchBuf PathMax ; used to grab path argument, and also to hold partition table entries (hence size of MAX(16,PathMax))
 ab pathBuf PathMax
 ab fd 1
-
-const MagicByte0 85 ; 0x55
-const MagicByte1 170 ; 0xAA
 
 ; Set fd to invalid before we begin to simply error logic
 mov r0 fd
@@ -198,8 +211,124 @@ call int32put0
 mov r0 '\n'
 call putc0
 
+; Print size in human readable form
+mov r0 partitionSizeStr
+call puts0
+mov r0 scratchBuf
+inc12 r0
+call fdiskMemPrint
+mov r0 '\n'
+call putc0
+
+; Done
+mov r0 '\n'
+call putc0
+ret
+
 ; Partition table read error
 label fdiskPrintEntryReadError
 mov r0 partitionReadErrorStr
+call puts0
+ret
+
+; Memory size printing function
+; Note: this modifies the value passed to it
+label fdiskMemPrint ; takes pointer to 32 bit value in r0, giving number of 512 byte sectors
+; Check for >=1gb
+push16 r0
+mov r1 fdiskMemPrintSectorsPerGb
+call int32LessThan
+mov r1 r0
+pop16 r0
+cmp r1 r1 r1
+skipneqz r1
+jmp fdiskMemPrintGb
+; Check for >=1mb
+push16 r0
+mov r1 fdiskMemPrintSectorsPerMb
+call int32LessThan
+mov r1 r0
+pop16 r0
+cmp r1 r1 r1
+skipneqz r1
+jmp fdiskMemPrintMb
+; Check for >=1kb
+push16 r0
+mov r1 fdiskMemPrintSectorsPerKb
+call int32LessThan
+mov r1 r0
+pop16 r0
+cmp r1 r1 r1
+skipneqz r1
+jmp fdiskMemPrintKb
+; Otherwise simply <1024 (so sectors=0 or 1)
+push16 r0
+mov r1 9
+call int32ShiftLeft ; multiply by 512 as this is the size of each sector
+pop16 r0
+call int32put0
+mov r0 fdiskMemPrintBytesStr
+call puts0
+ret
+; Gb case
+label fdiskMemPrintGb
+push16 r0
+mov r1 fdiskMemPrintSectorsPerGb
+mov r2 fdiskMemPrintRemainder
+call int32div32rem
+pop16 r0
+call int32put0
+mov r0 '.'
+call putc0
+mov r0 fdiskMemPrintRemainder
+mov r1 Int32Const1E1
+call int32mul32
+mov r0 fdiskMemPrintRemainder
+mov r1 fdiskMemPrintSectorsPerGb
+call int32div32
+mov r0 fdiskMemPrintRemainder
+call int32put0
+mov r0 fdiskMemPrintGbStr
+call puts0
+ret
+; Mb case
+label fdiskMemPrintMb
+push16 r0
+mov r1 fdiskMemPrintSectorsPerMb
+mov r2 fdiskMemPrintRemainder
+call int32div32rem
+pop16 r0
+call int32put0
+mov r0 '.'
+call putc0
+mov r0 fdiskMemPrintRemainder
+mov r1 Int32Const1E1
+call int32mul32
+mov r0 fdiskMemPrintRemainder
+mov r1 fdiskMemPrintSectorsPerMb
+call int32div32
+mov r0 fdiskMemPrintRemainder
+call int32put0
+mov r0 fdiskMemPrintMbStr
+call puts0
+ret
+; Kb case
+label fdiskMemPrintKb
+push16 r0
+mov r1 fdiskMemPrintSectorsPerKb
+call int32div32
+pop16 r0
+call int32put0
+mov r0 '.'
+call putc0
+mov r0 fdiskMemPrintRemainder
+mov r1 Int32Const1E1
+call int32mul32
+mov r0 fdiskMemPrintRemainder
+mov r1 fdiskMemPrintSectorsPerKb
+call int32div32
+mov r0 fdiskMemPrintRemainder
+call int32put0
+mov r0 fdiskMemPrintKbStr
 call puts0
 ret
