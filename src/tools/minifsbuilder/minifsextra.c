@@ -75,7 +75,7 @@ bool miniFsExtraAddDir(MiniFs *fs, const char *dirPath, bool verbose) {
 		else
 			if (!miniFsExtraAddFile(fs, dp->d_name, fullName, verbose)) {
 				if (verbose)
-				printf("warning unable to add file '%s'\n", fullName);
+					printf("warning unable to add file '%s'\n", fullName);
 				return false;
 			}
 	}
