@@ -19,7 +19,7 @@ bool miniFsExtraAddFile(MiniFs *fs, const char *destPath, const char *srcPath, b
 	uint16_t fileSize=ftell(file);
 	if (!miniFsFileCreate(fs, destPath, fileSize)) {
 		if (verbose)
-			printf("warning unable to create file '%s' representing '%s'\n", destPath, srcPath);
+			printf("warning unable to create file '%s' representing '%s' (size=%u)\n", destPath, srcPath, fileSize);
 		fclose(file);
 		return false;
 	}
