@@ -275,12 +275,12 @@ bool processRunNextInstruction(Process *process) {
 						printf("Info: r%i=cmp(r%i,r%i) (=cmp(%i,%i)=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				} break;
 				case BytecodeInstructionAluTypeShiftLeft:
-					process->regs[info.d.alu.destReg]=opA<<opB;
+					process->regs[info.d.alu.destReg]=(opB<16 ? opA<<opB : 0);
 					if (infoInstructions)
 						printf("Info: r%i=r%i<<r%i (=%i<<%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
 				case BytecodeInstructionAluTypeShiftRight:
-					process->regs[info.d.alu.destReg]=opA>>opB;
+					process->regs[info.d.alu.destReg]=(opB<16 ? opA>>opB : 0);
 					if (infoInstructions)
 						printf("Info: r%i=r%i>>r%i (=%i>>%i=%i)\n", info.d.alu.destReg, info.d.alu.opAReg, info.d.alu.opBReg, opA, opB, process->regs[info.d.alu.destReg]);
 				break;
