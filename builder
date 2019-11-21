@@ -57,7 +57,6 @@ echo "	Creating /home mockup..."
 ./bin/aosf-asm ./src/userspace/bin/fib.s ./tmp/mockups/homemockup/fib
 ./bin/aosf-asm ./src/userspace/bin/fib32.s ./tmp/mockups/homemockup/fib32
 cp ./src/userspace/home/* ./tmp/mockups/homemockup
-./bin/aosf-asm ./src/userspace/bin/tree.s ./tmp/mockups/homemockup/tree
 ./bin/aosf-asm ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/aosf-asm ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
 
@@ -83,6 +82,7 @@ echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/watch.s ./tmp/mockups/usrbinmockup/watch
 ./bin/aosf-asm ./src/userspace/bin/date.s ./tmp/mockups/usrbinmockup/date
 ./bin/aosf-asm ./src/userspace/bin/fdisk.s ./tmp/mockups/usrbinmockup/fdisk
+./bin/aosf-asm ./src/userspace/bin/tree.s ./tmp/mockups/usrbinmockup/tree
 
 echo "	Creating /usr/games mockup..."
 cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
