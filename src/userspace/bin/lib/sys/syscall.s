@@ -95,3 +95,7 @@ const SyscallHwDeviceTypeDht22 3
 ; Mount type/format constants
 const SyscallMountFormatCustomMiniFs 0
 const SyscallMountFormatFlatFile 1
+const SyscallMountFormatPartition1 2
+const SyscallMountFormatPartition2 3
+const SyscallMountFormatPartition3 4
+const SyscallMountFormatPartition4 5
