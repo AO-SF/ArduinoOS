@@ -10,6 +10,7 @@ arduino:
 	@cd src/tools/disassembler && make --quiet
 	@cd src/tools/emulator && make --quiet
 	@cd src/tools/minifsbuilder && make --quiet
+	@cd src/tools/diskcreator && make --quiet
 	@echo "Running builder script..."
 	@./builder
 	@echo "Compiling kernel..."
@@ -26,6 +27,7 @@ pc:
 	@cd src/tools/disassembler && make --quiet
 	@cd src/tools/emulator && make --quiet
 	@cd src/tools/minifsbuilder && make --quiet
+	@cd src/tools/diskcreator && make --quiet
 	@echo "Running builder script..."
 	@./builder
 	@echo "Compiling kernel..."
@@ -38,6 +40,7 @@ install:
 	@cp bin/aosf-disassembler /usr/local/bin
 	@cp bin/aosf-emu /usr/local/bin
 	@cp bin/aosf-minifsbuilder /usr/local/bin
+	@cp bin/aosf-diskcreator /usr/local/bin
 
 upload:
 	avrdude -Cavrdude.conf -v -patmega2560 -cwiring -P/dev/ttyACM0 -b115200 -D -Uflash:w:./bin/kernel.hex -U eeprom:w:eeprom
@@ -45,6 +48,7 @@ upload:
 clean:
 	@cd src/tools/assembler && make --quiet clean
 	@cd src/tools/minifsbuilder && make --quiet clean
+	@cd src/tools/diskcreator && make --quiet clean
 	@cd src/tools/disassembler && make --quiet clean
 	@cd src/tools/emulator && make --quiet clean
 	@cd src/kernel && make --quiet clean

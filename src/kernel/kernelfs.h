@@ -57,6 +57,7 @@ bool kernelFsFileIsOpen(const char *path);
 bool kernelFsFileIsOpenByFd(KernelFsFd fd);
 bool kernelFsFileIsDir(const char *path);
 bool kernelFsFileIsDirEmpty(const char *path);
+bool kernelFsFileIsCharacter(const char *path);
 KernelFsFileOffset kernelFsFileGetLen(const char *path);
 
 bool kernelFsFileCreate(const char *path);

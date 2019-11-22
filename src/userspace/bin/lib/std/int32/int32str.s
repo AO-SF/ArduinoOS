@@ -1,7 +1,9 @@
 require int32common.s
 
 requireend int32div.s
+requireend int32get.s
 requireend int32log.s
+requireend int32set.s
 
 const int32toStrBufSize 12 ; includes space for null terminator and potential minus sign
 

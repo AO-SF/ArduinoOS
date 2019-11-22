@@ -65,3 +65,12 @@ syscall
 ; restore stack
 dec r6
 ret
+
+; fputappend(path=r0, data=r1, dataLen=r2) - append given data to file at path, resizes and writes data, returning 1/0 in r0 for success/failure
+label fputappend
+mov r3 r2
+mov r2 r1
+mov r1 r0
+mov r0 SyscallIdAppend
+syscall
+ret

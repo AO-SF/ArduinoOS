@@ -1,18 +1,19 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32sub.s
+requireend lib/std/int32/int32time.s
 requireend lib/std/io/fput.s
-requireend lib/std/io/fputtime.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/runpath.s
 requireend lib/std/proc/waitpid.s
-requireend lib/std/time/timemonotonic.s
 
 db preMsg 'took: ', 0
 db forkErrorStr 'could not fork\n', 0
 db emptyStr 0
 
-aw startTime 1
+aw startTime 2 ; 32 bit value in seconds
+aw deltaTime 2
 ab childPid 1
 
 jmp start
@@ -47,10 +48,8 @@ mov r2 suicideHandler
 syscall
 
 ; Get start time and store into variable
-call gettimemonotonic
-
-mov r1 startTime
-store16 r1 r0
+mov r0 startTime
+call int32gettimemonotonic
 
 ; Call fork
 mov r0 SyscallIdFork
@@ -91,18 +90,18 @@ jmp done
 
 label childFinished
 ; Record endTime
-call gettimemonotonic
+mov r0 deltaTime
+call int32gettimemonotonic
 
-; Print time delta
+; Calculate and print time delta
+mov r0 deltaTime
 mov r1 startTime
-load16 r1 r1
-sub r0 r0 r1
+call int32sub32
 
-push16 r0
 mov r0 preMsg
 call puts0
-pop16 r0
-call puttime
+mov r0 deltaTime
+call int32puttime
 mov r0 '\n'
 call putc0
 

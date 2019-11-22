@@ -65,6 +65,7 @@ jmp fdIndexLoopContinue
 push8 r1 ; protect fd
 mov r0 pid
 load8 r0 r0
+mov r1 2
 call putdecpad
 mov r0 ' '
 call putc0
@@ -73,6 +74,7 @@ call puts0
 mov r0 ' '
 call putc0
 pop8 r0 ; grab fd from stack
+mov r1 2
 call putdecpad
 mov r0 ' '
 call putc0
