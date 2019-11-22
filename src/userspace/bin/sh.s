@@ -61,7 +61,7 @@ store8 r0 r1
 
 ; Clear child PID
 mov r0 childPid
-mov r1 PathMax
+mov r1 PidMax
 store8 r0 r1
 
 ; Register suicide signal handler
@@ -505,7 +505,7 @@ skipneq r0
 jmp interruptHandlerReleaseLock
 ; send child suicide signal
 mov r0 SyscallIdSignal
-mov r2 3 ; suicide
+mov r2 SignalIdSuicide
 syscall
 ; call waitpid with a 5s timeout
 label interruptHandlerWaitPidLoopStart

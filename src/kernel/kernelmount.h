@@ -5,7 +5,17 @@
 
 #include "kernelfs.h"
 
-bool kernelMount(KernelFsBlockDeviceFormat format, const char *devicePath, const char *dirPath);
+typedef enum {
+	KernelMountFormatMiniFs,
+	KernelMountFormatFlatFile,
+	KernelMountFormatPartition1,
+	KernelMountFormatPartition2,
+	KernelMountFormatPartition3,
+	KernelMountFormatPartition4,
+	KernelMountFormatFat,
+} KernelMountFormat;
+
+bool kernelMount(KernelMountFormat format, const char *devicePath, const char *dirPath);
 void kernelUnmount(const char *devicePath);
 
 #endif

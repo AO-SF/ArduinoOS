@@ -1,12 +1,12 @@
 require fput.s
 require ../str/inttostr.s
 
-; putdecpad(x=r0)
+; putdecpad(x=r0, padLen=r1)
 label putdecpad
+mov r2 r1
 mov r1 r0
 mov r0 SyscallIdEnvGetStdoutFd
 syscall
-mov r2 1
 jmp fputdeccommon
 
 ; putdec(x=r0)
@@ -21,18 +21,25 @@ label fputdec
 mov r2 0
 jmp fputdeccommon
 
-; fputdeccommon(fd=r0, x=r1, padFlag=r2) - write x in ascii as a decimal value to given fd, optionally padded with zeros
+; fputdeccommon(fd=r0, x=r1, padLen=r2) - write x in ascii as a decimal value to given fd, optionally padded with zeros to given length
 label fputdeccommon
 ; reserve 6 bytes of stack to store temporary string
 mov r3 r6
 inc6 r6
 ; convert x to a string
 push8 r0 ; protect fd
+push8 r2 ; protect padLen
 push16 r3 ; protect str addr
 mov r0 r3
 call inttostr
 ; print string
 pop16 r2 ; restore str addr
+pop8 r1 ; restore padLen
+mov r3 5
+sub r3 r3 r1
+cmp r1 r1 r1
+skipeqz r1 ; if padLen=0 then no padding
+add r2 r2 r3
 mov r1 0
 pop8 r0 ; restore fd
 call fputs
