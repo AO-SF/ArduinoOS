@@ -13,5 +13,10 @@ dw Int32Const1E7 152,38528
 dw Int32Const1E8 1525,57600
 dw Int32Const1E9 15258,51712 ; 10^9
 
+; Time values
+dw Int32Const60 0,60 ; seconds per minute
+dw Int32Const3600 0,3600 ; seconds per hour
+dw Int32Const86400 1,20864 ; seconds per day
+
 ; Other
 dw Int32Const2E9 30517,37888 ; 2*10^9

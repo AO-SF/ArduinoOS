@@ -27,6 +27,11 @@ const SyscallIdTryReadByte 264
 const SyscallIdIsDir 265
 const SyscallIdFileExists 266
 const SyscallIdDelete 267
+const SyscallIdRead32 268
+const SyscallIdWrite32 269
+const SyscallIdResizeFile32 270
+const SyscallIdGetFileLen32 271
+const SyscallIdAppend 272
 
 const SyscallIdEnvGetStdinFd 512
 const SyscallIdEnvSetStdinFd 513
@@ -37,7 +42,12 @@ const SyscallIdEnvSetPath 517
 const SyscallIdEnvGetStdoutFd 518
 const SyscallIdEnvSetStdoutFd 519
 
-const SyscallIdTimeMonotonic 768
+const SyscallIdTimeMonotonic16s 768
+const SyscallIdTimeMonotonic16ms 769
+const SyscallIdTimeMonotonic32s 770
+const SyscallIdTimeMonotonic32ms 771
+const SyscallIdTimeReal32s 772
+const SyscallIdTimeToDate32s 773
 
 const SyscallIdRegisterSignalHandler 1024
 
@@ -86,3 +96,7 @@ const SyscallHwDeviceTypeAtWinc1500 4
 ; Mount type/format constants
 const SyscallMountFormatCustomMiniFs 0
 const SyscallMountFormatFlatFile 1
+const SyscallMountFormatPartition1 2
+const SyscallMountFormatPartition2 3
+const SyscallMountFormatPartition3 4
+const SyscallMountFormatPartition4 5

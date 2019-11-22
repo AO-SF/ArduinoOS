@@ -1,17 +1,26 @@
 #include <assert.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "kernelmount.h"
 #include "log.h"
+#include "ptable.h"
 
-#define kernelMountedDeviceFdsMax 32
-uint8_t kernelMountedDeviceFdsNext=0;
-KernelFsFd kernelMountedDeviceFds[kernelMountedDeviceFdsMax];
+typedef struct {
+	uint8_t format;
+	KernelFsFd fd;
+} KernelMountDevice;
+
+#define kernelMountedDevicesMax 32
+uint8_t kernelMountedDevicesNext=0;
+KernelMountDevice kernelMountedDevices[kernelMountedDevicesMax];
 
 KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelMountWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 
-bool kernelMount(KernelFsBlockDeviceFormat format, const char *devicePath, const char *dirPath) {
+const KernelMountDevice *kernelMountGetDeviceFromFd(KernelFsFd fd);
+
+bool kernelMount(KernelMountFormat format, const char *devicePath, const char *dirPath) {
 	// Check paths are valid
 	if (!kernelFsPathIsValid(devicePath) || !kernelFsPathIsValid(dirPath)) {
 		kernelLog(LogTypeWarning, kstrP("could not mount - bad path(s) (format=%u, devicePath='%s', dirPath='%s')\n"), format, devicePath, dirPath);
@@ -19,8 +28,8 @@ bool kernelMount(KernelFsBlockDeviceFormat format, const char *devicePath, const
 	}
 
 	// Check we have space to mount another device
-	if (kernelMountedDeviceFdsNext>=kernelMountedDeviceFdsMax) {
-		kernelLog(LogTypeWarning, kstrP("could not mount - already have maximum number of devices mounted (%u) (format=%u, devicePath='%s', dirPath='%s')\n"), kernelMountedDeviceFdsMax, format, devicePath, dirPath);
+	if (kernelMountedDevicesNext>=kernelMountedDevicesMax) {
+		kernelLog(LogTypeWarning, kstrP("could not mount - already have maximum number of devices mounted (%u) (format=%u, devicePath='%s', dirPath='%s')\n"), kernelMountedDevicesMax, format, devicePath, dirPath);
 		return false;
 	}
 
@@ -31,22 +40,61 @@ bool kernelMount(KernelFsBlockDeviceFormat format, const char *devicePath, const
 		return false;
 	}
 
-	// Add virtual block device to virtual file system
-	KernelFsFileOffset size=kernelFsFileGetLen(devicePath);
-	if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), format, size, &kernelMountReadFunctor, &kernelMountWriteFunctor, (void *)(uintptr_t)(deviceFd))) {
-		kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
-
-		kernelFsFileClose(deviceFd);
-		return false;
-	}
-
 	// Add to array of mounted devices (so we can unmount later)
-	kernelMountedDeviceFds[kernelMountedDeviceFdsNext]=deviceFd;
-	++kernelMountedDeviceFdsNext;
+	kernelMountedDevices[kernelMountedDevicesNext].format=format;
+	kernelMountedDevices[kernelMountedDevicesNext].fd=deviceFd;
+	++kernelMountedDevicesNext;
+
+	// Format-type-specific logic
+	switch(format) {
+		case KernelMountFormatMiniFs: {
+			// Add virtual block device to virtual file system
+			KernelFsFileOffset size=kernelFsFileGetLen(devicePath);
+			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), KernelFsBlockDeviceFormatCustomMiniFs, size, &kernelMountReadFunctor, &kernelMountWriteFunctor, (void *)(uintptr_t)(deviceFd))) {
+				kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
+				goto error;
+			}
+		} break;
+		case KernelMountFormatFlatFile: {
+			// Add virtual block device to virtual file system
+			KernelFsFileOffset size=kernelFsFileGetLen(devicePath);
+			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), KernelFsBlockDeviceFormatFlatFile, size, &kernelMountReadFunctor, &kernelMountWriteFunctor, (void *)(uintptr_t)(deviceFd))) {
+				kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
+				goto error;
+			}
+		} break;
+		case KernelMountFormatPartition1:
+		case KernelMountFormatPartition2:
+		case KernelMountFormatPartition3:
+		case KernelMountFormatPartition4: {
+			// Read partition table
+			unsigned partitionIndex=format-KernelMountFormatPartition1;
+
+			PTableEntry entry;
+			if (!pTableParseEntryFd(deviceFd, partitionIndex, &entry)) {
+				kernelLog(LogTypeWarning, kstrP("could not mount - could not parse partition table entry %u (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), partitionIndex+1, format, devicePath, dirPath, deviceFd);
+				goto error;
+			}
+
+			KernelFsFileOffset size=(entry.numSectors<8388607lu ? entry.numSectors : 8388607lu)*512;
+
+			// Add virtual block device to virtual file system
+			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), KernelFsBlockDeviceFormatFlatFile, size, &kernelMountReadFunctor, &kernelMountWriteFunctor, (void *)(uintptr_t)(deviceFd))) {
+				kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
+				goto error;
+			}
+		} break;
+	}
 
 	// Success
 	kernelLog(LogTypeInfo, kstrP("mount successful (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
 	return true;
+
+	// Error
+	error:
+	--kernelMountedDevicesNext;
+	kernelFsFileClose(deviceFd);
+	return false;
 }
 
 void kernelUnmount(const char *devicePath) {
@@ -57,8 +105,8 @@ void kernelUnmount(const char *devicePath) {
 	}
 
 	// Look through device fd array for a one representing the given path
-	for(uint8_t i=0; i<kernelMountedDeviceFdsNext; ++i) {
-		KernelFsFd fd=kernelMountedDeviceFds[i];
+	for(uint8_t i=0; i<kernelMountedDevicesNext; ++i) {
+		KernelFsFd fd=kernelMountedDevices[i].fd;
 		if (kstrStrcmp(devicePath, kernelFsGetFilePath(fd))==0) {
 			// Match found
 
@@ -70,7 +118,7 @@ void kernelUnmount(const char *devicePath) {
 			kernelFsFileClose(fd);
 
 			// Remove fd from our array
-			kernelMountedDeviceFds[i]=kernelMountedDeviceFds[--kernelMountedDeviceFdsNext];
+			kernelMountedDevices[i]=kernelMountedDevices[--kernelMountedDevicesNext];
 
 			// Success
 			kernelLog(LogTypeInfo, kstrP("unmounted (devicePath='%s')\n"), devicePath);
@@ -83,16 +131,77 @@ void kernelUnmount(const char *devicePath) {
 
 KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
 	assert(((uintptr_t)userData)<KernelFsFdMax);
-	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
 
-	// Simply read from device file directly
-	return kernelFsFileReadOffset(deviceFd, addr, data, len, false);
+	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
+	const KernelMountDevice *device=kernelMountGetDeviceFromFd(deviceFd);
+	assert(device!=NULL);
+
+	switch(device->format) {
+		case KernelMountFormatMiniFs:
+		case KernelMountFormatFlatFile:
+			// Simply read from device file directly
+			return kernelFsFileReadOffset(deviceFd, addr, data, len, false);
+		break;
+		case KernelMountFormatPartition1:
+		case KernelMountFormatPartition2:
+		case KernelMountFormatPartition3:
+		case KernelMountFormatPartition4: {
+			// Read partition table
+			unsigned partitionIndex=device->format-KernelMountFormatPartition1;
+
+			PTableEntry entry;
+			if (!pTableParseEntryFd(deviceFd, partitionIndex, &entry))
+				return 0;
+
+			KernelFsFileOffset offset=(entry.startSector<8388607lu ? entry.startSector : 8388607lu)*((uint32_t)512);
+
+			// Read from device file
+			return kernelFsFileReadOffset(deviceFd, addr+offset, data, len, false);
+		} break;
+	}
+
+	assert(false);
+	return 0;
 }
 
 KernelFsFileOffset kernelMountWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	assert(((uintptr_t)userData)<KernelFsFdMax);
-	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
 
-	// Simply write to device file directly
-	return kernelFsFileWriteOffset(deviceFd, addr, data, len);
+	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
+	const KernelMountDevice *device=kernelMountGetDeviceFromFd(deviceFd);
+	assert(device!=NULL);
+
+	switch(device->format) {
+		case KernelMountFormatMiniFs:
+		case KernelMountFormatFlatFile:
+			// Simply write to device file directly
+			return kernelFsFileWriteOffset(deviceFd, addr, data, len);
+		break;
+		case KernelMountFormatPartition1:
+		case KernelMountFormatPartition2:
+		case KernelMountFormatPartition3:
+		case KernelMountFormatPartition4: {
+			// Read partition table
+			unsigned partitionIndex=device->format-KernelMountFormatPartition1;
+
+			PTableEntry entry;
+			if (!pTableParseEntryFd(deviceFd, partitionIndex, &entry))
+				return 0;
+
+			KernelFsFileOffset offset=(entry.startSector<8388607lu ? entry.startSector : 8388607lu)*((uint32_t)512);
+
+			// Write to device file
+			return kernelFsFileWriteOffset(deviceFd, addr+offset, data, len);
+		} break;
+	}
+
+	assert(false);
+	return 0;
+}
+
+const KernelMountDevice *kernelMountGetDeviceFromFd(KernelFsFd fd) {
+	for(uint8_t i=0; i<kernelMountedDevicesNext; ++i)
+		if (fd==kernelMountedDevices[i].fd)
+			return &kernelMountedDevices[i];
+	return NULL;
 }

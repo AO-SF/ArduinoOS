@@ -7,6 +7,10 @@ requireend lib/std/str/strcmp.s
 
 db typeStrCustomMiniFs 'customminifs',0
 db typeStrFlatFile 'flatfile',0
+db typeStrPartition1 'partition1',0
+db typeStrPartition2 'partition2',0
+db typeStrPartition3 'partition3',0
+db typeStrPartition4 'partition4',0
 
 db badTypeErrorStr 'bad type argument\n',0
 db usageErrorStr 'usage: mount type device dir\n',0
@@ -39,6 +43,34 @@ cmp r0 r0 r0
 skipneqz r0
 jmp foundTypeFlatFile
 
+mov r0 typeArg
+mov r1 typeStrPartition1
+call strcmp
+cmp r0 r0 r0
+skipneqz r0
+jmp foundTypePartition1
+
+mov r0 typeArg
+mov r1 typeStrPartition2
+call strcmp
+cmp r0 r0 r0
+skipneqz r0
+jmp foundTypePartition2
+
+mov r0 typeArg
+mov r1 typeStrPartition3
+call strcmp
+cmp r0 r0 r0
+skipneqz r0
+jmp foundTypePartition3
+
+mov r0 typeArg
+mov r1 typeStrPartition4
+call strcmp
+cmp r0 r0 r0
+skipneqz r0
+jmp foundTypePartition4
+
 mov r0 badTypeErrorStr
 call puts0
 mov r0 1
@@ -53,6 +85,30 @@ jmp gottypearg
 label foundTypeFlatFile
 mov r0 typeId
 mov r1 SyscallMountFormatFlatFile
+store16 r0 r1
+jmp gottypearg
+
+label foundTypePartition1
+mov r0 typeId
+mov r1 SyscallMountFormatPartition1
+store16 r0 r1
+jmp gottypearg
+
+label foundTypePartition2
+mov r0 typeId
+mov r1 SyscallMountFormatPartition2
+store16 r0 r1
+jmp gottypearg
+
+label foundTypePartition3
+mov r0 typeId
+mov r1 SyscallMountFormatPartition3
+store16 r0 r1
+jmp gottypearg
+
+label foundTypePartition4
+mov r0 typeId
+mov r1 SyscallMountFormatPartition4
 store16 r0 r1
 jmp gottypearg
 

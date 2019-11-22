@@ -61,67 +61,73 @@ int main(int argc, char **argv) {
 	const char *destDir=argv[argc-1];
 
 	// Build volue
+	bool success;
 	if (maxSize==0)
-		buildVolumeMin(volumeName, srcDir, destDir, outputFormat);
+		success=buildVolumeMin(volumeName, srcDir, destDir, outputFormat);
 	else
-		buildVolumeExact(volumeName, maxSize, srcDir, destDir, outputFormat, true);
+		success=buildVolumeExact(volumeName, maxSize, srcDir, destDir, outputFormat, true);
+
+	if (!success)
+		printf("failed to build volume '%s'\n", volumeName);
 
 	return 0;
 }
 
 bool buildVolumeMin(const char *name, const char *srcDir, const char *destDir, MiniFsBuilderFormat format) {
 	// Loop, trying increasing powers of 2 for max volume size until we succeed (if we do at all).
-	uint16_t size;
+	int32_t size; // needs to be 32 bit for loop termination condition to work
 	for(size=MINIFSMINSIZE; size<=MINIFSMAXSIZE; size*=2) {
-		if (buildVolumeExact(name, size, srcDir, destDir, false, format)) {
-			// Otherwise try to shrink with a binary search
+		if (buildVolumeExact(name, size, srcDir, destDir, format, false)) {
+			// We have found a size that works, i.e an upper bound.
+
+			// Try to shrink with a binary search
 			uint16_t minGoodSize=size;
 			uint16_t maxBadSize=(size>MINIFSMINSIZE ? size/2 : MINIFSMINSIZE);
 			while(minGoodSize-MINIFSFACTOR>maxBadSize) {
 				uint16_t trialSize=(maxBadSize+minGoodSize)/2;
-				if (buildVolumeExact(name, trialSize, srcDir, destDir, false, format))
+				if (buildVolumeExact(name, trialSize, srcDir, destDir, format, false))
 					minGoodSize=trialSize;
 				else
 					maxBadSize=trialSize;
 			}
 
 			// Use minimum size found
-			if (buildVolumeExact(name, minGoodSize, srcDir, destDir, false, format))
+			if (buildVolumeExact(name, minGoodSize, srcDir, destDir, format, false))
 				return true;
 		}
 	}
 
 	// We have failed - run final size again but with logging turned on.
-	return buildVolumeExact(name, MINIFSMAXSIZE, srcDir, destDir, true, format);
+	return buildVolumeExact(name, MINIFSMAXSIZE, srcDir, destDir, format, true);
 }
 
 bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const char *destDir, MiniFsBuilderFormat format, bool verbose) {
 	MiniFs miniFs;
-	uint8_t dataArray[MINIFSMAXSIZE];
+	uint8_t *dataArray=malloc(MINIFSMAXSIZE); // TODO: check return
 
 	// clear data arary (not strictly necessary but might avoid confusion in the future when e.g. stdio functions are in unused part of the stdmath volume)
 	// setting to 0xFF also matches value stored in uninitialised Arduino EEPROM
-	memset(dataArray, 0xFF, sizeof(dataArray));
+	memset(dataArray, 0xFF, MINIFSMAXSIZE);
 
 	// format
 	if (!miniFsFormat(&writeFunctor, dataArray, size)) {
 		if (verbose)
 			printf("could not format\n");
-		return false;
+		goto error;
 	}
 
 	// mount
 	if (!miniFsMountSafe(&miniFs, &readFunctor, &writeFunctor, dataArray)) {
 		if (verbose)
 			printf("could not mount\n");
-		return false;
+		goto error;
 	}
 
 	// Loop over files in given source dir and write each one to minifs
 	if (!miniFsExtraAddDir(&miniFs, srcDir, verbose)) {
 		if (verbose)
 			printf("could not add dir '%s'\n", srcDir);
-		return false;
+		goto error;
 	}
 
 	// unmount to save any changes
@@ -131,18 +137,24 @@ bool buildVolumeExact(const char *name, uint16_t size, const char *srcDir, const
 	switch(format) {
 		case MiniFsBuilderFormatCHeader:
 			if (miniFsWriteCHeader(name, size, destDir, dataArray, verbose))
-				return true;
+				goto success;
 		break;
 		case MiniFsBuilderFormatFlatFile:
 			if (miniFsWriteFlatFile(name, size, destDir, dataArray, verbose))
-				return true;
+				goto success;
 		break;
 		case MiniFsBuilderFormatNB:
 			assert(false);
 		break;
 	}
 
+	error:
+	free(dataArray);
 	return false;
+
+	success:
+	free(dataArray);
+	return true;
 }
 
 bool miniFsWriteCHeader(const char *name, uint16_t size, const char *destDir, uint8_t *dataArray, bool verbose) {

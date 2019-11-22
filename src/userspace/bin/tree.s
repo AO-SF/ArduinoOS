@@ -1,13 +1,16 @@
 require lib/sys/sys.s
 
 requireend lib/std/io/fput.s
-requireend lib/std/mem/memprint.s
+requireend lib/std/int32/int32cmp.s
+requireend lib/std/int32/int32mem.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strcpy.s
 requireend lib/std/str/strlen.s
 
 db rootPath '/', 0
 ab pathBuf PathMax
+
+aw size 2
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -58,13 +61,20 @@ call puts0
 mov r0 ' '
 call putc0
 
-mov r0 SyscallIdGetFileLen
+mov r0 SyscallIdGetFileLen32
 mov r1 pathBuf
+mov r2 size
 syscall
-cmp r1 r0 r0
-skipneqz r1
+
+mov r0 size
+mov r1 Int32Const0
+call int32Equal
+cmp r0 r0 r0
+skipeqz r0
 jmp printDirNoSize
-call memprint
+
+mov r0 size
+call int32MemPrint
 label printDirNoSize
 
 ; Print newline

@@ -206,8 +206,10 @@ typedef enum {
 } AssemblerInstructionType;
 
 typedef struct {
-	uint16_t membSize, len, totalSize; // for membSize: 1=byte, 2=word
+	uint16_t membSize; // 1=byte, 2=word
 	const char *symbol;
+	const char *lenStr;
+	uint16_t len, totalSize; // these are not computed initially
 
 	uint16_t ramOffset;
 } AssemblerInstructionAllocation;
@@ -948,21 +950,15 @@ bool assemblerProgramParseLines(AssemblerProgram *program) {
 				return false;
 			}
 
-			int allocationLen=assemblerGetConstSymbolValue(program, lenStr);
-			if (allocationLen==-1)
-				allocationLen=atoi(lenStr);
-
 			AssemblerInstruction *instruction=&program->instructions[program->instructionsNext++];
 			instruction->lineIndex=i;
 			instruction->modifiedLineCopy=lineCopy;
 			instruction->type=AssemblerInstructionTypeAllocation;
 			instruction->d.allocation.membSize=membSize;
-			instruction->d.allocation.len=allocationLen;
-			instruction->d.allocation.totalSize=instruction->d.allocation.membSize*instruction->d.allocation.len;
+			instruction->d.allocation.lenStr=lenStr;
 			instruction->d.allocation.symbol=symbol;
-
-			if (instruction->d.allocation.len==0)
-				printf("warning - 0 length allocation (%s:%u '%s')\n", assemblerLine->file, assemblerLine->lineNum, assemblerLine->original);
+			instruction->d.allocation.len=0;
+			instruction->d.allocation.totalSize=0;
 		} else if (strcmp(first, "db")==0 || strcmp(first, "dw")==0) {
 			unsigned membSize=0;
 			switch(first[1]) {
@@ -1632,6 +1628,7 @@ bool assemblerProgramCalculateInitialMachineCodeLengths(AssemblerProgram *progra
 void assemblerProgramCalculateMachineCodeOffsets(AssemblerProgram *program) {
 	assert(program!=NULL);
 
+	// Loop over instructions calculations offsets based on lengths
 	unsigned nextMachineCodeOffset=BytecodeMemoryProgmemAddr;
 	unsigned nextRamOffset=BytecodeMemoryRamAddr;
 	for(unsigned i=0; i<program->instructionsNext; ++i) {
@@ -1640,12 +1637,29 @@ void assemblerProgramCalculateMachineCodeOffsets(AssemblerProgram *program) {
 		instruction->machineCodeOffset=nextMachineCodeOffset;
 		nextMachineCodeOffset+=instruction->machineCodeLen;
 
+		// Special case for allocation instructions
 		if (instruction->type==AssemblerInstructionTypeAllocation) {
+			// Grab line info for better debugging
+			AssemblerLine *line=program->lines[instruction->lineIndex];
+
+			// Set ram address for this allocation
 			instruction->d.allocation.ramOffset=nextRamOffset;
+
+			// Compute len and total size of allocation
+			int allocationLen=assemblerGetConstSymbolValue(program, instruction->d.allocation.lenStr);
+			if (allocationLen==-1)
+				allocationLen=atoi(instruction->d.allocation.lenStr);
+			instruction->d.allocation.len=allocationLen;
+			if (instruction->d.allocation.len==0)
+				printf("warning - 0 length allocation (%s:%u '%s')\n", line->file, line->lineNum, line->original); // TODO: prevent this appearing multiple times
+			instruction->d.allocation.totalSize=instruction->d.allocation.len*instruction->d.allocation.membSize;
+
+			// Update ram address for next allocation/stack
 			nextRamOffset+=instruction->d.allocation.totalSize;
 		}
 	}
 
+	// We now know total ram usage by variables so can decide where to place the stack.
 	program->stackRamOffset=nextRamOffset;
 }
 
@@ -2084,7 +2098,7 @@ void assemblerProgramDebugInstructions(const AssemblerProgram *program) {
 
 		switch(instruction->type) {
 			case AssemblerInstructionTypeAllocation:
-				printf("allocation membSize=%u, len=%u, totalSize=%u, symbol=%s, ramOffset=%04X (%s:%u '%s')\n", instruction->d.allocation.membSize, instruction->d.allocation.len, instruction->d.allocation.totalSize, instruction->d.allocation.symbol, instruction->d.allocation.ramOffset, line->file, line->lineNum, line->original);
+				printf("allocation membSize=%u, len=%u (%s), totalSize=%u, symbol=%s, ramOffset=%04X (%s:%u '%s')\n", instruction->d.allocation.membSize, instruction->d.allocation.len, instruction->d.allocation.lenStr, instruction->d.allocation.totalSize, instruction->d.allocation.symbol, instruction->d.allocation.ramOffset, line->file, line->lineNum, line->original);
 			break;
 			case AssemblerInstructionTypeDefine:
 				printf("define membSize=%u, len=%u, totalSize=%u, symbol=%s data=[", instruction->d.define.membSize, instruction->d.define.len, instruction->d.define.totalSize, instruction->d.define.symbol);

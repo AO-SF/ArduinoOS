@@ -1,0 +1,10 @@
+FDISK(1) - User Commands
+
+NAME
+      fdisk - Print disk partition table info
+
+SYNOPSIS
+      fdisk PATH
+
+DESCRIPTION
+      Determines if the given disk has a partition table, and if so, prints information for each partition in turn.

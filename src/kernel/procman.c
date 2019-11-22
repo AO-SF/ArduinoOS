@@ -38,6 +38,7 @@ typedef enum {
 	ProcManProcessStateActive,
 	ProcManProcessStateWaitingWaitpid,
 	ProcManProcessStateWaitingRead,
+	ProcManProcessStateWaitingRead32,
 	ProcManProcessStateExiting,
 } ProcManProcessState;
 
@@ -74,12 +75,17 @@ typedef struct {
 } ProcManProcessStateWaitingReadData;
 
 typedef struct {
+	KernelFsFd fd;
+} ProcManProcessStateWaitingRead32Data;
+
+typedef struct {
 	uint16_t instructionCounter; // reset regularly
 	KernelFsFd progmemFd, procFd;
 	uint8_t state;
 	union {
 		ProcManProcessStateWaitingWaitpidData waitingWaitpid;
 		ProcManProcessStateWaitingReadData waitingRead;
+		ProcManProcessStateWaitingRead32Data waitingRead32;
 	} stateData;
 #ifndef ARDUINO
 	ProfileCounter profilingCounts[BytecodeMemoryProgmemSize];
@@ -126,6 +132,7 @@ bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegist
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value);
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value);
+bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord *value);
 bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, char *str, uint16_t len);
 bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose); // block should not cross split in memory between two types
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value);
@@ -134,6 +141,7 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose);
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value);
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value);
+bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str);
 bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const uint8_t *data, uint16_t len); // Note: addr with len should not cross over the boundary between the two parts of memory.
 
@@ -154,6 +162,8 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart, const char *envPath, const char *envPwd); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsFdInvalid on failure)
 
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData);
+bool procManProcessRead32(ProcManProcess *process, ProcManProcessProcData *procData);
+bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset);
 
 void procManResetInstructionCounters(void);
 
@@ -367,7 +377,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 			kstrStrcpy(profilingExecBaseNameRaw, kernelFsGetFilePath(process->progmemFd));
 			profilingExecBaseName=basename(profilingExecBaseNameRaw);
 		}
-		sprintf(profilingFilePath, "profile.%"PRIu64".%s.%u", ktimeGetMs(), profilingExecBaseName, pid);
+		sprintf(profilingFilePath, "profile.%"PRIu64".%s.%u", ktimeGetMonotonicMs(), profilingExecBaseName, pid);
 		FILE *profilingFile=fopen(profilingFilePath, "w");
 		if (profilingFile!=NULL) {
 			// Determine highest address instruction that was executed
@@ -500,7 +510,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingWaitpid: {
 			// Is this process waiting for a timeout, and that time has been reached?
-			if (process->stateData.waitingWaitpid.timeoutTime>0 && ktimeGetMs()>=process->stateData.waitingWaitpid.timeoutTime) {
+			if (process->stateData.waitingWaitpid.timeoutTime>0 && ktimeGetMonotonicMs()>=process->stateData.waitingWaitpid.timeoutTime) {
 				// It has - load process data so we can update the state and set r0 to indicate a timeout occured
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (waitpid timeout) - could not load proc data, killing\n"), pid);
@@ -525,6 +535,22 @@ void procManProcessTick(ProcManPid pid) {
 
 				process->state=ProcManProcessStateActive;
 				procManProcessRead(process, &procData);
+			} else {
+				// Otherwise process stays waiting
+				return;
+			}
+		} break;
+		case ProcManProcessStateWaitingRead32: {
+			// Is data now available?
+			if (kernelFsFileCanRead(process->stateData.waitingRead32.fd)) {
+				// It is - load process data so we can update the state and read the data
+				if (!procManProcessLoadProcData(process, &procData)) {
+					kernelLog(LogTypeWarning, kstrP("process %u tick (read32 available) - could not load proc data, killing\n"), pid);
+					goto kill;
+				}
+
+				process->state=ProcManProcessStateActive;
+				procManProcessRead32(process, &procData);
 			} else {
 				// Otherwise process stays waiting
 				return;
@@ -586,6 +612,12 @@ void procManProcessTick(ProcManPid pid) {
 }
 
 void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId) {
+	// Check pid
+	if (pid>ProcManPidMax) {
+		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, bad pid\n"), signalId, pid);
+		return;
+	}
+
 	// Check signal id
 	if (signalId>BytecodeSignalIdNB) {
 		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, bad signal id\n"), signalId, pid);
@@ -680,6 +712,7 @@ bool procManProcessGetOpenFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManProcess *procManGetProcessByPid(ProcManPid pid) {
+	assert(pid<ProcManPidMax);
 	if (procManData.processes[pid].progmemFd!=KernelFsFdInvalid)
 		return procManData.processes+pid;
 	return NULL;
@@ -739,6 +772,16 @@ bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcDat
 	if (!procManProcessMemoryReadByte(process, procData, addr+1, &lower))
 		return false;
 	*value=(((BytecodeWord)upper)<<8)|((BytecodeWord)lower);
+	return true;
+}
+
+bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord *value) {
+	uint16_t upper, lower;
+	if (!procManProcessMemoryReadWord(process, procData, addr, &upper))
+		return false;
+	if (!procManProcessMemoryReadWord(process, procData, addr+2, &lower))
+		return false;
+	*value=(((BytecodeDoubleWord)upper)<<16)|((BytecodeDoubleWord)lower);
 	return true;
 }
 
@@ -826,6 +869,14 @@ bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcDa
 	if (!procManProcessMemoryWriteByte(process, procData, addr, (value>>8)))
 		return false;
 	if (!procManProcessMemoryWriteByte(process, procData, addr+1, (value&0xFF)))
+		return false;
+	return true;
+}
+
+bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord value) {
+	if (!procManProcessMemoryWriteWord(process, procData, addr, (value>>16)))
+		return false;
+	if (!procManProcessMemoryWriteWord(process, procData, addr+2, (value&0xFFFF)))
 		return false;
 	return true;
 }
@@ -1064,11 +1115,11 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 			return true;
 		} break;
 		case BytecodeInstructionAluTypeShiftLeft:
-			procData->regs[info->d.alu.destReg]=opA<<opB;
+			procData->regs[info->d.alu.destReg]=(opB<16 ? opA<<opB : 0);
 			return true;
 		break;
 		case BytecodeInstructionAluTypeShiftRight:
-			procData->regs[info->d.alu.destReg]=opA>>opB;
+			procData->regs[info->d.alu.destReg]=(opB<16 ? opA>>opB : 0);
 			return true;
 		break;
 		case BytecodeInstructionAluTypeSkip: {
@@ -1260,13 +1311,13 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			BytecodeWord timeout=procData->regs[2];
 
 			// If given pid does not represent a process, return immediately
-			if (procManGetProcessByPid(waitPid)==NULL) {
+			if (waitPid>=ProcManPidMax || procManGetProcessByPid(waitPid)==NULL) {
 				procData->regs[0]=ProcManExitStatusNoProcess;
 			} else {
 				// Otherwise indicate process is waiting for this pid to die
 				process->state=ProcManProcessStateWaitingWaitpid;
 				process->stateData.waitingWaitpid.pid=waitPid;
-				process->stateData.waitingWaitpid.timeoutTime=(timeout>0 ? ktimeGetMs()+timeout*1000llu : 0);
+				process->stateData.waitingWaitpid.timeoutTime=(timeout>0 ? ktimeGetMonotonicMs()+timeout*1000llu : 0);
 			}
 
 			return true;
@@ -1349,13 +1400,15 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdSignal: {
 			ProcManPid targetPid=procData->regs[1];
 			BytecodeSignalId signalId=procData->regs[2];
-			if (signalId<BytecodeSignalIdNB) {
-				if (targetPid==0 && signalId==BytecodeSignalIdSuicide)
-					kernelLog(LogTypeWarning, kstrP("process %u - warning cannot send signal 'suicide' to init (target pid=%u)\n"), procManGetPidFromProcess(process), targetPid);
-				else
-					procManProcessSendSignal(targetPid, signalId);
-			} else
-				kernelLog(LogTypeWarning, kstrP("process %u - warning bad signalId %u in signal syscall (target pid=%u)\n"), procManGetPidFromProcess(process), signalId, targetPid);
+
+			// Special case for suicide signal sent to init
+			if (targetPid==0 && signalId==BytecodeSignalIdSuicide) {
+				kernelLog(LogTypeWarning, kstrP("process %u - warning cannot send signal 'suicide' to init (target pid=%u)\n"), procManGetPidFromProcess(process), targetPid);
+				return true;
+			}
+
+			// Otherwise standard target and signal
+			procManProcessSendSignal(targetPid, signalId);
 
 			return true;
 		} break;
@@ -1587,16 +1640,23 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
-		case BytecodeSyscallIdFileGetLen: {
+		case BytecodeSyscallIdGetFileLen: {
 			uint16_t pathAddr=procData->regs[1];
 
 			char path[KernelFsPathMax];
 			if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
-				kernelLog(LogTypeWarning, kstrP("failed during filegetlen syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				kernelLog(LogTypeWarning, kstrP("failed during getfilelen syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
 			kernelFsPathNormalise(path);
-			procData->regs[0]=(kernelFsPathIsValid(path) ? kernelFsFileGetLen(path) : 0);
+
+			if (kernelFsPathIsValid(path)) {
+				KernelFsFileOffset fileLen=kernelFsFileGetLen(path);
+				if (fileLen>65535)
+					fileLen=65535;
+				procData->regs[0]=fileLen;
+			} else
+				procData->regs[0]=0;
 
 			return true;
 		} break;
@@ -1680,6 +1740,188 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdRead32: {
+			KernelFsFd fd=procData->regs[1];
+
+			// Check for bad fd
+			if (!kernelFsFileIsOpenByFd(fd)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Check if would block
+			if (!kernelFsFileCanRead(fd)) {
+				// Reading would block - so enter waiting state until data becomes available.
+				process->state=ProcManProcessStateWaitingRead32;
+				process->stateData.waitingRead32.fd=fd;
+			} else {
+				// Otherwise read as normal (stopping before we would block)
+				if (!procManProcessRead32(process, procData)) {
+					kernelLog(LogTypeWarning, kstrP("failed during read32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+			}
+
+			return true;
+		} break;
+		case BytecodeSyscallIdWrite32: {
+			KernelFsFd fd=procData->regs[1];
+			uint16_t offsetPtr=procData->regs[2];
+			uint16_t bufAddr=procData->regs[3];
+			KernelFsFileOffset len=procData->regs[4];
+
+			// Check for bad fd
+			if (!kernelFsFileIsOpenByFd(fd)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Read offset
+			KernelFsFileOffset offset;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, offsetPtr, &offset)) {
+				kernelLog(LogTypeWarning, kstrP("failed during write32 syscall, could not read 32 bit offset at %u, process %u (%s), killing\n"), offsetPtr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Write block at a time
+			KernelFsFileOffset i=0;
+			while(i<len) {
+				KernelFsFileOffset chunkSize=len-i;
+				if (chunkSize>256)
+					chunkSize=256;
+
+				if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
+					kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+				KernelFsFileOffset written=kernelFsFileWriteOffset(fd, offset+i, (const uint8_t *)procManScratchBuf256, chunkSize);
+				i+=written;
+				if (written<chunkSize)
+					break;
+			}
+			procData->regs[0]=i;
+
+			return true;
+		} break;
+		case BytecodeSyscallIdResizeFile32: {
+			// Grab path and new size
+			uint16_t pathAddr=procData->regs[1];
+			uint16_t newSizePtr=procData->regs[2];
+
+			char path[KernelFsPathMax];
+			if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
+					kernelLog(LogTypeWarning, kstrP("failed during resizefile32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			kernelFsPathNormalise(path);
+
+			KernelFsFileOffset newSize;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, newSizePtr, &newSize)) {
+					kernelLog(LogTypeWarning, kstrP("failed during resizefile32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Resize (or create if does not exist)
+			if (!kernelFsPathIsValid(path))
+				procData->regs[0]=0;
+			else if (kernelFsFileExists(path))
+				procData->regs[0]=kernelFsFileResize(path, newSize);
+			else
+				procData->regs[0]=kernelFsFileCreateWithSize(path, newSize);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdGetFileLen32: {
+			uint16_t pathAddr=procData->regs[1];
+			uint16_t destPtr=procData->regs[2];
+
+			char path[KernelFsPathMax];
+			if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
+				kernelLog(LogTypeWarning, kstrP("failed during getfilelen32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			kernelFsPathNormalise(path);
+
+			BytecodeDoubleWord size=(kernelFsPathIsValid(path) ? kernelFsFileGetLen(path) : 0);
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, destPtr, size)) {
+				kernelLog(LogTypeWarning, kstrP("failed during getfilelen32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
+		case BytecodeSyscallIdAppend: {
+			uint16_t pathAddr=procData->regs[1];
+			uint16_t dataAddr=procData->regs[2];
+			uint16_t dataLen=procData->regs[3];
+
+			// Grab path
+			char path[KernelFsPathMax];
+			if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
+				kernelLog(LogTypeWarning, kstrP("failed during append syscall, could not read path, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			kernelFsPathNormalise(path);
+
+			if (!kernelFsPathIsValid(path)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+
+
+			// Grab file's current length
+			KernelFsFileOffset oldFileLen=kernelFsFileGetLen(path);
+
+			// If zero length attempt to create
+			KernelFsFileOffset newFileLen=oldFileLen+dataLen;
+			if (oldFileLen==0) {
+				// Note we do not check return as may already exist but just with 0 length, so this will fail in that case yet we still want to continue.
+				kernelFsFileCreateWithSize(path, newFileLen);
+			}
+
+			// Attempt to resize file (unless character device which has no size but can consume any number of bytes)
+			if (!kernelFsFileIsCharacter(path) && !kernelFsFileResize(path, newFileLen)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Attempt to open file
+			KernelFsFd fd=kernelFsFileOpen(path);
+			if (fd==KernelFsFdInvalid) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Write data to file
+			uint16_t i=0;
+			while(i<dataLen) {
+				KernelFsFileOffset chunkSize=dataLen-i;
+				if (chunkSize>256)
+					chunkSize=256;
+
+				if (!procManProcessMemoryReadBlock(process, procData, dataAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
+					kernelFsFileClose(fd);
+					kernelLog(LogTypeWarning, kstrP("failed during append syscall, could not read data chunk at %u size %u, process %u (%s), killing\n"), dataAddr+i, chunkSize, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+				if (kernelFsFileWriteOffset(fd, oldFileLen+i, (const uint8_t *)procManScratchBuf256, chunkSize)!=chunkSize) {
+					kernelFsFileClose(fd);
+					procData->regs[0]=0;
+					return true;
+				}
+
+				i+=chunkSize;
+			}
+
+			// Close file
+			kernelFsFileClose(fd);
+
+			// Indicate success
+			procData->regs[0]=1;
+
+			return true;
+		} break;
 		case BytecodeSyscallIdEnvGetStdinFd:
 			procData->regs[0]=procData->stdinFd;
 			return true;
@@ -1749,11 +1991,73 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
-		case BytecodeSyscallIdTimeMonotonic:
-			procData->regs[0]=(ktimeGetMs()/1000);
-
+		case BytecodeSyscallIdTimeMonotonic16s:
+			procData->regs[0]=(ktimeGetMonotonicMs()/1000);
 			return true;
 		break;
+		case BytecodeSyscallIdTimeMonotonic16ms: {
+			procData->regs[0]=ktimeGetMonotonicMs();
+			return true;
+		} break;
+		case BytecodeSyscallIdTimeMonotonic32s: {
+			BytecodeWord destPtr=procData->regs[1];
+
+			BytecodeDoubleWord result=(ktimeGetMonotonicMs()/1000);
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, destPtr, result)) {
+				kernelLog(LogTypeWarning, kstrP("failed during timemonotonic32s syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			return true;
+		} break;
+		case BytecodeSyscallIdTimeMonotonic32ms: {
+			BytecodeWord destPtr=procData->regs[1];
+
+			BytecodeDoubleWord result=ktimeGetMonotonicMs();
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, destPtr, result)) {
+				kernelLog(LogTypeWarning, kstrP("failed during timemonotonic32ms syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			return true;
+		} break;
+		case BytecodeSyscallIdTimeReal32s: {
+			BytecodeWord destPtr=procData->regs[1];
+
+			BytecodeDoubleWord result=ktimeGetRealMs()/1000;
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, destPtr, result)) {
+				kernelLog(LogTypeWarning, kstrP("failed during timereal32s syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			return true;
+		} break;
+		case BytecodeSyscallIdTimeToDate32s: {
+			// Grab arguments
+			BytecodeWord destDatePtr=procData->regs[1];
+			BytecodeWord srcTimePtr=procData->regs[2];
+
+			BytecodeDoubleWord srcTime;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, srcTimePtr, &srcTime)) {
+				kernelLog(LogTypeWarning, kstrP("failed during timetodate32s syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Decompose into date
+			KDate date;
+			ktimeTimeMsToDate(srcTime*((KTime)1000), &date);
+
+			// User space date struct has a slightly different structure.
+			// So have to copy field by field.
+			if (!procManProcessMemoryWriteWord(process, procData, destDatePtr+0, date.year) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+2, date.month) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+3, date.day) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+4, date.hour) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+5, date.minute) ||
+			    !procManProcessMemoryWriteByte(process, procData, destDatePtr+6, date.second)) {
+				kernelLog(LogTypeWarning, kstrP("failed during timetodate32s syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
 		case BytecodeSyscallIdRegisterSignalHandler: {
 			uint16_t signalId=procData->regs[1];
 			uint16_t handlerAddr=procData->regs[2];
@@ -2561,18 +2865,31 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 }
 
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData) {
-	KernelFsFd fd=procData->regs[1];
-	uint16_t offset=procData->regs[2];
-	uint16_t bufAddr=procData->regs[3];
-	KernelFsFileOffset len=procData->regs[4];
+	BytecodeWord offset=procData->regs[2];
+	return procManProcessReadCommon(process, procData, offset);
+}
 
-	KernelFsFileOffset i=0;
+bool procManProcessRead32(ProcManProcess *process, ProcManProcessProcData *procData) {
+	uint16_t offsetPtr=procData->regs[2];
+	BytecodeDoubleWord offset;
+	if (!procManProcessMemoryReadDoubleWord(process, procData, offsetPtr, &offset))
+		return false;
+
+	return procManProcessReadCommon(process, procData, offset);
+}
+
+bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset) {
+	KernelFsFd fd=procData->regs[1];
+	uint16_t bufAddr=procData->regs[3];
+	BytecodeWord len=procData->regs[4];
+
+	BytecodeWord i=0;
 	while(i<len) {
-		KernelFsFileOffset chunkSize=len-i;
+		BytecodeWord chunkSize=len-i;
 		if (chunkSize>256)
 			chunkSize=256;
 
-		KernelFsFileOffset read=kernelFsFileReadOffset(fd, offset+i, (uint8_t *)procManScratchBuf256, chunkSize, false);
+		BytecodeWord read=kernelFsFileReadOffset(fd, offset+i, (uint8_t *)procManScratchBuf256, chunkSize, false);
 		if (read==0)
 			break;
 
