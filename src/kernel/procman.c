@@ -1868,8 +1868,6 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				return true;
 			}
 
-
-
 			// Grab file's current length
 			KernelFsFileOffset oldFileLen=kernelFsFileGetLen(path);
 
@@ -1919,6 +1917,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			// Indicate success
 			procData->regs[0]=1;
+
+			// Write to log
+			kernelLog(LogTypeInfo, kstrP("append syscall: path='%s', dataLen=%u, process %u (%s)\n"), path, dataLen, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 
 			return true;
 		} break;
