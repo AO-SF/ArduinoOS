@@ -7,4 +7,4 @@ SYNOPSIS
       watch interval program [programarg1 [programarg2 ...]]
 
 DESCRIPTION
-      Runs the given program (with the given arg, if present) immediately, and again every interval seconds thereafter.
+      Runs the given program (with the given args, if present) immediately, and again every interval seconds thereafter.
