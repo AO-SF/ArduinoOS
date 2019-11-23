@@ -209,48 +209,78 @@ SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin) {
 
 	responseByte=spiReadByte(); // read data byte  0 [120:127]
 	SdCsdVersion csdVersion=(responseByte>>6);
-	if (csdVersion==SdCsdVersion1) {
-		kernelLog(LogTypeWarning, kstrP("sdInit failed: unsupported CSD version 1.0 (powerPin=%u, slaveSelectPin=%u)\n"), powerPin, slaveSelectPin);
-		result=SdInitResultUnsupportedCard;
-		goto error;
-	} else if (csdVersion!=SdCsdVersion2) {
-		kernelLog(LogTypeWarning, kstrP("sdInit failed: bad CSD version %u (powerPin=%u, slaveSelectPin=%u)\n"), csdVersion, powerPin, slaveSelectPin);
-		result=SdInitResultBadCard;
-		goto error;
-	}
-	responseByte=spiReadByte(); // read data byte  1 [112:119]
-	responseByte=spiReadByte(); // read data byte  2 [104:111]
-	responseByte=spiReadByte(); // read data byte  3 [ 96:103]
-	responseByte=spiReadByte(); // read data byte  4 [ 88: 95]
-	responseByte=spiReadByte(); // read data byte  5 [ 80: 87]
-	uint8_t readBlockLenBits=(responseByte&0x0F);
-	if (readBlockLenBits!=SdBlockSizeBits) {
-		kernelLog(LogTypeWarning, kstrP("sdInit failed: CSD bad block len bits %u (powerPin=%u, slaveSelectPin=%u)\n"), readBlockLenBits, powerPin, slaveSelectPin);
-		result=SdInitResultBadCard;
-		goto error;
-	}
-	responseByte=spiReadByte(); // read data byte  6 [ 72: 79]
-	responseByte=spiReadByte(); // read data byte  7 [ 64: 71]
-	uint32_t csdVersion2CSize=0;
-	csdVersion2CSize|=(((uint32_t)(responseByte&0x3F))<<16);
-	responseByte=spiReadByte(); // read data byte  8 [ 56: 63]
-	csdVersion2CSize|=(((uint32_t)responseByte)<<8);
-	responseByte=spiReadByte(); // read data byte  9 [ 48: 55]
-	csdVersion2CSize|=(((uint32_t)responseByte)<<0);
-	responseByte=spiReadByte(); // read data byte 10 [ 40: 47]
-	responseByte=spiReadByte(); // read data byte 11 [ 32: 39]
-	responseByte=spiReadByte(); // read data byte 12 [ 24: 31]
-	responseByte=spiReadByte(); // read data byte 13 [ 16: 23]
-	responseByte=spiReadByte(); // read data byte 14 [  8: 15]
-	responseByte=spiReadByte(); // read data byte 15 [  0:  7]
+	switch(csdVersion) {
+		case SdCsdVersion1: {
+			responseByte=spiReadByte(); // read data byte  1 [112:119]
+			responseByte=spiReadByte(); // read data byte  2 [104:111]
+			responseByte=spiReadByte(); // read data byte  3 [ 96:103]
+			responseByte=spiReadByte(); // read data byte  4 [ 88: 95]
+			responseByte=spiReadByte(); // read data byte  5 [ 80: 87]
+			uint8_t readBlLen=(responseByte&0x0F);
+			if (readBlLen<SdBlockSizeBits-2) {
+				kernelLog(LogTypeWarning, kstrP("sdInit failed: CSD 1.0 unsupported READ_BL_LEN value %u (powerPin=%u, slaveSelectPin=%u)\n"), readBlLen, powerPin, slaveSelectPin);
+				result=SdInitResultBadCard;
+				goto error;
+			}
+			responseByte=spiReadByte(); // read data byte  6 [ 72: 79]
+			uint16_t cSize=(((uint16_t)(responseByte&3))<<10);
+			responseByte=spiReadByte(); // read data byte  7 [ 64: 71]
+			cSize|=((uint16_t)responseByte)<<2;
+			responseByte=spiReadByte(); // read data byte  8 [ 56: 63]
+			cSize|=(responseByte>>6);
+			responseByte=spiReadByte(); // read data byte  9 [ 48: 55]
+			uint8_t cSizeMult=(responseByte&3)<<1;
+			responseByte=spiReadByte(); // read data byte 10 [ 40: 47]
+			cSizeMult|=(responseByte>>7);
+			responseByte=spiReadByte(); // read data byte 11 [ 32: 39]
+			responseByte=spiReadByte(); // read data byte 12 [ 24: 31]
+			responseByte=spiReadByte(); // read data byte 13 [ 16: 23]
+			responseByte=spiReadByte(); // read data byte 14 [  8: 15]
+			responseByte=spiReadByte(); // read data byte 15 [  0:  7]
 
-	uint32_t csdVersion2CSizeMax=(((uint32_t)1u)<<(32-10))-1;
-	if (csdVersion2CSize>=csdVersion2CSizeMax) {
-		kernelLog(LogTypeWarning, kstrP("sdInit: csize too large, reducing from %"PRIu32" to %"PRIu32"\n"), csdVersion2CSize, csdVersion2CSizeMax-1);
-		csdVersion2CSize=csdVersion2CSizeMax-1;
-	}
+			card->blockCount=(cSize+1)*(((uint32_t)1)<<(cSizeMult+2+readBlLen-SdBlockSizeBits)); // note: cannot overflow, max is 2gb, and also shift is non-negative as readBlLen>=SdBlockSizeBits-2 per check above
+		} break;
+		case SdCsdVersion2: {
+			responseByte=spiReadByte(); // read data byte  1 [112:119]
+			responseByte=spiReadByte(); // read data byte  2 [104:111]
+			responseByte=spiReadByte(); // read data byte  3 [ 96:103]
+			responseByte=spiReadByte(); // read data byte  4 [ 88: 95]
+			responseByte=spiReadByte(); // read data byte  5 [ 80: 87]
+			uint8_t readBlLen=(responseByte&0x0F);
+			if (readBlLen!=SdBlockSizeBits) {
+				kernelLog(LogTypeWarning, kstrP("sdInit failed: CSD 2.0 READ_BL_LEN value %u (powerPin=%u, slaveSelectPin=%u)\n"), readBlLen, powerPin, slaveSelectPin);
+				result=SdInitResultBadCard;
+				goto error;
+			}
+			responseByte=spiReadByte(); // read data byte  6 [ 72: 79]
+			responseByte=spiReadByte(); // read data byte  7 [ 64: 71]
+			uint32_t csdVersion2CSize=0;
+			csdVersion2CSize|=(((uint32_t)(responseByte&0x3F))<<16);
+			responseByte=spiReadByte(); // read data byte  8 [ 56: 63]
+			csdVersion2CSize|=(((uint32_t)responseByte)<<8);
+			responseByte=spiReadByte(); // read data byte  9 [ 48: 55]
+			csdVersion2CSize|=(((uint32_t)responseByte)<<0);
+			responseByte=spiReadByte(); // read data byte 10 [ 40: 47]
+			responseByte=spiReadByte(); // read data byte 11 [ 32: 39]
+			responseByte=spiReadByte(); // read data byte 12 [ 24: 31]
+			responseByte=spiReadByte(); // read data byte 13 [ 16: 23]
+			responseByte=spiReadByte(); // read data byte 14 [  8: 15]
+			responseByte=spiReadByte(); // read data byte 15 [  0:  7]
 
-	card->blockCount=(csdVersion2CSize+1)*1024;
+			uint32_t csdVersion2CSizeMax=(((uint32_t)1u)<<(32-10))-1;
+			if (csdVersion2CSize>=csdVersion2CSizeMax) {
+				kernelLog(LogTypeWarning, kstrP("sdInit: CSD 2.0 C_SIZE too large, reducing from %"PRIu32" to %"PRIu32"\n"), csdVersion2CSize, csdVersion2CSizeMax-1);
+				csdVersion2CSize=csdVersion2CSizeMax-1;
+			}
+
+			card->blockCount=(csdVersion2CSize+1)*1024;
+		} break;
+		default: {
+			kernelLog(LogTypeWarning, kstrP("sdInit failed: bad CSD version %u (powerPin=%u, slaveSelectPin=%u)\n"), csdVersion, powerPin, slaveSelectPin);
+			result=SdInitResultBadCard;
+			goto error;
+		} break;
+	}
 
 	spiReadByte(); // read (and ignore) two CRC bytes
 	spiReadByte();
