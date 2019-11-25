@@ -154,3 +154,47 @@ label int32dateGetSecond
 inc6 r0
 load8 r0 r0
 ret
+
+; int32datePrint(r0=datePtr)
+label int32datePrint
+; Print y/m/d
+push16 r0
+call int32dateGetDay
+mov r1 2
+call putdecpad
+mov r0 '/'
+call putc0
+pop16 r0
+push16 r0
+call int32dateGetMonth
+mov r1 2
+call putdecpad
+mov r0 '/'
+call putc0
+pop16 r0
+push16 r0
+call int32dateGetYear
+call putdec
+; Print space
+mov r0 ' '
+call putc0
+; Print h:m:s
+pop16 r0
+push16 r0
+call int32dateGetHour
+mov r1 2
+call putdecpad
+mov r0 ':'
+call putc0
+pop16 r0
+push16 r0
+call int32dateGetMinute
+mov r1 2
+call putdecpad
+mov r0 ':'
+call putc0
+pop16 r0
+call int32dateGetSecond
+mov r1 2
+call putdecpad
+ret
