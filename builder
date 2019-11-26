@@ -12,6 +12,7 @@ rm -rf ./tmp/mockups/usrbinmockup/*
 rm -rf ./tmp/mockups/homemockup/*
 rm -rf ./tmp/mockups/etcmockup/*
 rm -rf ./tmp/mockups/usrgamesmockup/*
+rm -rf ./tmp/mockups/usrdataloggermockup/*
 rm -rf ./tmp/mockups/usrman1mockup/*
 rm -rf ./tmp/mockups/usrman2mockup/*
 rm -rf ./tmp/mockups/usrman3mockup/*
@@ -22,6 +23,7 @@ mkdir -p ./tmp/mockups/usrbinmockup
 mkdir -p ./tmp/mockups/homemockup
 mkdir -p ./tmp/mockups/etcmockup
 mkdir -p ./tmp/mockups/usrgamesmockup
+mkdir -p ./tmp/mockups/usrdataloggermockup
 mkdir -p ./tmp/mockups/usrman1mockup
 mkdir -p ./tmp/mockups/usrman2mockup
 mkdir -p ./tmp/mockups/usrman3mockup
@@ -84,6 +86,10 @@ echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/fdisk.s ./tmp/mockups/usrbinmockup/fdisk
 ./bin/aosf-asm ./src/userspace/bin/tree.s ./tmp/mockups/usrbinmockup/tree
 
+echo "	Creating /usr/datalogger mockup..."
+./bin/aosf-asm ./src/userspace/bin/dataloggersample.s ./tmp/mockups/usrdataloggermockup/sample
+./bin/aosf-asm ./src/userspace/bin/dataloggerview.s ./tmp/mockups/usrdataloggermockup/view
+
 echo "	Creating /usr/games mockup..."
 cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
 ./bin/aosf-asm ./src/userspace/bin/sokoban.s ./tmp/mockups/usrgamesmockup/sokoban
@@ -125,6 +131,7 @@ echo "	Formatting static PROGMEM data files from userspace files and mockups..."
 ./bin/aosf-minifsbuilder -fcheader "./tmp/mockups/binmockup" "_bin" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "_usr_bin" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "_usr_games" "./tmp/progmemdata"
+./bin/aosf-minifsbuilder -fcheader "./tmp/mockups/usrdataloggermockup" "_usr_datalogger" "./tmp/progmemdata"
 
 echo "	Creating common header file to describe all static PROGMEM data files..."
 ./builderprogmem
