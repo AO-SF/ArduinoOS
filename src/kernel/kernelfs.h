@@ -20,6 +20,8 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 #define KernelFsPathMax 64
 
+typedef bool (KernelFsDeviceFlushFunctor)(void *userData);
+
 typedef int16_t (KernelFsCharacterDeviceReadFunctor)(void *userData); // read and return a single character, or -1 on failure
 typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData); // returns true if a read would not block
 typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(const uint8_t *data, KernelFsFileOffset len, void *userData); // returns number of bytes written
@@ -44,9 +46,9 @@ void kernelFsQuit(void);
 // Virtual device functions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, bool canOpenMany, void *userData);
+bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsDeviceFlushFunctor *flushFunctor, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, bool canOpenMany, void *userData);
 bool kernelFsAddDirectoryDeviceFile(KStr mountPoint);
-bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *userData);
+bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFlushFunctor *flushFunctor, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // File functions -including directories (all paths are expected to be valid and normalised)
@@ -63,6 +65,8 @@ KernelFsFileOffset kernelFsFileGetLen(const char *path);
 bool kernelFsFileCreate(const char *path);
 bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size);
 bool kernelFsFileDelete(const char *path); // fails if file is open, or path is a non-empty directory (can remove devices files also, unmounting as required)
+
+bool kernelFsFileFlush(const char *path);
 
 bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize); // path must not be open
 

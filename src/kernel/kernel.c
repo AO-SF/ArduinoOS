@@ -407,40 +407,40 @@ void kernelBoot(void) {
 		kernelFatalError(kstrP("fs init failure: base directories\n"));
 
 	// ... essential: tmp directory used for ram
-	if (!kernelFsAddBlockDeviceFile(kstrP("/tmp"), KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL))
+	if (!kernelFsAddBlockDeviceFile(kstrP("/tmp"), NULL, KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL))
 		kernelFatalError(kstrP("fs init failure: /tmp\n"));
 
 	// ... RO volumes
 	bool progmemError=false;
 	for(unsigned i=0; i<commonProgmemCount; ++i) {
-		progmemError|=!kernelFsAddBlockDeviceFile(commonProgmemData[i].mountPoint, KernelFsBlockDeviceFormatCustomMiniFs, commonProgmemData[i].size, &kernelProgmemGenericReadFunctor, NULL, &commonProgmemData[i].dataPtr);
+		progmemError|=!kernelFsAddBlockDeviceFile(commonProgmemData[i].mountPoint, NULL, KernelFsBlockDeviceFormatCustomMiniFs, commonProgmemData[i].size, &kernelProgmemGenericReadFunctor, NULL, &commonProgmemData[i].dataPtr);
 	}
 	if (progmemError)
 		kernelLog(LogTypeWarning, kstrP("fs init failure: RO PROGMEM volume error\n"));
 
 	// ... optional EEPROM volumes
 	error=false;
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/dev/eeprom"), KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelEepromGenericReadFunctor, &kernelEepromGenericWriteFunctor, (void *)(uintptr_t)KernelEepromDevEepromOffset);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/etc"), KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEepromGenericReadFunctor, &kernelEepromGenericWriteFunctor, (void *)(uintptr_t)KernelEepromEtcOffset);
+	error|=!kernelFsAddBlockDeviceFile(kstrP("/dev/eeprom"), NULL, KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelEepromGenericReadFunctor, &kernelEepromGenericWriteFunctor, (void *)(uintptr_t)KernelEepromDevEepromOffset);
+	error|=!kernelFsAddBlockDeviceFile(kstrP("/etc"), NULL, KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEepromGenericReadFunctor, &kernelEepromGenericWriteFunctor, (void *)(uintptr_t)KernelEepromEtcOffset);
 	if (error)
 		kernelLog(LogTypeWarning, kstrP("fs init failure: /etc and /home\n"));
 
 	// ... optional device files
 	error=false;
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/full"), &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, true, NULL);
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/null"), &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, true, NULL);
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/ttyS0"), &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/full"), NULL, &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/null"), NULL, &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/ttyS0"), NULL, &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, true, NULL);
 #ifdef ARDUINO
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/spi"), &kernelDevSpiReadFunctor, &kernelDevSpiCanReadFunctor, &kernelDevSpiWriteFunctor, false, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/spi"), NULL, &kernelDevSpiReadFunctor, &kernelDevSpiCanReadFunctor, &kernelDevSpiWriteFunctor, false, NULL);
 #endif
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/urandom"), &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, true, NULL);
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/zero"), &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/urandom"), NULL, &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/zero"), NULL, &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, true, NULL);
 
 	if (error)
 		kernelLog(LogTypeWarning, kstrP("fs init failure: /dev\n"));
 
 	// ... optional pin device files
-#define ADDDEVDIGITALPIN(path,pinNum) (pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP(path), &kernelDevDigitalPinReadFunctor, &kernelDevDigitalPinCanReadFunctor, &kernelDevDigitalPinWriteFunctor, false, (void *)(uintptr_t)(pinNum)),++pinsTarget)
+#define ADDDEVDIGITALPIN(path,pinNum) (pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP(path), NULL, &kernelDevDigitalPinReadFunctor, &kernelDevDigitalPinCanReadFunctor, &kernelDevDigitalPinWriteFunctor, false, (void *)(uintptr_t)(pinNum)),++pinsTarget)
 
 	uint8_t pinsAdded=0, pinsTarget=0;
 	// All digital pins except:

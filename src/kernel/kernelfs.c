@@ -28,6 +28,7 @@ STATICASSERT(KernelFsDeviceTypeBits+1+5==8);
 typedef struct {
 	KStr mountPoint;
 
+	KernelFsDeviceFlushFunctor *flushFunctor;
 	void *userData;
 
 	uint8_t type:KernelFsDeviceTypeBits; // type is KernelFsDeviceType
@@ -85,7 +86,7 @@ KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
 KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device);
 
-KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, void *userData, KernelFsDeviceType type);
+KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFlushFunctor *flushFunctor, void *userData, KernelFsDeviceType type);
 void kernelFsRemoveDeviceFile(KernelFsDevice *device);
 
 bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
@@ -129,14 +130,14 @@ void kernelFsQuit(void) {
 	}
 }
 
-bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, bool canOpenMany, void *userData) {
+bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsDeviceFlushFunctor *flushFunctor, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, bool canOpenMany, void *userData) {
 	assert(!kstrIsNull(mountPoint));
 	assert(readFunctor!=NULL);
 	assert(canReadFunctor!=NULL);
 	assert(writeFunctor!=NULL);
 
 	// Check mountPoint and attempt to add to device table.
-	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, userData, KernelFsDeviceTypeCharacter);
+	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, flushFunctor, userData, KernelFsDeviceTypeCharacter);
 	if (device==NULL)
 		return false;
 
@@ -153,19 +154,19 @@ bool kernelFsAddDirectoryDeviceFile(KStr mountPoint) {
 	assert(!kstrIsNull(mountPoint));
 
 	// Check mountPoint and attempt to add to device table.
-	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, NULL, KernelFsDeviceTypeDirectory);
+	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, NULL, NULL, KernelFsDeviceTypeDirectory);
 	if (device==NULL)
 		return false;
 
 	return true;
 }
 
-bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *userData) {
+bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFlushFunctor *flushFunctor, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *userData) {
 	assert(!kstrIsNull(mountPoint));
 	assert(readFunctor!=NULL);
 
 	// Check mountPoint and attempt to add to device table.
-	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, userData, KernelFsDeviceTypeBlock);
+	KernelFsDevice *device=kernelFsAddDeviceFile(mountPoint, flushFunctor, userData, KernelFsDeviceTypeBlock);
 	if (device==NULL)
 		return false;
 	device->block.format=format;
@@ -508,6 +509,27 @@ bool kernelFsFileDelete(const char *path) {
 			break;
 		}
 	}
+
+	return false;
+}
+
+bool kernelFsFileFlush(const char *path) {
+	// Invalid path?
+	if (!kernelFsPathIsValid(path))
+		return false;
+
+	// Is this a virtual device file?
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device!=NULL)
+		return (device->common.flushFunctor!=NULL ? device->common.flushFunctor(device->common.userData) : true);
+
+	// Check for being a child of a virtual block device
+	char *dirname, *basename;
+	kernelFsPathSplitStatic(path, &dirname, &basename);
+
+	KernelFsDevice *parentDevice=kernelFsGetDeviceFromPath(dirname);
+	if (parentDevice!=NULL)
+		return (parentDevice->common.flushFunctor!=NULL ? parentDevice->common.flushFunctor(parentDevice->common.userData) : true);
 
 	return false;
 }
@@ -1101,7 +1123,7 @@ KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *devic
 	return (((const uint8_t *)device)-((const uint8_t *)kernelFsData.devices))/sizeof(KernelFsDevice);
 }
 
-KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, void *userData, KernelFsDeviceType type) {
+KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFlushFunctor *flushFunctor, void *userData, KernelFsDeviceType type) {
 	assert(!kstrIsNull(mountPoint));
 	assert(type<KernelFsDeviceTypeNB);
 
@@ -1132,6 +1154,7 @@ KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, void *userData, KernelFsD
 			continue;
 
 		device->common.mountPoint=mountPoint;
+		device->common.flushFunctor=flushFunctor;
 		device->common.userData=userData;
 		device->common.type=type;
 

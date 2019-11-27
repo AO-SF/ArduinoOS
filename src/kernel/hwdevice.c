@@ -56,6 +56,7 @@ HwDevice hwDevices[HwDeviceIdMax];
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
+bool hwDeviceSdCardReaderFlushFunctor(void *userData);
 KernelFsFileOffset hwDeviceSdCardReaderReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset hwDeviceSdCardReaderWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 
@@ -261,7 +262,7 @@ bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
 	}
 	size*=SdBlockSize;
 
-	if (!kernelFsAddBlockDeviceFile(kstrC(mountPoint), KernelFsBlockDeviceFormatFlatFile, size, &hwDeviceSdCardReaderReadFunctor, &hwDeviceSdCardReaderWriteFunctor, (void *)(uintptr_t)id)) {
+	if (!kernelFsAddBlockDeviceFile(kstrC(mountPoint), &hwDeviceSdCardReaderFlushFunctor, KernelFsBlockDeviceFormatFlatFile, size, &hwDeviceSdCardReaderReadFunctor, &hwDeviceSdCardReaderWriteFunctor, (void *)(uintptr_t)id)) {
 		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: could not add block device to VFS (id=%u, mountPoint='%s', size=%"PRIu32")\n"), id, mountPoint, size);
 		sdQuit(&hwDevices[id].d.sdCardReader.sdCard);
 		return false;
@@ -394,6 +395,26 @@ bool hwDeviceDht22Read(HwDeviceId id) {
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
+
+bool hwDeviceSdCardReaderFlushFunctor(void *userData) {
+	HwDeviceId id=(HwDeviceId)(uintptr_t)userData;
+
+	// Verify id is valid and that it represents an sd card reader device, with a mounted card.
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeSdCardReader || hwDevices[id].d.sdCardReader.sdCard.type==SdTypeBadCard)
+		return false;
+
+	// Nothing to do? (invalid or clean cache)
+	if (!hwDevices[id].d.sdCardReader.cacheIsValid || !hwDevices[id].d.sdCardReader.cacheIsDirty)
+		return true;
+
+	// Write out cached block
+	if (!sdWriteBlock(&hwDevices[id].d.sdCardReader.sdCard, hwDevices[id].d.sdCardReader.cacheBlock, hwDevices[id].d.sdCardReader.cache))
+		return false;
+
+	hwDevices[id].d.sdCardReader.cacheIsDirty=false;
+
+	return true;
+}
 
 KernelFsFileOffset hwDeviceSdCardReaderReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
 	HwDeviceId id=(HwDeviceId)(uintptr_t)userData;
