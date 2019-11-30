@@ -7,6 +7,7 @@ require lib/sys/sys.s
 
 requireend lib/dht22/dht22.s
 requireend lib/std/int32/int32time.s
+requireend lib/std/io/fflush.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/exit.s
@@ -68,6 +69,10 @@ mov r0 outputPath
 mov r1 buf
 mov r2 8
 call fputappend
+
+; Ensure file is flushed so data is not lost if e.g. power lost
+mov r0 outputPath
+call fflush
 
 ; Exit
 label done
