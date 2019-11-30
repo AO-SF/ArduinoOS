@@ -1923,6 +1923,27 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdFlush: {
+			uint16_t pathAddr=procData->regs[1];
+
+			// Grab path
+			char path[KernelFsPathMax];
+			if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
+				kernelLog(LogTypeWarning, kstrP("failed during flush syscall, could not read path, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			kernelFsPathNormalise(path);
+
+			if (!kernelFsPathIsValid(path)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Flush file/directory
+			procData->regs[0]=kernelFsFileFlush(path);
+
+			return true;
+		} break;
 		case BytecodeSyscallIdEnvGetStdinFd:
 			procData->regs[0]=procData->stdinFd;
 			return true;

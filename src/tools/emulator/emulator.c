@@ -655,6 +655,11 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [append] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						} break;
+						case BytecodeSyscallIdFlush: {
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [flush] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						} break;
 						case BytecodeSyscallIdEnvGetStdinFd:
 							process->regs[0]=process->envVars.stdinFd;
 							if (infoSyscalls)

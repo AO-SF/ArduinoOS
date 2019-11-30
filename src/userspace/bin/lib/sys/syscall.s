@@ -32,6 +32,7 @@ const SyscallIdWrite32 269
 const SyscallIdResizeFile32 270
 const SyscallIdGetFileLen32 271
 const SyscallIdAppend 272
+const SyscallIdFlush 273
 
 const SyscallIdEnvGetStdinFd 512
 const SyscallIdEnvSetStdinFd 513
