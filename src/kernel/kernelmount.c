@@ -15,6 +15,7 @@ typedef struct {
 uint8_t kernelMountedDevicesNext=0;
 KernelMountDevice kernelMountedDevices[kernelMountedDevicesMax];
 
+uint32_t kernelMountFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 bool kernelMountFlushFunctor(void *userData);
 KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelMountWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
@@ -51,7 +52,7 @@ bool kernelMount(KernelMountFormat format, const char *devicePath, const char *d
 		case KernelMountFormatMiniFs: {
 			// Add virtual block device to virtual file system
 			KernelFsFileOffset size=kernelFsFileGetLen(devicePath);
-			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), &kernelMountFlushFunctor, KernelFsBlockDeviceFormatCustomMiniFs, size, &kernelMountReadFunctor, &kernelMountWriteFunctor, (void *)(uintptr_t)(deviceFd))) {
+			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), &kernelMountFsFunctor, (void *)(uintptr_t)(deviceFd), KernelFsBlockDeviceFormatCustomMiniFs, size, true)) {
 				kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
 				goto error;
 			}
@@ -59,7 +60,7 @@ bool kernelMount(KernelMountFormat format, const char *devicePath, const char *d
 		case KernelMountFormatFlatFile: {
 			// Add virtual block device to virtual file system
 			KernelFsFileOffset size=kernelFsFileGetLen(devicePath);
-			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), &kernelMountFlushFunctor, KernelFsBlockDeviceFormatFlatFile, size, &kernelMountReadFunctor, &kernelMountWriteFunctor, (void *)(uintptr_t)(deviceFd))) {
+			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), &kernelMountFsFunctor, (void *)(uintptr_t)(deviceFd), KernelFsBlockDeviceFormatFlatFile, size, true)) {
 				kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
 				goto error;
 			}
@@ -80,7 +81,7 @@ bool kernelMount(KernelMountFormat format, const char *devicePath, const char *d
 			KernelFsFileOffset size=(entry.numSectors<8388607lu ? entry.numSectors : 8388607lu)*512;
 
 			// Add virtual block device to virtual file system
-			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), &kernelMountFlushFunctor, KernelFsBlockDeviceFormatFlatFile, size, &kernelMountReadFunctor, &kernelMountWriteFunctor, (void *)(uintptr_t)(deviceFd))) {
+			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), &kernelMountFsFunctor, (void *)(uintptr_t)(deviceFd), KernelFsBlockDeviceFormatFlatFile, size, true)) {
 				kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
 				goto error;
 			}
@@ -128,6 +129,29 @@ void kernelUnmount(const char *devicePath) {
 	}
 
 	kernelLog(LogTypeWarning, kstrP("could not unmount - no such device mounted (devicePath='%s')\n"), devicePath);
+}
+
+uint32_t kernelMountFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			return kernelMountFlushFunctor(userData);
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+			return kernelMountReadFunctor(addr, data, len, userData);
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+			return kernelMountWriteFunctor(addr, data, len, userData);
+		break;
+	}
+
+	assert(false);
+	return 0;
 }
 
 bool kernelMountFlushFunctor(void *userData) {

@@ -71,6 +71,15 @@ KTime kernelStateTime=0;
 
 #define kernelFatalError(format, ...) do { kernelLog(LogTypeError, format, ##__VA_ARGS__); kernelHalt(); } while(0)
 
+typedef enum {
+	KernelVirtualDevFileFull,
+	KernelVirtualDevFileNull,
+	KernelVirtualDevFileTtyS0,
+	KernelVirtualDevFileSpi,
+	KernelVirtualDevFileURandom,
+	KernelVirtualDevFileZero,
+} KernelVirtualDevFile;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -84,30 +93,20 @@ void kernelShutdownFinal(void);
 
 void kernelHalt(void);
 
+uint32_t kernelProgmemGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 KernelFsFileOffset kernelProgmemGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
+uint32_t kernelEepromGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
+uint32_t kernelTmpFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
-uint16_t kernelTmpMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
 KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
-int16_t kernelDevZeroReadFunctor(void *userData);
-bool kernelDevZeroCanReadFunctor(void *userData);
-KernelFsFileOffset kernelDevZeroWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
-int16_t kernelDevFullReadFunctor(void *userData);
-bool kernelDevFullCanReadFunctor(void *userData);
-KernelFsFileOffset kernelDevFullWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
-int16_t kernelDevNullReadFunctor(void *userData);
-bool kernelDevNullCanReadFunctor(void *userData);
-KernelFsFileOffset kernelDevNullWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
-int16_t kernelDevURandomReadFunctor(void *userData);
-bool kernelDevURandomCanReadFunctor(void *userData);
-KernelFsFileOffset kernelDevURandomWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
-int16_t kernelDevTtyS0ReadFunctor(void *userData);
-bool kernelDevTtyS0CanReadFunctor(void *userData);
-KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
-int16_t kernelDevSpiReadFunctor(void *userData);
-bool kernelDevSpiCanReadFunctor(void *userData);
-KernelFsFileOffset kernelDevSpiWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
+uint16_t kernelTmpMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
+uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
+int16_t kernelDevTtyS0ReadFunctor(void);
+bool kernelDevTtyS0CanReadFunctor(void);
+KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len);
+uint32_t kernelDevDigitalPinFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 int16_t kernelDevDigitalPinReadFunctor(void *userData);
 bool kernelDevDigitalPinCanReadFunctor(void *userData);
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
@@ -135,7 +134,7 @@ ISR(USART0_RX_vect) {
 				if (tailValue!='\n' && circBufUnpush(&kernelDevTtyS0CircBuf)) {
 					// Clear last char on screen
 					const uint8_t tempChars[3]={8,' ',8};
-					kernelDevTtyS0WriteFunctor(tempChars, 3, NULL);
+					kernelDevTtyS0WriteFunctor(tempChars, 3);
 				}
 			}
 		} else {
@@ -146,7 +145,7 @@ ISR(USART0_RX_vect) {
 			if (value=='\n')
 				++kernelDevTtyS0CircBufNewlineCount;
 			if (kernelDevTtyS0EchoFlag)
-				kernelDevTtyS0WriteFunctor(&value, 1, NULL);
+				kernelDevTtyS0WriteFunctor(&value, 1);
 		}
 	}
 }
@@ -407,40 +406,40 @@ void kernelBoot(void) {
 		kernelFatalError(kstrP("fs init failure: base directories\n"));
 
 	// ... essential: tmp directory used for ram
-	if (!kernelFsAddBlockDeviceFile(kstrP("/tmp"), NULL, KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, &kernelTmpReadFunctor, &kernelTmpWriteFunctor, NULL))
+	if (!kernelFsAddBlockDeviceFile(kstrP("/tmp"), &kernelTmpFsFunctor, NULL, KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, true))
 		kernelFatalError(kstrP("fs init failure: /tmp\n"));
 
 	// ... RO volumes
 	bool progmemError=false;
 	for(unsigned i=0; i<commonProgmemCount; ++i) {
-		progmemError|=!kernelFsAddBlockDeviceFile(commonProgmemData[i].mountPoint, NULL, KernelFsBlockDeviceFormatCustomMiniFs, commonProgmemData[i].size, &kernelProgmemGenericReadFunctor, NULL, &commonProgmemData[i].dataPtr);
+		progmemError|=!kernelFsAddBlockDeviceFile(commonProgmemData[i].mountPoint, kernelProgmemGenericFsFunctor, &commonProgmemData[i].dataPtr, KernelFsBlockDeviceFormatCustomMiniFs, commonProgmemData[i].size, false);
 	}
 	if (progmemError)
 		kernelLog(LogTypeWarning, kstrP("fs init failure: RO PROGMEM volume error\n"));
 
 	// ... optional EEPROM volumes
 	error=false;
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/dev/eeprom"), NULL, KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, &kernelEepromGenericReadFunctor, &kernelEepromGenericWriteFunctor, (void *)(uintptr_t)KernelEepromDevEepromOffset);
-	error|=!kernelFsAddBlockDeviceFile(kstrP("/etc"), NULL, KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, &kernelEepromGenericReadFunctor, &kernelEepromGenericWriteFunctor, (void *)(uintptr_t)KernelEepromEtcOffset);
+	error|=!kernelFsAddBlockDeviceFile(kstrP("/dev/eeprom"), &kernelEepromGenericFsFunctor, (void *)(uintptr_t)KernelEepromDevEepromOffset, KernelFsBlockDeviceFormatFlatFile, KernelEepromDevEepromSize, true);
+	error|=!kernelFsAddBlockDeviceFile(kstrP("/etc"), &kernelEepromGenericFsFunctor, (void *)(uintptr_t)KernelEepromEtcOffset, KernelFsBlockDeviceFormatCustomMiniFs, KernelEepromEtcSize, true);
 	if (error)
 		kernelLog(LogTypeWarning, kstrP("fs init failure: /etc and /home\n"));
 
 	// ... optional device files
 	error=false;
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/full"), NULL, &kernelDevFullReadFunctor, &kernelDevFullCanReadFunctor, &kernelDevFullWriteFunctor, true, NULL);
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/null"), NULL, &kernelDevNullReadFunctor, &kernelDevNullCanReadFunctor, &kernelDevNullWriteFunctor, true, NULL);
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/ttyS0"), NULL, &kernelDevTtyS0ReadFunctor, &kernelDevTtyS0CanReadFunctor, &kernelDevTtyS0WriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/full"), &kernelVirtualDevFileGenericFsFunctor, (void *)(uintptr_t)KernelVirtualDevFileFull, true, true);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/null"), &kernelVirtualDevFileGenericFsFunctor, (void *)(uintptr_t)KernelVirtualDevFileNull, true, true);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/ttyS0"), &kernelVirtualDevFileGenericFsFunctor, (void *)(uintptr_t)KernelVirtualDevFileTtyS0, true, true);
 #ifdef ARDUINO
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/spi"), NULL, &kernelDevSpiReadFunctor, &kernelDevSpiCanReadFunctor, &kernelDevSpiWriteFunctor, false, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/spi"), &kernelVirtualDevFileGenericFsFunctor, (void *)(uintptr_t)KernelVirtualDevFileSpi, false, true);
 #endif
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/urandom"), NULL, &kernelDevURandomReadFunctor, &kernelDevURandomCanReadFunctor, &kernelDevURandomWriteFunctor, true, NULL);
-	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/zero"), NULL, &kernelDevZeroReadFunctor, &kernelDevZeroCanReadFunctor, &kernelDevZeroWriteFunctor, true, NULL);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/urandom"), &kernelVirtualDevFileGenericFsFunctor, (void *)(uintptr_t)KernelVirtualDevFileURandom, true, false);
+	error|=!kernelFsAddCharacterDeviceFile(kstrP("/dev/zero"), &kernelVirtualDevFileGenericFsFunctor, (void *)(uintptr_t)KernelVirtualDevFileZero, true, true);
 
 	if (error)
 		kernelLog(LogTypeWarning, kstrP("fs init failure: /dev\n"));
 
 	// ... optional pin device files
-#define ADDDEVDIGITALPIN(path,pinNum) (pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP(path), NULL, &kernelDevDigitalPinReadFunctor, &kernelDevDigitalPinCanReadFunctor, &kernelDevDigitalPinWriteFunctor, false, (void *)(uintptr_t)(pinNum)),++pinsTarget)
+#define ADDDEVDIGITALPIN(path,pinNum) (pinsAdded+=kernelFsAddCharacterDeviceFile(kstrP(path), &kernelDevDigitalPinFsFunctor, (void *)(uintptr_t)(pinNum), false, true),++pinsTarget)
 
 	uint8_t pinsAdded=0, pinsTarget=0;
 	// All digital pins except:
@@ -544,6 +543,28 @@ void kernelHalt(void) {
 #endif
 }
 
+uint32_t kernelProgmemGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			return true;
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+			return kernelProgmemGenericReadFunctor(addr, data, len, userData);
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+		break;
+	}
+
+	assert(false);
+	return 0;
+}
+
 KernelFsFileOffset kernelProgmemGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
 #ifdef ARDUINO
 	uint32_t farAddr=*(const uint32_t *)userData;
@@ -556,6 +577,29 @@ KernelFsFileOffset kernelProgmemGenericReadFunctor(KernelFsFileOffset addr, uint
 	memcpy(data, dataSource+addr, len);
 #endif
 	return len;
+}
+
+uint32_t kernelEepromGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			return true;
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+			return kernelEepromGenericReadFunctor(addr, data, len, userData);
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+			return kernelEepromGenericWriteFunctor(addr, data, len, userData);
+		break;
+	}
+
+	assert(false);
+	return 0;
 }
 
 KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
@@ -602,13 +646,32 @@ KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, cons
 #endif
 }
 
+uint32_t kernelTmpFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			return true;
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+			return kernelTmpReadFunctor(addr, data, len, userData);
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+			return kernelTmpWriteFunctor(addr, data, len, userData);
+		break;
+	}
+
+	assert(false);
+	return 0;
+}
+
 KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
 	memcpy(data, kernelTmpDataPool+addr, len);
 	return len;
-}
-
-uint16_t kernelTmpMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData) {
-	return kernelTmpWriteFunctor(addr, data, len, userData);
 }
 
 KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
@@ -616,59 +679,100 @@ KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t 
 	return len;
 }
 
-int16_t kernelDevZeroReadFunctor(void *userData) {
+uint16_t kernelTmpMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData) {
+	return kernelTmpWriteFunctor(addr, data, len, userData);
+}
+
+uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	KernelVirtualDevFile file=(KernelVirtualDevFile)(uintptr_t)userData;
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			return true;
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead:
+			switch(file) {
+				case KernelVirtualDevFileFull:
+					return 0;
+				break;
+				case KernelVirtualDevFileNull:
+					return 0;
+				break;
+				case KernelVirtualDevFileTtyS0:
+					return kernelDevTtyS0ReadFunctor();
+				break;
+				case KernelVirtualDevFileSpi:
+					return spiReadByte();
+				break;
+				case KernelVirtualDevFileURandom:
+					return rand()&0xFF;
+				break;
+				case KernelVirtualDevFileZero:
+					return 0;
+				break;
+			}
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+			switch(file) {
+				case KernelVirtualDevFileFull:
+					return true;
+				break;
+				case KernelVirtualDevFileNull:
+					return true;
+				break;
+				case KernelVirtualDevFileTtyS0:
+					return kernelDevTtyS0CanReadFunctor();
+				break;
+				case KernelVirtualDevFileSpi:
+					return true;
+				break;
+				case KernelVirtualDevFileURandom:
+					return true;
+				break;
+				case KernelVirtualDevFileZero:
+					return true;
+				break;
+			}
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+			switch(file) {
+				case KernelVirtualDevFileFull:
+					return 0;
+				break;
+				case KernelVirtualDevFileNull:
+					return len;
+				break;
+				case KernelVirtualDevFileTtyS0:
+					return kernelDevTtyS0WriteFunctor(data, len);
+				break;
+				case KernelVirtualDevFileSpi:
+					if (len>UINT16_MAX)
+						len=UINT16_MAX;
+					spiWriteBlock(data, len);
+					return len;
+				break;
+				case KernelVirtualDevFileURandom:
+					return 0;
+				break;
+				case KernelVirtualDevFileZero:
+					return len;
+				break;
+			}
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+		break;
+	}
+
+	assert(false);
 	return 0;
 }
 
-bool kernelDevZeroCanReadFunctor(void *userData) {
-	return true;
-}
-
-KernelFsFileOffset kernelDevZeroWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
-	return len;
-}
-
-int16_t kernelDevFullReadFunctor(void *userData) {
-	return 0;
-}
-
-bool kernelDevFullCanReadFunctor(void *userData) {
-	return true;
-}
-
-KernelFsFileOffset kernelDevFullWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
-	return 0;
-}
-
-int16_t kernelDevNullReadFunctor(void *userData) {
-	return 0;
-}
-
-bool kernelDevNullCanReadFunctor(void *userData) {
-	return true;
-}
-
-KernelFsFileOffset kernelDevNullWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
-	return len;
-}
-
-int16_t kernelDevURandomReadFunctor(void *userData) {
-	return rand()&0xFF;
-}
-
-bool kernelDevURandomCanReadFunctor(void *userData) {
-	return true;
-}
-
-KernelFsFileOffset kernelDevURandomWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
-	return 0;
-}
-
-int16_t kernelDevTtyS0ReadFunctor(void *userData) {
+int16_t kernelDevTtyS0ReadFunctor(void) {
 #ifdef ARDUINO
 	int16_t ret=-1;
 
-	if (kernelDevTtyS0CanReadFunctor(userData)) {
+	if (kernelDevTtyS0CanReadFunctor()) {
 		uint8_t value;
 		ATOMIC_BLOCK(ATOMIC_FORCEON) {
 			if (circBufPop(&kernelDevTtyS0CircBuf, &value)) {
@@ -692,7 +796,7 @@ int16_t kernelDevTtyS0ReadFunctor(void *userData) {
 #endif
 }
 
-bool kernelDevTtyS0CanReadFunctor(void *userData) {
+bool kernelDevTtyS0CanReadFunctor(void) {
 #ifdef ARDUINO
 	if (kernelDevTtyS0CircBufNewlineCount>0)
 		return true;
@@ -721,7 +825,7 @@ bool kernelDevTtyS0CanReadFunctor(void *userData) {
 #endif
 }
 
-KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
+KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len) {
 	if (len>UINT16_MAX)
 		len=UINT16_MAX;
 
@@ -735,19 +839,28 @@ KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileO
 	return written;
 }
 
-int16_t kernelDevSpiReadFunctor(void *userData) {
-	return spiReadByte();
-}
+uint32_t kernelDevDigitalPinFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			return true;
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead:
+			return kernelDevDigitalPinReadFunctor(userData);
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+			return kernelDevDigitalPinCanReadFunctor(userData);
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+			return kernelDevDigitalPinWriteFunctor(data, len, userData);
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+		break;
+	}
 
-bool kernelDevSpiCanReadFunctor(void *userData) {
-	return true;
-}
-
-KernelFsFileOffset kernelDevSpiWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
-	if (len>UINT16_MAX)
-		len=UINT16_MAX;
-	spiWriteBlock(data, len);
-	return len;
+	assert(false);
+	return 0;
 }
 
 int16_t kernelDevDigitalPinReadFunctor(void *userData) {

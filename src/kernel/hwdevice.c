@@ -56,6 +56,7 @@ HwDevice hwDevices[HwDeviceIdMax];
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
+uint32_t hwDeviceSdCardReaderFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 bool hwDeviceSdCardReaderFlushFunctor(void *userData);
 KernelFsFileOffset hwDeviceSdCardReaderReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset hwDeviceSdCardReaderWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
@@ -262,7 +263,7 @@ bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
 	}
 	size*=SdBlockSize;
 
-	if (!kernelFsAddBlockDeviceFile(kstrC(mountPoint), &hwDeviceSdCardReaderFlushFunctor, KernelFsBlockDeviceFormatFlatFile, size, &hwDeviceSdCardReaderReadFunctor, &hwDeviceSdCardReaderWriteFunctor, (void *)(uintptr_t)id)) {
+	if (!kernelFsAddBlockDeviceFile(kstrC(mountPoint), &hwDeviceSdCardReaderFsFunctor, (void *)(uintptr_t)id, KernelFsBlockDeviceFormatFlatFile, size, true)) {
 		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: could not add block device to VFS (id=%u, mountPoint='%s', size=%"PRIu32")\n"), id, mountPoint, size);
 		sdQuit(&hwDevices[id].d.sdCardReader.sdCard);
 		return false;
@@ -395,6 +396,29 @@ bool hwDeviceDht22Read(HwDeviceId id) {
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
+
+uint32_t hwDeviceSdCardReaderFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			return hwDeviceSdCardReaderFlushFunctor(userData);
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+			return hwDeviceSdCardReaderReadFunctor(addr, data, len, userData);
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+			return hwDeviceSdCardReaderWriteFunctor(addr, data, len, userData);
+		break;
+	}
+
+	assert(false);
+	return 0;
+}
 
 bool hwDeviceSdCardReaderFlushFunctor(void *userData) {
 	HwDeviceId id=(HwDeviceId)(uintptr_t)userData;

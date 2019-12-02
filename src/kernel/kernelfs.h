@@ -20,20 +20,27 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 #define KernelFsPathMax 64
 
-typedef bool (KernelFsDeviceFlushFunctor)(void *userData);
-
-typedef int16_t (KernelFsCharacterDeviceReadFunctor)(void *userData); // read and return a single character, or -1 on failure
-typedef bool (KernelFsCharacterDeviceCanReadFunctor)(void *userData); // returns true if a read would not block
-typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(const uint8_t *data, KernelFsFileOffset len, void *userData); // returns number of bytes written
-
 typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatCustomMiniFs 0
 #define KernelFsBlockDeviceFormatFlatFile 1
 #define KernelFsBlockDeviceFormatNB 2
 #define KernelFsBlockDeviceFormatBits 1
 
-typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData); // returns -1 on failure
-typedef KernelFsFileOffset (KernelFsBlockDeviceWriteFunctor)(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
+// The enum and single 'generic' functor below are used as a way to provide and store multiple functors while only needing enough RAM for a single function pointer.
+// Note that not all arguments are used in each case, and the return value is not always a uint32_t - see individual prototypes in enum commments for nore details.
+typedef enum {
+	// Common functors
+	KernelFsDeviceFunctorTypeCommonFlush, // typedef bool (KernelFsDeviceFlushFunctor)(KernelFsDeviceFunctorTypeCommonFlush, void *userData);
+	// Character device functors
+	KernelFsDeviceFunctorTypeCharacterRead, // typedef int16_t (KernelFsCharacterDeviceReadFunctor)(KernelFsDeviceFunctorTypeCharacterRead, void *userData); - read and return a single character, or -1 on failure
+	KernelFsDeviceFunctorTypeCharacterCanRead, // typedef bool (KernelFsCharacterDeviceCanReadFunctor)(KernelFsDeviceFunctorTypeCharacterCanRead, void *userData); - returns true if a read would not block
+	KernelFsDeviceFunctorTypeCharacterWrite, // typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(KernelFsDeviceFunctorTypeCharacterWrite, void *userData, const uint8_t *data, KernelFsFileOffset len); - returns number of bytes written
+	// Block device functors
+	KernelFsDeviceFunctorTypeBlockRead, // typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsDeviceFunctorTypeBlockRead, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr); - returns -1 on failure
+	KernelFsDeviceFunctorTypeBlockWrite, // typedef KernelFsFileOffset (KernelFsBlockDeviceWriteFunctor)(KernelFsDeviceFunctorTypeBlockWrite, void *userData, const uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
+} KernelFsDeviceFunctorType;
+
+typedef uint32_t (KernelFsDeviceFunctor)(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Initialisation etc
@@ -46,9 +53,9 @@ void kernelFsQuit(void);
 // Virtual device functions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsDeviceFlushFunctor *flushFunctor, KernelFsCharacterDeviceReadFunctor *readFunctor, KernelFsCharacterDeviceCanReadFunctor *canReadFunctor, KernelFsCharacterDeviceWriteFunctor *writeFunctor, bool canOpenMany, void *userData);
+bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, bool canOpenMany, bool writable);
 bool kernelFsAddDirectoryDeviceFile(KStr mountPoint);
-bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFlushFunctor *flushFunctor, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, KernelFsBlockDeviceReadFunctor *readFunctor, KernelFsBlockDeviceWriteFunctor *writeFunctor, void *userData);
+bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable);
 
 ////////////////////////////////////////////////////////////////////////////////
 // File functions -including directories (all paths are expected to be valid and normalised)
