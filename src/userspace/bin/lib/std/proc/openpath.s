@@ -12,8 +12,9 @@ add r6 r6 r2
 call getpath
 ; Try to open
 mov r0 SyscallIdOpen
-mov r2 PathMax
-sub r6 r6 r2
-mov r1 r6
+mov r1 PathMax
+sub r1 r6 r1
 syscall
+; Restore stack
+mov r6 r1
 ret

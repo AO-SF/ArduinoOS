@@ -35,14 +35,14 @@ jmp getpathMakeAbsoluteNoStackRestore
 ; look for directories in PATH environment variable
 mov r2 r0
 mov r3 r1
-mov r0 SyscallIdEnvGetPath
 mov r1 r6 ; use stack to store PATH
+mov r0 EnvVarPathMax
+add r6 r6 r0
+mov r0 SyscallIdEnvGetPath
 syscall
 mov r0 r2
+mov r2 r1
 mov r1 r3
-mov r2 r6 ; protect PATH
-mov r6 EnvVarPathMax
-add r6 r2 r6
 label getpathPATHLoopStart
 ; look for colon indicating end of path dir
 push16 r0
