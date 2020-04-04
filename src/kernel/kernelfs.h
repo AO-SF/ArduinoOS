@@ -13,6 +13,7 @@
 // From user space reading /dev/sd would be limited to first 64kb, but using mount
 // all files in /media/sd could be read up to 64kb.
 typedef uint32_t KernelFsFileOffset;
+#define KernelFsFileOffsetMax INT32_MAX
 
 typedef uint8_t KernelFsFd; // file-descriptor
 #define KernelFsFdInvalid 0
