@@ -19,7 +19,7 @@ typedef enum {
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-void sdWriteCommand(uint8_t firstByte, ...); // terminate with 0xFF, which is not sent
+void sdWriteCommand(unsigned firstByte, ...); // list of bytes to send, terminated with 0xFF, which is not sent
 
 void sdWriteDummyBytes(void); // continues until 0xFF is read
 void sdWriteDummyBytesN(unsigned count);
@@ -453,14 +453,14 @@ bool sdWriteBlock(SdCard *card, uint32_t block, const uint8_t *data) {
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void sdWriteCommand(uint8_t firstByte, ...) {
+void sdWriteCommand(unsigned firstByte, ...) {
 	va_list ap;
 	va_start(ap, firstByte);
 
 	spiWriteByte(firstByte);
 
-	uint8_t byte;
-	while((byte=(uint8_t)va_arg(ap, int))!=0xFF)
+	unsigned byte;
+	while((byte=(unsigned)va_arg(ap, unsigned))<0xFF)
 		spiWriteByte(byte);
 
 	va_end(ap);
