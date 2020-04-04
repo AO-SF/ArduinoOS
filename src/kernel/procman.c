@@ -738,7 +738,7 @@ ProcManPid procManFindUnusedPid(void) {
 }
 
 bool procManProcessLoadProcData(const ProcManProcess *process, ProcManProcessProcData *procData) {
-	return (kernelFsFileReadOffset(process->procFd, 0, (uint8_t *)procData, sizeof(ProcManProcessProcData), false)==sizeof(ProcManProcessProcData));
+	return (kernelFsFileReadOffset(process->procFd, 0, (uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
 }
 
 bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData *procData) {
@@ -746,15 +746,15 @@ bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData
 }
 
 bool procManProcessLoadProcDataRamLen(const ProcManProcess *process, uint16_t *value) {
-	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramLen), (uint8_t *)value, sizeof(uint16_t), false)==sizeof(uint16_t));
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramLen), (uint8_t *)value, sizeof(uint16_t))==sizeof(uint16_t));
 }
 
 bool procManProcessLoadProcDataEnvVarDataLen(const ProcManProcess *process, uint8_t *value) {
-	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,envVarDataLen), value, sizeof(uint8_t), false)==sizeof(uint8_t));
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,envVarDataLen), value, sizeof(uint8_t))==sizeof(uint8_t));
 }
 
 bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd) {
-	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramFd), (uint8_t *)ramFd, sizeof(KernelFsFd), false)==sizeof(KernelFsFd));
+	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramFd), (uint8_t *)ramFd, sizeof(KernelFsFd))==sizeof(KernelFsFd));
 }
 
 bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegister reg, BytecodeWord value) {
@@ -801,7 +801,7 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose) {
 	if (addr+len<BytecodeMemoryRamAddr) {
 		// Addresss is in progmem data
-		if (kernelFsFileReadOffset(process->progmemFd, addr, data, len, false)==len)
+		if (kernelFsFileReadOffset(process->progmemFd, addr, data, len)==len)
 			return true;
 		else {
 			if (verbose)
@@ -848,7 +848,7 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose) {
 	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
 	if (offset+len<=ramTotalSize) {
-		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len, false)!=len) {
+		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len)!=len) {
 			if (verbose)
 				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len);
 			return false;
@@ -974,7 +974,7 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 	while(1) {
 		// Read a character
 		uint8_t c;
-		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1, false)!=1) {
+		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1)!=1) {
 			kernelLog(LogTypeWarning, kstrP("corrupt argvdata or ram file more generally? Process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			return false;
 		}
@@ -1684,7 +1684,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			// Attempt to read
 			uint8_t value;
-			KernelFsFileOffset readResult=kernelFsFileReadOffset(fd, 0, &value, 1, false);
+			KernelFsFileOffset readResult=kernelFsFileReadOffset(fd, 0, &value, 1);
 
 			// Restore terminal settings
 			#ifdef ARDUINO
@@ -2532,7 +2532,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	// Use a scratch buffer to copy up to 256 bytes at a time.
 	KernelFsFileOffset i;
 	for(i=0; i+255<ramTotalSize; i+=256) {
-		if (kernelFsFileReadOffset(procData->ramFd, i, (uint8_t *)procManScratchBuf256, 256, false)!=256 ||
+		if (kernelFsFileReadOffset(procData->ramFd, i, (uint8_t *)procManScratchBuf256, 256)!=256 ||
 		    kernelFsFileWriteOffset(childRamFd, i, (const uint8_t *)procManScratchBuf256, 256)!=256) {
 			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n"), parentPid, i, ramTotalSize);
 			goto error;
@@ -2540,7 +2540,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	}
 	for(; i<ramTotalSize; i++) {
 		uint8_t value;
-		if (kernelFsFileReadOffset(procData->ramFd, i, &value, 1, false)!=1 ||
+		if (kernelFsFileReadOffset(procData->ramFd, i, &value, 1)!=1 ||
 		    kernelFsFileWriteOffset(childRamFd, i, &value, 1)!=1) {
 			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n"), parentPid, i, ramTotalSize);
 			goto error;
@@ -2848,7 +2848,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 
 			// Read interpreter path string
 			char interpreterPath[KernelFsPathMax];
-			KernelFsFileOffset readCount=kernelFsFileReadOffset(newProgmemFd, 2, (uint8_t *)interpreterPath, KernelFsPathMax, false);
+			KernelFsFileOffset readCount=kernelFsFileReadOffset(newProgmemFd, 2, (uint8_t *)interpreterPath, KernelFsPathMax);
 			interpreterPath[readCount-1]='\0';
 
 			// Look for newline and if found terminate string here
@@ -2911,7 +2911,7 @@ bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *p
 		if (chunkSize>256)
 			chunkSize=256;
 
-		BytecodeWord read=kernelFsFileReadOffset(fd, offset+i, (uint8_t *)procManScratchBuf256, chunkSize, false);
+		BytecodeWord read=kernelFsFileReadOffset(fd, offset+i, (uint8_t *)procManScratchBuf256, chunkSize);
 		if (read==0)
 			break;
 

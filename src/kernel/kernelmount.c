@@ -179,7 +179,7 @@ KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data
 		case KernelMountFormatMiniFs:
 		case KernelMountFormatFlatFile:
 			// Simply read from device file directly
-			return kernelFsFileReadOffset(deviceFd, addr, data, len, false);
+			return kernelFsFileReadOffset(deviceFd, addr, data, len);
 		break;
 		case KernelMountFormatPartition1:
 		case KernelMountFormatPartition2:
@@ -195,7 +195,7 @@ KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data
 			KernelFsFileOffset offset=(entry.startSector<8388607lu ? entry.startSector : 8388607lu)*((uint32_t)512);
 
 			// Read from device file
-			return kernelFsFileReadOffset(deviceFd, addr+offset, data, len, false);
+			return kernelFsFileReadOffset(deviceFd, addr+offset, data, len);
 		} break;
 	}
 
