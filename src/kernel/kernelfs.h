@@ -34,7 +34,7 @@ typedef enum {
 	KernelFsDeviceFunctorTypeCommonFlush, // typedef bool (KernelFsDeviceFlushFunctor)(KernelFsDeviceFunctorTypeCommonFlush, void *userData);
 	// Character device functors
 	KernelFsDeviceFunctorTypeCharacterRead, // typedef int16_t (KernelFsCharacterDeviceReadFunctor)(KernelFsDeviceFunctorTypeCharacterRead, void *userData); - read and return a single character, or -1 on failure
-	KernelFsDeviceFunctorTypeCharacterCanRead, // typedef bool (KernelFsCharacterDeviceCanReadFunctor)(KernelFsDeviceFunctorTypeCharacterCanRead, void *userData); - returns true if a read would not block
+	KernelFsDeviceFunctorTypeCharacterCanRead, // typedef bool (KernelFsCharacterDeviceCanReadFunctor)(KernelFsDeviceFunctorTypeCharacterCanRead, void *userData); - returns true if there is at least 1 byte available to read immediately
 	KernelFsDeviceFunctorTypeCharacterWrite, // typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(KernelFsDeviceFunctorTypeCharacterWrite, void *userData, const uint8_t *data, KernelFsFileOffset len); - returns number of bytes written
 	// Block device functors
 	KernelFsDeviceFunctorTypeBlockRead, // typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsDeviceFunctorTypeBlockRead, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr); - returns -1 on failure
