@@ -12,6 +12,7 @@ typedef enum {
 	KernelMountFormatPartition2,
 	KernelMountFormatPartition3,
 	KernelMountFormatPartition4,
+	KernelMountFormatCircBuf,
 } KernelMountFormat;
 
 bool kernelMount(KernelMountFormat format, const char *devicePath, const char *dirPath);
