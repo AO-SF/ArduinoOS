@@ -11,6 +11,7 @@ db typeStrPartition1 'partition1',0
 db typeStrPartition2 'partition2',0
 db typeStrPartition3 'partition3',0
 db typeStrPartition4 'partition4',0
+db typeStrCircBuf 'circbuf',0
 
 db badTypeErrorStr 'bad type argument\n',0
 db usageErrorStr 'usage: mount type device dir\n',0
@@ -71,6 +72,13 @@ cmp r0 r0 r0
 skipneqz r0
 jmp foundTypePartition4
 
+mov r0 typeArg
+mov r1 typeStrCircBuf
+call strcmp
+cmp r0 r0 r0
+skipneqz r0
+jmp foundTypeCircBuf
+
 mov r0 badTypeErrorStr
 call puts0
 mov r0 1
@@ -109,6 +117,12 @@ jmp gottypearg
 label foundTypePartition4
 mov r0 typeId
 mov r1 SyscallMountFormatPartition4
+store16 r0 r1
+jmp gottypearg
+
+label foundTypeCircBuf
+mov r0 typeId
+mov r1 SyscallMountFormatCircBuf
 store16 r0 r1
 jmp gottypearg
 

@@ -100,3 +100,4 @@ const SyscallMountFormatPartition1 2
 const SyscallMountFormatPartition2 3
 const SyscallMountFormatPartition3 4
 const SyscallMountFormatPartition4 5
+const SyscallMountFormatCircBuf 6

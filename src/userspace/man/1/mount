@@ -13,3 +13,4 @@ DESCRIPTION
       * customminifs - A single-directory format for volumes of around 1-16kb
       * flatfile - A single-file format (essentially a 'runtime' link/shortcut)
       * partitionN (N=1,2,3,4) - Map a particular partition to given target
+      * circbuf - A circular buffer implementing a FIFO queue
