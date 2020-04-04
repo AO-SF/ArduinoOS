@@ -701,7 +701,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 	} else {
 		assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 
-		// This fd is a child of the devices cached in the fdt
+		// This fd is a child of the device cached in the fdt
 		char *dirname, *basename;
 		kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
 
