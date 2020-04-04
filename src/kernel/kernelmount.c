@@ -16,9 +16,9 @@ uint8_t kernelMountedDevicesNext=0;
 KernelMountDevice kernelMountedDevices[kernelMountedDevicesMax];
 
 uint32_t kernelMountFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
-bool kernelMountFlushFunctor(void *userData);
-KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
-KernelFsFileOffset kernelMountWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
+bool kernelMountCommonFlushFunctor(void *userData);
+KernelFsFileOffset kernelMountBlockReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
+KernelFsFileOffset kernelMountBlockWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 
 const KernelMountDevice *kernelMountGetDeviceFromFd(KernelFsFd fd);
 
@@ -134,7 +134,7 @@ void kernelUnmount(const char *devicePath) {
 uint32_t kernelMountFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
 	switch(type) {
 		case KernelFsDeviceFunctorTypeCommonFlush:
-			return kernelMountFlushFunctor(userData);
+			return kernelMountCommonFlushFunctor(userData);
 		break;
 		case KernelFsDeviceFunctorTypeCharacterRead:
 		break;
@@ -143,10 +143,10 @@ uint32_t kernelMountFsFunctor(KernelFsDeviceFunctorType type, void *userData, ui
 		case KernelFsDeviceFunctorTypeCharacterWrite:
 		break;
 		case KernelFsDeviceFunctorTypeBlockRead:
-			return kernelMountReadFunctor(addr, data, len, userData);
+			return kernelMountBlockReadFunctor(addr, data, len, userData);
 		break;
 		case KernelFsDeviceFunctorTypeBlockWrite:
-			return kernelMountWriteFunctor(addr, data, len, userData);
+			return kernelMountBlockWriteFunctor(addr, data, len, userData);
 		break;
 	}
 
@@ -154,7 +154,7 @@ uint32_t kernelMountFsFunctor(KernelFsDeviceFunctorType type, void *userData, ui
 	return 0;
 }
 
-bool kernelMountFlushFunctor(void *userData) {
+bool kernelMountCommonFlushFunctor(void *userData) {
 	assert(((uintptr_t)userData)<KernelFsFdMax);
 
 	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
@@ -168,7 +168,7 @@ bool kernelMountFlushFunctor(void *userData) {
 	return kernelFsFileFlush(path);
 }
 
-KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
+KernelFsFileOffset kernelMountBlockReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
 	assert(((uintptr_t)userData)<KernelFsFdMax);
 
 	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
@@ -203,7 +203,7 @@ KernelFsFileOffset kernelMountReadFunctor(KernelFsFileOffset addr, uint8_t *data
 	return 0;
 }
 
-KernelFsFileOffset kernelMountWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
+KernelFsFileOffset kernelMountBlockWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	assert(((uintptr_t)userData)<KernelFsFdMax);
 
 	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
