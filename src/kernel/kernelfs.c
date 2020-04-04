@@ -768,6 +768,26 @@ bool kernelFsFileCanRead(KernelFsFd fd) {
 	return true;
 }
 
+bool kernelFsFileReadByte(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *value) {
+	return (kernelFsFileReadOffset(fd, offset, value, 1)==1);
+}
+
+bool kernelFsFileReadWord(KernelFsFd fd, KernelFsFileOffset offset, uint16_t *value) {
+	uint8_t data[2];
+	if (kernelFsFileReadOffset(fd, offset, data, 2)!=2)
+		return false;
+	*value=(((uint16_t)data[0])<<8)|data[1];
+	return true;
+}
+
+bool kernelFsFileReadDoubleWord(KernelFsFd fd, KernelFsFileOffset offset, uint32_t *value) {
+	uint8_t data[4];
+	if (kernelFsFileReadOffset(fd, offset, data, 4)!=4)
+		return false;
+	*value=(((uint32_t)data[0])<<24)|(((uint32_t)data[1])<<16)|(((uint32_t)data[2])<<8)|data[3];
+	return true;
+}
+
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen) {
 	return kernelFsFileWriteOffset(fd, 0, data, dataLen);
 }
@@ -860,6 +880,20 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 	}
 
 	return 0;
+}
+
+bool kernelFsFileWriteByte(KernelFsFd fd, KernelFsFileOffset offset, uint8_t value) {
+	return (kernelFsFileWriteOffset(fd, offset, &value, 1)==1);
+}
+
+bool kernelFsFileWriteWord(KernelFsFd fd, KernelFsFileOffset offset, uint16_t value) {
+	uint8_t data[2]={value>>8, value&255};
+	return (kernelFsFileWriteOffset(fd, offset, data, 2)==2);
+}
+
+bool kernelFsFileWriteDoubleWord(KernelFsFd fd, KernelFsFileOffset offset, uint32_t value) {
+	uint8_t data[4]={value>>24, (value>>16)&255, (value>>8)&255, value&255};
+	return (kernelFsFileWriteOffset(fd, offset, data, 4)==4);
 }
 
 bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelFsPathMax]) {

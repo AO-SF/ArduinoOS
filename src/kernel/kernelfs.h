@@ -87,8 +87,17 @@ KStr kernelFsGetFilePath(KernelFsFd fd);
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes read
 KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes read. blocking only affects some character device files
 bool kernelFsFileCanRead(KernelFsFd fd); // character device files may return false if a read would block, all other files return true (as they never block)
+
+bool kernelFsFileReadByte(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *value);
+bool kernelFsFileReadWord(KernelFsFd fd, KernelFsFileOffset offset, uint16_t *value);
+bool kernelFsFileReadDoubleWord(KernelFsFd fd, KernelFsFileOffset offset, uint32_t *value);
+
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes written
 KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset offset, const uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes written
+
+bool kernelFsFileWriteByte(KernelFsFd fd, KernelFsFileOffset offset, uint8_t value);
+bool kernelFsFileWriteWord(KernelFsFd fd, KernelFsFileOffset offset, uint16_t value);
+bool kernelFsFileWriteDoubleWord(KernelFsFd fd, KernelFsFileOffset offset, uint32_t value);
 
 // The following functions are for directory files only.
 bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelFsPathMax]);
