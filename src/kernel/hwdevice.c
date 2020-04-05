@@ -408,6 +408,8 @@ uint32_t hwDeviceSdCardReaderFsFunctor(KernelFsDeviceFunctorType type, void *use
 		break;
 		case KernelFsDeviceFunctorTypeCharacterWrite:
 		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
+		break;
 		case KernelFsDeviceFunctorTypeBlockRead:
 			return hwDeviceSdCardReaderReadFunctor(addr, data, len, userData);
 		break;

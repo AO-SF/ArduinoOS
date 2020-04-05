@@ -22,6 +22,7 @@ KernelFsFileOffset kernelMountBlockWriteFunctor(KernelFsFileOffset addr, const u
 int16_t kernelMountCharacterReadFunctor(void *userData);
 bool kernelMountCharacterCanReadFunctor(void *userData);
 KernelFsFileOffset kernelMountCharacterWriteFunctor(void *userData, const uint8_t *data, KernelFsFileOffset len);
+bool kernelMountCharacterCanWriteFunctor(void *userData);
 
 const KernelMountDevice *kernelMountGetDeviceFromFd(KernelFsFd fd);
 
@@ -176,6 +177,9 @@ uint32_t kernelMountFsFunctor(KernelFsDeviceFunctorType type, void *userData, ui
 		break;
 		case KernelFsDeviceFunctorTypeCharacterWrite:
 			return kernelMountCharacterWriteFunctor(userData, data, len);
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
+			return kernelMountCharacterCanWriteFunctor(userData);
 		break;
 		case KernelFsDeviceFunctorTypeBlockRead:
 			return kernelMountBlockReadFunctor(addr, data, len, userData);
@@ -409,6 +413,41 @@ KernelFsFileOffset kernelMountCharacterWriteFunctor(void *userData, const uint8_
 
 	assert(false);
 	return 0;
+}
+
+bool kernelMountCharacterCanWriteFunctor(void *userData) {
+	assert(((uintptr_t)userData)<KernelFsFdMax);
+
+	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)userData;
+	const KernelMountDevice *device=kernelMountGetDeviceFromFd(deviceFd);
+	assert(device!=NULL);
+
+	switch(device->format) {
+		case KernelMountFormatMiniFs:
+		case KernelMountFormatFlatFile:
+		case KernelMountFormatPartition1:
+		case KernelMountFormatPartition2:
+		case KernelMountFormatPartition3:
+		case KernelMountFormatPartition4: {
+			// These are not character devices
+			assert(false);
+			return false;
+		} break;
+		case KernelMountFormatCircBuf: {
+			// Grab head and tail offsets
+			KernelFsFileOffset headOffset=kernelMountCircBufGetHeadOffset(deviceFd);
+			KernelFsFileOffset tailOffset=kernelMountCircBufGetTailOffset(deviceFd);
+			if (headOffset==KernelFsFileOffsetMax || tailOffset==KernelFsFileOffsetMax)
+				return false;
+
+			// If tail offset is about to meet head offset, then buffer is full. Otherwise there is space and a write would proceed.
+			KernelFsFileOffset newTailOffset=kernelMountCircBufIncOffset(deviceFd, tailOffset);
+			return (newTailOffset!=headOffset);
+		} break;
+	}
+
+	assert(false);
+	return false;
 }
 
 const KernelMountDevice *kernelMountGetDeviceFromFd(KernelFsFd fd) {

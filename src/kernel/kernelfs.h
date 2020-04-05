@@ -36,6 +36,7 @@ typedef enum {
 	KernelFsDeviceFunctorTypeCharacterRead, // typedef int16_t (KernelFsCharacterDeviceReadFunctor)(KernelFsDeviceFunctorTypeCharacterRead, void *userData); - read and return a single character, or -1 on failure
 	KernelFsDeviceFunctorTypeCharacterCanRead, // typedef bool (KernelFsCharacterDeviceCanReadFunctor)(KernelFsDeviceFunctorTypeCharacterCanRead, void *userData); - returns true if there is at least 1 byte available to read immediately
 	KernelFsDeviceFunctorTypeCharacterWrite, // typedef KernelFsFileOffset (KernelFsCharacterDeviceWriteFunctor)(KernelFsDeviceFunctorTypeCharacterWrite, void *userData, const uint8_t *data, KernelFsFileOffset len); - returns number of bytes written
+	KernelFsDeviceFunctorTypeCharacterCanWrite, // typedef bool (KernelFsCharacterDeviceCanWriteFunctor)(KernelFsDeviceFunctorTypeCharacterCanWrite, void *userData); - returns true if there is at least space to write 1 byte immediately (or at least it is not know to be full)
 	// Block device functors
 	KernelFsDeviceFunctorTypeBlockRead, // typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsDeviceFunctorTypeBlockRead, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr); - returns -1 on failure
 	KernelFsDeviceFunctorTypeBlockWrite, // typedef KernelFsFileOffset (KernelFsBlockDeviceWriteFunctor)(KernelFsDeviceFunctorTypeBlockWrite, void *userData, const uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
@@ -94,6 +95,7 @@ bool kernelFsFileReadDoubleWord(KernelFsFd fd, KernelFsFileOffset offset, uint32
 
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes written
 KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset offset, const uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes written
+bool kernelFsFileCanWrite(KernelFsFd fd); // character device files may return false if a write would block, all other files return true (as they never block)
 
 bool kernelFsFileWriteByte(KernelFsFd fd, KernelFsFileOffset offset, uint8_t value);
 bool kernelFsFileWriteWord(KernelFsFd fd, KernelFsFileOffset offset, uint16_t value);

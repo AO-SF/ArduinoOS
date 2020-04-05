@@ -106,10 +106,12 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 int16_t kernelDevTtyS0ReadFunctor(void);
 bool kernelDevTtyS0CanReadFunctor(void);
 KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len);
+bool kernelDevTtyS0CanWriteFunctor(void);
 uint32_t kernelDevDigitalPinFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 int16_t kernelDevDigitalPinReadFunctor(void *userData);
 bool kernelDevDigitalPinCanReadFunctor(void *userData);
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
+bool kernelDevDigitalPinCanWriteFunctor(void *userData);
 
 #ifndef ARDUINO
 void kernelSigIntHandler(int sig);
@@ -554,6 +556,8 @@ uint32_t kernelProgmemGenericFsFunctor(KernelFsDeviceFunctorType type, void *use
 		break;
 		case KernelFsDeviceFunctorTypeCharacterWrite:
 		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
+		break;
 		case KernelFsDeviceFunctorTypeBlockRead:
 			return kernelProgmemGenericReadFunctor(addr, data, len, userData);
 		break;
@@ -589,6 +593,8 @@ uint32_t kernelEepromGenericFsFunctor(KernelFsDeviceFunctorType type, void *user
 		case KernelFsDeviceFunctorTypeCharacterCanRead:
 		break;
 		case KernelFsDeviceFunctorTypeCharacterWrite:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
 		break;
 		case KernelFsDeviceFunctorTypeBlockRead:
 			return kernelEepromGenericReadFunctor(addr, data, len, userData);
@@ -656,6 +662,8 @@ uint32_t kernelTmpFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint
 		case KernelFsDeviceFunctorTypeCharacterCanRead:
 		break;
 		case KernelFsDeviceFunctorTypeCharacterWrite:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
 		break;
 		case KernelFsDeviceFunctorTypeBlockRead:
 			return kernelTmpReadFunctor(addr, data, len, userData);
@@ -758,6 +766,28 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 				break;
 			}
 		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
+			switch(file) {
+				case KernelVirtualDevFileFull:
+					return false;
+				break;
+				case KernelVirtualDevFileNull:
+					return true;
+				break;
+				case KernelVirtualDevFileTtyS0:
+					return kernelDevTtyS0CanWriteFunctor();
+				break;
+				case KernelVirtualDevFileSpi:
+					return true;
+				break;
+				case KernelVirtualDevFileURandom:
+					return false;
+				break;
+				case KernelVirtualDevFileZero:
+					return true;
+				break;
+			}
+		break;
 		case KernelFsDeviceFunctorTypeBlockRead:
 		break;
 		case KernelFsDeviceFunctorTypeBlockWrite:
@@ -839,6 +869,10 @@ KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileO
 	return written;
 }
 
+bool kernelDevTtyS0CanWriteFunctor(void) {
+	return true;
+}
+
 uint32_t kernelDevDigitalPinFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
 	switch(type) {
 		case KernelFsDeviceFunctorTypeCommonFlush:
@@ -852,6 +886,9 @@ uint32_t kernelDevDigitalPinFsFunctor(KernelFsDeviceFunctorType type, void *user
 		break;
 		case KernelFsDeviceFunctorTypeCharacterWrite:
 			return kernelDevDigitalPinWriteFunctor(data, len, userData);
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
+			return kernelDevDigitalPinCanWriteFunctor(userData);
 		break;
 		case KernelFsDeviceFunctorTypeBlockRead:
 		break;
@@ -886,6 +923,10 @@ KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFs
 		return len;
 	else
 		return 0;
+}
+
+bool kernelDevDigitalPinCanWriteFunctor(void *userData) {
+	return true;
 }
 
 #ifndef ARDUINO
