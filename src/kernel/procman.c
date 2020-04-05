@@ -1995,6 +1995,21 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdTryWriteByte: {
+			KernelFsFd fd=procData->regs[1];
+			uint8_t value=procData->regs[2];
+
+			// Check for bad fd
+			if (!kernelFsFileIsOpenByFd(fd)) {
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Attempt to write
+			procData->regs[0]=(kernelFsFileWriteOffset(fd, 0, &value, 1)==1);
+
+			return true;
+		} break;
 		case BytecodeSyscallIdEnvGetStdinFd:
 			procData->regs[0]=procData->stdinFd;
 			return true;
