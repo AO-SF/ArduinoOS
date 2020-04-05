@@ -891,6 +891,8 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 }
 
 bool kernelFsFileCanWrite(KernelFsFd fd) {
+	// TODO: if we find a device, should we check the writable flag first?
+
 	// Invalid fd?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return false;
