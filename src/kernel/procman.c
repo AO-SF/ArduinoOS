@@ -39,6 +39,8 @@ typedef enum {
 	ProcManProcessStateWaitingWaitpid,
 	ProcManProcessStateWaitingRead,
 	ProcManProcessStateWaitingRead32,
+	ProcManProcessStateWaitingWrite,
+	ProcManProcessStateWaitingWrite32,
 	ProcManProcessStateExiting,
 } ProcManProcessState;
 
@@ -79,6 +81,14 @@ typedef struct {
 } ProcManProcessStateWaitingRead32Data;
 
 typedef struct {
+	KernelFsFd fd;
+} ProcManProcessStateWaitingWriteData;
+
+typedef struct {
+	KernelFsFd fd;
+} ProcManProcessStateWaitingWrite32Data;
+
+typedef struct {
 	uint16_t instructionCounter; // reset regularly
 	KernelFsFd progmemFd, procFd;
 	uint8_t state;
@@ -86,6 +96,8 @@ typedef struct {
 		ProcManProcessStateWaitingWaitpidData waitingWaitpid;
 		ProcManProcessStateWaitingReadData waitingRead;
 		ProcManProcessStateWaitingRead32Data waitingRead32;
+		ProcManProcessStateWaitingWriteData waitingWrite;
+		ProcManProcessStateWaitingWrite32Data waitingWrite32;
 	} stateData;
 #ifndef ARDUINO
 	ProfileCounter profilingCounts[BytecodeMemoryProgmemSize];
@@ -164,6 +176,10 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessRead32(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset);
+
+bool procManProcessWrite(ProcManProcess *process, ProcManProcessProcData *procData);
+bool procManProcessWrite32(ProcManProcess *process, ProcManProcessProcData *procData);
+bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset);
 
 void procManResetInstructionCounters(void);
 
@@ -534,7 +550,10 @@ void procManProcessTick(ProcManPid pid) {
 				}
 
 				process->state=ProcManProcessStateActive;
-				procManProcessRead(process, &procData);
+				if (!procManProcessRead(process, &procData)) {
+					kernelLog(LogTypeWarning, kstrP("process %u tick (read available) - failed during read, killing\n"), pid);
+					goto kill;
+				}
 			} else {
 				// Otherwise process stays waiting
 				return;
@@ -550,7 +569,48 @@ void procManProcessTick(ProcManPid pid) {
 				}
 
 				process->state=ProcManProcessStateActive;
-				procManProcessRead32(process, &procData);
+				if (!procManProcessRead32(process, &procData)) {
+					kernelLog(LogTypeWarning, kstrP("process %u tick (read32 available) - failed during read, killing\n"), pid);
+					goto kill;
+				}
+			} else {
+				// Otherwise process stays waiting
+				return;
+			}
+		} break;
+		case ProcManProcessStateWaitingWrite: {
+			// Is data now available?
+			if (kernelFsFileCanWrite(process->stateData.waitingWrite.fd)) {
+				// It is - load process data so we can update the state and write the data
+				if (!procManProcessLoadProcData(process, &procData)) {
+					kernelLog(LogTypeWarning, kstrP("process %u tick (write available) - could not load proc data, killing\n"), pid);
+					goto kill;
+				}
+
+				process->state=ProcManProcessStateActive;
+				if (!procManProcessWrite(process, &procData)) {
+					kernelLog(LogTypeWarning, kstrP("process %u tick (write available) - failed during write, killing\n"), pid);
+					goto kill;
+				}
+			} else {
+				// Otherwise process stays waiting
+				return;
+			}
+		} break;
+		case ProcManProcessStateWaitingWrite32: {
+			// Is data now available?
+			if (kernelFsFileCanWrite(process->stateData.waitingWrite32.fd)) {
+				// It is - load process data so we can update the state and write the data
+				if (!procManProcessLoadProcData(process, &procData)) {
+					kernelLog(LogTypeWarning, kstrP("process %u tick (write32 available) - could not load proc data, killing\n"), pid);
+					goto kill;
+				}
+
+				process->state=ProcManProcessStateActive;
+				if (!procManProcessWrite32(process, &procData)) {
+					kernelLog(LogTypeWarning, kstrP("process %u tick (write32 available) - failed during write, killing\n"), pid);
+					goto kill;
+				}
 			} else {
 				// Otherwise process stays waiting
 				return;
@@ -659,7 +719,14 @@ void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId) {
 			procData.regs[0]=ProcManExitStatusInterrupted;
 		break;
 		case ProcManProcessStateWaitingRead:
+		case ProcManProcessStateWaitingRead32:
 			// Set process active again but set r0 to indicate read failed
+			process->state=ProcManProcessStateActive;
+			procData.regs[0]=0;
+		break;
+		case ProcManProcessStateWaitingWrite:
+		case ProcManProcessStateWaitingWrite32:
+			// Set process active again but set r0 to indicate write failed
 			process->state=ProcManProcessStateActive;
 			procData.regs[0]=0;
 		break;
@@ -1355,6 +1422,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 					break;
 					case ProcManProcessStateWaitingWaitpid:
 					case ProcManProcessStateWaitingRead:
+					case ProcManProcessStateWaitingRead32:
+					case ProcManProcessStateWaitingWrite:
+					case ProcManProcessStateWaitingWrite32:
 						str="waiting";
 					break;
 					case ProcManProcessStateExiting:
@@ -1476,21 +1546,19 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				// Reading would block - so enter waiting state until data becomes available.
 				process->state=ProcManProcessStateWaitingRead;
 				process->stateData.waitingRead.fd=fd;
-			} else {
-				// Otherwise read as normal (stopping before we would block)
-				if (!procManProcessRead(process, procData)) {
-					kernelLog(LogTypeWarning, kstrP("failed during read syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
+				return true;
+			}
+
+			// Otherwise read as normal (stopping before we would block)
+			if (!procManProcessRead(process, procData)) {
+				kernelLog(LogTypeWarning, kstrP("failed during read syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
 			}
 
 			return true;
 		} break;
 		case BytecodeSyscallIdWrite: {
 			KernelFsFd fd=procData->regs[1];
-			uint16_t offset=procData->regs[2];
-			uint16_t bufAddr=procData->regs[3];
-			KernelFsFileOffset len=procData->regs[4];
 
 			// Check for bad fd
 			if (!kernelFsFileIsOpenByFd(fd)) {
@@ -1498,23 +1566,19 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				return true;
 			}
 
-			// Write block at a time
-			KernelFsFileOffset i=0;
-			while(i<len) {
-				KernelFsFileOffset chunkSize=len-i;
-				if (chunkSize>256)
-					chunkSize=256;
-
-				if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
-					kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
-				KernelFsFileOffset written=kernelFsFileWriteOffset(fd, offset+i, (const uint8_t *)procManScratchBuf256, chunkSize);
-				i+=written;
-				if (written<chunkSize)
-					break;
+			// Check if would block
+			if (!kernelFsFileCanWrite(fd)) {
+				// Writing would block - so enter waiting state until space becomes available.
+				process->state=ProcManProcessStateWaitingWrite;
+				process->stateData.waitingWrite.fd=fd;
+				return true;
 			}
-			procData->regs[0]=i;
+
+			// Otherwise write as normal (stopping before we would block)
+			if (!procManProcessWrite(process, procData)) {
+				kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
 
 			return true;
 		} break;
@@ -1754,21 +1818,19 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				// Reading would block - so enter waiting state until data becomes available.
 				process->state=ProcManProcessStateWaitingRead32;
 				process->stateData.waitingRead32.fd=fd;
-			} else {
-				// Otherwise read as normal (stopping before we would block)
-				if (!procManProcessRead32(process, procData)) {
-					kernelLog(LogTypeWarning, kstrP("failed during read32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
+				return true;
+			}
+
+			// Otherwise read as normal (stopping before we would block)
+			if (!procManProcessRead32(process, procData)) {
+				kernelLog(LogTypeWarning, kstrP("failed during read32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
 			}
 
 			return true;
 		} break;
 		case BytecodeSyscallIdWrite32: {
 			KernelFsFd fd=procData->regs[1];
-			uint16_t offsetPtr=procData->regs[2];
-			uint16_t bufAddr=procData->regs[3];
-			KernelFsFileOffset len=procData->regs[4];
 
 			// Check for bad fd
 			if (!kernelFsFileIsOpenByFd(fd)) {
@@ -1776,30 +1838,19 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				return true;
 			}
 
-			// Read offset
-			KernelFsFileOffset offset;
-			if (!procManProcessMemoryReadDoubleWord(process, procData, offsetPtr, &offset)) {
-				kernelLog(LogTypeWarning, kstrP("failed during write32 syscall, could not read 32 bit offset at %u, process %u (%s), killing\n"), offsetPtr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			// Check if would block
+			if (!kernelFsFileCanWrite(fd)) {
+				// Writing would block - so enter waiting state until space becomes available.
+				process->state=ProcManProcessStateWaitingWrite32;
+				process->stateData.waitingWrite32.fd=fd;
+				return true;
+			}
+
+			// Otherwise write as normal (stopping before we would block)
+			if (!procManProcessWrite32(process, procData)) {
+				kernelLog(LogTypeWarning, kstrP("failed during write32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
-
-			// Write block at a time
-			KernelFsFileOffset i=0;
-			while(i<len) {
-				KernelFsFileOffset chunkSize=len-i;
-				if (chunkSize>256)
-					chunkSize=256;
-
-				if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
-					kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
-				KernelFsFileOffset written=kernelFsFileWriteOffset(fd, offset+i, (const uint8_t *)procManScratchBuf256, chunkSize);
-				i+=written;
-				if (written<chunkSize)
-					break;
-			}
-			procData->regs[0]=i;
 
 			return true;
 		} break;
@@ -2920,6 +2971,49 @@ bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *p
 
 		i+=read;
 		if (read<chunkSize)
+			break;
+	}
+
+	procData->regs[0]=i;
+
+	return true;
+}
+
+bool procManProcessWrite(ProcManProcess *process, ProcManProcessProcData *procData) {
+	uint16_t offset=procData->regs[2];
+	return procManProcessWriteCommon(process, procData, offset);
+}
+
+bool procManProcessWrite32(ProcManProcess *process, ProcManProcessProcData *procData) {
+	uint16_t offsetPtr=procData->regs[2];
+	KernelFsFileOffset offset;
+	if (!procManProcessMemoryReadDoubleWord(process, procData, offsetPtr, &offset)) {
+		kernelLog(LogTypeWarning, kstrP("failed during write32 syscall, could not read 32 bit offset at %u, process %u (%s), killing\n"), offsetPtr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		return false;
+	}
+
+	return procManProcessWriteCommon(process, procData, offset);
+}
+
+bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset) {
+	KernelFsFd fd=procData->regs[1];
+	uint16_t bufAddr=procData->regs[3];
+	KernelFsFileOffset len=procData->regs[4];
+
+	// Write up to a block at a time
+	KernelFsFileOffset i=0;
+	while(i<len) {
+		KernelFsFileOffset chunkSize=len-i;
+		if (chunkSize>256)
+			chunkSize=256;
+
+		if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
+			kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			return false;
+		}
+		KernelFsFileOffset written=kernelFsFileWriteOffset(fd, offset+i, (const uint8_t *)procManScratchBuf256, chunkSize);
+		i+=written;
+		if (written<chunkSize)
 			break;
 	}
 
