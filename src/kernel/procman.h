@@ -39,7 +39,7 @@ ProcManPid procManGetProcessCount(void);
 ProcManPid procManProcessNew(const char *programPath); // Returns ProcManPidMax on failure
 
 void procManKillAll(void);
-void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const ProcManProcessProcData *procDataPtr); // If procDataPtr is NULL kill will attempt to load in order to close any open files. If procDataPtr is non-null it is used instead of loading. The latter version is useful if procData has been modified locally by the caller without being saved back to the backing file.
+void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManProcessProcData *procDataPtr); // If procDataPtr is NULL kill will attempt to load in order to close any open files. If procDataPtr is non-null it is used instead of loading. The latter version is useful if procData has been modified locally by the caller without being saved back to the backing file.
 
 void procManProcessTick(ProcManPid pid);
 

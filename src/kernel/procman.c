@@ -183,6 +183,9 @@ bool procManProcessWrite(ProcManProcess *process, ProcManProcessProcData *procDa
 bool procManProcessWrite32(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset);
 
+KernelFsFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessProcData *procData, const char *path); // attempts to open given path, if successful adds to the fd table
+void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *procData, unsigned slot); // where slot is the entry into the fd table
+
 void procManResetInstructionCounters(void);
 
 void procManProcessDebug(ProcManProcess *process, ProcManProcessProcData *procData);
@@ -375,7 +378,7 @@ void procManKillAll(void) {
 			procManProcessKill(i, ProcManExitStatusKilled, NULL);
 }
 
-void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const ProcManProcessProcData *procDataGiven) {
+void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManProcessProcData *procDataGiven) {
 	kernelLog(LogTypeInfo, kstrP("attempting to kill process %u with exit status %u\n"), pid, exitStatus);
 
 	// Not even open?
@@ -413,7 +416,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 #endif
 
 	// Attempt to get/load proc data, but note this is not critical (after all, we may be here precisely because we could not read the proc data file).
-	const ProcManProcessProcData *procData=NULL;
+	ProcManProcessProcData *procData=NULL;
 	ProcManProcessProcData procDataRaw;
 	if (procDataGiven!=NULL)
 		procData=procDataGiven;
@@ -421,23 +424,11 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, const Proc
 		procData=&procDataRaw;
 
 	// Close files left open by process
-	if (procData!=NULL)
+	if (procData!=NULL) {
 		for(unsigned i=0; i<ProcManMaxFds; ++i)
-			// Have we found a file left unclosed?
-			if (procData->fds[i]!=KernelFsFdInvalid) {
-				// Check file is actually open according to the VFS
-				KStr pathKStr=kernelFsGetFilePath(procData->fds[i]);
-				if (kstrIsNull(pathKStr)) {
-					kernelLog(LogTypeWarning, kstrP("killing process %u - tried to close fd=%u from fds table (index %u), but not open\n"), pid, procData->fds[i], i);
-				} else {
-					// Write to log
-					kstrStrcpy(procManScratchBuf256, pathKStr);
-					kernelLog(LogTypeInfo, kstrP("killing process %u - closing open file '%s', fd=%u, fdsindex=%u\n"), pid, procManScratchBuf256, procData->fds[i], i);
-
-					// Close file
-					kernelFsFileClose(procData->fds[i]);
-				}
-			}
+			if (procData->fds[i]!=KernelFsFdInvalid)
+				procManProcessCloseFile(process, procData, i);
+	}
 
 	// Close proc and ram files, deleting tmp ones
 	KernelFsFd progmemFd=process->progmemFd;
@@ -1585,61 +1576,38 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdOpen: {
-			// Ensure process has a spare slot in the fds table
-			unsigned fdsIndex;
-			for(fdsIndex=0; fdsIndex<ProcManMaxFds; ++fdsIndex)
-				if (procData->fds[fdsIndex]==KernelFsFdInvalid)
-					break;
-
-			if (fdsIndex==ProcManMaxFds) {
-				kernelLog(LogTypeWarning, kstrP("failed during open syscall, fds table full, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				procData->regs[0]=KernelFsFdInvalid;
-				return true;
-			}
-
 			// Read path from user space
 			char path[KernelFsPathMax];
 			if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], path, KernelFsPathMax)) {
-				kernelLog(LogTypeWarning, kstrP("failed during open syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				kernelLog(LogTypeWarning, kstrP("failed during open syscall, could not read path, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
 			kernelFsPathNormalise(path);
 
-			// Attempt to open file (and if successful add to fds table)
-			procData->regs[0]=kernelFsFileOpen(path);
-			procData->fds[fdsIndex]=procData->regs[0];
-
-			// Write to log
-			kernelLog(LogTypeInfo, kstrP("open syscall: path='%s' fd=%u, fdsindex=%u, process %u (%s)\n"), path, procData->regs[0], fdsIndex, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			// Attempt to open file (adding to fd table etc)
+			procData->regs[0]=procManProcessOpenFile(process, procData, path);
 
 			return true;
 		} break;
 		case BytecodeSyscallIdClose: {
-			// Grab path first for logging, before we close the file and lose it.
-			KStr pathKStr=kernelFsGetFilePath(procData->regs[1]);
-			char path[KernelFsPathMax];
-			kstrStrcpy(path, pathKStr);
+			KernelFsFd fd=procData->regs[1];
 
-			// Close file
-			kernelFsFileClose(procData->regs[1]);
+			// Special case for invalid fd (must be null-op)
+			if (fd==KernelFsFdInvalid)
+				return true;
 
-			// Write to log
-			if (kstrIsNull(pathKStr))
-				kernelLog(LogTypeInfo, kstrP("close syscall: fd=%u, nopath, process %u (%s)\n"), procData->regs[1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-			else
-				kernelLog(LogTypeInfo, kstrP("close syscall: fd=%u, path='%s', process %u (%s)\n"), procData->regs[1], path, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-
-			// Remove from fds table.
-			// Note: we remove exactly one occurence to match open syscall.
+			// Determine which slot in the fd table contains the given fd
 			unsigned i;
 			for(i=0; i<ProcManMaxFds; ++i)
-				if (procData->fds[i]==procData->regs[1]) {
-					procData->fds[i]=KernelFsFdInvalid;
-					kernelLog(LogTypeInfo, kstrP("close syscall: clearing fdsindex=%u (fd=%u), process %u (%s)\n"), i, procData->regs[1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				if (procData->fds[i]==fd)
 					break;
-				}
-			if (i==ProcManMaxFds)
-				kernelLog(LogTypeWarning, kstrP("close syscall, fd %u not found in process fds table, process %u (%s)\n"), procData->regs[1] ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			if (i==ProcManMaxFds) {
+				kernelLog(LogTypeWarning, kstrP("close syscall, fd %u not found in process fds table, process %u (%s)\n"), fd ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return true;
+			}
+
+			// Close file (and remove from fd table etc)
+			procManProcessCloseFile(process, procData, i);
 
 			return true;
 		} break;
@@ -2282,7 +2250,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		break;
 		case BytecodeSyscallIdPipeOpen: {
 			// Determine paths to two files that will be used to create the pipe
-			// We start pipeId at 1 so we can use atoi in PipeClose syscall with 0 as an error
+			// We start pipeId at 1 so we can parse the path later using atoi with 0 as an error
 			unsigned pipeId;
 			for(pipeId=1; pipeId<ProcManMaxPipes; ++pipeId) {
 				sprintf(procManScratchBufPath0, "/tmp/pipe%u", pipeId); // backing file path
@@ -2316,7 +2284,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 
 			// Open circular buffer file so we can return the fd
-			procData->regs[0]=kernelFsFileOpen(procManScratchBufPath1);
+			// Note: we open it like we would a file via the open syscall.
+			// This is so that pipes can be reclaimed from a process once terminated.
+			procData->regs[0]=procManProcessOpenFile(process, procData, procManScratchBufPath1);
 			if (procData->regs[0]==KernelFsFdInvalid) {
 				kernelUnmount(procManScratchBufPath1);
 				kernelFsFileDelete(procManScratchBufPath0);
@@ -2326,39 +2296,6 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			// Write to log
 			kernelLog(LogTypeInfo, kstrP("process %u (%s) openned pipe - fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
-
-			return true;
-		} break;
-		case BytecodeSyscallIdPipeClose: {
-			uint16_t fd=procData->regs[1];
-
-			// Extract pipeId from circular buffer path, and use it to create backing file path
-			KStr circBufPath=kernelFsGetFilePath(fd);
-			if (kstrIsNull(circBufPath) || kstrDoubleStrncmp(circBufPath, kstrP("/dev/pipe"), 9)!=0) {
-				kernelLog(LogTypeWarning, kstrP("error during pipeclose syscall, process %u (%s) - bad fd %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), fd);
-				return true;
-			}
-
-			kstrStrcpy(procManScratchBufPath1, circBufPath);
-			unsigned pipeId=atoi(procManScratchBufPath1+9);
-			if (pipeId==0) {
-				kernelLog(LogTypeWarning, kstrP("error during pipeclose syscall, process %u (%s) - bad pipeId (fd=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), fd);
-				return true;
-			}
-
-			sprintf(procManScratchBufPath0, "/tmp/pipe%u", pipeId);
-
-			// Close circular buffer file
-			kernelFsFileClose(fd);
-
-			// Unmount circular buffer
-			kernelUnmount(procManScratchBufPath1);
-
-			// Delete backing file
-			kernelFsFileDelete(procManScratchBufPath0);
-
-			// Write to log
-			kernelLog(LogTypeInfo, kstrP("process %u (%s) closed pipe - fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), fd, pipeId);
 
 			return true;
 		} break;
@@ -3119,6 +3056,76 @@ bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *
 	procData->regs[0]=i;
 
 	return true;
+}
+
+KernelFsFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessProcData *procData, const char *path) {
+	// Ensure process has a spare slot in the fds table
+	unsigned fdsIndex;
+	for(fdsIndex=0; fdsIndex<ProcManMaxFds; ++fdsIndex)
+		if (procData->fds[fdsIndex]==KernelFsFdInvalid)
+			break;
+
+	if (fdsIndex==ProcManMaxFds) {
+		kernelLog(LogTypeWarning, kstrP("failed to open file '%s', fds table full, process %u (%s)\n"), path, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		return KernelFsFdInvalid;
+	}
+
+	// Attempt to open file (and if successful add to fds table)
+	procData->fds[fdsIndex]=kernelFsFileOpen(path);
+	if (procData->fds[fdsIndex]==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("failed to open file '%s', open failed, process %u (%s)\n"), path, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		return KernelFsFdInvalid;
+	}
+
+	// Write to log.
+	kernelLog(LogTypeInfo, kstrP("openned file: path='%s' fd=%u, fdsindex=%u, process %u (%s)\n"), path, procData->fds[fdsIndex], fdsIndex, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+
+	return procData->fds[fdsIndex];
+}
+
+void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *procData, unsigned slot) {
+	assert(slot<ProcManMaxFds);
+
+	// Is there actually an open file in the given slot?
+	if (procData->fds[slot]==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("could not close file, fd table slot %u is empty, process %u (%s)\n"), slot ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		return;
+	}
+
+	// Grab path first for logging, before we close the file and lose it.
+	KStr pathKStr=kernelFsGetFilePath(procData->fds[slot]);
+	if (kstrIsNull(pathKStr)) {
+		kernelLog(LogTypeWarning, kstrP("could not close file, fd %u not open (fd table slot %u), process %u (%s)\n"), procData->fds[slot], slot ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		procData->fds[slot]=KernelFsFdInvalid; // might as well remove for safety
+		return;
+	}
+
+	char path[KernelFsPathMax];
+	kstrStrcpy(path, pathKStr);
+
+	// Close file
+	kernelFsFileClose(procData->fds[slot]);
+
+	// Special case - is this a pipe file?
+	unsigned pipeId=(kstrStrncmp(path, kstrP("/dev/pipe"), 9)==0 ? atoi(path+9) : 0);
+	if (pipeId>0) {
+		// Unmount circular buffer
+		kernelUnmount(path);
+
+		// Delete backing file
+		char backingPath[KernelFsPathMax];
+		sprintf(backingPath, "/tmp/pipe%u", pipeId);
+		kernelFsFileDelete(backingPath);
+	}
+
+	// Write to log
+	if (pipeId>0)
+		kernelLog(LogTypeInfo, kstrP("closed pipe file '%s', fd=%u, slot %u, process %u (%s)\n"), path, procData->fds[slot], slot, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	else
+		kernelLog(LogTypeInfo, kstrP("closed file '%s', fd=%u, slot %u, process %u (%s)\n"), path, procData->fds[slot], slot, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+
+	// Remove from fd table
+	procData->fds[slot]=KernelFsFdInvalid;
 }
 
 void procManResetInstructionCounters(void) {
