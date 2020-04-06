@@ -59,6 +59,8 @@ bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *func
 bool kernelFsAddDirectoryDeviceFile(KStr mountPoint);
 bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable);
 
+void *kernelFsDeviceFileGetUserData(const char *mountPoint);
+
 ////////////////////////////////////////////////////////////////////////////////
 // File functions -including directories (all paths are expected to be valid and normalised)
 ////////////////////////////////////////////////////////////////////////////////

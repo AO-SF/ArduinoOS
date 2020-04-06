@@ -194,6 +194,14 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor,
 	return false;
 }
 
+void *kernelFsDeviceFileGetUserData(const char *mountPoint) {
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(mountPoint);
+	if (device!=NULL)
+		return device->common.userData;
+
+	return NULL;
+}
+
 bool kernelFsFileExists(const char *path) {
 	// Check for virtual device path
 	if (kernelFsPathIsDevice(path))
