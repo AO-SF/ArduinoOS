@@ -154,9 +154,7 @@ void kernelUnmount(const char *dirPath) {
 	}
 
 	// Remove dirPath mount
-	// Delete/unmount virtual block device file
-	// TODO: where do we get this from? also kernelFs will probably reject the request anyway if the 'directory' is non-empty
-	// kernelFsFileDelete(const char *path); // TODO: Check return
+	kernelFsRemoveDeviceFile(dirPath);
 
 	// Close device file
 	kernelFsFileClose(deviceFd);
