@@ -4,7 +4,7 @@ NAME
       unmount - unmount filesystems
 
 SYNOPSIS
-      unmount device
+      unmount dir
 
 DESCRIPTION
-      Unmounts the given device, see MOUNT(1).
+      Unmounts the given dir, see MOUNT(1).

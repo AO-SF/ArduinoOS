@@ -2193,17 +2193,17 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		} break;
 		case BytecodeSyscallIdUnmount: {
 			// Grab arguments
-			uint16_t devicePathAddr=procData->regs[1];
+			uint16_t dirPathAddr=procData->regs[1];
 
-			char devicePath[KernelFsPathMax];
-			if (!procManProcessMemoryReadStr(process, procData, devicePathAddr, devicePath, KernelFsPathMax)) {
+			char dirPath[KernelFsPathMax];
+			if (!procManProcessMemoryReadStr(process, procData, dirPathAddr, dirPath, KernelFsPathMax)) {
 				kernelLog(LogTypeWarning, kstrP("failed during mount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
-			kernelFsPathNormalise(devicePath);
+			kernelFsPathNormalise(dirPath);
 
 			// Unmount
-			kernelUnmount(devicePath);
+			kernelUnmount(dirPath);
 
 			return true;
 		} break;
@@ -2318,7 +2318,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			// Open circular buffer file so we can return the fd
 			procData->regs[0]=kernelFsFileOpen(procManScratchBufPath1);
 			if (procData->regs[0]==KernelFsFdInvalid) {
-				kernelUnmount(procManScratchBufPath0);
+				kernelUnmount(procManScratchBufPath1);
 				kernelFsFileDelete(procManScratchBufPath0);
 				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - could not open circular buffer (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
 				return true;
@@ -2339,8 +2339,8 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				return true;
 			}
 
-			kstrStrcpy(procManScratchBufPath0, circBufPath);
-			unsigned pipeId=atoi(procManScratchBufPath0+9);
+			kstrStrcpy(procManScratchBufPath1, circBufPath);
+			unsigned pipeId=atoi(procManScratchBufPath1+9);
 			if (pipeId==0) {
 				kernelLog(LogTypeWarning, kstrP("error during pipeclose syscall, process %u (%s) - bad pipeId (fd=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), fd);
 				return true;
@@ -2352,7 +2352,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			kernelFsFileClose(fd);
 
 			// Unmount circular buffer
-			kernelUnmount(procManScratchBufPath0);
+			kernelUnmount(procManScratchBufPath1);
 
 			// Delete backing file
 			kernelFsFileDelete(procManScratchBufPath0);

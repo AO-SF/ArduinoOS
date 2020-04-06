@@ -132,36 +132,40 @@ bool kernelMount(KernelMountFormat format, const char *devicePath, const char *d
 	return false;
 }
 
-void kernelUnmount(const char *devicePath) {
+void kernelUnmount(const char *dirPath) {
 	// Check path is valid
-	if (!kernelFsPathIsValid(devicePath)) {
-		kernelLog(LogTypeWarning, kstrP("could not unmount - bad path (devicePath='%s')\n"), devicePath);
+	if (!kernelFsPathIsValid(dirPath)) {
+		kernelLog(LogTypeWarning, kstrP("could not unmount - bad path (dirPath='%s')\n"), dirPath);
 		return;
 	}
 
-	// Look through device fd array for a one representing the given path
-	for(uint8_t i=0; i<kernelMountedDevicesNext; ++i) {
-		KernelFsFd fd=kernelMountedDevices[i].fd;
-		if (kstrStrcmp(devicePath, kernelFsGetFilePath(fd))==0) {
-			// Match found
+	// Grab deviceFd stored in dirPath device userdata
+	KernelFsFd deviceFd=(KernelFsFd)(uintptr_t)kernelFsDeviceFileGetUserData(dirPath);
 
-			// Delete/unmount virtual block device file
-			// TODO: where do we get this from? also kernelFs will probably reject the request anyway if the 'directory' is non-empty
-			// kernelFsFileDelete(const char *path); // TODO: Check return
+	// Find entry in our table for this mount
+	uint8_t i;
+	for(i=0; i<kernelMountedDevicesNext; ++i)
+		if (deviceFd==kernelMountedDevices[i].fd)
+			break;
 
-			// Close device file
-			kernelFsFileClose(fd);
-
-			// Remove fd from our array
-			kernelMountedDevices[i]=kernelMountedDevices[--kernelMountedDevicesNext];
-
-			// Success
-			kernelLog(LogTypeInfo, kstrP("unmounted (devicePath='%s')\n"), devicePath);
-			return;
-		}
+	if (i>=kernelMountedDevicesNext) {
+		kernelLog(LogTypeWarning, kstrP("could not unmount - no such device mounted (dirPath='%s', deviceFd=%u)\n"), dirPath, deviceFd);
+		return;
 	}
 
-	kernelLog(LogTypeWarning, kstrP("could not unmount - no such device mounted (devicePath='%s')\n"), devicePath);
+	// Remove dirPath mount
+	// Delete/unmount virtual block device file
+	// TODO: where do we get this from? also kernelFs will probably reject the request anyway if the 'directory' is non-empty
+	// kernelFsFileDelete(const char *path); // TODO: Check return
+
+	// Close device file
+	kernelFsFileClose(deviceFd);
+
+	// Remove entry from our array
+	kernelMountedDevices[i]=kernelMountedDevices[--kernelMountedDevicesNext];
+
+	// Success
+	kernelLog(LogTypeInfo, kstrP("unmounted (dirPath='%s', slot=%u)\n"), dirPath, i);
 }
 
 uint32_t kernelMountFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {

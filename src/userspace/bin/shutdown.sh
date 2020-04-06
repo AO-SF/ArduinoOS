@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Unmount user's home directory
-unmount /dev/eeprom
+unmount /home
 
 # Done
 exit
@@ -9,5 +9,5 @@ exit
 # Example Code
 
 # Deregister SD card read (unmounting SD card volume automatically, if any).
-unmount /dev/sd
+unmount /media/sd
 hwdereg 0
