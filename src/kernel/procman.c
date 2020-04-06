@@ -32,6 +32,8 @@
 
 #define ProcManArgLenMax 64
 #define ProcManEnvVarPathMax 128
+#define ProcManPipeSize 128
+#define ProcManMaxPipes 64
 
 typedef enum {
 	ProcManProcessStateUnused,
@@ -2278,6 +2280,88 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			kernelLogSetLevel((procData->regs[1]<=LogLevelNone) ? procData->regs[1] : LogLevelNone);
 			return true;
 		break;
+		case BytecodeSyscallIdPipeOpen: {
+			// Determine paths to two files that will be used to create the pipe
+			// We start pipeId at 1 so we can use atoi in PipeClose syscall with 0 as an error
+			unsigned pipeId;
+			for(pipeId=1; pipeId<ProcManMaxPipes; ++pipeId) {
+				sprintf(procManScratchBufPath0, "/tmp/pipe%u", pipeId); // backing file path
+				if (kernelFsFileExists(procManScratchBufPath0))
+					continue;
+				sprintf(procManScratchBufPath1, "/dev/pipe%u", pipeId); // circular buffer path
+				if (kernelFsFileExists(procManScratchBufPath1))
+					continue;
+				break;
+			}
+
+			if (pipeId==ProcManMaxPipes) {
+				procData->regs[0]=KernelFsFdInvalid;
+				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - global pipe limit %u reached\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], ProcManMaxPipes);
+				return true;
+			}
+
+			// Create backing file
+			if (!kernelFsFileCreateWithSize(procManScratchBufPath0, ProcManPipeSize)) {
+				procData->regs[0]=KernelFsFdInvalid;
+				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - cannot create backing file (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
+				return true;
+			}
+
+			// Mount backing file as circular buffer to act as a pipe
+			if (!kernelMount(KernelMountFormatCircBuf, procManScratchBufPath0, procManScratchBufPath1)) {
+				kernelFsFileDelete(procManScratchBufPath0);
+				procData->regs[0]=KernelFsFdInvalid;
+				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - could not mount circular buffer (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
+				return true;
+			}
+
+			// Open circular buffer file so we can return the fd
+			procData->regs[0]=kernelFsFileOpen(procManScratchBufPath1);
+			if (procData->regs[0]==KernelFsFdInvalid) {
+				kernelUnmount(procManScratchBufPath0);
+				kernelFsFileDelete(procManScratchBufPath0);
+				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - could not open circular buffer (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
+				return true;
+			}
+
+			// Write to log
+			kernelLog(LogTypeInfo, kstrP("process %u (%s) openned pipe - fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdPipeClose: {
+			uint16_t fd=procData->regs[1];
+
+			// Extract pipeId from circular buffer path, and use it to create backing file path
+			KStr circBufPath=kernelFsGetFilePath(fd);
+			if (kstrIsNull(circBufPath) || kstrDoubleStrncmp(circBufPath, kstrP("/dev/pipe"), 9)!=0) {
+				kernelLog(LogTypeWarning, kstrP("error during pipeclose syscall, process %u (%s) - bad fd %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), fd);
+				return true;
+			}
+
+			kstrStrcpy(procManScratchBufPath0, circBufPath);
+			unsigned pipeId=atoi(procManScratchBufPath0+9);
+			if (pipeId==0) {
+				kernelLog(LogTypeWarning, kstrP("error during pipeclose syscall, process %u (%s) - bad pipeId (fd=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), fd);
+				return true;
+			}
+
+			sprintf(procManScratchBufPath0, "/tmp/pipe%u", pipeId);
+
+			// Close circular buffer file
+			kernelFsFileClose(fd);
+
+			// Unmount circular buffer
+			kernelUnmount(procManScratchBufPath0);
+
+			// Delete backing file
+			kernelFsFileDelete(procManScratchBufPath0);
+
+			// Write to log
+			kernelLog(LogTypeInfo, kstrP("process %u (%s) closed pipe - fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), fd, pipeId);
+
+			return true;
+		} break;
 		case BytecodeSyscallIdStrchr: {
 			uint16_t strAddr=procData->regs[1];
 			uint16_t c=procData->regs[2];

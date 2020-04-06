@@ -101,6 +101,8 @@ typedef enum {
 	BytecodeSyscallIdIoctl=M(5,3),
 	BytecodeSyscallIdGetLogLevel=M(5,4),
 	BytecodeSyscallIdSetLogLevel=M(5,5),
+	BytecodeSyscallIdPipeOpen=M(5,6),
+	BytecodeSyscallIdPipeClose=M(5,7),
 	BytecodeSyscallIdStrchr=M(6,0),
 	BytecodeSyscallIdStrchrnul=M(6,1),
 	BytecodeSyscallIdMemmove=M(6,2),

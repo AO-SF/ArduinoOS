@@ -59,6 +59,8 @@ const SyscallIdUnmount 1282
 const SyscallIdIoctl 1283
 const SyscallIdGetLogLevel 1284
 const SyscallIdSetLogLevel 1285
+const SyscallIdPipeOpen 1286
+const SyscallIdPipeClose 1287
 
 const SyscallIdStrChr 1536
 const SyscallIdStrChrNul 1537
