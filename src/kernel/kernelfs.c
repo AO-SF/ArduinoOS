@@ -82,7 +82,7 @@ KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
 KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device);
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsDeviceType type, bool writable);
-void kernelFsRemoveDeviceFile(KernelFsDevice *device);
+void kernelFsRemoveDeviceFileRaw(KernelFsDevice *device);
 
 bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
 
@@ -190,8 +190,14 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor,
 	return true;
 
 	error:
-	kernelFsRemoveDeviceFile(device);
+	kernelFsRemoveDeviceFileRaw(device);
 	return false;
+}
+
+void kernelFsRemoveDeviceFile(const char *mountPoint) {
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(mountPoint);
+	if (device!=NULL)
+		kernelFsRemoveDeviceFileRaw(device);
 }
 
 void *kernelFsDeviceFileGetUserData(const char *mountPoint) {
@@ -465,13 +471,7 @@ bool kernelFsFileDelete(const char *path) {
 		}
 
 		// Remove device
-		KernelFsDeviceIndex slot=device-kernelFsData.devices;
-		assert(&kernelFsData.devices[slot]==device);
-		_unused(slot);
-
-		kstrFree(&device->common.mountPoint);
-		device->common.mountPoint=kstrNull();
-		device->common.type=KernelFsDeviceTypeNB;
+		kernelFsRemoveDeviceFileRaw(device);
 
 		return true;
 	}
@@ -1232,7 +1232,7 @@ KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *fu
 	return NULL;
 }
 
-void kernelFsRemoveDeviceFile(KernelFsDevice *device) {
+void kernelFsRemoveDeviceFileRaw(KernelFsDevice *device) {
 	// Does this device file even exist?
 	if (device->common.type==KernelFsDeviceTypeNB)
 		return;
@@ -1240,6 +1240,7 @@ void kernelFsRemoveDeviceFile(KernelFsDevice *device) {
 	// Clear type and free memory
 	device->common.type=KernelFsDeviceTypeNB;
 	kstrFree(&device->common.mountPoint);
+	device->common.mountPoint=kstrNull();
 }
 
 bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir) {

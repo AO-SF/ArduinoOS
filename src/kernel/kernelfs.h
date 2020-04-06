@@ -59,6 +59,8 @@ bool kernelFsAddCharacterDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *func
 bool kernelFsAddDirectoryDeviceFile(KStr mountPoint);
 bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable);
 
+void kernelFsRemoveDeviceFile(const char *mountPoint); // note: unlike kernelFsFileDelete this does not require virtual directory to be empty
+
 void *kernelFsDeviceFileGetUserData(const char *mountPoint);
 
 ////////////////////////////////////////////////////////////////////////////////
