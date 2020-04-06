@@ -49,6 +49,9 @@ bool kstrIsNull(KStr str);
 int kstrStrcmp(const char *a, KStr b);
 int kstrDoubleStrcmp(KStr a, KStr b);
 
+int kstrStrncmp(const char *a, KStr b, size_t n);
+int kstrDoubleStrncmp(KStr a, KStr b, size_t n);
+
 int16_t kstrVfprintf(FILE *file, KStr format, va_list ap);
 
 #endif

@@ -120,6 +120,51 @@ int kstrDoubleStrcmp(KStr a, KStr b) {
 	return 0;
 }
 
+int kstrStrncmp(const char *a, KStr b, size_t n) {
+	switch(b.type) {
+		case KStrTypeNull:
+		break;
+		case KStrTypeProgmem:
+			#ifdef ARDUINO
+			return strncmp_PF(a, (uint_farptr_t)b.ptr, n);
+			#else
+			return 0; // Shouldn't really happen
+			#endif
+		break;
+		case KStrTypeStatic:
+		case KStrTypeHeap:
+			return strncmp(a, (const char *)(uintptr_t)b.ptr, n);
+		break;
+	}
+	return 0;
+}
+
+int kstrDoubleStrncmp(KStr a, KStr b, size_t n) {
+	// Simple cases
+	if (a.type==KStrTypeNull || b.type==KStrTypeNull)
+		return 0;
+	if (a.type==KStrTypeStatic || a.type==KStrTypeHeap)
+		return kstrStrncmp((const char *)(uintptr_t)a.ptr, b, n);
+	if (b.type==KStrTypeStatic || b.type==KStrTypeHeap)
+		return kstrStrncmp((const char *)(uintptr_t)b.ptr, a, n);
+
+	// Otherwise both are in progmem
+#ifdef ARDUINO
+	assert(a.type==KStrTypeProgmem && b.type==KStrTypeProgmem);
+	for(uintptr_t i=0; i<n; ++i) {
+		uint8_t aByte=pgm_read_byte_far(a.ptr+i);
+		uint8_t bByte=pgm_read_byte_far(b.ptr+i);
+		if (aByte<bByte)
+			return -1;
+		else if (aByte>bByte)
+			return 1;
+		else if (aByte=='\0')
+			break;
+	}
+#endif
+	return 0;
+}
+
 int16_t kstrVfprintf(FILE *file, KStr format, va_list ap) {
 	switch(format.type) {
 		case KStrTypeNull:
