@@ -61,7 +61,11 @@ int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too o
 bool kernelFlagProfile=false;
 #endif
 
-volatile uint8_t kernelCtrlCWaiting=false;
+typedef enum {
+	KernelControlCharacterSetNone=0,
+	KernelControlCharacterSetBreak=1, // ctrl+c
+} KernelControlCharacterSet;
+volatile uint8_t kernelControlCharacterSet=KernelControlCharacterSetNone;
 
 KernelFsFd kernelSpiLockFd=KernelFsFdInvalid;
 uint8_t kernelSpiSlaveSelectPin;
@@ -117,8 +121,8 @@ bool kernelDevDigitalPinCanWriteFunctor(void *userData);
 void kernelSigIntHandler(int sig);
 #endif
 
-void kernelCtrlCStart(void);
-void kernelCtrlCSend(void);
+void kernelControlActivate(KernelControlCharacterSet control); // should be called on detection on such a control key
+void kernelControlTick(void); // should be called when ready to process any new control keys which have been pressed
 
 #ifdef ARDUINO
 #include <avr/io.h>
@@ -128,7 +132,7 @@ ISR(USART0_RX_vect) {
 		uint8_t value=UDR0;
 		if (value==3) {
 			// Ctrl+c
-			kernelCtrlCStart();
+			kernelControlActivate(KernelControlCharacterSetBreak);
 		} else if (value==127) {
 			// Backspace - try to remove last char from buffer, unless it is a newline
 			uint8_t tailValue;
@@ -186,7 +190,7 @@ int main(int argc, char **argv) {
 			break; // break to call shutdown final
 
 		// Check for ctrl+c to propagate
-		kernelCtrlCSend();
+		kernelControlTick();
 
 		// Run hardware device tick functions.
 		hwDeviceTick();
@@ -931,40 +935,39 @@ bool kernelDevDigitalPinCanWriteFunctor(void *userData) {
 
 #ifndef ARDUINO
 void kernelSigIntHandler(int sig) {
-	kernelCtrlCStart();
+	kernelControlActivate(KernelControlCharacterSetBreak);
 }
 #endif
 
-void kernelCtrlCStart(void) {
-	kernelCtrlCWaiting=true;
+void kernelControlActivate(KernelControlCharacterSet control) {
+	kernelControlCharacterSet|=control;
 }
 
-void kernelCtrlCSend(void) {
-	// No ctrl-c since last check?
-	if (!kernelCtrlCWaiting)
-		return;
+void kernelControlTick(void) {
+	// Check for break (ctrl+c)
+	if (kernelControlCharacterSet & KernelControlCharacterSetBreak) {
+		// Write to lo
+		kernelLog(LogTypeInfo, kstrP("ctrl+c flagged, sending interrupt to processes with '/dev/ttyS0' open\n"));
 
-	// Write to lo
-	kernelLog(LogTypeInfo, kstrP("ctrl+c flagged, sending interrupt to processes with '/dev/ttyS0' open\n"));
+		// Loop over all processes looking for those with /dev/ttyS0 open
+		for(ProcManPid pid=0; pid<ProcManPidMax; ++pid) {
+			// Get table of open fds (simply fails if process doesn't exist, no need to check first)
+			KernelFsFd fds[ProcManMaxFds];
+			if (!procManProcessGetOpenFds(pid, fds))
+				continue;
 
-	// Loop over all processes looking for those with /dev/ttyS0 open
-	for(ProcManPid pid=0; pid<ProcManPidMax; ++pid) {
-		// Get table of open fds (simply fails if process doesn't exist, no need to check first)
-		KernelFsFd fds[ProcManMaxFds];
-		if (!procManProcessGetOpenFds(pid, fds))
-			continue;
+			// Look through table for an fd representing '/dev/ttyS0'
+			for(unsigned i=0; i<ProcManMaxFds; ++i)
+				if (fds[i]!=KernelFsFdInvalid && kstrDoubleStrcmp(kstrP("/dev/ttyS0"), kernelFsGetFilePath(fds[i]))==0) {
+					// Send interrupt to this process
+					procManProcessSendSignal(pid, BytecodeSignalIdInterrupt);
 
-		// Look through table for an fd representing '/dev/ttyS0'
-		for(unsigned i=0; i<ProcManMaxFds; ++i)
-			if (fds[i]!=KernelFsFdInvalid && kstrDoubleStrcmp(kstrP("/dev/ttyS0"), kernelFsGetFilePath(fds[i]))==0) {
-				// Send interrupt to this process
-				procManProcessSendSignal(pid, BytecodeSignalIdInterrupt);
+					// Only send once per program, so break
+					break;
+				}
+		}
 
-				// Only send once per program, so break
-				break;
-			}
+		// Clear flag to be ready for next ctrl+c
+		kernelControlCharacterSet&=~KernelControlCharacterSetBreak;
 	}
-
-	// Clear flag to be ready for next ctrl+c
-	kernelCtrlCWaiting=false;
 }
