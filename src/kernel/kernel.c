@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
 		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMonotonicMs()-kernelStateTime>=30000u) // 30s timeout
 			break; // break to call shutdown final
 
-		// Check for ctrl+c to propagate
+		// Check for control characters from /dev/ttyS0
 		kernelControlTick();
 
 		// Run hardware device tick functions.
@@ -967,7 +967,7 @@ void kernelControlTick(void) {
 				}
 		}
 
-		// Clear flag to be ready for next ctrl+c
+		// Clear flag to be ready for next time
 		kernelControlCharacterSet&=~KernelControlCharacterSetBreak;
 	}
 }
