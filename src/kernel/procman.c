@@ -9,7 +9,6 @@
 #include <alloca.h>
 #else
 #include <libgen.h>
-#include <termios.h>
 #include <unistd.h>
 #endif
 
@@ -22,6 +21,7 @@
 #include "procman.h"
 #include "profile.h"
 #include "spi.h"
+#include "tty.h"
 #include "util.h"
 
 #define procManProcessInstructionCounterMax (65500u) // largest 16 bit unsigned number, less a small safety margin
@@ -1704,28 +1704,15 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 
 			// Save terminal settings and change to avoid waiting for newline
-			#ifdef ARDUINO
-			bool oldBlocking=kernelDevTtyS0BlockingFlag;
-			kernelDevTtyS0BlockingFlag=false;
-			#else
-			static struct termios termOld, termNew;
-			tcgetattr(STDIN_FILENO, &termOld);
-
-			termNew=termOld;
-			termNew.c_lflag&=~ICANON;
-			tcsetattr(STDIN_FILENO, TCSANOW, &termNew);
-			#endif
+			bool prevBlocking=ttyGetBlocking();
+			ttySetBlocking(false);
 
 			// Attempt to read
 			uint8_t value;
 			KernelFsFileOffset readResult=kernelFsFileReadOffset(fd, 0, &value, 1);
 
 			// Restore terminal settings
-			#ifdef ARDUINO
-			kernelDevTtyS0BlockingFlag=oldBlocking;
-			#else
-			tcsetattr(STDIN_FILENO, TCSANOW, &termOld);
-			#endif
+			ttySetBlocking(prevBlocking);
 
 			// Set result in r0
 			if (readResult==1)
@@ -2191,20 +2178,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				// Check for stdin/stdout terminal
 				if (strcmp(procManScratchBufPath0, "/dev/ttyS0")==0) {
 					switch(command) {
-						case BytecodeSyscallIdIoctlCommandDevTtyS0SetEcho: {
-							#ifdef ARDUINO
-							kernelDevTtyS0EchoFlag=data;
-							#else
-							// change terminal settings to add/remove echo
-							static struct termios termSettings;
-							tcgetattr(STDIN_FILENO, &termSettings);
-							if (data)
-								termSettings.c_lflag|=ECHO;
-							else
-								termSettings.c_lflag&=~ECHO;
-							tcsetattr(STDIN_FILENO, TCSANOW, &termSettings);
-							#endif
-						} break;
+						case BytecodeSyscallIdIoctlCommandDevTtyS0SetEcho:
+							ttySetEcho((data!=0));
+						break;
 						default:
 							kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 						break;

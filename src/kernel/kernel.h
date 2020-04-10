@@ -15,10 +15,7 @@ typedef enum {
 
 #define kernelTickMinTimeMs 10 // avoids excessive CPU use, and can be tweaked to roughly imitate running on real hardware
 
-#ifdef ARDUINO
-extern volatile bool kernelDevTtyS0EchoFlag;
-extern volatile bool kernelDevTtyS0BlockingFlag;
-#else
+#ifndef ARDUINO
 extern bool kernelFlagProfile;
 #endif
 
