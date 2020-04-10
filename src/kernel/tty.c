@@ -34,7 +34,7 @@ volatile uint8_t ttyControlCharacterSet=TtyControlCharacterSetNone;
 volatile bool ttyEchoFlag;
 volatile bool ttyBlockingFlag;
 volatile CircBuf ttyCircBuf;
-volatile uint8_t ttyCircBufNewlineCount;
+volatile uint8_t ttyCircBufActivityCount;
 
 #ifndef ARDUINO
 static struct termios ttyOldConfig;
@@ -60,7 +60,7 @@ void ttyInit(void) {
 	// Initialise common fields
 	ttyEchoFlag=true;
 	ttyBlockingFlag=true;
-	ttyCircBufNewlineCount=0;
+	ttyCircBufActivityCount=0;
 	circBufInit(&ttyCircBuf);
 
 	// Arduino only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
@@ -171,7 +171,11 @@ int16_t ttyReadFunctor(void) {
 			if (circBufPop(&ttyCircBuf, &value)) {
 				ret=value;
 				if (value=='\n')
-					--ttyCircBufNewlineCount;
+					--ttyCircBufActivityCount;
+				if (value==4) {
+					--ttyCircBufActivityCount;
+					ret=-1;
+				}
 			}
 		}
 	}
@@ -180,7 +184,7 @@ int16_t ttyReadFunctor(void) {
 }
 
 bool ttyCanReadFunctor(void) {
-	if (ttyCircBufNewlineCount>0)
+	if (ttyCircBufActivityCount>0)
 		return true;
 	if (ttyBlockingFlag)
 		return false;
@@ -258,15 +262,16 @@ bool ttyHandleByte(uint8_t value) {
 			if (value=='\r')
 				value='\n';
 
-			//  Add byte to buffer and update state
+			//  Add byte to buffer
 			if (!circBufPush(&ttyCircBuf, value))
 				return false;
 
-			if (value=='\n')
-				++ttyCircBufNewlineCount;
+			// Flushing byte?
+			if (value=='\n' || value==4)
+				++ttyCircBufActivityCount;
 
 			// If required, also update display.
-			if (ttyEchoFlag)
+			if (ttyEchoFlag && value!=4)
 				ttyWriteFunctor(&value, 1);
 		} break;
 	}
