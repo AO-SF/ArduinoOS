@@ -13,7 +13,7 @@ requireend lib/std/proc/waitpid.s
 requireend lib/std/str/strchr.s
 requireend lib/std/str/strrchr.s
 requireend lib/std/str/strcmp.s
-requireend lib/std/str/strtrimlast.s
+requireend lib/std/str/strtrimnewline.s
 
 db stdinPath '/dev/ttyS0', 0
 db stdoutPath '/dev/ttyS0', 0
@@ -240,9 +240,9 @@ mov r0 argc
 mov r1 1 ; initially set to 1 as we always require a command (so can avoid an increment operation)
 store8 r0 r1
 
-; Parse input - trim trailing newline
+; Parse input - trim trailing newline (if any)
 mov r0 inputBuf
-call strtrimlast
+call strtrimnewline
 
 ; Trim trailing comment (if any)
 mov r0 inputBuf
