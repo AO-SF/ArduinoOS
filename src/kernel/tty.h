@@ -14,8 +14,8 @@ bool ttyCanReadFunctor(void);
 KernelFsFileOffset ttyWriteFunctor(const uint8_t *data, KernelFsFileOffset len);
 bool ttyCanWriteFunctor(void);
 
-bool ttyGetBlocking(void); // if true (which is the default) then waits for a newline before bytes are available in read functor, otherwise they are available immediately
-bool ttyGetEcho(void); // if true (which is the default) then waits for a newline before bytes are available in read functor, otherwise they are available immediately
+bool ttyGetBlocking(void); // If true (which is the default) then waits for a newline before bytes are available in read functor, otherwise they are available immediately
+bool ttyGetEcho(void); // If true (which is the default) then echos (writes) any characters read.
 
 void ttySetBlocking(bool blocking);
 void ttySetEcho(bool echo);
