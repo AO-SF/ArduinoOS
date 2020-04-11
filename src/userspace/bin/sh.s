@@ -2,7 +2,6 @@ require lib/sys/sys.s
 
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
-requireend lib/std/io/fputdec.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/getpwd.s
