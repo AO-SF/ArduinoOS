@@ -25,14 +25,9 @@
 #include "uart.h"
 #endif
 
-typedef enum {
-	TtyControlCharacterSetNone=0,
-	TtyControlCharacterSetBreak=1, // ctrl+c
-} TtyControlCharacterSet;
-volatile uint8_t ttyControlCharacterSet=TtyControlCharacterSetNone;
-
 #define TtyFlagEcho 1
 #define TtyFlagBlocking 2
+#define TtyFlagBreak 4
 volatile uint8_t ttyFlags;
 
 volatile CircBuf ttyCircBuf;
@@ -45,8 +40,6 @@ static struct termios ttyOldConfig;
 #ifndef ARDUINO
 void ttySigIntHandler(int sig);
 #endif
-
-void ttyControlActivate(TtyControlCharacterSet control); // should be called on detection often such a control key
 
 bool ttyHandleByte(uint8_t value);
 
@@ -132,7 +125,7 @@ void ttyTick(void) {
 #endif
 
 	// Check for break (ctrl+c)
-	if (ttyControlCharacterSet & TtyControlCharacterSetBreak) {
+	if (ttyFlags & TtyFlagBreak) {
 		// Write to lo
 		kernelLog(LogTypeInfo, kstrP("ctrl+c flagged, sending interrupt to processes with '/dev/ttyS0' open\n"));
 
@@ -155,7 +148,7 @@ void ttyTick(void) {
 		}
 
 		// Clear flag to be ready for next time
-		ttyControlCharacterSet&=~TtyControlCharacterSetBreak;
+		ttyFlags&=~TtyFlagBreak;
 	}
 }
 
@@ -234,19 +227,15 @@ void ttySetEcho(bool echo) {
 
 #ifndef ARDUINO
 void ttySigIntHandler(int sig) {
-	ttyControlActivate(TtyControlCharacterSetBreak);
+	ttyFlags|=TtyFlagBreak;
 }
 #endif
-
-void ttyControlActivate(TtyControlCharacterSet control) {
-	ttyControlCharacterSet|=control;
-}
 
 bool ttyHandleByte(uint8_t value) {
 	switch(value) {
 		case 3:
 			// Ctrl+c
-			ttyControlActivate(TtyControlCharacterSetBreak);
+			ttyFlags|=TtyFlagBreak;
 		break;
 		case 127: {
 			// Backspace - try to remove last char from buffer, unless it is a newline
