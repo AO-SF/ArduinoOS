@@ -356,6 +356,20 @@ jmp shellForkExecForkChild
 jmp shellForkExecForkParent
 
 label shellForkExecForkChild
+; Setup stdin and stdout for child
+mov r0 SyscallIdOpen
+mov r1 stdinPath
+syscall
+mov r1 r0
+mov r0 SyscallIdEnvSetStdinFd
+syscall
+mov r0 SyscallIdOpen
+mov r1 stdoutPath
+syscall
+mov r1 r0
+mov r0 SyscallIdEnvSetStdoutFd
+syscall
+
 ; Call exec
 mov r0 argc
 load8 r0 r0

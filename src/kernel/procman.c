@@ -58,8 +58,9 @@ struct ProcManProcessProcData {
 	KernelFsFd fds[ProcManMaxFds];
 
 	// Environment variables
-	KernelFsFd stdinFd; // set to KernelFsFdInvalid when init is called
-	KernelFsFd stdoutFd; // set to KernelFsFdInvalid when init is called
+	// stdinFd and stdoutFd are initially set to KernelFsFdInvalid when init is created, and are also set this way in the child after a fork
+	KernelFsFd stdinFd;
+	KernelFsFd stdoutFd;
 
 	// The following fields are pointers into the start of the ramFd file.
 	// The arguments are fixed, but pwd and path may be updated later by the process itself to point to new strings, beyond the initial read-only section (and so need a full 16 bit offset).
@@ -2582,6 +2583,8 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	childProcData->regs[0]=0; // indicate success in the child
 	for(unsigned i=0; i<ProcManMaxFds; ++i)
 		childProcData->fds[i]=KernelFsFdInvalid;
+	childProcData->stdinFd=KernelFsFdInvalid;
+	childProcData->stdoutFd=KernelFsFdInvalid;
 
 	if (!procManProcessStoreProcData(child, childProcData)) {
 		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not save child process data file to '%s'\n"), parentPid, childProcPath);
