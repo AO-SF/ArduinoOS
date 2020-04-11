@@ -3,6 +3,9 @@ require lib/sys/sys.s
 requireend lib/std/io/fputhex.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
+requireend lib/std/str/strcmp.s
+
+db dashStr '-',0
 
 ab argBuf PathMax
 ab pathBuf PathMax
@@ -15,7 +18,7 @@ require lib/std/proc/suicidehandler.s
 mov r0 1 ; 0 is program name
 label loopstart
 push8 r0
-call catArgN ; this will exit for us if no such argument
+call hexDumpArgN ; this will exit for us if no such argument
 pop8 r0
 inc r0
 jmp loopstart
@@ -28,7 +31,7 @@ label error
 mov r0 1
 call exit
 
-label catArgN
+label hexDumpArgN
 
 ; Get arg
 mov r1 r0
@@ -42,6 +45,27 @@ cmp r0 r0 r0
 skipneqz r0
 jmp error
 
+; Check for dash to mean use stdin
+mov r0 argBuf
+mov r1 dashStr
+call strcmp
+cmp r0 r0 r0
+skipeqz r0
+jmp hexDumpArgNSetupFdPath
+jmp hexDumpArgNSetupFdStdin
+
+; Setup fd for stdin
+label hexDumpArgNSetupFdStdin
+mov r0 SyscallIdEnvGetStdinFd
+syscall
+mov r1 fd
+store8 r1 r0
+
+jmp hexDumpArgNSetupFdEnd
+
+; Setup for standard path
+label hexDumpArgNSetupFdPath
+
 ; Convert to absolute path
 mov r0 pathBuf
 mov r1 argBuf
@@ -51,9 +75,13 @@ call getabspath
 mov r0 SyscallIdOpen
 mov r1 pathBuf
 syscall
-
 mov r1 fd
 store8 r1 r0
+
+jmp hexDumpArgNSetupFdEnd
+
+; Common fd code
+label hexDumpArgNSetupFdEnd
 
 ; Check for bad fd
 cmp r1 r0 r0
@@ -62,7 +90,7 @@ jmp error
 
 ; Read data from file, printing to stdout
 mov r2 0 ; loop index
-label catArgNLoopStart
+label hexDumpArgNLoopStart
 
 ; Read block (reusing pathBuf)
 mov r0 SyscallIdRead
@@ -76,7 +104,7 @@ syscall ; r0 now contains length of read block
 ; Check for EOF
 cmp r4 r0 r0
 skipneqz r4
-jmp catArgNLoopEnd
+jmp hexDumpArgNLoopEnd
 
 ; Print block (r0 contains length)
 ; Note: need to protect r0 and r2
@@ -103,13 +131,18 @@ jmp printLoopStart
 
 ; Advance to next block
 add r2 r2 r0
-jmp catArgNLoopStart
-label catArgNLoopEnd
+jmp hexDumpArgNLoopStart
+label hexDumpArgNLoopEnd
 
 ; Close file
-mov r0 SyscallIdClose
+; Skip this for stdin
+mov r0 SyscallIdEnvGetStdinFd
+syscall
 mov r1 fd
 load8 r1 r1
+cmp r2 r0 r1
+mov r0 SyscallIdClose
+skipeq r2
 syscall
 
 ; Print newline

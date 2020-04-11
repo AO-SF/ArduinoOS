@@ -8,16 +8,8 @@
 
 #ifdef ARDUINO
 #include <avr/eeprom.h>
-#include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-#include <util/atomic.h>
-#include "circbuf.h"
-#include "uart.h"
 #else
-#include <poll.h>
-#include <signal.h>
-#include <sys/ioctl.h>
-#include <termios.h>
 #include <unistd.h>
 #endif
 
@@ -30,6 +22,7 @@
 #include "pins.h"
 #include "procman.h"
 #include "spi.h"
+#include "tty.h"
 #include "util.h"
 
 #include "commonprogmem.h"
@@ -47,21 +40,11 @@ uint8_t kernelTmpDataPool[KernelTmpDataPoolSize];
 #define KernelEepromDevEepromOffset KernelEepromEtcSize
 #define KernelEepromDevEepromSize (KernelEepromTotalSize-KernelEepromDevEepromOffset)
 
-#ifdef ARDUINO
-volatile bool kernelDevTtyS0EchoFlag;
-volatile bool kernelDevTtyS0BlockingFlag;
-volatile CircBuf kernelDevTtyS0CircBuf;
-volatile uint8_t kernelDevTtyS0CircBufNewlineCount;
-#else
+#ifndef ARDUINO
 const char *kernelFakeEepromPath="./eeprom";
 FILE *kernelFakeEepromFile=NULL;
-
-int kernelTtyS0BytesAvailable=0; // We have to store this to avoid polling too often causing us to think no data is waiting
-
 bool kernelFlagProfile=false;
 #endif
-
-volatile uint8_t kernelCtrlCWaiting=false;
 
 KernelFsFd kernelSpiLockFd=KernelFsFdInvalid;
 uint8_t kernelSpiSlaveSelectPin;
@@ -103,55 +86,11 @@ KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, 
 KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 uint16_t kernelTmpMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
 uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
-int16_t kernelDevTtyS0ReadFunctor(void);
-bool kernelDevTtyS0CanReadFunctor(void);
-KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len);
-bool kernelDevTtyS0CanWriteFunctor(void);
 uint32_t kernelDevDigitalPinFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 int16_t kernelDevDigitalPinReadFunctor(void *userData);
 bool kernelDevDigitalPinCanReadFunctor(void *userData);
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 bool kernelDevDigitalPinCanWriteFunctor(void *userData);
-
-#ifndef ARDUINO
-void kernelSigIntHandler(int sig);
-#endif
-
-void kernelCtrlCStart(void);
-void kernelCtrlCSend(void);
-
-#ifdef ARDUINO
-#include <avr/io.h>
-#include <avr/sleep.h>
-ISR(USART0_RX_vect) {
-	ATOMIC_BLOCK(ATOMIC_FORCEON) {
-		uint8_t value=UDR0;
-		if (value==3) {
-			// Ctrl+c
-			kernelCtrlCStart();
-		} else if (value==127) {
-			// Backspace - try to remove last char from buffer, unless it is a newline
-			uint8_t tailValue;
-			if (circBufTailPeek(&kernelDevTtyS0CircBuf, &tailValue)) {
-				if (tailValue!='\n' && circBufUnpush(&kernelDevTtyS0CircBuf)) {
-					// Clear last char on screen
-					const uint8_t tempChars[3]={8,' ',8};
-					kernelDevTtyS0WriteFunctor(tempChars, 3);
-				}
-			}
-		} else {
-			// Standard character
-			if (value=='\r')
-				value='\n'; // HACK
-			circBufPush(&kernelDevTtyS0CircBuf, value);
-			if (value=='\n')
-				++kernelDevTtyS0CircBufNewlineCount;
-			if (kernelDevTtyS0EchoFlag)
-				kernelDevTtyS0WriteFunctor(&value, 1);
-		}
-	}
-}
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -185,8 +124,8 @@ int main(int argc, char **argv) {
 		if (kernelGetState()==KernelStateShuttingDownWaitInit && ktimeGetMonotonicMs()-kernelStateTime>=30000u) // 30s timeout
 			break; // break to call shutdown final
 
-		// Check for ctrl+c to propagate
-		kernelCtrlCSend();
+		// Check for /dev/ttyS0 updates
+		ttyTick();
 
 		// Run hardware device tick functions.
 		hwDeviceTick();
@@ -323,7 +262,7 @@ void kernelShutdownNext(void) {
 
 void kernelBoot(void) {
 	// Set logging level to warnings and errors only
-	kernelLogSetLevel(LogLevelWarning);
+	//kernelLogSetLevel(LogLevelWarning);
 
 	// Initialise HW devices ASAP
 	hwDeviceInit();
@@ -331,25 +270,8 @@ void kernelBoot(void) {
 	// Init SPI bus (ready to map to /dev/spi).
 	spiInit(SpiClockSpeedDiv64);
 
-	// Arduino-only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
-#ifdef ARDUINO
-	kernelDevTtyS0EchoFlag=true;
-	kernelDevTtyS0CircBufNewlineCount=0;
-	kernelDevTtyS0BlockingFlag=true;
-	circBufInit(&kernelDevTtyS0CircBuf);
-	uart_init();
-
-	stdout=&uart_output;
-	stderr=&uart_output;
-	stdin=&uart_input;
-
-	cli();
-	UCSR0B=(1<<RXEN0)|(1<<TXEN0)|(1<<RXCIE0);
-	set_sleep_mode(SLEEP_MODE_IDLE);
-	sei();
-
-	kernelLog(LogTypeInfo, kstrP("initialised uart (serial)\n"));
-#endif
+	// Init terminal/serial interface (connected to /dev/ttyS0)
+	ttyInit();
 
 	// Enter booting state
 	kernelSetState(KernelStateBooting);
@@ -359,11 +281,6 @@ void kernelBoot(void) {
 
 	// Initialise progmem data
 	commonProgmemInit();
-
-	// PC only - register sigint handler so we can pass this signal onto e.g. the shell
-#ifndef ARDUINO
-    signal(SIGINT, kernelSigIntHandler);
-#endif
 
 	// Non-arduino-only: create pretend EEPROM storage in a local file
 #ifndef ARDUINO
@@ -527,6 +444,9 @@ void kernelShutdownFinal(void) {
 	kernelLog(LogTypeInfo, kstrP("closing pseudo EEPROM storage file (PC wrapper)\n"));
 	fclose(kernelFakeEepromFile);
 #endif
+
+	// Reset tty stuff
+	ttyQuit();
 
 	// Halt
 	kernelHalt();
@@ -706,7 +626,7 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 					return 0;
 				break;
 				case KernelVirtualDevFileTtyS0:
-					return kernelDevTtyS0ReadFunctor();
+					return ttyReadFunctor();
 				break;
 				case KernelVirtualDevFileSpi:
 					return spiReadByte();
@@ -728,7 +648,7 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 					return true;
 				break;
 				case KernelVirtualDevFileTtyS0:
-					return kernelDevTtyS0CanReadFunctor();
+					return ttyCanReadFunctor();
 				break;
 				case KernelVirtualDevFileSpi:
 					return true;
@@ -750,7 +670,7 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 					return len;
 				break;
 				case KernelVirtualDevFileTtyS0:
-					return kernelDevTtyS0WriteFunctor(data, len);
+					return ttyWriteFunctor(data, len);
 				break;
 				case KernelVirtualDevFileSpi:
 					if (len>UINT16_MAX)
@@ -775,7 +695,7 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 					return true;
 				break;
 				case KernelVirtualDevFileTtyS0:
-					return kernelDevTtyS0CanWriteFunctor();
+					return ttyCanWriteFunctor();
 				break;
 				case KernelVirtualDevFileSpi:
 					return true;
@@ -796,81 +716,6 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 
 	assert(false);
 	return 0;
-}
-
-int16_t kernelDevTtyS0ReadFunctor(void) {
-#ifdef ARDUINO
-	int16_t ret=-1;
-
-	if (kernelDevTtyS0CanReadFunctor()) {
-		uint8_t value;
-		ATOMIC_BLOCK(ATOMIC_FORCEON) {
-			if (circBufPop(&kernelDevTtyS0CircBuf, &value)) {
-				ret=value;
-				if (value=='\n')
-					--kernelDevTtyS0CircBufNewlineCount;
-			}
-		}
-	}
-
-	return ret;
-#else
-	if (kernelTtyS0BytesAvailable==0)
-		kernelLog(LogTypeWarning, kstrP("kernelTtyS0BytesAvailable=0 going into kernelDevTtyS0ReadFunctor\n"));
-	int c=getchar();
-	if (c==EOF)
-		return -1;
-	if (kernelTtyS0BytesAvailable>0)
-		--kernelTtyS0BytesAvailable;
-	return c;
-#endif
-}
-
-bool kernelDevTtyS0CanReadFunctor(void) {
-#ifdef ARDUINO
-	if (kernelDevTtyS0CircBufNewlineCount>0)
-		return true;
-	if (kernelDevTtyS0BlockingFlag)
-		return false;
-	return !circBufIsEmpty(&kernelDevTtyS0CircBuf);
-#else
-	// If we still think there are bytes waiting to be read, return true immediately
-	if (kernelTtyS0BytesAvailable>0)
-		return true;
-
-	// Otherwise poll for input events on stdin
-	struct pollfd pollFds[0];
-	memset(pollFds, 0, sizeof(pollFds));
-	pollFds[0].fd=STDIN_FILENO;
-	pollFds[0].events=POLLIN;
-	if (poll(pollFds, 1, 0)<=0)
-		return false;
-
-	if (!(pollFds[0].revents & POLLIN))
-		return false;
-
-	// Call ioctl to find number of bytes available
-	ioctl(STDIN_FILENO, FIONREAD, &kernelTtyS0BytesAvailable);
-	return true;
-#endif
-}
-
-KernelFsFileOffset kernelDevTtyS0WriteFunctor(const uint8_t *data, KernelFsFileOffset len) {
-	if (len>UINT16_MAX)
-		len=UINT16_MAX;
-
-	KernelFsFileOffset written=fwrite(data, 1, len, stdout);
-	fflush(stdout);
-
-	// FIXME: KernelFsFileOffset is unsigned so check below is a hack.
-	if (written>=UINT32_MAX-256) // should be written<0
-		written=0;
-
-	return written;
-}
-
-bool kernelDevTtyS0CanWriteFunctor(void) {
-	return true;
 }
 
 uint32_t kernelDevDigitalPinFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
@@ -927,44 +772,4 @@ KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFs
 
 bool kernelDevDigitalPinCanWriteFunctor(void *userData) {
 	return true;
-}
-
-#ifndef ARDUINO
-void kernelSigIntHandler(int sig) {
-	kernelCtrlCStart();
-}
-#endif
-
-void kernelCtrlCStart(void) {
-	kernelCtrlCWaiting=true;
-}
-
-void kernelCtrlCSend(void) {
-	// No ctrl-c since last check?
-	if (!kernelCtrlCWaiting)
-		return;
-
-	// Write to lo
-	kernelLog(LogTypeInfo, kstrP("ctrl+c flagged, sending interrupt to processes with '/dev/ttyS0' open\n"));
-
-	// Loop over all processes looking for those with /dev/ttyS0 open
-	for(ProcManPid pid=0; pid<ProcManPidMax; ++pid) {
-		// Get table of open fds (simply fails if process doesn't exist, no need to check first)
-		KernelFsFd fds[ProcManMaxFds];
-		if (!procManProcessGetOpenFds(pid, fds))
-			continue;
-
-		// Look through table for an fd representing '/dev/ttyS0'
-		for(unsigned i=0; i<ProcManMaxFds; ++i)
-			if (fds[i]!=KernelFsFdInvalid && kstrDoubleStrcmp(kstrP("/dev/ttyS0"), kernelFsGetFilePath(fds[i]))==0) {
-				// Send interrupt to this process
-				procManProcessSendSignal(pid, BytecodeSignalIdInterrupt);
-
-				// Only send once per program, so break
-				break;
-			}
-	}
-
-	// Clear flag to be ready for next ctrl+c
-	kernelCtrlCWaiting=false;
 }

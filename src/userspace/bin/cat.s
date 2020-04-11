@@ -86,6 +86,10 @@ mov r0 SyscallIdWrite
 mov r3 pathBuf
 syscall
 
+cmp r0 r0 r0
+skipneqz r0
+jmp catArgNLoopEnd
+
 ; Advance to next block
 add r2 r2 r4
 jmp catArgNLoopStart

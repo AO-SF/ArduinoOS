@@ -1,12 +1,12 @@
 requireend ../str/strlen.s
 
-; puts0(strAddr=r0)=puts(0, strAddr)
+; puts0(strAddr=r0)=puts(0, strAddr) - returns number of bytes written in r0
 label puts0
 mov r1 r0
 mov r0 0
 jmp puts
 
-; puts(offset=r0, strAddr=r1)=fputs(stdio, strAddr)
+; puts(offset=r0, strAddr=r1)=fputs(stdio, strAddr) - returns number of bytes written in r0
 label puts
 mov r2 r1
 mov r1 r0
@@ -14,7 +14,7 @@ mov r0 SyscallIdEnvGetStdoutFd ; Grab stdout fd and put it in r0
 syscall
 jmp fputs
 
-; fputs(fd=r0, offset=r1, strAddr=r2)
+; fputs(fd=r0, offset=r1, strAddr=r2) - returns number of bytes written in r0
 ; uses strlen so we can do actual write loop in kernel space (via write syscall),
 ; rather than writing a byte at a time
 label fputs
