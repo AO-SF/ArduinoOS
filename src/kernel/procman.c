@@ -186,6 +186,7 @@ bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *
 
 KernelFsFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessProcData *procData, const char *path); // attempts to open given path, if successful adds to the fd table
 void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *procData, unsigned slot); // where slot is the entry into the fd table
+bool procManProcessIsFdOpen(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFd fd);
 
 void procManResetInstructionCounters(void);
 
@@ -1529,8 +1530,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdRead: {
 			KernelFsFd fd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Is this fd even open by the current process?
+			if (!procManProcessIsFdOpen(process, procData, fd)) {
+				kernelLog(LogTypeWarning, kstrP("failed during read syscall, fd %u not open, process %u (%s), killing\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
@@ -1554,8 +1556,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdWrite: {
 			KernelFsFd fd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Is this fd even open by the current process?
+			if (!procManProcessIsFdOpen(process, procData, fd)) {
+				kernelLog(LogTypeWarning, kstrP("failed during write syscall, fd %u not open, process %u (%s), killing\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
@@ -1617,6 +1620,14 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			BytecodeWord childNum=procData->regs[2];
 			uint16_t bufAddr=procData->regs[3];
 
+			// Is this fd even open by the current process?
+			if (!procManProcessIsFdOpen(process, procData, fd)) {
+				kernelLog(LogTypeWarning, kstrP("failed during dirgetchildn syscall, fd %u not open, process %u (%s), killing\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				procData->regs[0]=0;
+				return true;
+			}
+
+			// Get nth child
 			char childPath[KernelFsPathMax];
 			bool result=kernelFsDirectoryGetChild(fd, childNum, childPath);
 
@@ -1636,20 +1647,23 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			KernelFsFd fd=procData->regs[1];
 			uint16_t bufAddr=procData->regs[2];
 
-			const char *srcPath=NULL;
-			if (!kstrIsNull(kernelFsGetFilePath(fd))) {
-				kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(fd));
-				srcPath=procManScratchBufPath2;
-			}
-			if (srcPath==NULL)
+			// Is this fd even open by the current process?
+			if (!procManProcessIsFdOpen(process, procData, fd)) {
+				kernelLog(LogTypeWarning, kstrP("failed during getpath syscall, fd %u not open, process %u (%s), killing\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
-			else {
-				if (!procManProcessMemoryWriteStr(process, procData, bufAddr, srcPath)) {
-					kernelLog(LogTypeWarning, kstrP("failed during getpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
-				procData->regs[0]=1;
+				return true;
 			}
+
+			// Grab file path
+			assert(!kstrIsNull(kernelFsGetFilePath(fd)));
+			kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(fd));
+
+			// Write path into process memory
+			if (!procManProcessMemoryWriteStr(process, procData, bufAddr, procManScratchBufPath2)) {
+				kernelLog(LogTypeWarning, kstrP("failed during getpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			procData->regs[0]=1;
 
 			return true;
 		} break;
@@ -1698,13 +1712,15 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdTryReadByte: {
 			KernelFsFd fd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Is this fd even open by the current process?
+			if (!procManProcessIsFdOpen(process, procData, fd)) {
+				kernelLog(LogTypeWarning, kstrP("failed during tryreadybyte syscall, fd %u not open, process %u (%s), killing\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=256;
 				return true;
 			}
 
 			// Save terminal settings and change to avoid waiting for newline
+			// We do this incase the given fd ends up depending on /dev/ttyS0, either directly or indirectly.
 			bool prevBlocking=ttyGetBlocking();
 			ttySetBlocking(false);
 
@@ -1765,8 +1781,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdRead32: {
 			KernelFsFd fd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Is this fd even open by the current process?
+			if (!procManProcessIsFdOpen(process, procData, fd)) {
+				kernelLog(LogTypeWarning, kstrP("failed during read32 syscall, fd %u not open, process %u (%s), killing\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
@@ -1790,8 +1807,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdWrite32: {
 			KernelFsFd fd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Is this fd even open by the current process?
+			if (!procManProcessIsFdOpen(process, procData, fd)) {
+				kernelLog(LogTypeWarning, kstrP("failed during write32 syscall, fd %u not open, process %u (%s), killing\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
@@ -1957,8 +1975,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			KernelFsFd fd=procData->regs[1];
 			uint8_t value=procData->regs[2];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Is this fd even open by the current process?
+			if (!procManProcessIsFdOpen(process, procData, fd)) {
+				kernelLog(LogTypeWarning, kstrP("failed during trywritebyte syscall, fd %u not open, process %u (%s), killing\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
@@ -2169,51 +2188,54 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			uint16_t command=procData->regs[2];
 			uint16_t data=procData->regs[3];
 
+			// Is this fd even open by the current process?
+			if (!procManProcessIsFdOpen(process, procData, fd)) {
+				kernelLog(LogTypeWarning, kstrP("failed during ioctl syscall, fd %u not open, process %u (%s), killing\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return true;
+			}
+
 			// Invalid fd?
 			KStr kstrPath=kernelFsGetFilePath(fd);
-			if (kstrIsNull(kstrPath)) {
-				kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall fd %u, process %u (%s)\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-			} else {
-				kstrStrcpy(procManScratchBufPath0, kstrPath);
+			assert(!kstrIsNull(kstrPath));
+			kstrStrcpy(procManScratchBufPath0, kstrPath);
 
-				// Check for stdin/stdout terminal
-				if (strcmp(procManScratchBufPath0, "/dev/ttyS0")==0) {
-					switch(command) {
-						case BytecodeSyscallIdIoctlCommandDevTtyS0SetEcho:
-							ttySetEcho((data!=0));
-						break;
-						default:
-							kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						break;
-					}
-				} else if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
-					// Check for pin device file path
-					uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
-					switch(command) {
-						case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
-							// Forbid mode changes to HW device pins.
-							if (spiIsReservedPin(pinNum)) {
-								kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-								break;
-							}
-
-							// Forbid mode changes from user space to HW device pins (even if associated device has type HwDeviceTypeRaw).
-							HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
-							if (hwDeviceId!=HwDeviceIdMax) {
-								kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-								break;
-							}
-
-							// Set pin mode
-							pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
-						} break;
-						default:
-							kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						break;
-					}
-				} else {
-					kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall device (fd %u, device '%s'), process %u (%s)\n"), fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			// Check for stdin/stdout terminal
+			if (strcmp(procManScratchBufPath0, "/dev/ttyS0")==0) {
+				switch(command) {
+					case BytecodeSyscallIdIoctlCommandDevTtyS0SetEcho:
+						ttySetEcho((data!=0));
+					break;
+					default:
+						kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					break;
 				}
+			} else if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
+				// Check for pin device file path
+				uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
+				switch(command) {
+					case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
+						// Forbid mode changes to HW device pins.
+						if (spiIsReservedPin(pinNum)) {
+							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							break;
+						}
+
+						// Forbid mode changes from user space to HW device pins (even if associated device has type HwDeviceTypeRaw).
+						HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
+						if (hwDeviceId!=HwDeviceIdMax) {
+							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							break;
+						}
+
+						// Set pin mode
+						pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
+					} break;
+					default:
+						kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					break;
+				}
+			} else {
+				kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall device (fd %u, device '%s'), process %u (%s)\n"), fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			}
 			return true;
 		} break;
@@ -3102,6 +3124,24 @@ void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *pr
 
 	// Remove from fd table
 	procData->fds[slot]=KernelFsFdInvalid;
+}
+
+bool procManProcessIsFdOpen(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFd fd) {
+	// Check if this process even has the given fd open by searching for it in its fds array
+	unsigned i;
+	for(i=0; i<ProcManMaxFds; ++i)
+		if (fd==procData->fds[i])
+			break;
+
+	if (i==ProcManMaxFds)
+		return false;
+
+	// Check for bad fd globally
+	// TODO: should we terminate the process if this check fails? it suggests that the fds array is corrupt
+	if (!kernelFsFileIsOpenByFd(fd))
+		return false;
+
+	return true;
 }
 
 void procManResetInstructionCounters(void) {
