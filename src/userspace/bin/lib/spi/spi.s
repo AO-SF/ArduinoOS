@@ -71,7 +71,7 @@ load8 r1 r1
 syscall
 ret
 
-; spiReadByte (returns read byte in r0)
+; spiReadByte (returns read byte in r0, or 256 if failed to read)
 label spiReadByte
 ; Prepare for read syscall
 mov r0 SyscallIdRead
@@ -81,11 +81,19 @@ mov r2 0 ; offset is ignored anyway
 mov r3 r6 ; use stack to store returned byte
 mov r4 1; data len
 syscall
+; Bad read?
+cmp r0 r0 r0
+skipneqz r0
+jmp spiReadByteBadRead
 ; Grab read value
 load8 r0 r6
 ret
+; Error case
+label spiReadByteBadRead
+mov r0 256
+ret
 
-; spiWriteByte (r0=value)
+; spiWriteByte (r0=value, returns 1/0 in r0 for success/failure)
 label spiWriteByte
 ; Push given value onto stack so we have a ptr to it
 push8 r0
@@ -100,4 +108,4 @@ mov r4 1; data len
 syscall
 ; Restore stack
 dec r6
-ret
+ret ; note: r0 still contains 1 or 0 due to write syscall, so we can simply return it unchanged
