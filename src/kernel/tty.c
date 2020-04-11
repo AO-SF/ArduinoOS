@@ -31,8 +31,10 @@ typedef enum {
 } TtyControlCharacterSet;
 volatile uint8_t ttyControlCharacterSet=TtyControlCharacterSetNone;
 
-volatile bool ttyEchoFlag;
-volatile bool ttyBlockingFlag;
+#define TtyFlagEcho 1
+#define TtyFlagBlocking 2
+volatile uint8_t ttyFlags;
+
 volatile CircBuf ttyCircBuf;
 volatile uint8_t ttyCircBufActivityCount;
 
@@ -58,8 +60,7 @@ ISR(USART0_RX_vect) {
 
 void ttyInit(void) {
 	// Initialise common fields
-	ttyEchoFlag=true;
-	ttyBlockingFlag=true;
+	ttyFlags=TtyFlagEcho|TtyFlagBlocking;
 	ttyCircBufActivityCount=0;
 	circBufInit(&ttyCircBuf);
 
@@ -186,7 +187,7 @@ int16_t ttyReadFunctor(void) {
 bool ttyCanReadFunctor(void) {
 	if (ttyCircBufActivityCount>0)
 		return true;
-	if (ttyBlockingFlag)
+	if (ttyGetBlocking())
 		return false;
 	return !circBufIsEmpty(&ttyCircBuf);
 }
@@ -210,19 +211,25 @@ bool ttyCanWriteFunctor(void) {
 }
 
 bool ttyGetBlocking(void) {
-	return ttyBlockingFlag;
+	return (ttyFlags & TtyFlagBlocking)!=0;
 }
 
 bool ttyGetEcho(void) {
-	return ttyEchoFlag;
+	return (ttyFlags & TtyFlagEcho)!=0;
 }
 
 void ttySetBlocking(bool blocking) {
-	ttyBlockingFlag=blocking;
+	if (blocking)
+		ttyFlags|=TtyFlagBlocking;
+	else
+		ttyFlags&=~TtyFlagBlocking;
 }
 
 void ttySetEcho(bool echo) {
-	ttyEchoFlag=echo;
+	if (echo)
+		ttyFlags|=TtyFlagEcho;
+	else
+		ttyFlags&=~TtyFlagEcho;
 }
 
 #ifndef ARDUINO
@@ -247,7 +254,7 @@ bool ttyHandleByte(uint8_t value) {
 			if (circBufTailPeek(&ttyCircBuf, &tailValue)) {
 				if (tailValue!='\n' && circBufUnpush(&ttyCircBuf)) {
 					// Unpush call remove lasts character from buffer - check if we also need to update the display.
-					if (ttyEchoFlag) {
+					if (ttyGetEcho()) {
 						// Clear last char on screen
 						const uint8_t tempChars[3]={8,' ',8};
 						ttyWriteFunctor(tempChars, 3);
@@ -271,7 +278,7 @@ bool ttyHandleByte(uint8_t value) {
 				++ttyCircBufActivityCount;
 
 			// If required, also update display.
-			if (ttyEchoFlag && value!=4)
+			if (ttyGetEcho() && value!=4)
 				ttyWriteFunctor(&value, 1);
 		} break;
 	}
