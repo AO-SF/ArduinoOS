@@ -2521,6 +2521,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 	return false;
 }
 
+STATICASSERT(sizeof(ProcManProcessProcData)<256); // This is due to using the 256 byte scratch buffer to hold child's procData temporarily
 void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData) {
 #define childProcPath procManScratchBufPath0
 #define childRamPath procManScratchBufPath1
@@ -2573,20 +2574,16 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	memset(child->profilingCounts, 0, sizeof(child->profilingCounts[0])*BytecodeMemoryProgmemSize);
 #endif
 
-	// Initialise proc file
-	KernelFsFd savedFd=procData->ramFd;
-	BytecodeWord savedR0=procData->regs[0];
-	memcpy(procManScratchBuf256, procData->fds, sizeof(procData->fds));
+	// Initialise child's proc file
+	ProcManProcessProcData *childProcData=(ProcManProcessProcData *)procManScratchBuf256;
+	memcpy(childProcData, procData, sizeof(ProcManProcessProcData));
 
-	procData->ramFd=childRamFd;
-	procData->regs[0]=0; // indicate success in the child
+	childProcData->ramFd=childRamFd;
+	childProcData->regs[0]=0; // indicate success in the child
 	for(unsigned i=0; i<ProcManMaxFds; ++i)
-		procData->fds[i]=KernelFsFdInvalid;
-	bool storeRes=procManProcessStoreProcData(child, procData);
-	procData->ramFd=savedFd;
-	procData->regs[0]=savedR0;
-	memcpy(procData->fds, procManScratchBuf256, sizeof(procData->fds));
-	if (!storeRes) {
+		childProcData->fds[i]=KernelFsFdInvalid;
+
+	if (!procManProcessStoreProcData(child, childProcData)) {
 		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not save child process data file to '%s'\n"), parentPid, childProcPath);
 		goto error;
 	}
