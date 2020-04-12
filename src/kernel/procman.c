@@ -2671,7 +2671,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 	// Initialise child's proc file
 	ProcManProcessProcData *childProcData=(ProcManProcessProcData *)procManScratchBuf256;
-	memcpy(childProcData, procData, sizeof(ProcManProcessProcData));
+	*childProcData=*procData;
 
 	childProcData->ramFd=childRamFd;
 	childProcData->regs[0]=0; // indicate success in the child
