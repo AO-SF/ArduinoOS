@@ -329,8 +329,8 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procData.regs[BytecodeRegisterIP]=0;
 	for(BytecodeSignalId i=0; i<BytecodeSignalIdNB; ++i)
 		procData.signalHandlers[i]=ProcManSignalHandlerInvalid;
-	for(unsigned i=0; i<ProcManMaxFds-1; ++i)
-		procData.fds[i]=KernelFsFdInvalid;
+	for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd)
+		procData.fds[localFd-1]=ProcManLocalFdInvalid;
 	procData.envVarDataLen=envVarDataLen;
 	procData.ramLen=0;
 	procData.ramFd=ramFd;
