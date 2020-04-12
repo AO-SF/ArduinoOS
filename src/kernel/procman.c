@@ -680,7 +680,7 @@ void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId) {
 	// Load process' data.
 	ProcManProcessProcData procData;
 	if (!procManProcessLoadProcData(process, &procData)) {
-		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, could not load process ddata\n"), signalId, pid);
+		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, could not load process data\n"), signalId, pid);
 		return;
 	}
 
