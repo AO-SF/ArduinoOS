@@ -32,6 +32,15 @@ KStr kstrAllocCopy(const char *src) {
 	return kstr;
 }
 
+unsigned kstrGetSpare(KStr str) {
+	return str.spare;
+}
+
+void kstrSetSpare(KStr *str, unsigned spare) {
+	if (spare<KStrSpareMax)
+		str->spare=spare;
+}
+
 uint16_t kstrStrlen(KStr kstr) {
 	switch(kstr.type) {
 		case KStrTypeNull:
