@@ -434,6 +434,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManPro
 
 	// Close proc and ram files, deleting tmp ones
 	kernelFsFileClose(process->progmemFd);
+	process->progmemFd=KernelFsFdInvalid;
 
 	if (process->procFd!=KernelFsFdInvalid) {
 		// Close and delete ram file
