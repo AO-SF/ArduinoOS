@@ -195,12 +195,16 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor,
 }
 
 void kernelFsRemoveDeviceFile(const char *mountPoint) {
+	assert(mountPoint!=NULL);
+
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(mountPoint);
 	if (device!=NULL)
 		kernelFsRemoveDeviceFileRaw(device);
 }
 
 void *kernelFsDeviceFileGetUserData(const char *mountPoint) {
+	assert(mountPoint!=NULL);
+
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(mountPoint);
 	if (device!=NULL)
 		return device->common.userData;
@@ -209,6 +213,8 @@ void *kernelFsDeviceFileGetUserData(const char *mountPoint) {
 }
 
 bool kernelFsFileExists(const char *path) {
+	assert(path!=NULL);
+
 	// Check for virtual device path
 	if (kernelFsPathIsDevice(path))
 		return true;
@@ -258,6 +264,8 @@ bool kernelFsFileExists(const char *path) {
 }
 
 bool kernelFsFileIsOpen(const char *path) {
+	assert(path!=NULL);
+
 	for(KernelFsFd i=0; i<KernelFsFdMax; ++i) {
 		if (i==KernelFsFdInvalid)
 			continue;
@@ -269,10 +277,14 @@ bool kernelFsFileIsOpen(const char *path) {
 }
 
 bool kernelFsFileIsOpenByFd(KernelFsFd fd) {
+	assert(fd<KernelFsFdMax);
+
 	return !kstrIsNull(kernelFsData.fdt[fd].path);
 }
 
 bool kernelFsFileIsDir(const char *path) {
+	assert(path!=NULL);
+
 	// Currently directories can only exist as device files
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
 	if (device==NULL)
@@ -283,6 +295,8 @@ bool kernelFsFileIsDir(const char *path) {
 }
 
 bool kernelFsFileIsDirEmpty(const char *path) {
+	assert(path!=NULL);
+
 	// Currently directories can only exist as device files
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
 	if (device==NULL)
@@ -293,6 +307,8 @@ bool kernelFsFileIsDirEmpty(const char *path) {
 }
 
 bool kernelFsFileIsCharacter(const char *path) {
+	assert(path!=NULL);
+
 	// Path must at least be a device file
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
 	if (device==NULL)
@@ -303,6 +319,8 @@ bool kernelFsFileIsCharacter(const char *path) {
 }
 
 KernelFsFileOffset kernelFsFileGetLen(const char *path) {
+	assert(path!=NULL);
+
 	// Invalid path?
 	if (!kernelFsPathIsValid(path))
 		return 0;
@@ -382,10 +400,14 @@ KernelFsFileOffset kernelFsFileGetLen(const char *path) {
 }
 
 bool kernelFsFileCreate(const char *path) {
+	assert(path!=NULL);
+
 	return kernelFsFileCreateWithSize(path, 0);
 }
 
 bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size) {
+	assert(path!=NULL);
+
 	// Find dirname and basename
 	char *dirname, *basename;
 	kernelFsPathSplitStatic(path, &dirname, &basename);
@@ -434,6 +456,8 @@ bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size) {
 }
 
 bool kernelFsFileDelete(const char *path) {
+	assert(path!=NULL);
+
 	// Ensure this file is not open
 	if (kernelFsFileIsOpen(path))
 		return false;
@@ -520,6 +544,8 @@ bool kernelFsFileDelete(const char *path) {
 }
 
 bool kernelFsFileFlush(const char *path) {
+	assert(path!=NULL);
+
 	// Invalid path?
 	if (!kernelFsPathIsValid(path))
 		return false;
@@ -541,6 +567,8 @@ bool kernelFsFileFlush(const char *path) {
 }
 
 bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
+	assert(path!=NULL);
+
 	// Invalid path?
 	if (!kernelFsPathIsValid(path))
 		return false;
@@ -597,6 +625,8 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
 }
 
 KernelFsFd kernelFsFileOpen(const char *path) {
+	assert(path!=NULL);
+
 	// Not valid path?
 	if (!kernelFsPathIsValid(path))
 		return KernelFsFdInvalid;
@@ -652,6 +682,8 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 }
 
 bool kernelFsFileDupe(KernelFsFd fd) {
+	assert(fd<KernelFsFdMax);
+
 	// Is the given fd even in use?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return false;
@@ -667,6 +699,8 @@ bool kernelFsFileDupe(KernelFsFd fd) {
 }
 
 void kernelFsFileClose(KernelFsFd fd) {
+	assert(fd<KernelFsFdMax);
+
 	// Is the given fd even in use?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return;
@@ -684,14 +718,22 @@ void kernelFsFileClose(KernelFsFd fd) {
 }
 
 KStr kernelFsGetFilePath(KernelFsFd fd) {
+	assert(fd<KernelFsFdMax);
+
 	return kernelFsData.fdt[fd].path;
 }
 
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen) {
+	assert(fd<KernelFsFdMax);
+	assert(data!=NULL);
+
 	return kernelFsFileReadOffset(fd, 0, data, dataLen);
 }
 
 KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen) {
+	assert(fd<KernelFsFdMax);
+	assert(data!=NULL);
+
 	// Invalid fd?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return 0;
@@ -788,6 +830,8 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 }
 
 bool kernelFsFileCanRead(KernelFsFd fd) {
+	assert(fd<KernelFsFdMax);
+
 	// Invalid fd?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return false;
@@ -808,10 +852,16 @@ bool kernelFsFileCanRead(KernelFsFd fd) {
 }
 
 bool kernelFsFileReadByte(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *value) {
+	assert(fd<KernelFsFdMax);
+	assert(value!=NULL);
+
 	return (kernelFsFileReadOffset(fd, offset, value, 1)==1);
 }
 
 bool kernelFsFileReadWord(KernelFsFd fd, KernelFsFileOffset offset, uint16_t *value) {
+	assert(fd<KernelFsFdMax);
+	assert(value!=NULL);
+
 	uint8_t data[2];
 	if (kernelFsFileReadOffset(fd, offset, data, 2)!=2)
 		return false;
@@ -820,6 +870,9 @@ bool kernelFsFileReadWord(KernelFsFd fd, KernelFsFileOffset offset, uint16_t *va
 }
 
 bool kernelFsFileReadDoubleWord(KernelFsFd fd, KernelFsFileOffset offset, uint32_t *value) {
+	assert(fd<KernelFsFdMax);
+	assert(value!=NULL);
+
 	uint8_t data[4];
 	if (kernelFsFileReadOffset(fd, offset, data, 4)!=4)
 		return false;
@@ -828,10 +881,16 @@ bool kernelFsFileReadDoubleWord(KernelFsFd fd, KernelFsFileOffset offset, uint32
 }
 
 KernelFsFileOffset kernelFsFileWrite(KernelFsFd fd, const uint8_t *data, KernelFsFileOffset dataLen) {
+	assert(fd<KernelFsFdMax);
+	assert(data!=NULL);
+
 	return kernelFsFileWriteOffset(fd, 0, data, dataLen);
 }
 
 KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset offset, const uint8_t *data, KernelFsFileOffset dataLen) {
+	assert(fd<KernelFsFdMax);
+	assert(data!=NULL);
+
 	// Invalid fd?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return 0;
@@ -927,6 +986,8 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 }
 
 bool kernelFsFileCanWrite(KernelFsFd fd) {
+	assert(fd<KernelFsFdMax);
+
 	// TODO: if we find a device, should we check the writable flag first?
 
 	// Invalid fd?
@@ -949,20 +1010,28 @@ bool kernelFsFileCanWrite(KernelFsFd fd) {
 }
 
 bool kernelFsFileWriteByte(KernelFsFd fd, KernelFsFileOffset offset, uint8_t value) {
+	assert(fd<KernelFsFdMax);
+
 	return (kernelFsFileWriteOffset(fd, offset, &value, 1)==1);
 }
 
 bool kernelFsFileWriteWord(KernelFsFd fd, KernelFsFileOffset offset, uint16_t value) {
+	assert(fd<KernelFsFdMax);
+
 	uint8_t data[2]={value>>8, value&255};
 	return (kernelFsFileWriteOffset(fd, offset, data, 2)==2);
 }
 
 bool kernelFsFileWriteDoubleWord(KernelFsFd fd, KernelFsFileOffset offset, uint32_t value) {
+	assert(fd<KernelFsFdMax);
+
 	uint8_t data[4]={value>>24, (value>>16)&255, (value>>8)&255, value&255};
 	return (kernelFsFileWriteOffset(fd, offset, data, 4)==4);
 }
 
 bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[KernelFsPathMax]) {
+	assert(fd<KernelFsFdMax);
+
 	// Invalid fd?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return false;
@@ -1033,6 +1102,8 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 }
 
 bool kernelFsPathIsValid(const char *path) {
+	assert(path!=NULL);
+
 	// All paths are absolute
 	if (path[0]!='/')
 		return false;
@@ -1045,6 +1116,8 @@ bool kernelFsPathIsValid(const char *path) {
 }
 
 void kernelFsPathNormalise(char *path) {
+	assert(path!=NULL);
+
 	// Add trailing slash to make . and .. logic simpler
 	// TODO: Fix this hack (we may access one beyond what path allows)
 	size_t preLen=strlen(path);
@@ -1097,6 +1170,8 @@ void kernelFsPathNormalise(char *path) {
 void kernelFsPathSplit(char *path, char **dirnamePtr, char **basenamePtr) {
 	assert(path!=NULL);
 	assert(kernelFsPathIsValid(path));
+	assert(dirnamePtr!=NULL);
+	assert(basenamePtr!=NULL);
 
 	// Work backwards looking for final slash
 	char *lastSlash=strrchr(path, '/');
@@ -1107,11 +1182,19 @@ void kernelFsPathSplit(char *path, char **dirnamePtr, char **basenamePtr) {
 }
 
 void kernelFsPathSplitStatic(const char *path, char **dirnamePtr, char **basenamePtr) {
+	assert(path!=NULL);
+	assert(dirnamePtr!=NULL);
+	assert(basenamePtr!=NULL);
+
 	strcpy(kernelFsPathSplitStaticBuf, path);
 	kernelFsPathSplit(kernelFsPathSplitStaticBuf, dirnamePtr, basenamePtr);
 }
 
 void kernelFsPathSplitStaticKStr(KStr kstr, char **dirnamePtr, char **basenamePtr) {
+	assert(!kstrIsNull(kstr));
+	assert(dirnamePtr!=NULL);
+	assert(basenamePtr!=NULL);
+
 	kstrStrcpy(kernelFsPathSplitStaticBuf, kstr);
 	kernelFsPathSplit(kernelFsPathSplitStaticBuf, dirnamePtr, basenamePtr);
 }
@@ -1121,10 +1204,14 @@ void kernelFsPathSplitStaticKStr(KStr kstr, char **dirnamePtr, char **basenamePt
 ////////////////////////////////////////////////////////////////////////////////
 
 bool kernelFsPathIsDevice(const char *path) {
+	assert(path!=NULL);
+
 	return (kernelFsGetDeviceFromPath(path)!=NULL);
 }
 
 bool kernelFsFileCanOpenMany(const char *path) {
+	assert(path!=NULL);
+
 	// Is this a virtual device file?
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
 	if (device!=NULL) {
@@ -1199,6 +1286,8 @@ bool kernelFsFileCanOpenMany(const char *path) {
 }
 
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path) {
+	assert(path!=NULL);
+
 	KStr pathKStr=kstrAllocStatic((char *)path); // HACK: not const correct but kernelFsGetDeviceFromPathKStr doesn't modify its argument so this is safe
 	return kernelFsGetDeviceFromPathKStr(pathKStr);
 }
@@ -1261,6 +1350,8 @@ KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *fu
 }
 
 void kernelFsRemoveDeviceFileRaw(KernelFsDevice *device) {
+	assert(device!=NULL);
+
 	// Does this device file even exist?
 	if (device->common.type==KernelFsDeviceTypeNB)
 		return;
@@ -1295,6 +1386,8 @@ bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir) 
 }
 
 bool kernelFsDeviceIsDir(const KernelFsDevice *device) {
+	assert(device!=NULL);
+
 	// Only block and directory type devices operate as directories
 	switch(device->common.type) {
 		case KernelFsDeviceTypeBlock:
@@ -1327,6 +1420,8 @@ bool kernelFsDeviceIsDir(const KernelFsDevice *device) {
 }
 
 bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device) {
+	assert(device!=NULL);
+
 	// Only block and directory type devices operate as directories
 	switch(device->common.type) {
 		case KernelFsDeviceTypeBlock:
@@ -1378,6 +1473,7 @@ bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device) {
 }
 
 uint16_t kernelFsMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData) {
+	assert(data!=NULL);
 	assert(userData!=NULL);
 
 	KernelFsDevice *device=(KernelFsDevice *)userData;
@@ -1388,6 +1484,7 @@ uint16_t kernelFsMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, v
 }
 
 uint16_t kernelFsMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t len, void *userData) {
+	assert(data!=NULL);
 	assert(userData!=NULL);
 
 	KernelFsDevice *device=(KernelFsDevice *)userData;
