@@ -133,7 +133,7 @@ void ttyTick(void) {
 		for(ProcManPid pid=0; pid<ProcManPidMax; ++pid) {
 			// Get table of open fds (simply fails if process doesn't exist, no need to check first)
 			KernelFsFd fds[ProcManMaxFds];
-			if (!procManProcessGetOpenFds(pid, fds))
+			if (!procManProcessGetOpenGlobalFds(pid, fds))
 				continue;
 
 			// Look through table for an fd representing '/dev/ttyS0'

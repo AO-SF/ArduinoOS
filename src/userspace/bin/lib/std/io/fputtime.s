@@ -4,8 +4,7 @@ require fputdec.s
 ; puttime(time=r0)
 label puttime
 mov r1 r0
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
+mov r0 FdStdout
 jmp fputtime
 
 ; fputtime(fd=r0, time=r1)

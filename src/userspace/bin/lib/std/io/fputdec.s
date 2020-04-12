@@ -5,15 +5,13 @@ require ../str/inttostr.s
 label putdecpad
 mov r2 r1
 mov r1 r0
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
+mov r0 FdStdout
 jmp fputdeccommon
 
 ; putdec(x=r0) - returns number of bytes written in r0
 label putdec
 mov r1 r0
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
+mov r0 FdStdout
 jmp fputdec
 
 ; fputdec(fd=r0, x=r1) - returns number of bytes written in r0

@@ -78,9 +78,7 @@ jmp catArgNLoopEnd
 
 ; Print block
 mov r4 r0
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
-mov r1 r0
+mov r1 FdStdout
 mov r0 SyscallIdWrite
 ; we can leave r2 non-zero as offset is ignored for stdout
 mov r3 pathBuf

@@ -5,10 +5,8 @@ label gets0
 ; Prepare registers for fgets
 mov r2 r0
 mov r3 r1
+mov r0 FdStdin
 mov r1 0
-; Load stdin fd into r0
-mov r0 SyscallIdEnvGetStdinFd
-syscall
 ; Jump to fgets to do most of the work
 jmp fgets ; ret in fgets will return us correctly
 
