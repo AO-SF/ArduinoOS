@@ -428,19 +428,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManPro
 	}
 
 	// Close proc and ram files, deleting tmp ones
-	KernelFsFd progmemFd=process->progmemFd;
-	if (progmemFd!=KernelFsFdInvalid) {
-		// progmemFd may be shared so check if anyone else is still using this one before closing it
-		process->progmemFd=KernelFsFdInvalid;
-
-		unsigned i;
-		for(i=0; i<ProcManPidMax; ++i)
-			if (procManData.processes[i].progmemFd==progmemFd)
-				break;
-
-		if (i==ProcManPidMax)
-			kernelFsFileClose(progmemFd);
-	}
+	kernelFsFileClose(process->progmemFd);
 
 	if (process->procFd!=KernelFsFdInvalid) {
 		// Close and delete ram file
@@ -2511,6 +2499,15 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	}
 	ProcManProcess *child=&(procManData.processes[childPid]);
 
+	// Clear process struct as required
+	child->state=ProcManProcessStateUnused;
+	child->progmemFd=KernelFsFdInvalid;
+	child->procFd=KernelFsFdInvalid;
+	child->instructionCounter=0;
+#ifndef ARDUINO
+	memset(child->profilingCounts, 0, sizeof(child->profilingCounts[0])*BytecodeMemoryProgmemSize);
+#endif
+
 	// Construct proc file path
 	sprintf(childProcPath, "/tmp/proc%u", childPid);
 	sprintf(childRamPath, "/tmp/ram%u", childPid);
@@ -2541,11 +2538,12 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 	// Simply use same FD as parent for the program data
 	child->state=ProcManProcessStateActive;
+
+	if (!kernelFsFileDupe(procManData.processes[parentPid].progmemFd)) {
+		child->progmemFd=KernelFsFdInvalid;
+		goto error;
+	}
 	child->progmemFd=procManData.processes[parentPid].progmemFd;
-	child->instructionCounter=0;
-#ifndef ARDUINO
-	memset(child->profilingCounts, 0, sizeof(child->profilingCounts[0])*BytecodeMemoryProgmemSize);
-#endif
 
 	// Initialise child's proc file
 	ProcManProcessProcData *childProcData=(ProcManProcessProcData *)procManScratchBuf256;
@@ -2589,6 +2587,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 	error:
 	if (childPid!=ProcManPidMax) {
+		kernelFsFileClose(procManData.processes[childPid].progmemFd);
 		procManData.processes[childPid].progmemFd=KernelFsFdInvalid;
 		kernelFsFileClose(procManData.processes[childPid].procFd);
 		procManData.processes[childPid].procFd=KernelFsFdInvalid;
@@ -2708,17 +2707,10 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 
 	int argvTotalSize=procManArgvStringGetTotalSize(argc, argv);
 
-	// Close old fd (if not shared)
+	// Close old fd
 	ProcManPid pid=procManGetPidFromProcess(process);
-	KernelFsFd oldProgmemFd=procManData.processes[pid].progmemFd;
+	kernelFsFileClose(procManData.processes[pid].progmemFd);
 	procManData.processes[pid].progmemFd=newProgmemFd;
-
-	ProcManPid i;
-	for(i=0; i<ProcManPidMax; ++i)
-		if (procManData.processes[i].progmemFd==oldProgmemFd)
-			break;
-	if (i==ProcManPidMax)
-		kernelFsFileClose(oldProgmemFd);
 
 	// Reset instruction pointer
 	procData->regs[BytecodeRegisterIP]=0;
