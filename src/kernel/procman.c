@@ -241,6 +241,8 @@ ProcManPid procManGetProcessCount(void) {
 }
 
 ProcManPid procManProcessNew(const char *programPath) {
+	assert(programPath!=NULL);
+
 #define procPath procManScratchBufPath0
 #define ramPath procManScratchBufPath1
 #define tempPath procManScratchBufPath2
@@ -376,6 +378,9 @@ void procManKillAll(void) {
 }
 
 void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManProcessProcData *procDataGiven) {
+	assert(pid<ProcManPidMax);
+
+	// Write to log
 	kernelLog(LogTypeInfo, kstrP("attempting to kill process %u with exit status %u\n"), pid, exitStatus);
 
 	// Not even open?
@@ -480,6 +485,8 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManPro
 }
 
 void procManProcessTick(ProcManPid pid) {
+	assert(pid<ProcManPidMax);
+
 	ProcManExitStatus exitStatus=ProcManExitStatusKilled;
 	bool procDataLoaded=false;
 
@@ -759,17 +766,29 @@ bool procManProcessGetOpenGlobalFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManProcess *procManGetProcessByPid(ProcManPid pid) {
-	assert(pid<ProcManPidMax);
-	if (procManData.processes[pid].progmemFd!=KernelFsFdInvalid)
-		return procManData.processes+pid;
-	return NULL;
+	if (pid>=ProcManPidMax)
+		return NULL;
+	if (procManData.processes[pid].progmemFd==KernelFsFdInvalid)
+		return NULL;
+	return procManData.processes+pid;
 }
 
 ProcManPid procManGetPidFromProcess(const ProcManProcess *process) {
-	return process-procManData.processes;
+	assert(process!=NULL);
+
+	if (process<procManData.processes)
+		return ProcManPidMax;
+
+	uintptr_t pid=process-procManData.processes;
+	if (pid>=ProcManPidMax)
+		return ProcManPidMax;
+
+	return pid;
 }
 
 const char *procManGetExecPathFromProcess(const ProcManProcess *process) {
+	assert(process!=NULL);
+
 	if (kstrIsNull(kernelFsGetFilePath(process->progmemFd)))
 		return NULL;
 	kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(process->progmemFd));
@@ -785,34 +804,59 @@ ProcManPid procManFindUnusedPid(void) {
 }
 
 bool procManProcessLoadProcData(const ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	return (kernelFsFileReadOffset(process->procFd, 0, (uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
 }
 
 bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	return (kernelFsFileWriteOffset(process->procFd, 0, (const uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
 }
 
 bool procManProcessLoadProcDataRamLen(const ProcManProcess *process, uint16_t *value) {
+	assert(process!=NULL);
+	assert(value!=NULL);
+
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramLen), (uint8_t *)value, sizeof(uint16_t))==sizeof(uint16_t));
 }
 
 bool procManProcessLoadProcDataEnvVarDataLen(const ProcManProcess *process, uint8_t *value) {
+	assert(process!=NULL);
+	assert(value!=NULL);
+
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,envVarDataLen), value, sizeof(uint8_t))==sizeof(uint8_t));
 }
 
 bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd) {
+	assert(process!=NULL);
+	assert(ramFd!=NULL);
+
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramFd), (uint8_t *)ramFd, sizeof(KernelFsFd))==sizeof(KernelFsFd));
 }
 
 bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegister reg, BytecodeWord value) {
+	assert(process!=NULL);
+
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileWriteOffset(process->procFd, offsetof(ProcManProcessProcData,regs)+sizeof(BytecodeWord)*reg, (uint8_t *)&value, sizeof(BytecodeWord))==sizeof(BytecodeWord));
 }
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	return procManProcessMemoryReadBlock(process, procData, addr, value, 1, true);
 }
 
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	uint8_t upper, lower;
 	if (!procManProcessMemoryReadByte(process, procData, addr, &upper))
 		return false;
@@ -823,6 +867,10 @@ bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcDat
 }
 
 bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	uint16_t upper, lower;
 	if (!procManProcessMemoryReadWord(process, procData, addr, &upper))
 		return false;
@@ -833,6 +881,10 @@ bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessP
 }
 
 bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, char *str, uint16_t len) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(str!=NULL);
+
 	while(len-->0) {
 		uint8_t c;
 		if (!procManProcessMemoryReadByte(process, procData, addr++, &c))
@@ -846,6 +898,10 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 }
 
 bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(data!=NULL);
+
 	if (addr+len<BytecodeMemoryRamAddr) {
 		// Addresss is in progmem data
 		if (kernelFsFileReadOffset(process->progmemFd, addr, data, len)==len)
@@ -866,10 +922,18 @@ bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcDa
 }
 
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, value, 1, true);
 }
 
 bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	uint8_t upper, lower;
 	if (!procManProcessMemoryReadByteAtRamfileOffset(process, procData, offset, &upper))
 		return false;
@@ -880,6 +944,10 @@ bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcMa
 }
 
 bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, char *str, uint16_t len) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(str!=NULL);
+
 	while(len-->0) {
 		uint8_t c;
 		if (!procManProcessMemoryReadByteAtRamfileOffset(process, procData, offset++, &c))
@@ -893,6 +961,10 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 }
 
 bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(data!=NULL);
+
 	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
 	if (offset+len<=ramTotalSize) {
 		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len)!=len) {
@@ -909,10 +981,16 @@ bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcM
 }
 
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	return procManProcessMemoryWriteBlock(process, procData, addr, &value, 1);
 }
 
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	if (!procManProcessMemoryWriteByte(process, procData, addr, (value>>8)))
 		return false;
 	if (!procManProcessMemoryWriteByte(process, procData, addr+1, (value&0xFF)))
@@ -921,6 +999,9 @@ bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcDa
 }
 
 bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	if (!procManProcessMemoryWriteWord(process, procData, addr, (value>>16)))
 		return false;
 	if (!procManProcessMemoryWriteWord(process, procData, addr+2, (value&0xFFFF)))
@@ -929,10 +1010,18 @@ bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcess
 }
 
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(str!=NULL);
+
 	return procManProcessMemoryWriteBlock(process, procData, addr, (const uint8_t *)str, strlen(str)+1);
 }
 
 bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const uint8_t *data, uint16_t len) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(data!=NULL);
+
 	// Is addr split across boundary?
 	if (addr<BytecodeMemoryRamAddr && addr+len>=BytecodeMemoryRamAddr)
 		return false;
@@ -1007,6 +1096,9 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 }
 
 bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	char *dest=str;
 
 	// Check n is sensible
@@ -1042,6 +1134,11 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 }
 
 bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstruction3Byte *instruction) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(prefetchData!=NULL);
+	assert(instruction!=NULL);
+
 	if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+0))
 		return false;
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(*instruction);
@@ -1055,6 +1152,11 @@ bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcDat
 }
 
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstruction3Byte instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(prefetchData!=NULL);
+	assert(exitStatus!=NULL);
+
 	// Parse instruction
 	BytecodeInstructionInfo info;
 	bytecodeInstructionParse(&info, instruction);
@@ -1077,6 +1179,11 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 }
 
 bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(info!=NULL);
+	assert(exitStatus!=NULL);
+
 	switch(info->d.memory.type) {
 		case BytecodeInstructionMemoryTypeStore8:
 			if (!procManProcessMemoryWriteByte(process, procData, procData->regs[info->d.memory.destReg], procData->regs[info->d.memory.srcReg])) {
@@ -1105,6 +1212,12 @@ bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcess
 }
 
 bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(info!=NULL);
+	assert(prefetchData!=NULL);
+	assert(exitStatus!=NULL);
+
 	BytecodeWord opA=procData->regs[info->d.alu.opAReg];
 	BytecodeWord opB=procData->regs[info->d.alu.opBReg];
 	switch(info->d.alu.type) {
@@ -1267,14 +1380,18 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 }
 
 bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(info!=NULL);
+	assert(prefetchData!=NULL);
+	assert(exitStatus!=NULL);
+
 	switch(info->d.misc.type) {
 		case BytecodeInstructionMiscTypeNop:
 			return true;
 		break;
 		case BytecodeInstructionMiscTypeSyscall:
-			if (!procManProcessExecSyscall(process, procData, exitStatus))
-				return false;
-			return true;
+			return procManProcessExecSyscall(process, procData, exitStatus);
 		break;
 		case BytecodeInstructionMiscTypeIllegal:
 			kernelLog(LogTypeWarning, kstrP("illegal instruction, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
@@ -1303,6 +1420,10 @@ bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessPr
 }
 
 bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *procData, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(exitStatus!=NULL);
+
 	uint16_t syscallId=procData->regs[0];
 	switch(syscallId) {
 		case BytecodeSyscallIdExit:
@@ -2484,6 +2605,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 STATICASSERT(sizeof(ProcManProcessProcData)<256); // This is due to using the 256 byte scratch buffer to hold child's procData temporarily
 void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData) {
+	assert(parent!=NULL);
+	assert(procData!=NULL);
+
 #define childProcPath procManScratchBufPath0
 #define childRamPath procManScratchBufPath1
 	KernelFsFd childRamFd=KernelFsFdInvalid;
@@ -2605,6 +2729,9 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 }
 
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 #define argv ((char *)procManScratchBuf256)
 
 	// Grab arg and write to log
@@ -2635,6 +2762,9 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 }
 
 bool procManProcessExec2(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 #define argv ((char *)procManScratchBuf256)
 
 	uint8_t start=procData->regs[1];
@@ -2672,6 +2802,10 @@ bool procManProcessExec2(ProcManProcess *process, ProcManProcessProcData *procDa
 }
 
 bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t argc, char *argv) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(argv!=NULL);
+
 #define tempPwd procManScratchBufPath0
 #define tempPath procManScratchBufPath1
 #define ramPath procManScratchBufPath2
@@ -2778,6 +2912,8 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 
 KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart, const char *envPath, const char *envPwd) {
 	assert(process!=NULL);
+	assert(argc!=NULL);
+	assert(argvStart!=NULL);
 
 	// Grab a copy of the exec path so we can modify it
 	char originalExecPath[KernelFsPathMax];
@@ -2912,11 +3048,17 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 }
 
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	BytecodeWord offset=procData->regs[2];
 	return procManProcessReadCommon(process, procData, offset);
 }
 
 bool procManProcessRead32(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	uint16_t offsetPtr=procData->regs[2];
 	BytecodeDoubleWord offset;
 	if (!procManProcessMemoryReadDoubleWord(process, procData, offsetPtr, &offset))
@@ -2926,6 +3068,9 @@ bool procManProcessRead32(ProcManProcess *process, ProcManProcessProcData *procD
 }
 
 bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	// Grab read parameters
 	ProcManLocalFd localFd=procData->regs[1];
 	uint16_t bufAddr=procData->regs[3];
@@ -2962,11 +3107,17 @@ bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *p
 }
 
 bool procManProcessWrite(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	uint16_t offset=procData->regs[2];
 	return procManProcessWriteCommon(process, procData, offset);
 }
 
 bool procManProcessWrite32(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	uint16_t offsetPtr=procData->regs[2];
 	KernelFsFileOffset offset;
 	if (!procManProcessMemoryReadDoubleWord(process, procData, offsetPtr, &offset))
@@ -2976,6 +3127,9 @@ bool procManProcessWrite32(ProcManProcess *process, ProcManProcessProcData *proc
 }
 
 bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	// Grab write parameters
 	ProcManLocalFd localFd=procData->regs[1];
 	uint16_t bufAddr=procData->regs[3];
@@ -3008,6 +3162,10 @@ bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *
 }
 
 ProcManLocalFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessProcData *procData, const char *path) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(path!=NULL);
+
 	// Ensure process has a spare slot in the fds table
 	ProcManLocalFd localFd;
 	for(localFd=1; localFd<ProcManMaxFds; ++localFd)
@@ -3033,6 +3191,9 @@ ProcManLocalFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessPro
 }
 
 void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *procData, ProcManLocalFd localFd) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	// Special case for invalid fd (must be null-op)
 	if (localFd==ProcManLocalFdInvalid)
 		return;
@@ -3086,6 +3247,9 @@ void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *pr
 }
 
 KernelFsFd procManProcessGetGlobalFdFromLocal(ProcManProcess *process, ProcManProcessProcData *procData, ProcManLocalFd localFd) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	// Bad localFd?
 	if (localFd==ProcManLocalFdInvalid || localFd>=ProcManMaxFds)
 		return KernelFsFdInvalid;
@@ -3098,6 +3262,7 @@ KernelFsFd procManProcessGetGlobalFdFromLocal(ProcManProcess *process, ProcManPr
 	if (!kernelFsFileIsOpenByFd(globalFd))
 		return KernelFsFdInvalid;
 
+	assert(globalFd!=KernelFsFdInvalid && globalFd<KernelFsFdMax);
 	return globalFd;
 }
 
@@ -3107,11 +3272,16 @@ void procManResetInstructionCounters(void) {
 }
 
 void procManProcessDebug(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	// Simply print PID and register values
 	kernelLog(LogTypeInfo, kstrP("Process %u debug: r0=%u, r1=%u, r2=%u, r3=%u, r4=%u, r5=%u, r6=%u, r7=%u\n"), procManGetPidFromProcess(process), procData->regs[0], procData->regs[1], procData->regs[2], procData->regs[3], procData->regs[4], procData->regs[5], procData->regs[6], procData->regs[7]);
 }
 
 char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n) {
+	assert(argvStart!=NULL);
+
 	// Check n is in range
 	if (n>=argc)
 		return NULL;
@@ -3124,6 +3294,8 @@ char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n) {
 }
 
 const char *procManArgvStringGetArgNConst(uint8_t argc, const char *argvStart, uint8_t n) {
+	assert(argvStart!=NULL);
+
 	// Check n is in range
 	if (n>=argc)
 		return NULL;
@@ -3136,6 +3308,8 @@ const char *procManArgvStringGetArgNConst(uint8_t argc, const char *argvStart, u
 }
 
 int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart) {
+	assert(argvStart!=NULL);
+
 	int len=0;
 	while(argc>0)
 		argc-=(argvStart[len++]=='\0');
@@ -3143,6 +3317,8 @@ int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart) {
 }
 
 void procManArgvStringPathNormaliseArg0(uint8_t argc, char *argvStart) {
+	assert(argvStart!=NULL);
+
 	// Ensure argc is sensible
 	if (argc<1)
 		return;
@@ -3166,6 +3342,10 @@ void procManArgvStringPathNormaliseArg0(uint8_t argc, char *argvStart) {
 }
 
 void procManArgvUpdateForInterpreter(uint8_t *argc, char *argvStart, const char *interpreterPath) {
+	assert(argc!=NULL);
+	assert(argvStart!=NULL);
+	assert(interpreterPath!=NULL);
+
 	int interpreterPathSize=strlen(interpreterPath)+1;
 	int arg0Size=strlen(argvStart)+1;
 
@@ -3180,10 +3360,17 @@ void procManArgvUpdateForInterpreter(uint8_t *argc, char *argvStart, const char 
 }
 
 void procManPrefetchDataClear(ProcManPrefetchData *pd) {
+	assert(pd!=NULL);
+
 	pd->len=0;
 }
 
 bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *process, ProcManProcessProcData *procData, uint16_t addr, uint8_t *value) {
+	assert(pd!=NULL);
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	// Not already in cache?
 	if (addr<pd->baseAddr || addr>=pd->baseAddr+pd->len) {
 		// Attempt to read largest block we can, but try smaller sizes if this fails.
@@ -3205,6 +3392,8 @@ bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *proces
 }
 
 void procManArgvDebug(uint8_t argc, const char *argvStart) {
+	assert(argvStart!=NULL);
+
 	kernelLog(LogTypeInfo, kstrP("Argv Debug: argc=%u, arg0='%s'\n"), argc, argvStart);
 	for(int i=1; i<argc; ++i) {
 		const char *arg=procManArgvStringGetArgNConst(argc, argvStart, i);
