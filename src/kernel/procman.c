@@ -73,19 +73,19 @@ typedef struct {
 } ProcManProcessStateWaitingWaitpidData;
 
 typedef struct {
-	ProcManLocalFd localFd;
+	KernelFsFd globalFd;
 } ProcManProcessStateWaitingReadData;
 
 typedef struct {
-	ProcManLocalFd localFd;
+	KernelFsFd globalFd;
 } ProcManProcessStateWaitingRead32Data;
 
 typedef struct {
-	ProcManLocalFd localFd;
+	KernelFsFd globalFd;
 } ProcManProcessStateWaitingWriteData;
 
 typedef struct {
-	ProcManLocalFd localFd;
+	KernelFsFd globalFd;
 } ProcManProcessStateWaitingWrite32Data;
 
 typedef struct {
@@ -520,7 +520,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingRead: {
 			// Is data now available?
-			if (kernelFsFileCanRead(procManProcessGetGlobalFdFromLocal(process, &procData, process->stateData.waitingRead.localFd))) {
+			if (kernelFsFileCanRead(process->stateData.waitingRead.globalFd)) {
 				// It is - load process data so we can update the state and read the data
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (read available) - could not load proc data, killing\n"), pid);
@@ -539,7 +539,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingRead32: {
 			// Is data now available?
-			if (kernelFsFileCanRead(procManProcessGetGlobalFdFromLocal(process, &procData, process->stateData.waitingRead32.localFd))) {
+			if (kernelFsFileCanRead(process->stateData.waitingRead32.globalFd)) {
 				// It is - load process data so we can update the state and read the data
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (read32 available) - could not load proc data, killing\n"), pid);
@@ -558,7 +558,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingWrite: {
 			// Is data now available?
-			if (kernelFsFileCanWrite(procManProcessGetGlobalFdFromLocal(process, &procData, process->stateData.waitingWrite.localFd))) {
+			if (kernelFsFileCanWrite(process->stateData.waitingWrite.globalFd)) {
 				// It is - load process data so we can update the state and write the data
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (write available) - could not load proc data, killing\n"), pid);
@@ -577,7 +577,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingWrite32: {
 			// Is data now available?
-			if (kernelFsFileCanWrite(procManProcessGetGlobalFdFromLocal(process, &procData, process->stateData.waitingWrite32.localFd))) {
+			if (kernelFsFileCanWrite(process->stateData.waitingWrite32.globalFd)) {
 				// It is - load process data so we can update the state and write the data
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (write32 available) - could not load proc data, killing\n"), pid);
@@ -1507,7 +1507,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			if (!kernelFsFileCanRead(globalFd)) {
 				// Reading would block - so enter waiting state until data becomes available.
 				process->state=ProcManProcessStateWaitingRead;
-				process->stateData.waitingRead.localFd=localFd;
+				process->stateData.waitingRead.globalFd=globalFd;
 				return true;
 			}
 
@@ -1534,7 +1534,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			if (!kernelFsFileCanWrite(globalFd)) {
 				// Writing would block - so enter waiting state until space becomes available.
 				process->state=ProcManProcessStateWaitingWrite;
-				process->stateData.waitingWrite.localFd=localFd;
+				process->stateData.waitingWrite.globalFd=globalFd;
 				return true;
 			}
 
@@ -1743,7 +1743,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			if (!kernelFsFileCanRead(globalFd)) {
 				// Reading would block - so enter waiting state until data becomes available.
 				process->state=ProcManProcessStateWaitingRead32;
-				process->stateData.waitingRead32.localFd=localFd;
+				process->stateData.waitingRead32.globalFd=globalFd;
 				return true;
 			}
 
@@ -1770,7 +1770,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			if (!kernelFsFileCanWrite(globalFd)) {
 				// Writing would block - so enter waiting state until space becomes available.
 				process->state=ProcManProcessStateWaitingWrite32;
-				process->stateData.waitingWrite32.localFd=localFd;
+				process->stateData.waitingWrite32.globalFd=globalFd;
 				return true;
 			}
 
