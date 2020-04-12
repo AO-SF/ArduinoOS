@@ -57,7 +57,7 @@ typedef union {
 } KernelFsDevice;
 
 typedef struct {
-	KStr path;
+	KStr path; // also stores ref counter in spare bits - see kstrGetSpare and kstrSetSpare
 	KernelFsDeviceIndex deviceIndex;
 } KernelFsFdtEntry;
 
@@ -627,6 +627,8 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 	if (kstrIsNull(kernelFsData.fdt[newFd].path))
 		return KernelFsFdInvalid; // Out of memory
 
+	kstrSetSpare(&kernelFsData.fdt[newFd].path, 1); // set initial ref count of 1
+
 	// Grab device index to save doing this repeatedly in the future
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
 	if (device==NULL) {
@@ -649,10 +651,36 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 	return newFd;
 }
 
+bool kernelFsFileDupe(KernelFsFd fd) {
+	// Is the given fd even in use?
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
+		return false;
+
+	// Increase ref count
+	unsigned refCount=kstrGetSpare(kernelFsData.fdt[fd].path);
+	++refCount;
+	if (refCount>=KStrSpareMax)
+		return false;
+	kstrSetSpare(&kernelFsData.fdt[fd].path, refCount);
+
+	return true;
+}
+
 void kernelFsFileClose(KernelFsFd fd) {
-	// Clear from file descriptor table.
-	kstrFree(&kernelFsData.fdt[fd].path);
-	kernelFsData.fdt[fd].deviceIndex=KernelFsDevicesMax;
+	// Is the given fd even in use?
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
+		return;
+
+	// Reduce ref count
+	unsigned refCount=kstrGetSpare(kernelFsData.fdt[fd].path);
+	--refCount;
+	kstrSetSpare(&kernelFsData.fdt[fd].path, refCount);
+
+	// If ref count is now 0, clear from file descriptor table.
+	if (refCount==0) {
+		kstrFree(&kernelFsData.fdt[fd].path);
+		kernelFsData.fdt[fd].deviceIndex=KernelFsDevicesMax;
+	}
 }
 
 KStr kernelFsGetFilePath(KernelFsFd fd) {

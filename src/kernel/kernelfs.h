@@ -83,8 +83,9 @@ bool kernelFsFileFlush(const char *path);
 
 bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize); // path must not be open
 
-KernelFsFd kernelFsFileOpen(const char *path); // File/directory must exist. Returns KernelFsFdInvalid on failure to open.
-void kernelFsFileClose(KernelFsFd fd); // Accepts KernelFsFdInvalid (doing nothing).
+KernelFsFd kernelFsFileOpen(const char *path); // File/directory must exist. Returns KernelFsFdInvalid on failure to open. Sets ref count on fd to 1.
+bool kernelFsFileDupe(KernelFsFd fd); // Increases the ref count for the given fd (on failure leaves ref count unchanged and returns false)
+void kernelFsFileClose(KernelFsFd fd); // Reduces ref count for the given fd, and if it goes to 0 then closes the fd. Accepts KernelFsFdInvalid (doing nothing).
 
 KStr kernelFsGetFilePath(KernelFsFd fd);
 
