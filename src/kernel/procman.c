@@ -2604,17 +2604,25 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 	return false;
 }
 
-STATICASSERT(sizeof(ProcManProcessProcData)<256); // This is due to using the 256 byte scratch buffer to hold child's procData temporarily
+STATICASSERT(sizeof(ProcManProcessProcData)<KernelFsPathMax); // This is due to using one of the path scratch buffers to hold child's procData temporarily
 void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData) {
 	assert(parent!=NULL);
 	assert(procData!=NULL);
 
-#define childProcPath procManScratchBufPath0
-#define childRamPath procManScratchBufPath1
-	KernelFsFd childRamFd=KernelFsFdInvalid;
+#define scratchPath procManScratchBufPath0
+#define childProcData ((ProcManProcessProcData *)procManScratchBufPath1)
+
 	ProcManPid parentPid=procManGetPidFromProcess(parent);
 
 	kernelLog(LogTypeInfo, kstrP("fork request from process %u\n"), parentPid);
+
+	// Initialise child's proc file (do this now to make error handling simpler)
+	*childProcData=*procData;
+
+	childProcData->ramFd=KernelFsFdInvalid;
+	childProcData->regs[0]=0; // indicate success in the child
+	for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd)
+		childProcData->fds[localFd-1]=KernelFsFdInvalid;
 
 	// Find a PID for the new process
 	ProcManPid childPid=procManFindUnusedPid();
@@ -2633,31 +2641,30 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	memset(child->profilingCounts, 0, sizeof(child->profilingCounts[0])*BytecodeMemoryProgmemSize);
 #endif
 
-	// Construct proc file path
-	sprintf(childProcPath, "/tmp/proc%u", childPid);
-	sprintf(childRamPath, "/tmp/ram%u", childPid);
-
-	// Attempt to create proc and ram files
-	if (!kernelFsFileCreateWithSize(childProcPath, sizeof(ProcManProcessProcData))) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child process data file at '%s' of size %u\n"), parentPid, childProcPath, sizeof(procManProcessLoadProcData));
-		goto error;
-	}
-	uint16_t ramTotalSize=procData->envVarDataLen+procData->ramLen;
-	if (!kernelFsFileCreateWithSize(childRamPath, ramTotalSize)) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child ram data file at '%s' of size %u\n"), parentPid, childRamPath, ramTotalSize);
+	// Create and open proc file
+	sprintf(scratchPath, "/tmp/proc%u", childPid);
+	if (!kernelFsFileCreateWithSize(scratchPath, sizeof(ProcManProcessProcData))) {
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child process data file at '%s' of size %u\n"), parentPid, scratchPath, sizeof(procManProcessLoadProcData));
 		goto error;
 	}
 
-	// Attempt to open proc and ram files
-	child->procFd=kernelFsFileOpen(childProcPath);
+	child->procFd=kernelFsFileOpen(scratchPath);
 	if (child->procFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child process data file at '%s'\n"), parentPid, childProcPath);
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child process data file at '%s'\n"), parentPid, scratchPath);
 		goto error;
 	}
 
-	childRamFd=kernelFsFileOpen(childRamPath);
-	if (childRamFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child ram data file at '%s'\n"), parentPid, childRamPath);
+	// Attempt to create and open ram file
+	sprintf(scratchPath, "/tmp/ram%u", childPid);
+	uint16_t ramTotalSize=procData->envVarDataLen+procData->ramLen;
+	if (!kernelFsFileCreateWithSize(scratchPath, ramTotalSize)) {
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child ram data file at '%s' of size %u\n"), parentPid, scratchPath, ramTotalSize);
+		goto error;
+	}
+
+	childProcData->ramFd=kernelFsFileOpen(scratchPath);
+	if (childProcData->ramFd==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child ram data file at '%s'\n"), parentPid, scratchPath);
 		goto error;
 	}
 
@@ -2670,17 +2677,28 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	}
 	child->progmemFd=procManData.processes[parentPid].progmemFd;
 
-	// Initialise child's proc file
-	ProcManProcessProcData *childProcData=(ProcManProcessProcData *)procManScratchBuf256;
-	*childProcData=*procData;
+	// Duplicate any open file descriptors
+	for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd) {
+		// No file open in this slot?
+		if (procData->fds[localFd-1]==KernelFsFdInvalid)
+			continue;
 
-	childProcData->ramFd=childRamFd;
-	childProcData->regs[0]=0; // indicate success in the child
-	for(unsigned i=0; i<ProcManMaxFds-1; ++i)
-		childProcData->fds[i]=ProcManLocalFdInvalid;
+		// There is a file open here, so try to re-open it in the new process.
+		KStr scratchPathK=kernelFsGetFilePath(procData->fds[localFd-1]);
+		assert(!kstrIsNull(scratchPathK));
+		kstrStrcpy(scratchPath, scratchPathK);
 
+		if (!kernelFsFileDupe(procData->fds[localFd-1])) {
+			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not reopen '%s' (local fd %u, original global fd %u)\n"), parentPid, scratchPath, localFd, procData->fds[localFd-1]);
+			goto error;
+		}
+		childProcData->fds[localFd-1]=procData->fds[localFd-1];
+	}
+
+	// Save completed child proc data to disk
 	if (!procManProcessStoreProcData(child, childProcData)) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not save child process data file to '%s'\n"), parentPid, childProcPath);
+		sprintf(scratchPath, "/tmp/proc%u", childPid);
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not save child process data file to '%s'\n"), parentPid, scratchPath);
 		goto error;
 	}
 
@@ -2689,7 +2707,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	KernelFsFileOffset i;
 	for(i=0; i+255<ramTotalSize; i+=256) {
 		if (kernelFsFileReadOffset(procData->ramFd, i, (uint8_t *)procManScratchBuf256, 256)!=256 ||
-		    kernelFsFileWriteOffset(childRamFd, i, (const uint8_t *)procManScratchBuf256, 256)!=256) {
+		    kernelFsFileWriteOffset(childProcData->ramFd, i, (const uint8_t *)procManScratchBuf256, 256)!=256) {
 			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n"), parentPid, i, ramTotalSize);
 			goto error;
 		}
@@ -2697,7 +2715,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	for(; i<ramTotalSize; i++) {
 		uint8_t value;
 		if (kernelFsFileReadOffset(procData->ramFd, i, &value, 1)!=1 ||
-		    kernelFsFileWriteOffset(childRamFd, i, &value, 1)!=1) {
+		    kernelFsFileWriteOffset(childProcData->ramFd, i, &value, 1)!=1) {
 			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n"), parentPid, i, ramTotalSize);
 			goto error;
 		}
@@ -2712,21 +2730,29 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 	error:
 	if (childPid!=ProcManPidMax) {
+		for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd)
+			kernelFsFileClose(childProcData->fds[localFd-1]);
+
 		kernelFsFileClose(procManData.processes[childPid].progmemFd);
 		procManData.processes[childPid].progmemFd=KernelFsFdInvalid;
+
 		kernelFsFileClose(procManData.processes[childPid].procFd);
 		procManData.processes[childPid].procFd=KernelFsFdInvalid;
-		kernelFsFileDelete(childProcPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
-		kernelFsFileClose(childRamFd);
-		kernelFsFileDelete(childRamPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+		sprintf(scratchPath, "/tmp/proc%u", childPid);
+		kernelFsFileDelete(scratchPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+
+		kernelFsFileClose(childProcData->ramFd);
+		sprintf(scratchPath, "/tmp/ram%u", childPid);
+		kernelFsFileDelete(scratchPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+
 		procManData.processes[childPid].state=ProcManProcessStateUnused;
 		procManData.processes[childPid].instructionCounter=0;
 	}
 
 	// Indicate error
 	procData->regs[0]=ProcManPidMax;
-#undef childProcPath
-#undef childRamPath
+#undef scratchPath
+#undef childProcData
 }
 
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData) {
