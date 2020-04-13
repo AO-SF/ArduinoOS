@@ -1586,8 +1586,23 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdGetPidFdN: {
-			// TODO: think about this - due to local/global fd change this isn't as useful for e.g. lsof as it once was
-			procData->regs[0]=0;
+			// Grab arguments
+			ProcManPid pid=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[2];
+
+			// Bad pid or localFd?
+			if (pid>=ProcManPidMax || localFd==ProcManLocalFdInvalid || localFd>=ProcManMaxFds) {
+				procData->regs[0]=KernelFsFdInvalid;
+				return true;
+			}
+
+			// If pid represents program making the syscall then all data is already loaded
+			// Otherwise we have to load proc data for given pid
+			if (pid==procManGetPidFromProcess(process))
+				procData->regs[0]=procData->fds[localFd-1];
+			else
+				procData->regs[0]=procManProcessGetGlobalFdFromLocalWithPid(pid, localFd);
+
 			return true;
 		} break;
 		case BytecodeSyscallIdExec2: {
