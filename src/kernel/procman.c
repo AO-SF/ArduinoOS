@@ -184,6 +184,7 @@ bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *
 ProcManLocalFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessProcData *procData, const char *path); // attempts to open given path, if successful adds to the fd table
 void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *procData, ProcManLocalFd localFd);
 KernelFsFd procManProcessGetGlobalFdFromLocal(ProcManProcess *process, ProcManProcessProcData *procData, ProcManLocalFd localFd);
+KernelFsFd procManProcessGetGlobalFdFromLocalWithPid(ProcManPid pid, ProcManLocalFd localFd); // note: information may be out of date if called from within procManProcessTick with pid of the currently running process
 
 void procManResetInstructionCounters(void);
 
@@ -3291,6 +3292,28 @@ KernelFsFd procManProcessGetGlobalFdFromLocal(ProcManProcess *process, ProcManPr
 
 	assert(globalFd!=KernelFsFdInvalid && globalFd<KernelFsFdMax);
 	return globalFd;
+}
+
+KernelFsFd procManProcessGetGlobalFdFromLocalWithPid(ProcManPid pid, ProcManLocalFd localFd) {
+	assert(pid<ProcManPidMax);
+	assert(localFd<ProcManMaxFds);
+
+	// Invalid local fd?
+	if (localFd==ProcManLocalFdInvalid)
+		return KernelFsFdInvalid;
+
+	// Grab process (if exists)
+	ProcManProcess *process=procManGetProcessByPid(pid);
+	if (process==NULL)
+		return KernelFsFdInvalid;
+
+	// Load proc data
+	ProcManProcessProcData procData;
+	if (!procManProcessLoadProcData(process, &procData))
+		return KernelFsFdInvalid;
+
+	// Lookup in fds table
+	return procData.fds[localFd-1];
 }
 
 void procManResetInstructionCounters(void) {
