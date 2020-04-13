@@ -2063,6 +2063,26 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdGetPathGlobal: {
+			KernelFsFd globalFd=procData->regs[1];
+			uint16_t bufAddr=procData->regs[2];
+
+			// Grab file path
+			if (kstrIsNull(kernelFsGetFilePath(globalFd))) {
+				procData->regs[0]=0;
+				return true;
+			}
+			kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(globalFd));
+
+			// Write path into process memory
+			if (!procManProcessMemoryWriteStr(process, procData, bufAddr, procManScratchBufPath2)) {
+				kernelLog(LogTypeWarning, kstrP("failed during getpathglobal syscall, globalFd %u, process %u (%s), killing\n"), globalFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			procData->regs[0]=1;
+
+			return true;
+		} break;
 		case BytecodeSyscallIdEnvGetPwd: {
 			char pwd[KernelFsPathMax];
 			if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, pwd, KernelFsPathMax)) {

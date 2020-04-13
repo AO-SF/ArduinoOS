@@ -34,6 +34,7 @@ const SyscallIdGetFileLen32 271
 const SyscallIdAppend 272
 const SyscallIdFlush 273
 const SyscallIdTryWriteByte 274
+const SyscallIdGetPathGlobal 275
 
 const SyscallIdEnvGetPwd 514
 const SyscallIdEnvSetPwd 515

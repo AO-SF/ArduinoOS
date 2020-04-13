@@ -665,6 +665,11 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [trywritebyte] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
+						case BytecodeSyscallIdGetPathGlobal: {
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [getpathglobal] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						} break;
 						case BytecodeSyscallIdEnvGetPwd:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);

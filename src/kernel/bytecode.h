@@ -80,6 +80,7 @@ typedef enum {
 	BytecodeSyscallIdAppend=M(1,16),
 	BytecodeSyscallIdFlush=M(1,17),
 	BytecodeSyscallIdTryWriteByte=M(1,18),
+	BytecodeSyscallIdGetPathGlobal=M(1,19),
 	BytecodeSyscallIdEnvGetPwd=M(2,2),
 	BytecodeSyscallIdEnvSetPwd=M(2,3),
 	BytecodeSyscallIdEnvGetPath=M(2,4),
