@@ -37,6 +37,7 @@ label gotArg
 ; Attempt to open queryDir
 mov r0 SyscallIdOpen
 mov r1 queryDir
+mov r2 FdModeRO
 syscall
 
 mov r1 queryDirFd

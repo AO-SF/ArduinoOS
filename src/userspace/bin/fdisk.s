@@ -65,6 +65,7 @@ call getabspath
 
 ; Open disk
 mov r0 pathBuf
+mov r1 FdModeRO
 call fopen
 mov r1 FdInvalid
 cmp r1 r0 r1

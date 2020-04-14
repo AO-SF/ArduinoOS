@@ -49,7 +49,7 @@ bool kernelMount(KernelMountFormat format, const char *devicePath, const char *d
 	}
 
 	// Open device file
-	KernelFsFd deviceFd=kernelFsFileOpen(devicePath);
+	KernelFsFd deviceFd=kernelFsFileOpen(devicePath, KernelFsFdModeRW);
 	if (deviceFd==KernelFsFdInvalid) {
 		kernelLog(LogTypeWarning, kstrP("could not mount - could not open device file (format=%u, devicePath='%s', dirPath='%s')\n"), format, devicePath, dirPath);
 		return false;

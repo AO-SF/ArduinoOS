@@ -28,5 +28,6 @@ mov r0 SyscallIdOpen
 mov r1 PathMax
 sub r6 r6 r1 ; restore stack
 mov r1 r6
+mov r2 FdModeRW
 syscall
 ret

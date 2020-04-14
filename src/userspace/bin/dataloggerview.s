@@ -59,6 +59,7 @@ call int32fromStr
 
 ; Open data file
 mov r0 pathBuf
+mov r1 FdModeRO
 call fopen
 
 mov r1 FdInvalid

@@ -102,6 +102,20 @@ bool kernelFsDeviceInvokeFunctorCharacterCanWrite(KernelFsDevice *device);
 KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockRead(KernelFsDevice *device, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockwrite(KernelFsDevice *device, const uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 
+// The following functions deal with logic handling the mode and ref count stored in the spare bits of fdt path fields.
+STATICASSERT(KernelFsFdModeNone==0); // so that make function can return 0 for error unambiguously
+STATICASSERT(KStrSpareBits>=KernelFsFdModeBits+2); // make sure we have at least 2 bits for ref counts
+
+#define KernelFsFdRefCountBits (KStrSpareBits-KernelFsFdModeBits)
+#define KernelFsFdRefCountMax ((1u)<<KernelFsFdRefCountBits)
+
+uint8_t kernelFsFdPathSpareMake(KernelFsFdMode mode, unsigned refCount); // returns 0 on error (bad mode or ref count)
+KernelFsFdMode kernelFsFdPathSpareGetMode(uint8_t spare);
+unsigned kernelFsFdPathSpareGetRefCount(uint8_t spare);
+
+uint8_t kernelFsGetFileSpare(KernelFsFd fd);
+void kernelFsSetFileSpare(KernelFsFd fd, uint8_t spare);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -624,11 +638,15 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
 	return false;
 }
 
-KernelFsFd kernelFsFileOpen(const char *path) {
+KernelFsFd kernelFsFileOpen(const char *path, KernelFsFdMode mode) {
 	assert(path!=NULL);
 
-	// Not valid path?
+	// Invalid path?
 	if (!kernelFsPathIsValid(path))
+		return KernelFsFdInvalid;
+
+	// Invalid mode?
+	if (mode==KernelFsFdModeNone || mode>KernelFsFdModeMax)
 		return KernelFsFdInvalid;
 
 	// Check file exists.
@@ -657,7 +675,7 @@ KernelFsFd kernelFsFileOpen(const char *path) {
 	if (kstrIsNull(kernelFsData.fdt[newFd].path))
 		return KernelFsFdInvalid; // Out of memory
 
-	kstrSetSpare(&kernelFsData.fdt[newFd].path, 1); // set initial ref count of 1
+	kernelFsSetFileSpare(newFd, kernelFsFdPathSpareMake(mode, 1)); // store mode and refcount=1 in spare bits of path string
 
 	// Grab device index to save doing this repeatedly in the future
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
@@ -689,11 +707,12 @@ bool kernelFsFileDupe(KernelFsFd fd) {
 		return false;
 
 	// Increase ref count
-	unsigned refCount=kstrGetSpare(kernelFsData.fdt[fd].path);
+	uint8_t spare=kernelFsGetFileSpare(fd);
+	unsigned refCount=kernelFsFdPathSpareGetRefCount(spare);
 	++refCount;
-	if (refCount>=KStrSpareMax)
+	if (refCount>=KernelFsFdRefCountMax)
 		return false;
-	kstrSetSpare(&kernelFsData.fdt[fd].path, refCount);
+	kernelFsSetFileSpare(fd, kernelFsFdPathSpareMake(kernelFsFdPathSpareGetMode(spare), refCount));
 
 	return true;
 }
@@ -711,7 +730,7 @@ KernelFsFd kernelFsFileDupeOrOpen(KernelFsFd fd) {
 	char path[KernelFsPathMax];
 	kstrStrcpy(path, pathK);
 
-	return kernelFsFileOpen(path);
+	return kernelFsFileOpen(path, kernelFsGetFileMode(fd));
 }
 
 void kernelFsFileClose(KernelFsFd fd) {
@@ -722,9 +741,10 @@ void kernelFsFileClose(KernelFsFd fd) {
 		return;
 
 	// Reduce ref count
-	unsigned refCount=kstrGetSpare(kernelFsData.fdt[fd].path);
+	uint8_t spare=kernelFsGetFileSpare(fd);
+	unsigned refCount=kernelFsFdPathSpareGetRefCount(spare);
 	--refCount;
-	kstrSetSpare(&kernelFsData.fdt[fd].path, refCount);
+	kernelFsSetFileSpare(fd, kernelFsFdPathSpareMake(kernelFsFdPathSpareGetMode(spare), refCount));
 
 	// If ref count is now 0, clear from file descriptor table.
 	if (refCount==0) {
@@ -737,6 +757,30 @@ KStr kernelFsGetFilePath(KernelFsFd fd) {
 	assert(fd<KernelFsFdMax);
 
 	return kernelFsData.fdt[fd].path;
+}
+
+unsigned kernelFsGetFileRefCount(KernelFsFd fd) {
+	assert(fd<KernelFsFdMax);
+
+	// Fd not open?
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
+		return 0;
+
+	// Extract ref count
+	uint8_t spare=kernelFsGetFileSpare(fd);
+	return kernelFsFdPathSpareGetRefCount(spare);
+}
+
+KernelFsFdMode kernelFsGetFileMode(KernelFsFd fd) {
+	assert(fd<KernelFsFdMax);
+
+	// Fd not open?
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
+		return KernelFsFdModeNone;
+
+	// Extract mode
+	uint8_t spare=kernelFsGetFileSpare(fd);
+	return kernelFsFdPathSpareGetMode(spare);
 }
 
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen) {
@@ -752,6 +796,10 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 
 	// Invalid fd?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
+		return 0;
+
+	// Bad mode?
+	if (!(kernelFsGetFileMode(fd) & KernelFsFdModeRO))
 		return 0;
 
 	// Is this a virtual device file, or is it the child of one?
@@ -852,6 +900,10 @@ bool kernelFsFileCanRead(KernelFsFd fd) {
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return false;
 
+	// Bad mode?
+	if (!(kernelFsGetFileMode(fd) & KernelFsFdModeRO))
+		return false;
+
 	// Is this a virtual character device file?
 	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
 	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
@@ -909,6 +961,10 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 
 	// Invalid fd?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
+		return 0;
+
+	// Bad mode?
+	if (!(kernelFsGetFileMode(fd) & KernelFsFdModeWO))
 		return 0;
 
 	// Is this a virtual device file, or is it the child of one?
@@ -1010,6 +1066,10 @@ bool kernelFsFileCanWrite(KernelFsFd fd) {
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
 		return false;
 
+	// Bad mode?
+	if (!(kernelFsGetFileMode(fd) & KernelFsFdModeWO))
+		return false;
+
 	// Is this a virtual character device file?
 	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
 	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
@@ -1050,6 +1110,10 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 
 	// Invalid fd?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
+		return false;
+
+	// Bad mode?
+	if (!(kernelFsGetFileMode(fd) & KernelFsFdModeRO))
 		return false;
 
 	// Is this a virtual device file?
@@ -1213,6 +1277,19 @@ void kernelFsPathSplitStaticKStr(KStr kstr, char **dirnamePtr, char **basenamePt
 
 	kstrStrcpy(kernelFsPathSplitStaticBuf, kstr);
 	kernelFsPathSplit(kernelFsPathSplitStaticBuf, dirnamePtr, basenamePtr);
+}
+
+static const char *kernelFsFdModeToStringBadMode="??";
+static const char *kernelFsFdModeToStringArray[]={
+	[KernelFsFdModeNone]="NO",
+	[KernelFsFdModeRO]="RO",
+	[KernelFsFdModeWO]="WO",
+	[KernelFsFdModeRW]="RW",
+};
+const char *kernelFsFdModeToString(KernelFsFdMode mode) {
+	if (mode>=KernelFsFdModeMax)
+		return kernelFsFdModeToStringBadMode;
+	return kernelFsFdModeToStringArray[mode];
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1537,4 +1614,43 @@ KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockRead(KernelFsDevice *device, 
 
 KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockwrite(KernelFsDevice *device, const uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
 	return (KernelFsFileOffset)device->common.functor(KernelFsDeviceFunctorTypeBlockWrite, device->common.userData, (uint8_t *)data, len, addr);
+}
+
+uint8_t kernelFsFdPathSpareMake(KernelFsFdMode mode, unsigned refCount) {
+	if (mode==KernelFsFdModeNone || mode>=KernelFsFdModeMax)
+		return 0;
+	if (refCount>=KernelFsFdRefCountMax)
+		return 0;
+	return (((uint8_t)refCount)<<KernelFsFdModeBits)|mode;
+}
+
+KernelFsFdMode kernelFsFdPathSpareGetMode(uint8_t spare) {
+	return (spare & (KernelFsFdModeMax-1));
+}
+
+unsigned kernelFsFdPathSpareGetRefCount(uint8_t spare) {
+	return (spare>>KernelFsFdModeBits);
+}
+
+uint8_t kernelFsGetFileSpare(KernelFsFd fd) {
+	assert(fd<KernelFsFdMax);
+
+	// Fd not open?
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
+		return 0;
+
+	// Extract spare bits from path str
+	return kstrGetSpare(kernelFsData.fdt[fd].path);
+}
+
+void kernelFsSetFileSpare(KernelFsFd fd, uint8_t spare) {
+	assert(fd<KernelFsFdMax);
+	assert(spare<((1u)<<KStrSpareBits));
+
+	// Fd not open?
+	if (kstrIsNull(kernelFsData.fdt[fd].path))
+		return;
+
+	// Set spare bits in path str
+	kstrSetSpare(&kernelFsData.fdt[fd].path, spare);
 }

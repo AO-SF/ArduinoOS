@@ -87,6 +87,7 @@ jmp argLoopEnd
 
 ; Open file
 mov r0 inputBuf
+mov r1 FdModeRO
 call openpath
 
 mov r1 inputFd

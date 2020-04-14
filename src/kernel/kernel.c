@@ -179,7 +179,7 @@ bool kernelSpiGrabLock(uint8_t slaveSelectPin) {
 		return false;
 
 	// Attempt to open file
-	kernelSpiLockFd=kernelFsFileOpen("/dev/spi");
+	kernelSpiLockFd=kernelFsFileOpen("/dev/spi", KernelFsFdModeRW);
 	if (kernelSpiLockFd==KernelFsFdInvalid)
 		return false;
 
@@ -201,7 +201,7 @@ bool kernelSpiGrabLockNoSlaveSelect(void) {
 		return false;
 
 	// Attempt to open file
-	kernelSpiLockFd=kernelFsFileOpen("/dev/spi");
+	kernelSpiLockFd=kernelFsFileOpen("/dev/spi", KernelFsFdModeRW);
 	if (kernelSpiLockFd==KernelFsFdInvalid)
 		return false;
 

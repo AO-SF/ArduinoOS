@@ -54,6 +54,7 @@ call getabspath
 ; Open file
 mov r0 SyscallIdOpen
 mov r1 pathBuf
+mov r2 FdModeRO
 syscall
 
 mov r1 fd

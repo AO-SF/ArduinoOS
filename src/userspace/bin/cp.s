@@ -49,6 +49,7 @@ call getpath
 
 ; Open source file
 mov r0 sourceArg
+mov r1 FdModeRO
 call openpath
 cmp r1 r0 r0
 skipneqz r1
@@ -75,6 +76,7 @@ syscall
 
 ; Open dest
 mov r0 destArg
+mov r1 FdModeWO
 call openpath
 cmp r1 r0 r0
 skipneqz r1

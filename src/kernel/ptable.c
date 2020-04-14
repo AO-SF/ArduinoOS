@@ -2,7 +2,7 @@
 
 bool pTableParseEntryPath(const char *path, unsigned n, PTableEntry *entry) {
 	// Open disk
-	KernelFsFd fd=kernelFsFileOpen(path);
+	KernelFsFd fd=kernelFsFileOpen(path, KernelFsFdModeRO);
 	if (fd==KernelFsFdInvalid)
 		return false;
 

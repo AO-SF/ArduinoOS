@@ -40,6 +40,7 @@ store8 r1 r0
 ; Attempt to open '/dev/spi'
 mov r0 SyscallIdOpen
 mov r1 spiDevPath
+mov r2 FdModeRW
 syscall
 mov r1 spiFd
 store8 r1 r0

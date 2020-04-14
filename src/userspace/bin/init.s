@@ -38,10 +38,12 @@ syscall
 ; Open stdin and stdout (these will naturally use fds 1 and 2)
 mov r0 SyscallIdOpen
 mov r1 ttyPath
+mov r2 FdModeRO ; read only for stdin
 syscall
 
 mov r0 SyscallIdOpen
 mov r1 ttyPath
+mov r2 FdModeWO ; write only for stdout
 syscall
 
 ; call forkexecwait to run startup file and wait for it to complete
