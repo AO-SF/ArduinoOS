@@ -733,12 +733,12 @@ KernelFsFd kernelFsFileDupeOrOpen(KernelFsFd fd) {
 	return kernelFsFileOpen(path, kernelFsGetFileMode(fd));
 }
 
-void kernelFsFileClose(KernelFsFd fd) {
+unsigned kernelFsFileClose(KernelFsFd fd) {
 	assert(fd<KernelFsFdMax);
 
 	// Is the given fd even in use?
 	if (kstrIsNull(kernelFsData.fdt[fd].path))
-		return;
+		return 0;
 
 	// Reduce ref count
 	uint8_t spare=kernelFsGetFileSpare(fd);
@@ -751,6 +751,8 @@ void kernelFsFileClose(KernelFsFd fd) {
 		kstrFree(&kernelFsData.fdt[fd].path);
 		kernelFsData.fdt[fd].deviceIndex=KernelFsDevicesMax;
 	}
+
+	return refCount;
 }
 
 KStr kernelFsGetFilePath(KernelFsFd fd) {
