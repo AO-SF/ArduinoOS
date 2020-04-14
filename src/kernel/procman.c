@@ -2704,14 +2704,15 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 		goto error;
 	}
 
-	// Simply use same FD as parent for the program data
+	// Try to use same FD as parent for the program data
+	// but if this fails then try to open again with new global fd.
 	child->state=ProcManProcessStateActive;
 
-	if (!kernelFsFileDupe(procManData.processes[parentPid].progmemFd)) {
-		child->progmemFd=KernelFsFdInvalid;
+	child->progmemFd=kernelFsFileDupeOrOpen(procManData.processes[parentPid].progmemFd);
+	if (child->progmemFd==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not reopen progmem fd %u\n"), parentPid, procManData.processes[parentPid].progmemFd);
 		goto error;
 	}
-	child->progmemFd=procManData.processes[parentPid].progmemFd;
 
 	// Duplicate any open file descriptors
 	for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd) {
@@ -2724,11 +2725,11 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 		assert(!kstrIsNull(scratchPathK));
 		kstrStrcpy(scratchPath, scratchPathK);
 
-		if (!kernelFsFileDupe(procData->fds[localFd-1])) {
+		childProcData->fds[localFd-1]=kernelFsFileDupeOrOpen(procData->fds[localFd-1]);
+		if (childProcData->fds[localFd-1]==KernelFsFdInvalid) {
 			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not reopen '%s' (local fd %u, original global fd %u)\n"), parentPid, scratchPath, localFd, procData->fds[localFd-1]);
 			goto error;
 		}
-		childProcData->fds[localFd-1]=procData->fds[localFd-1];
 	}
 
 	// Save completed child proc data to disk
