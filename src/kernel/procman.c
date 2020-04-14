@@ -3327,9 +3327,9 @@ void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *pr
 	// Close file
 	kernelFsFileClose(procData->fds[localFd-1]);
 
-	// Special case - is this a pipe file?
+	// Special case - is this a pipe file which now has no more references?
 	unsigned pipeId=(kstrStrncmp(path, kstrP("/dev/pipe"), 9)==0 ? atoi(path+9) : 0);
-	if (pipeId>0) {
+	if (pipeId>0 && !kernelFsFileIsOpen(path)) {
 		// Unmount circular buffer
 		kernelUnmount(path);
 
