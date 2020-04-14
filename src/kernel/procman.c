@@ -2353,6 +2353,10 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		break;
 		case BytecodeSyscallIdPipeOpen: {
+			// Grab arguments
+			BytecodeWord readFdPtr=procData->regs[1];
+			BytecodeWord writeFdPtr=procData->regs[2];
+
 			// Determine paths to two files that will be used to create the pipe
 			// We start pipeId at 1 so we can parse the path later using atoi with 0 as an error
 			unsigned pipeId;
@@ -2367,14 +2371,14 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 
 			if (pipeId==ProcManMaxPipes) {
-				procData->regs[0]=ProcManLocalFdInvalid;
+				procData->regs[0]=0;
 				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - global pipe limit %u reached\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], ProcManMaxPipes);
 				return true;
 			}
 
 			// Create backing file
 			if (!kernelFsFileCreateWithSize(procManScratchBufPath0, ProcManPipeSize)) {
-				procData->regs[0]=ProcManLocalFdInvalid;
+				procData->regs[0]=0;
 				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - cannot create backing file (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
 				return true;
 			}
@@ -2382,24 +2386,44 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			// Mount backing file as circular buffer to act as a pipe
 			if (!kernelMount(KernelMountFormatCircBuf, procManScratchBufPath0, procManScratchBufPath1)) {
 				kernelFsFileDelete(procManScratchBufPath0);
-				procData->regs[0]=ProcManLocalFdInvalid;
+				procData->regs[0]=0;
 				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - could not mount circular buffer (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
 				return true;
 			}
 
-			// Open circular buffer file so we can return the fd
-			// Note: we open it like we would a file via the open syscall.
+			// Open circular buffer file with two different fds - one for reading and one for writing
+			// Note: we open like we would a file via the open syscall.
 			// This is so that pipes can be reclaimed from a process once terminated.
-			procData->regs[0]=procManProcessOpenFile(process, procData, procManScratchBufPath1, KernelFsFdModeRW);
-			if (procData->regs[0]==ProcManLocalFdInvalid) {
+			ProcManLocalFd readFd=procManProcessOpenFile(process, procData, procManScratchBufPath1, KernelFsFdModeRO);
+			ProcManLocalFd writeFd=procManProcessOpenFile(process, procData, procManScratchBufPath1, KernelFsFdModeWO);
+			if (readFd==ProcManLocalFdInvalid || writeFd==ProcManLocalFdInvalid) {
+				procManProcessCloseFile(process, procData, readFd);
+				procManProcessCloseFile(process, procData, writeFd);
 				kernelUnmount(procManScratchBufPath1);
 				kernelFsFileDelete(procManScratchBufPath0);
+
+				procData->regs[0]=0;
 				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - could not open circular buffer (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
 				return true;
 			}
 
+			// Copy readFd and writeFd into userspace memory and the given pointers
+			if (!procManProcessMemoryWriteByte(process, procData, readFdPtr, readFd) ||
+			    !procManProcessMemoryWriteByte(process, procData, writeFdPtr, writeFd)) {
+				procManProcessCloseFile(process, procData, readFd);
+				procManProcessCloseFile(process, procData, writeFd);
+				kernelUnmount(procManScratchBufPath1);
+				kernelFsFileDelete(procManScratchBufPath0);
+
+				procData->regs[0]=0;
+				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - could not copy readFd and writeFd to userspace (pipeId=%u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
+				return false;
+			}
+
 			// Write to log
-			kernelLog(LogTypeInfo, kstrP("process %u (%s) openned pipe - local fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
+			kernelLog(LogTypeInfo, kstrP("process %u (%s) openned pipe - local read fd %u, local write fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), readFd, writeFd, pipeId);
+
+			procData->regs[0]=1;
 
 			return true;
 		} break;

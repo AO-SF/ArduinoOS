@@ -798,7 +798,7 @@ bool processRunNextInstruction(Process *process) {
 						case BytecodeSyscallIdPipeOpen:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [pipeopen] (unimplemented)\n", syscallId);
-							process->regs[0]=KernelFsFdInvalid;
+							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdStrchr: {
 							// TODO: Check arguments better
