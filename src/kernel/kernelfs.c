@@ -698,6 +698,22 @@ bool kernelFsFileDupe(KernelFsFd fd) {
 	return true;
 }
 
+KernelFsFd kernelFsFileDupeOrOpen(KernelFsFd fd) {
+	// First attempt to simply increase the ref count on the existing fd as this is very cheap
+	if (kernelFsFileDupe(fd))
+		return fd;
+
+	// Otherwise try to open again with a new fd and a fresh ref count of 1
+	KStr pathK=kernelFsGetFilePath(fd);
+	if (kstrIsNull(pathK))
+		return KernelFsFdInvalid;
+
+	char path[KernelFsPathMax];
+	kstrStrcpy(path, pathK);
+
+	return kernelFsFileOpen(path);
+}
+
 void kernelFsFileClose(KernelFsFd fd) {
 	assert(fd<KernelFsFdMax);
 
