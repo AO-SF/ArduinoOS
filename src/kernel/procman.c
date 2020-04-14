@@ -3288,7 +3288,7 @@ ProcManLocalFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessPro
 	}
 
 	// Write to log.
-	kernelLog(LogTypeInfo, kstrP("openned file: path '%s', mode %s, local fd %u, global fd %u, process %u (%s)\n"), path, kernelFsFdModeToString(mode), localFd, procData->fds[localFd-1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	kernelLog(LogTypeInfo, kstrP("openned userspace file: path '%s', mode %s, local fd %u, global fd %u, process %u (%s)\n"), path, kernelFsFdModeToString(mode), localFd, procData->fds[localFd-1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 
 	return localFd;
 }
@@ -3325,7 +3325,7 @@ void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *pr
 	kstrStrcpy(path, pathKStr);
 
 	// Close file
-	kernelFsFileClose(procData->fds[localFd-1]);
+	unsigned newRefCount=kernelFsFileClose(procData->fds[localFd-1]);
 
 	// Special case - is this a pipe file which now has no more references?
 	unsigned pipeId=(kstrStrncmp(path, kstrP("/dev/pipe"), 9)==0 ? atoi(path+9) : 0);
@@ -3341,9 +3341,9 @@ void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *pr
 
 	// Write to log
 	if (pipeId>0)
-		kernelLog(LogTypeInfo, kstrP("closed pipe file '%s', local fd %u, global fd %u, process %u (%s)\n"), path, localFd, procData->fds[localFd-1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		kernelLog(LogTypeInfo, kstrP("closed userspace reference to pipe file '%s', local fd %u, global fd %u, new ref count %u, process %u (%s)\n"), path, localFd, procData->fds[localFd-1], newRefCount, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 	else
-		kernelLog(LogTypeInfo, kstrP("closed file '%s', local fd %u, global fd %u, process %u (%s)\n"), path, localFd, procData->fds[localFd-1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		kernelLog(LogTypeInfo, kstrP("closed userspace reference to file '%s', local fd %u, global fd %u, new ref count %u, process %u (%s)\n"), path, localFd, procData->fds[localFd-1], newRefCount, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 
 	// Remove from fd table
 	procData->fds[localFd-1]=KernelFsFdInvalid;
