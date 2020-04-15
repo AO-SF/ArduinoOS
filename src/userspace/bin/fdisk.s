@@ -109,13 +109,7 @@ cmp r1 r0 r1
 skipeq r1
 jmp partitionEntryLoopStart
 
-; Close disk (if needed)
-label done
-mov r0 fd
-load8 r0 r0
-call fclose ; note: fclose accepts FdInvalid (doing nothing)
-
-; Exit
+; Exit (disk is closed automatically by OS if needed)
 mov r0 0
 call exit
 

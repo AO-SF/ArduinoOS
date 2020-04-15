@@ -107,13 +107,7 @@ label success
 mov r0 '\n'
 call putc0
 
-; Close queryDir
-mov r0 SyscallIdClose
-mov r1 queryDirFd
-load8 r1 r1
-syscall
-
-; Exit
+; Exit (queryDir closed by OS)
 mov r0 0
 call exit
 
