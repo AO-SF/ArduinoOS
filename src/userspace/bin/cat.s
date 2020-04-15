@@ -2,6 +2,9 @@ require lib/sys/sys.s
 
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
+requireend lib/std/str/strcmp.s
+
+db dashStr '-',0
 
 ab argBuf PathMax
 ab pathBuf PathMax
@@ -41,12 +44,31 @@ cmp r0 r0 r0
 skipneqz r0
 jmp error
 
-; Convert to absolute path
+; Check for dash to mean use stdin
+mov r0 argBuf
+mov r1 dashStr
+call strcmp
+cmp r0 r0 r0
+skipeqz r0
+jmp catArgNSetupFdPath
+jmp catArgNSetupFdStdin
+
+; Dash given to mean use stdin
+label catArgNSetupFdStdin
+; Store stdin fd into fd variable
+mov r0 FdStdin
+mov r1 fd
+store8 r1 r0
+
+jmp catArgNSetupFdCommon
+
+; Path given - make absolute
+label catArgNSetupFdPath
 mov r0 pathBuf
 mov r1 argBuf
 call getabspath
 
-; Open file
+; Open file and store fd
 mov r0 SyscallIdOpen
 mov r1 pathBuf
 mov r2 FdModeRO
@@ -55,7 +77,12 @@ syscall
 mov r1 fd
 store8 r1 r0
 
-; Check for bad fd
+jmp catArgNSetupFdCommon
+
+; Check valid fd stored
+label catArgNSetupFdCommon
+mov r0 fd
+load8 r0 r0
 cmp r1 r0 r0
 skipneqz r1
 jmp error
@@ -95,9 +122,13 @@ jmp catArgNLoopStart
 label catArgNLoopEnd
 
 ; Close file
+; Skip this for stdin
 mov r0 SyscallIdClose
 mov r1 fd
 load8 r1 r1
+mov r2 FdStdin
+cmp r2 r1 r2
+skipeq r2
 syscall
 
 ret

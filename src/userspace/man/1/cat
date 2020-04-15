@@ -8,3 +8,5 @@ SYNOPSIS
 
 DESCRIPTION
       Write each file to stdout in turn, effectively concatenating them.
+
+      If a dash '-' is passed as a file then reads from stdin.
