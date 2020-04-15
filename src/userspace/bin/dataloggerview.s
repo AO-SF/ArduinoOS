@@ -140,6 +140,7 @@ mov r0 '\n'
 call putc0
 
 ; Exit (data file closed automatically by OS)
+label done
 mov r0 0
 call exit
 

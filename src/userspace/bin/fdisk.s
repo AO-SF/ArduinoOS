@@ -110,6 +110,7 @@ skipeq r1
 jmp partitionEntryLoopStart
 
 ; Exit (disk is closed automatically by OS if needed)
+label done
 mov r0 0
 call exit
 
