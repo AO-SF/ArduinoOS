@@ -21,6 +21,14 @@ typedef uint8_t KernelFsFd; // file-descriptor
 
 #define KernelFsPathMax 64
 
+typedef uint8_t KernelFsFdMode;
+#define KernelFsFdModeNone 0
+#define KernelFsFdModeRO 1
+#define KernelFsFdModeWO 2
+#define KernelFsFdModeRW 3
+#define KernelFsFdModeBits 2
+#define KernelFsFdModeMax ((1u)<<KernelFsFdModeBits)
+
 typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatCustomMiniFs 0
 #define KernelFsBlockDeviceFormatFlatFile 1
@@ -83,10 +91,17 @@ bool kernelFsFileFlush(const char *path);
 
 bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize); // path must not be open
 
-KernelFsFd kernelFsFileOpen(const char *path); // File/directory must exist. Returns KernelFsFdInvalid on failure to open.
-void kernelFsFileClose(KernelFsFd fd); // Accepts KernelFsFdInvalid (doing nothing).
+// Open allocates a new fd with ref count set to 1
+// Dupe increments ref count of given fd, unless it has hit the limit
+// DupeOrOpen tries to act as Dupe, and if successful returns the given fd. Otherwise then tries to act as Open, passing on its return value. This is a thin wrapper around the other two calls.
+KernelFsFd kernelFsFileOpen(const char *path, KernelFsFdMode mode); // File/directory must exist. Returns KernelFsFdInvalid on failure to open.
+bool kernelFsFileDupe(KernelFsFd fd); // Increases the ref count for the given fd (on failure leaves ref count unchanged and returns false)
+KernelFsFd kernelFsFileDupeOrOpen(KernelFsFd fd); // See above
+unsigned kernelFsFileClose(KernelFsFd fd); // Reduces ref count for the given fd, and if it goes to 0 then closes the fd. Accepts KernelFsFdInvalid (doing nothing). Returns new ref count
 
-KStr kernelFsGetFilePath(KernelFsFd fd);
+KStr kernelFsGetFilePath(KernelFsFd fd); // returns a null kstr if fd not open
+unsigned kernelFsGetFileRefCount(KernelFsFd fd); // returns 0 if fd not open
+KernelFsFdMode kernelFsGetFileMode(KernelFsFd fd); // returns KernelFsFdModeNone if fd not open
 
 // The following functions are for non-directory files only.
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes read
@@ -119,5 +134,11 @@ void kernelFsPathNormalise(char *path); // Simplifies a path in-place by substit
 void kernelFsPathSplit(char *path, char **dirnamePtr, char **basenamePtr); // Modifies given path, which must be kept around as long as dirname and basename are needed
 void kernelFsPathSplitStatic(const char *path, char **dirnamePtr, char **basenamePtr); // like kernelFsPathSplit but makes a copy of the given path (to a global buffer, and thus not re-entrant)
 void kernelFsPathSplitStaticKStr(KStr kstr, char **dirnamePtr, char **basenamePtr);
+
+////////////////////////////////////////////////////////////////////////////////
+// Misc functions
+////////////////////////////////////////////////////////////////////////////////
+
+const char *kernelFsFdModeToString(KernelFsFdMode mode);
 
 #endif

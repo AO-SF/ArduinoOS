@@ -56,8 +56,7 @@ jmp hexDumpArgNSetupFdStdin
 
 ; Setup fd for stdin
 label hexDumpArgNSetupFdStdin
-mov r0 SyscallIdEnvGetStdinFd
-syscall
+mov r0 FdStdin
 mov r1 fd
 store8 r1 r0
 
@@ -74,6 +73,7 @@ call getabspath
 ; Open file
 mov r0 SyscallIdOpen
 mov r1 pathBuf
+mov r2 FdModeRO
 syscall
 mov r1 fd
 store8 r1 r0
@@ -136,9 +136,7 @@ label hexDumpArgNLoopEnd
 
 ; Close file
 ; Skip this for stdin
-mov r0 SyscallIdEnvGetStdinFd
-syscall
-mov r1 fd
+mov r0 FdStdin
 load8 r1 r1
 cmp r2 r0 r1
 mov r0 SyscallIdClose

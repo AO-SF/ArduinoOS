@@ -49,6 +49,7 @@ call getpath
 
 ; Open source file
 mov r0 sourceArg
+mov r1 FdModeRO
 call openpath
 cmp r1 r0 r0
 skipneqz r1
@@ -75,6 +76,7 @@ syscall
 
 ; Open dest
 mov r0 destArg
+mov r1 FdModeWO
 call openpath
 cmp r1 r0 r0
 skipneqz r1
@@ -110,21 +112,10 @@ inc r2
 jmp cpCopyLoopStart
 label cpCopyLoopEnd
 
-; Close dest file
-mov r0 SyscallIdClose
-mov r1 destFd
-load8 r1 r1
-syscall
-
-; Close source file
-mov r0 SyscallIdClose
-mov r1 sourceFd
-load8 r1 r1
-syscall
-
-; Exit
+; Exit (note: no need to close files as they are reclaimed by the OS automatically)
 mov r0 0
 call exit
+
 ; Errors
 label showUsage
 mov r0 usageStr

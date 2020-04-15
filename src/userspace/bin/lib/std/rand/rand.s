@@ -9,6 +9,7 @@ label rand8 ; returns random 8-bit value in r0
 ; Open /dev/urandom
 mov r0 SyscallIdOpen
 mov r1 rand8DevURandomPath
+mov r2 FdModeRO
 syscall
 cmp r1 r0 r0
 skipneqz r1

@@ -55,11 +55,9 @@ struct ProcManProcessProcData {
 	uint16_t ramLen;
 	uint8_t envVarDataLen;
 	uint8_t ramFd;
-	KernelFsFd fds[ProcManMaxFds];
-
-	// Environment variables
-	KernelFsFd stdinFd; // set to KernelFsFdInvalid when init is called
-	KernelFsFd stdoutFd; // set to KernelFsFdInvalid when init is called
+	// this table stores the actual 'global' fds in use by the process (the fds the process sees in userspace are actually the indexes into this table)
+	// as localfd=0 is invalid we need one less entry than it would seem
+	KernelFsFd fds[ProcManMaxFds-1];
 
 	// The following fields are pointers into the start of the ramFd file.
 	// The arguments are fixed, but pwd and path may be updated later by the process itself to point to new strings, beyond the initial read-only section (and so need a full 16 bit offset).
@@ -75,19 +73,19 @@ typedef struct {
 } ProcManProcessStateWaitingWaitpidData;
 
 typedef struct {
-	KernelFsFd fd;
+	KernelFsFd globalFd;
 } ProcManProcessStateWaitingReadData;
 
 typedef struct {
-	KernelFsFd fd;
+	KernelFsFd globalFd;
 } ProcManProcessStateWaitingRead32Data;
 
 typedef struct {
-	KernelFsFd fd;
+	KernelFsFd globalFd;
 } ProcManProcessStateWaitingWriteData;
 
 typedef struct {
-	KernelFsFd fd;
+	KernelFsFd globalFd;
 } ProcManProcessStateWaitingWrite32Data;
 
 typedef struct {
@@ -183,8 +181,10 @@ bool procManProcessWrite(ProcManProcess *process, ProcManProcessProcData *procDa
 bool procManProcessWrite32(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset);
 
-KernelFsFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessProcData *procData, const char *path); // attempts to open given path, if successful adds to the fd table
-void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *procData, unsigned slot); // where slot is the entry into the fd table
+ProcManLocalFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessProcData *procData, const char *path, KernelFsFdMode mode); // attempts to open given path, if successful adds to the fd table
+void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *procData, ProcManLocalFd localFd);
+KernelFsFd procManProcessGetGlobalFdFromLocal(ProcManProcess *process, ProcManProcessProcData *procData, ProcManLocalFd localFd);
+KernelFsFd procManProcessGetGlobalFdFromLocalWithPid(ProcManPid pid, ProcManLocalFd localFd); // note: information may be out of date if called from within procManProcessTick with pid of the currently running process
 
 void procManResetInstructionCounters(void);
 
@@ -242,6 +242,8 @@ ProcManPid procManGetProcessCount(void) {
 }
 
 ProcManPid procManProcessNew(const char *programPath) {
+	assert(programPath!=NULL);
+
 #define procPath procManScratchBufPath0
 #define ramPath procManScratchBufPath1
 #define tempPath procManScratchBufPath2
@@ -307,13 +309,13 @@ ProcManPid procManProcessNew(const char *programPath) {
 	}
 
 	// Attempt to open proc and ram files
-	procManData.processes[pid].procFd=kernelFsFileOpen(procPath);
+	procManData.processes[pid].procFd=kernelFsFileOpen(procPath, KernelFsFdModeRW);
 	if (procManData.processes[pid].procFd==KernelFsFdInvalid) {
 		kernelLog(LogTypeWarning, kstrP("could not create new process - could not open process data file at '%s'\n"), procPath);
 		goto error;
 	}
 
-	ramFd=kernelFsFileOpen(ramPath);
+	ramFd=kernelFsFileOpen(ramPath, KernelFsFdModeRW);
 	if (ramFd==KernelFsFdInvalid) {
 		kernelLog(LogTypeWarning, kstrP("could not create new process - could not open ram data file at '%s'\n"), ramPath);
 		goto error;
@@ -330,10 +332,8 @@ ProcManPid procManProcessNew(const char *programPath) {
 	procData.regs[BytecodeRegisterIP]=0;
 	for(BytecodeSignalId i=0; i<BytecodeSignalIdNB; ++i)
 		procData.signalHandlers[i]=ProcManSignalHandlerInvalid;
-	procData.stdinFd=KernelFsFdInvalid;
-	for(unsigned i=0; i<ProcManMaxFds; ++i)
-		procData.fds[i]=KernelFsFdInvalid;
-	procData.stdoutFd=KernelFsFdInvalid;
+	for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd)
+		procData.fds[localFd-1]=ProcManLocalFdInvalid;
 	procData.envVarDataLen=envVarDataLen;
 	procData.ramLen=0;
 	procData.ramFd=ramFd;
@@ -379,6 +379,9 @@ void procManKillAll(void) {
 }
 
 void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManProcessProcData *procDataGiven) {
+	assert(pid<ProcManPidMax);
+
+	// Write to log
 	kernelLog(LogTypeInfo, kstrP("attempting to kill process %u with exit status %u\n"), pid, exitStatus);
 
 	// Not even open?
@@ -425,25 +428,14 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManPro
 
 	// Close files left open by process
 	if (procData!=NULL) {
-		for(unsigned i=0; i<ProcManMaxFds; ++i)
-			if (procData->fds[i]!=KernelFsFdInvalid)
-				procManProcessCloseFile(process, procData, i);
+		for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd)
+			if (procData->fds[localFd-1]!=KernelFsFdInvalid)
+				procManProcessCloseFile(process, procData, localFd);
 	}
 
 	// Close proc and ram files, deleting tmp ones
-	KernelFsFd progmemFd=process->progmemFd;
-	if (progmemFd!=KernelFsFdInvalid) {
-		// progmemFd may be shared so check if anyone else is still using this one before closing it
-		process->progmemFd=KernelFsFdInvalid;
-
-		unsigned i;
-		for(i=0; i<ProcManPidMax; ++i)
-			if (procManData.processes[i].progmemFd==progmemFd)
-				break;
-
-		if (i==ProcManPidMax)
-			kernelFsFileClose(progmemFd);
-	}
+	kernelFsFileClose(process->progmemFd);
+	process->progmemFd=KernelFsFdInvalid;
 
 	if (process->procFd!=KernelFsFdInvalid) {
 		// Close and delete ram file
@@ -495,6 +487,8 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManPro
 }
 
 void procManProcessTick(ProcManPid pid) {
+	assert(pid<ProcManPidMax);
+
 	ProcManExitStatus exitStatus=ProcManExitStatusKilled;
 	bool procDataLoaded=false;
 
@@ -535,7 +529,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingRead: {
 			// Is data now available?
-			if (kernelFsFileCanRead(process->stateData.waitingRead.fd)) {
+			if (kernelFsFileCanRead(process->stateData.waitingRead.globalFd)) {
 				// It is - load process data so we can update the state and read the data
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (read available) - could not load proc data, killing\n"), pid);
@@ -554,7 +548,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingRead32: {
 			// Is data now available?
-			if (kernelFsFileCanRead(process->stateData.waitingRead32.fd)) {
+			if (kernelFsFileCanRead(process->stateData.waitingRead32.globalFd)) {
 				// It is - load process data so we can update the state and read the data
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (read32 available) - could not load proc data, killing\n"), pid);
@@ -573,7 +567,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingWrite: {
 			// Is data now available?
-			if (kernelFsFileCanWrite(process->stateData.waitingWrite.fd)) {
+			if (kernelFsFileCanWrite(process->stateData.waitingWrite.globalFd)) {
 				// It is - load process data so we can update the state and write the data
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (write available) - could not load proc data, killing\n"), pid);
@@ -592,7 +586,7 @@ void procManProcessTick(ProcManPid pid) {
 		} break;
 		case ProcManProcessStateWaitingWrite32: {
 			// Is data now available?
-			if (kernelFsFileCanWrite(process->stateData.waitingWrite32.fd)) {
+			if (kernelFsFileCanWrite(process->stateData.waitingWrite32.globalFd)) {
 				// It is - load process data so we can update the state and write the data
 				if (!procManProcessLoadProcData(process, &procData)) {
 					kernelLog(LogTypeWarning, kstrP("process %u tick (write32 available) - could not load proc data, killing\n"), pid);
@@ -687,7 +681,7 @@ void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId) {
 	// Load process' data.
 	ProcManProcessProcData procData;
 	if (!procManProcessLoadProcData(process, &procData)) {
-		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, could not load process ddata\n"), signalId, pid);
+		kernelLog(LogTypeWarning, kstrP("could not send signal %u to process %u, could not load process data\n"), signalId, pid);
 		return;
 	}
 
@@ -750,7 +744,7 @@ bool procManProcessExists(ProcManPid pid) {
 	return (procManGetProcessByPid(pid)!=NULL);
 }
 
-bool procManProcessGetOpenFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]) {
+bool procManProcessGetOpenGlobalFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]) {
 	// Grab process (if exists)
 	ProcManProcess *process=procManGetProcessByPid(pid);
 	if (process==NULL)
@@ -762,7 +756,9 @@ bool procManProcessGetOpenFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]) {
 		return false;
 
 	// Copy fds table
-	memcpy(fds, procData.fds, sizeof(procData.fds));
+	// Note that localFd=0 is the invalid fd, so need to shift up by one when copying
+	fds[0]=KernelFsFdInvalid;
+	memcpy(fds+1, procData.fds, sizeof(procData.fds));
 
 	return true;
 }
@@ -772,17 +768,29 @@ bool procManProcessGetOpenFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ProcManProcess *procManGetProcessByPid(ProcManPid pid) {
-	assert(pid<ProcManPidMax);
-	if (procManData.processes[pid].progmemFd!=KernelFsFdInvalid)
-		return procManData.processes+pid;
-	return NULL;
+	if (pid>=ProcManPidMax)
+		return NULL;
+	if (procManData.processes[pid].progmemFd==KernelFsFdInvalid)
+		return NULL;
+	return procManData.processes+pid;
 }
 
 ProcManPid procManGetPidFromProcess(const ProcManProcess *process) {
-	return process-procManData.processes;
+	assert(process!=NULL);
+
+	if (process<procManData.processes)
+		return ProcManPidMax;
+
+	uintptr_t pid=process-procManData.processes;
+	if (pid>=ProcManPidMax)
+		return ProcManPidMax;
+
+	return pid;
 }
 
 const char *procManGetExecPathFromProcess(const ProcManProcess *process) {
+	assert(process!=NULL);
+
 	if (kstrIsNull(kernelFsGetFilePath(process->progmemFd)))
 		return NULL;
 	kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(process->progmemFd));
@@ -798,34 +806,59 @@ ProcManPid procManFindUnusedPid(void) {
 }
 
 bool procManProcessLoadProcData(const ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	return (kernelFsFileReadOffset(process->procFd, 0, (uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
 }
 
 bool procManProcessStoreProcData(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	return (kernelFsFileWriteOffset(process->procFd, 0, (const uint8_t *)procData, sizeof(ProcManProcessProcData))==sizeof(ProcManProcessProcData));
 }
 
 bool procManProcessLoadProcDataRamLen(const ProcManProcess *process, uint16_t *value) {
+	assert(process!=NULL);
+	assert(value!=NULL);
+
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramLen), (uint8_t *)value, sizeof(uint16_t))==sizeof(uint16_t));
 }
 
 bool procManProcessLoadProcDataEnvVarDataLen(const ProcManProcess *process, uint8_t *value) {
+	assert(process!=NULL);
+	assert(value!=NULL);
+
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,envVarDataLen), value, sizeof(uint8_t))==sizeof(uint8_t));
 }
 
 bool procManProcessLoadProcDataRamFd(const ProcManProcess *process, KernelFsFd *ramFd) {
+	assert(process!=NULL);
+	assert(ramFd!=NULL);
+
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileReadOffset(process->procFd, offsetof(ProcManProcessProcData,ramFd), (uint8_t *)ramFd, sizeof(KernelFsFd))==sizeof(KernelFsFd));
 }
 
 bool procManProcessSaveProcDataReg(const ProcManProcess *process, BytecodeRegister reg, BytecodeWord value) {
+	assert(process!=NULL);
+
 	return (process->procFd!=KernelFsFdInvalid && kernelFsFileWriteOffset(process->procFd, offsetof(ProcManProcessProcData,regs)+sizeof(BytecodeWord)*reg, (uint8_t *)&value, sizeof(BytecodeWord))==sizeof(BytecodeWord));
 }
 
 bool procManProcessMemoryReadByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	return procManProcessMemoryReadBlock(process, procData, addr, value, 1, true);
 }
 
 bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	uint8_t upper, lower;
 	if (!procManProcessMemoryReadByte(process, procData, addr, &upper))
 		return false;
@@ -836,6 +869,10 @@ bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcDat
 }
 
 bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	uint16_t upper, lower;
 	if (!procManProcessMemoryReadWord(process, procData, addr, &upper))
 		return false;
@@ -846,6 +883,10 @@ bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessP
 }
 
 bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, char *str, uint16_t len) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(str!=NULL);
+
 	while(len-->0) {
 		uint8_t c;
 		if (!procManProcessMemoryReadByte(process, procData, addr++, &c))
@@ -859,6 +900,10 @@ bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData
 }
 
 bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(data!=NULL);
+
 	if (addr+len<BytecodeMemoryRamAddr) {
 		// Addresss is in progmem data
 		if (kernelFsFileReadOffset(process->progmemFd, addr, data, len)==len)
@@ -879,10 +924,18 @@ bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcDa
 }
 
 bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, value, 1, true);
 }
 
 bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	uint8_t upper, lower;
 	if (!procManProcessMemoryReadByteAtRamfileOffset(process, procData, offset, &upper))
 		return false;
@@ -893,6 +946,10 @@ bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcMa
 }
 
 bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, char *str, uint16_t len) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(str!=NULL);
+
 	while(len-->0) {
 		uint8_t c;
 		if (!procManProcessMemoryReadByteAtRamfileOffset(process, procData, offset++, &c))
@@ -906,6 +963,10 @@ bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcMan
 }
 
 bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(data!=NULL);
+
 	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
 	if (offset+len<=ramTotalSize) {
 		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len)!=len) {
@@ -922,10 +983,16 @@ bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcM
 }
 
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	return procManProcessMemoryWriteBlock(process, procData, addr, &value, 1);
 }
 
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	if (!procManProcessMemoryWriteByte(process, procData, addr, (value>>8)))
 		return false;
 	if (!procManProcessMemoryWriteByte(process, procData, addr+1, (value&0xFF)))
@@ -934,6 +1001,9 @@ bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcDa
 }
 
 bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord value) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	if (!procManProcessMemoryWriteWord(process, procData, addr, (value>>16)))
 		return false;
 	if (!procManProcessMemoryWriteWord(process, procData, addr+2, (value&0xFFFF)))
@@ -942,10 +1012,18 @@ bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcess
 }
 
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(str!=NULL);
+
 	return procManProcessMemoryWriteBlock(process, procData, addr, (const uint8_t *)str, strlen(str)+1);
 }
 
 bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const uint8_t *data, uint16_t len) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(data!=NULL);
+
 	// Is addr split across boundary?
 	if (addr<BytecodeMemoryRamAddr && addr+len>=BytecodeMemoryRamAddr)
 		return false;
@@ -996,7 +1074,7 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 		}
 
 		// Re-open ram file
-		procData->ramFd=kernelFsFileOpen(ramFdPath);
+		procData->ramFd=kernelFsFileOpen(ramFdPath, KernelFsFdModeRW);
 		if (procData->ramFd==KernelFsFdInvalid) {
 			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u, len %u), beyond size, but could not reopen file after resizing, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, len);
 			kernelFsFileDelete(ramFdPath);
@@ -1020,6 +1098,9 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 }
 
 bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	char *dest=str;
 
 	// Check n is sensible
@@ -1055,6 +1136,11 @@ bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *pro
 }
 
 bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstruction3Byte *instruction) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(prefetchData!=NULL);
+	assert(instruction!=NULL);
+
 	if (!procManPrefetchDataReadByte(prefetchData, process, procData, procData->regs[BytecodeRegisterIP]++, ((uint8_t *)instruction)+0))
 		return false;
 	BytecodeInstructionLength length=bytecodeInstructionParseLength(*instruction);
@@ -1068,6 +1154,11 @@ bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcDat
 }
 
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstruction3Byte instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(prefetchData!=NULL);
+	assert(exitStatus!=NULL);
+
 	// Parse instruction
 	BytecodeInstructionInfo info;
 	bytecodeInstructionParse(&info, instruction);
@@ -1090,6 +1181,11 @@ bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcDa
 }
 
 bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(info!=NULL);
+	assert(exitStatus!=NULL);
+
 	switch(info->d.memory.type) {
 		case BytecodeInstructionMemoryTypeStore8:
 			if (!procManProcessMemoryWriteByte(process, procData, procData->regs[info->d.memory.destReg], procData->regs[info->d.memory.srcReg])) {
@@ -1118,6 +1214,12 @@ bool procManProcessExecInstructionMemory(ProcManProcess *process, ProcManProcess
 }
 
 bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(info!=NULL);
+	assert(prefetchData!=NULL);
+	assert(exitStatus!=NULL);
+
 	BytecodeWord opA=procData->regs[info->d.alu.opAReg];
 	BytecodeWord opB=procData->regs[info->d.alu.opBReg];
 	switch(info->d.alu.type) {
@@ -1280,14 +1382,18 @@ bool procManProcessExecInstructionAlu(ProcManProcess *process, ProcManProcessPro
 }
 
 bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessProcData *procData, const BytecodeInstructionInfo *info, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(info!=NULL);
+	assert(prefetchData!=NULL);
+	assert(exitStatus!=NULL);
+
 	switch(info->d.misc.type) {
 		case BytecodeInstructionMiscTypeNop:
 			return true;
 		break;
 		case BytecodeInstructionMiscTypeSyscall:
-			if (!procManProcessExecSyscall(process, procData, exitStatus))
-				return false;
-			return true;
+			return procManProcessExecSyscall(process, procData, exitStatus);
 		break;
 		case BytecodeInstructionMiscTypeIllegal:
 			kernelLog(LogTypeWarning, kstrP("illegal instruction, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
@@ -1316,6 +1422,10 @@ bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessPr
 }
 
 bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *procData, ProcManExitStatus *exitStatus) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(exitStatus!=NULL);
+
 	uint16_t syscallId=procData->regs[0];
 	switch(syscallId) {
 		case BytecodeSyscallIdExit:
@@ -1478,25 +1588,20 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		case BytecodeSyscallIdGetPidFdN: {
 			// Grab arguments
 			ProcManPid pid=procData->regs[1];
-			BytecodeWord n=procData->regs[2];
+			ProcManLocalFd localFd=procData->regs[2];
 
-			// Bad pid or n?
-			if (pid>=ProcManPidMax || n>=ProcManMaxFds) {
+			// Bad pid or localFd?
+			if (pid>=ProcManPidMax || localFd==ProcManLocalFdInvalid || localFd>=ProcManMaxFds) {
 				procData->regs[0]=KernelFsFdInvalid;
 				return true;
 			}
 
-			// Load/copy open fds table
-			KernelFsFd fds[ProcManMaxFds];
+			// If pid represents program making the syscall then all data is already loaded
+			// Otherwise we have to load proc data for given pid
 			if (pid==procManGetPidFromProcess(process))
-				memcpy(fds, procData->fds, sizeof(procData->fds));
-			else if (!procManProcessGetOpenFds(pid, fds)) {
-				procData->regs[0]=KernelFsFdInvalid;
-				return true;
-			}
-
-			// Read table at given index
-			procData->regs[0]=fds[n];
+				procData->regs[0]=procData->fds[localFd-1];
+			else
+				procData->regs[0]=procManProcessGetGlobalFdFromLocalWithPid(pid, localFd);
 
 			return true;
 		} break;
@@ -1526,19 +1631,21 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdRead: {
-			KernelFsFd fd=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Get global fd
+			KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+			if (globalFd==KernelFsFdInvalid) {
+				kernelLog(LogTypeWarning, kstrP("failed during read syscall, local fd %u not open, process %u (%s)\n"), localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
 
 			// Check if would block
-			if (!kernelFsFileCanRead(fd)) {
+			if (!kernelFsFileCanRead(globalFd)) {
 				// Reading would block - so enter waiting state until data becomes available.
 				process->state=ProcManProcessStateWaitingRead;
-				process->stateData.waitingRead.fd=fd;
+				process->stateData.waitingRead.globalFd=globalFd;
 				return true;
 			}
 
@@ -1551,19 +1658,21 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdWrite: {
-			KernelFsFd fd=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Get global fd
+			KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+			if (globalFd==KernelFsFdInvalid) {
+				kernelLog(LogTypeWarning, kstrP("failed during write syscall, local fd %u not open, process %u (%s)\n"), localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
 
 			// Check if would block
-			if (!kernelFsFileCanWrite(fd)) {
+			if (!kernelFsFileCanWrite(globalFd)) {
 				// Writing would block - so enter waiting state until space becomes available.
 				process->state=ProcManProcessStateWaitingWrite;
-				process->stateData.waitingWrite.fd=fd;
+				process->stateData.waitingWrite.globalFd=globalFd;
 				return true;
 			}
 
@@ -1576,79 +1685,81 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdOpen: {
+			BytecodeWord pathAddr=procData->regs[1];
+			BytecodeWord mode=procData->regs[2]; // we use BytecodeWord type here instead of KernelFsFdMode in case value does not fit in 8 bits
+
+			// Check if mode is valid
+			if (mode==KernelFsFdModeNone || mode>=KernelFsFdModeMax) {
+				procData->regs[0]=ProcManLocalFdInvalid;
+				return true;
+			}
+
 			// Read path from user space
 			char path[KernelFsPathMax];
-			if (!procManProcessMemoryReadStr(process, procData, procData->regs[1], path, KernelFsPathMax)) {
+			if (!procManProcessMemoryReadStr(process, procData, pathAddr, path, KernelFsPathMax)) {
 				kernelLog(LogTypeWarning, kstrP("failed during open syscall, could not read path, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
 			kernelFsPathNormalise(path);
 
 			// Attempt to open file (adding to fd table etc)
-			procData->regs[0]=procManProcessOpenFile(process, procData, path);
+			procData->regs[0]=procManProcessOpenFile(process, procData, path, mode);
 
 			return true;
 		} break;
 		case BytecodeSyscallIdClose: {
-			KernelFsFd fd=procData->regs[1];
-
-			// Special case for invalid fd (must be null-op)
-			if (fd==KernelFsFdInvalid)
-				return true;
-
-			// Determine which slot in the fd table contains the given fd
-			unsigned i;
-			for(i=0; i<ProcManMaxFds; ++i)
-				if (procData->fds[i]==fd)
-					break;
-			if (i==ProcManMaxFds) {
-				kernelLog(LogTypeWarning, kstrP("close syscall, fd %u not found in process fds table, process %u (%s)\n"), fd ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return true;
-			}
+			ProcManLocalFd localFd=procData->regs[1];
 
 			// Close file (and remove from fd table etc)
-			procManProcessCloseFile(process, procData, i);
+			procManProcessCloseFile(process, procData, localFd);
 
 			return true;
 		} break;
 		case BytecodeSyscallIdDirGetChildN: {
-			KernelFsFd fd=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[1];
 			BytecodeWord childNum=procData->regs[2];
 			uint16_t bufAddr=procData->regs[3];
 
-			char childPath[KernelFsPathMax];
-			bool result=kernelFsDirectoryGetChild(fd, childNum, childPath);
-
-			if (result) {
-				if (!procManProcessMemoryWriteStr(process, procData, bufAddr, childPath)) {
-					kernelLog(LogTypeWarning, kstrP("failed during dirgetchildn syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
-				procData->regs[0]=1;
-			} else {
+			// Get global fd
+			KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+			if (globalFd==KernelFsFdInvalid) {
+				kernelLog(LogTypeWarning, kstrP("failed during dirgetchildn syscall, local fd %u not open, process %u (%s)\n"), localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
+				return true;
+			}
+
+			// Get nth child
+			char childPath[KernelFsPathMax];
+			procData->regs[0]=kernelFsDirectoryGetChild(globalFd, childNum, childPath);
+			if (procData->regs[0] && !procManProcessMemoryWriteStr(process, procData, bufAddr, childPath)) {
+				kernelLog(LogTypeWarning, kstrP("failed during dirgetchildn syscall, local fd %u, global fd %u process %u (%s), killing\n"), localFd, globalFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
 			}
 
 			return true;
 		} break;
 		case BytecodeSyscallIdGetPath: {
-			KernelFsFd fd=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[1];
 			uint16_t bufAddr=procData->regs[2];
 
-			const char *srcPath=NULL;
-			if (!kstrIsNull(kernelFsGetFilePath(fd))) {
-				kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(fd));
-				srcPath=procManScratchBufPath2;
-			}
-			if (srcPath==NULL)
+			// Get global fd
+			KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+			if (globalFd==KernelFsFdInvalid) {
+				kernelLog(LogTypeWarning, kstrP("failed during getpath syscall, local fd %u not open, process %u (%s)\n"), localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
-			else {
-				if (!procManProcessMemoryWriteStr(process, procData, bufAddr, srcPath)) {
-					kernelLog(LogTypeWarning, kstrP("failed during getpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
-				procData->regs[0]=1;
+				return true;
 			}
+
+			// Grab file path
+			assert(!kstrIsNull(kernelFsGetFilePath(globalFd)));
+			kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(globalFd));
+
+			// Write path into process memory
+			if (!procManProcessMemoryWriteStr(process, procData, bufAddr, procManScratchBufPath2)) {
+				kernelLog(LogTypeWarning, kstrP("failed during getpath syscall, localFd %u, globalFd %u, process %u (%s), killing\n"), localFd, globalFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			procData->regs[0]=1;
 
 			return true;
 		} break;
@@ -1695,21 +1806,24 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdTryReadByte: {
-			KernelFsFd fd=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Get global fd
+			KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+			if (globalFd==KernelFsFdInvalid) {
+				kernelLog(LogTypeWarning, kstrP("failed during tryreadbyte syscall, local fd %u not open, process %u (%s)\n"), localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=256;
 				return true;
 			}
 
 			// Save terminal settings and change to avoid waiting for newline
+			// We do this incase the given fd ends up depending on /dev/ttyS0, either directly or indirectly.
 			bool prevBlocking=ttyGetBlocking();
 			ttySetBlocking(false);
 
 			// Attempt to read
 			uint8_t value;
-			KernelFsFileOffset readResult=kernelFsFileReadOffset(fd, 0, &value, 1);
+			KernelFsFileOffset readResult=kernelFsFileReadOffset(globalFd, 0, &value, 1);
 
 			// Restore terminal settings
 			ttySetBlocking(prevBlocking);
@@ -1762,19 +1876,21 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdRead32: {
-			KernelFsFd fd=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Get global fd
+			KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+			if (globalFd==KernelFsFdInvalid) {
+				kernelLog(LogTypeWarning, kstrP("failed during read32 syscall, local fd %u not open, process %u (%s)\n"), localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
 
 			// Check if would block
-			if (!kernelFsFileCanRead(fd)) {
+			if (!kernelFsFileCanRead(globalFd)) {
 				// Reading would block - so enter waiting state until data becomes available.
 				process->state=ProcManProcessStateWaitingRead32;
-				process->stateData.waitingRead32.fd=fd;
+				process->stateData.waitingRead32.globalFd=globalFd;
 				return true;
 			}
 
@@ -1787,19 +1903,21 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdWrite32: {
-			KernelFsFd fd=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[1];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Get global fd
+			KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+			if (globalFd==KernelFsFdInvalid) {
+				kernelLog(LogTypeWarning, kstrP("failed during write32 syscall, local fd %u not open, process %u (%s)\n"), localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
 
 			// Check if would block
-			if (!kernelFsFileCanWrite(fd)) {
+			if (!kernelFsFileCanWrite(globalFd)) {
 				// Writing would block - so enter waiting state until space becomes available.
 				process->state=ProcManProcessStateWaitingWrite32;
-				process->stateData.waitingWrite32.fd=fd;
+				process->stateData.waitingWrite32.globalFd=globalFd;
 				return true;
 			}
 
@@ -1893,7 +2011,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 
 			// Attempt to open file
-			KernelFsFd fd=kernelFsFileOpen(path);
+			KernelFsFd fd=kernelFsFileOpen(path, KernelFsFdModeWO);
 			if (fd==KernelFsFdInvalid) {
 				procData->regs[0]=0;
 				return true;
@@ -1953,36 +2071,42 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdTryWriteByte: {
-			KernelFsFd fd=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[1];
 			uint8_t value=procData->regs[2];
 
-			// Check for bad fd
-			if (!kernelFsFileIsOpenByFd(fd)) {
+			// Get global fd
+			KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+			if (globalFd==KernelFsFdInvalid) {
+				kernelLog(LogTypeWarning, kstrP("failed during trywritebyte syscall, local fd %u not open, process %u (%s)\n"), localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				procData->regs[0]=0;
 				return true;
 			}
 
 			// Attempt to write
-			procData->regs[0]=(kernelFsFileWriteOffset(fd, 0, &value, 1)==1);
+			procData->regs[0]=kernelFsFileWriteOffset(globalFd, 0, &value, 1);
 
 			return true;
 		} break;
-		case BytecodeSyscallIdEnvGetStdinFd:
-			procData->regs[0]=procData->stdinFd;
+		case BytecodeSyscallIdGetPathGlobal: {
+			KernelFsFd globalFd=procData->regs[1];
+			uint16_t bufAddr=procData->regs[2];
+
+			// Grab file path
+			if (kstrIsNull(kernelFsGetFilePath(globalFd))) {
+				procData->regs[0]=0;
+				return true;
+			}
+			kstrStrcpy(procManScratchBufPath2, kernelFsGetFilePath(globalFd));
+
+			// Write path into process memory
+			if (!procManProcessMemoryWriteStr(process, procData, bufAddr, procManScratchBufPath2)) {
+				kernelLog(LogTypeWarning, kstrP("failed during getpathglobal syscall, globalFd %u, process %u (%s), killing\n"), globalFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			procData->regs[0]=1;
+
 			return true;
-		break;
-		case BytecodeSyscallIdEnvSetStdinFd:
-			procData->stdinFd=procData->regs[1];
-			return true;
-		break;
-		case BytecodeSyscallIdEnvGetStdoutFd:
-			procData->regs[0]=procData->stdoutFd;
-			return true;
-		break;
-		case BytecodeSyscallIdEnvSetStdoutFd:
-			procData->stdoutFd=procData->regs[1];
-			return true;
-		break;
+		} break;
 		case BytecodeSyscallIdEnvGetPwd: {
 			char pwd[KernelFsPathMax];
 			if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, pwd, KernelFsPathMax)) {
@@ -2164,55 +2288,59 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		} break;
 		case BytecodeSyscallIdIoctl: {
 			// Grab arguments
-			uint16_t fd=procData->regs[1];
+			ProcManLocalFd localFd=procData->regs[1];
 			uint16_t command=procData->regs[2];
 			uint16_t data=procData->regs[3];
 
-			// Invalid fd?
-			KStr kstrPath=kernelFsGetFilePath(fd);
-			if (kstrIsNull(kstrPath)) {
-				kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall fd %u, process %u (%s)\n"), fd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-			} else {
-				kstrStrcpy(procManScratchBufPath0, kstrPath);
+			// Get global fd
+			KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+			if (globalFd==KernelFsFdInvalid) {
+				kernelLog(LogTypeWarning, kstrP("failed during ioctl syscall, local fd %u not open, process %u (%s)\n"), localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return true;
+			}
 
-				// Check for stdin/stdout terminal
-				if (strcmp(procManScratchBufPath0, "/dev/ttyS0")==0) {
-					switch(command) {
-						case BytecodeSyscallIdIoctlCommandDevTtyS0SetEcho:
-							ttySetEcho((data!=0));
-						break;
-						default:
-							kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						break;
-					}
-				} else if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
-					// Check for pin device file path
-					uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
-					switch(command) {
-						case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
-							// Forbid mode changes to HW device pins.
-							if (spiIsReservedPin(pinNum)) {
-								kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-								break;
-							}
+			// Grab path
+			KStr kstrPath=kernelFsGetFilePath(globalFd);
+			assert(!kstrIsNull(kstrPath));
+			kstrStrcpy(procManScratchBufPath0, kstrPath);
 
-							// Forbid mode changes from user space to HW device pins (even if associated device has type HwDeviceTypeRaw).
-							HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
-							if (hwDeviceId!=HwDeviceIdMax) {
-								kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (on fd %u, device '%s'), process %u (%s)\n"), pinNum, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-								break;
-							}
-
-							// Set pin mode
-							pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
-						} break;
-						default:
-							kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (on fd %u, device '%s'), process %u (%s)\n"), command, fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						break;
-					}
-				} else {
-					kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall device (fd %u, device '%s'), process %u (%s)\n"), fd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			// Check for stdin/stdout terminal
+			if (strcmp(procManScratchBufPath0, "/dev/ttyS0")==0) {
+				switch(command) {
+					case BytecodeSyscallIdIoctlCommandDevTtyS0SetEcho:
+						ttySetEcho((data!=0));
+					break;
+					default:
+						kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), command, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					break;
 				}
+			} else if (strncmp(procManScratchBufPath0, "/dev/pin", 8)==0) {
+				// Check for pin device file path
+				uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
+				switch(command) {
+					case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
+						// Forbid mode changes to HW device pins.
+						if (spiIsReservedPin(pinNum)) {
+							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), pinNum, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							break;
+						}
+
+						// Forbid mode changes from user space to HW device pins (even if associated device has type HwDeviceTypeRaw).
+						HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
+						if (hwDeviceId!=HwDeviceIdMax) {
+							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), pinNum, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+							break;
+						}
+
+						// Set pin mode
+						pinSetMode(pinNum, (data==PinModeInput ? PinModeInput : PinModeOutput));
+					} break;
+					default:
+						kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall command %u (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), command, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					break;
+				}
+			} else {
+				kernelLog(LogTypeWarning, kstrP("invalid ioctl syscall device (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			}
 			return true;
 		} break;
@@ -2225,6 +2353,10 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		break;
 		case BytecodeSyscallIdPipeOpen: {
+			// Grab arguments
+			BytecodeWord readFdPtr=procData->regs[1];
+			BytecodeWord writeFdPtr=procData->regs[2];
+
 			// Determine paths to two files that will be used to create the pipe
 			// We start pipeId at 1 so we can parse the path later using atoi with 0 as an error
 			unsigned pipeId;
@@ -2239,14 +2371,14 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 
 			if (pipeId==ProcManMaxPipes) {
-				procData->regs[0]=KernelFsFdInvalid;
+				procData->regs[0]=0;
 				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - global pipe limit %u reached\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], ProcManMaxPipes);
 				return true;
 			}
 
 			// Create backing file
 			if (!kernelFsFileCreateWithSize(procManScratchBufPath0, ProcManPipeSize)) {
-				procData->regs[0]=KernelFsFdInvalid;
+				procData->regs[0]=0;
 				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - cannot create backing file (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
 				return true;
 			}
@@ -2254,24 +2386,44 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			// Mount backing file as circular buffer to act as a pipe
 			if (!kernelMount(KernelMountFormatCircBuf, procManScratchBufPath0, procManScratchBufPath1)) {
 				kernelFsFileDelete(procManScratchBufPath0);
-				procData->regs[0]=KernelFsFdInvalid;
+				procData->regs[0]=0;
 				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - could not mount circular buffer (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
 				return true;
 			}
 
-			// Open circular buffer file so we can return the fd
-			// Note: we open it like we would a file via the open syscall.
+			// Open circular buffer file with two different fds - one for reading and one for writing
+			// Note: we open like we would a file via the open syscall.
 			// This is so that pipes can be reclaimed from a process once terminated.
-			procData->regs[0]=procManProcessOpenFile(process, procData, procManScratchBufPath1);
-			if (procData->regs[0]==KernelFsFdInvalid) {
+			ProcManLocalFd readFd=procManProcessOpenFile(process, procData, procManScratchBufPath1, KernelFsFdModeRO);
+			ProcManLocalFd writeFd=procManProcessOpenFile(process, procData, procManScratchBufPath1, KernelFsFdModeWO);
+			if (readFd==ProcManLocalFdInvalid || writeFd==ProcManLocalFdInvalid) {
+				procManProcessCloseFile(process, procData, readFd);
+				procManProcessCloseFile(process, procData, writeFd);
 				kernelUnmount(procManScratchBufPath1);
 				kernelFsFileDelete(procManScratchBufPath0);
+
+				procData->regs[0]=0;
 				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - could not open circular buffer (pipeId=%u)\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
 				return true;
 			}
 
+			// Copy readFd and writeFd into userspace memory and the given pointers
+			if (!procManProcessMemoryWriteByte(process, procData, readFdPtr, readFd) ||
+			    !procManProcessMemoryWriteByte(process, procData, writeFdPtr, writeFd)) {
+				procManProcessCloseFile(process, procData, readFd);
+				procManProcessCloseFile(process, procData, writeFd);
+				kernelUnmount(procManScratchBufPath1);
+				kernelFsFileDelete(procManScratchBufPath0);
+
+				procData->regs[0]=0;
+				kernelLog(LogTypeWarning, kstrP("error during pipeopen syscall, process %u (%s) - could not copy readFd and writeFd to userspace (pipeId=%u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
+				return false;
+			}
+
 			// Write to log
-			kernelLog(LogTypeInfo, kstrP("process %u (%s) openned pipe - fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), procData->regs[0], pipeId);
+			kernelLog(LogTypeInfo, kstrP("process %u (%s) openned pipe - local read fd %u, local write fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), readFd, writeFd, pipeId);
+
+			procData->regs[0]=1;
 
 			return true;
 		} break;
@@ -2521,14 +2673,25 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 	return false;
 }
 
-STATICASSERT(sizeof(ProcManProcessProcData)<256); // This is due to using the 256 byte scratch buffer to hold child's procData temporarily
+STATICASSERT(sizeof(ProcManProcessProcData)<KernelFsPathMax); // This is due to using one of the path scratch buffers to hold child's procData temporarily
 void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData) {
-#define childProcPath procManScratchBufPath0
-#define childRamPath procManScratchBufPath1
-	KernelFsFd childRamFd=KernelFsFdInvalid;
+	assert(parent!=NULL);
+	assert(procData!=NULL);
+
+#define scratchPath procManScratchBufPath0
+#define childProcData ((ProcManProcessProcData *)procManScratchBufPath1)
+
 	ProcManPid parentPid=procManGetPidFromProcess(parent);
 
 	kernelLog(LogTypeInfo, kstrP("fork request from process %u\n"), parentPid);
+
+	// Initialise child's proc file (do this now to make error handling simpler)
+	*childProcData=*procData;
+
+	childProcData->ramFd=KernelFsFdInvalid;
+	childProcData->regs[0]=0; // indicate success in the child
+	for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd)
+		childProcData->fds[localFd-1]=KernelFsFdInvalid;
 
 	// Find a PID for the new process
 	ProcManPid childPid=procManFindUnusedPid();
@@ -2538,53 +2701,74 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	}
 	ProcManProcess *child=&(procManData.processes[childPid]);
 
-	// Construct proc file path
-	sprintf(childProcPath, "/tmp/proc%u", childPid);
-	sprintf(childRamPath, "/tmp/ram%u", childPid);
-
-	// Attempt to create proc and ram files
-	if (!kernelFsFileCreateWithSize(childProcPath, sizeof(ProcManProcessProcData))) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child process data file at '%s' of size %u\n"), parentPid, childProcPath, sizeof(procManProcessLoadProcData));
-		goto error;
-	}
-	uint16_t ramTotalSize=procData->envVarDataLen+procData->ramLen;
-	if (!kernelFsFileCreateWithSize(childRamPath, ramTotalSize)) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child ram data file at '%s' of size %u\n"), parentPid, childRamPath, ramTotalSize);
-		goto error;
-	}
-
-	// Attempt to open proc and ram files
-	child->procFd=kernelFsFileOpen(childProcPath);
-	if (child->procFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child process data file at '%s'\n"), parentPid, childProcPath);
-		goto error;
-	}
-
-	childRamFd=kernelFsFileOpen(childRamPath);
-	if (childRamFd==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child ram data file at '%s'\n"), parentPid, childRamPath);
-		goto error;
-	}
-
-	// Simply use same FD as parent for the program data
-	child->state=ProcManProcessStateActive;
-	child->progmemFd=procManData.processes[parentPid].progmemFd;
+	// Clear process struct as required
+	child->state=ProcManProcessStateUnused;
+	child->progmemFd=KernelFsFdInvalid;
+	child->procFd=KernelFsFdInvalid;
 	child->instructionCounter=0;
 #ifndef ARDUINO
 	memset(child->profilingCounts, 0, sizeof(child->profilingCounts[0])*BytecodeMemoryProgmemSize);
 #endif
 
-	// Initialise child's proc file
-	ProcManProcessProcData *childProcData=(ProcManProcessProcData *)procManScratchBuf256;
-	memcpy(childProcData, procData, sizeof(ProcManProcessProcData));
+	// Create and open proc file
+	sprintf(scratchPath, "/tmp/proc%u", childPid);
+	if (!kernelFsFileCreateWithSize(scratchPath, sizeof(ProcManProcessProcData))) {
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child process data file at '%s' of size %u\n"), parentPid, scratchPath, sizeof(procManProcessLoadProcData));
+		goto error;
+	}
 
-	childProcData->ramFd=childRamFd;
-	childProcData->regs[0]=0; // indicate success in the child
-	for(unsigned i=0; i<ProcManMaxFds; ++i)
-		childProcData->fds[i]=KernelFsFdInvalid;
+	child->procFd=kernelFsFileOpen(scratchPath, KernelFsFdModeRW);
+	if (child->procFd==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child process data file at '%s'\n"), parentPid, scratchPath);
+		goto error;
+	}
 
+	// Attempt to create and open ram file
+	sprintf(scratchPath, "/tmp/ram%u", childPid);
+	uint16_t ramTotalSize=procData->envVarDataLen+procData->ramLen;
+	if (!kernelFsFileCreateWithSize(scratchPath, ramTotalSize)) {
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not create child ram data file at '%s' of size %u\n"), parentPid, scratchPath, ramTotalSize);
+		goto error;
+	}
+
+	childProcData->ramFd=kernelFsFileOpen(scratchPath, KernelFsFdModeRW);
+	if (childProcData->ramFd==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not open child ram data file at '%s'\n"), parentPid, scratchPath);
+		goto error;
+	}
+
+	// Try to use same FD as parent for the program data
+	// but if this fails then try to open again with new global fd.
+	child->state=ProcManProcessStateActive;
+
+	child->progmemFd=kernelFsFileDupeOrOpen(procManData.processes[parentPid].progmemFd);
+	if (child->progmemFd==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not reopen progmem fd %u\n"), parentPid, procManData.processes[parentPid].progmemFd);
+		goto error;
+	}
+
+	// Duplicate any open file descriptors
+	for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd) {
+		// No file open in this slot?
+		if (procData->fds[localFd-1]==KernelFsFdInvalid)
+			continue;
+
+		// There is a file open here, so try to re-open it in the new process.
+		KStr scratchPathK=kernelFsGetFilePath(procData->fds[localFd-1]);
+		assert(!kstrIsNull(scratchPathK));
+		kstrStrcpy(scratchPath, scratchPathK);
+
+		childProcData->fds[localFd-1]=kernelFsFileDupeOrOpen(procData->fds[localFd-1]);
+		if (childProcData->fds[localFd-1]==KernelFsFdInvalid) {
+			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not reopen '%s' (local fd %u, original global fd %u)\n"), parentPid, scratchPath, localFd, procData->fds[localFd-1]);
+			goto error;
+		}
+	}
+
+	// Save completed child proc data to disk
 	if (!procManProcessStoreProcData(child, childProcData)) {
-		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not save child process data file to '%s'\n"), parentPid, childProcPath);
+		sprintf(scratchPath, "/tmp/proc%u", childPid);
+		kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not save child process data file to '%s'\n"), parentPid, scratchPath);
 		goto error;
 	}
 
@@ -2593,7 +2777,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	KernelFsFileOffset i;
 	for(i=0; i+255<ramTotalSize; i+=256) {
 		if (kernelFsFileReadOffset(procData->ramFd, i, (uint8_t *)procManScratchBuf256, 256)!=256 ||
-		    kernelFsFileWriteOffset(childRamFd, i, (const uint8_t *)procManScratchBuf256, 256)!=256) {
+		    kernelFsFileWriteOffset(childProcData->ramFd, i, (const uint8_t *)procManScratchBuf256, 256)!=256) {
 			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n"), parentPid, i, ramTotalSize);
 			goto error;
 		}
@@ -2601,7 +2785,7 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 	for(; i<ramTotalSize; i++) {
 		uint8_t value;
 		if (kernelFsFileReadOffset(procData->ramFd, i, &value, 1)!=1 ||
-		    kernelFsFileWriteOffset(childRamFd, i, &value, 1)!=1) {
+		    kernelFsFileWriteOffset(childProcData->ramFd, i, &value, 1)!=1) {
 			kernelLog(LogTypeWarning, kstrP("could not fork from %u - could not copy parent's RAM into child's (managed %u/%u)\n"), parentPid, i, ramTotalSize);
 			goto error;
 		}
@@ -2616,23 +2800,35 @@ void procManProcessFork(ProcManProcess *parent, ProcManProcessProcData *procData
 
 	error:
 	if (childPid!=ProcManPidMax) {
+		for(ProcManLocalFd localFd=1; localFd<ProcManMaxFds; ++localFd)
+			kernelFsFileClose(childProcData->fds[localFd-1]);
+
+		kernelFsFileClose(procManData.processes[childPid].progmemFd);
 		procManData.processes[childPid].progmemFd=KernelFsFdInvalid;
+
 		kernelFsFileClose(procManData.processes[childPid].procFd);
 		procManData.processes[childPid].procFd=KernelFsFdInvalid;
-		kernelFsFileDelete(childProcPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
-		kernelFsFileClose(childRamFd);
-		kernelFsFileDelete(childRamPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+		sprintf(scratchPath, "/tmp/proc%u", childPid);
+		kernelFsFileDelete(scratchPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+
+		kernelFsFileClose(childProcData->ramFd);
+		sprintf(scratchPath, "/tmp/ram%u", childPid);
+		kernelFsFileDelete(scratchPath); // TODO: If we fail to even open the programPath then this may delete a file which has nothing to do with us
+
 		procManData.processes[childPid].state=ProcManProcessStateUnused;
 		procManData.processes[childPid].instructionCounter=0;
 	}
 
 	// Indicate error
 	procData->regs[0]=ProcManPidMax;
-#undef childProcPath
-#undef childRamPath
+#undef scratchPath
+#undef childProcData
 }
 
 bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 #define argv ((char *)procManScratchBuf256)
 
 	// Grab arg and write to log
@@ -2663,6 +2859,9 @@ bool procManProcessExec(ProcManProcess *process, ProcManProcessProcData *procDat
 }
 
 bool procManProcessExec2(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 #define argv ((char *)procManScratchBuf256)
 
 	uint8_t start=procData->regs[1];
@@ -2700,6 +2899,10 @@ bool procManProcessExec2(ProcManProcess *process, ProcManProcessProcData *procDa
 }
 
 bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t argc, char *argv) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(argv!=NULL);
+
 #define tempPwd procManScratchBufPath0
 #define tempPath procManScratchBufPath1
 #define ramPath procManScratchBufPath2
@@ -2735,17 +2938,10 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 
 	int argvTotalSize=procManArgvStringGetTotalSize(argc, argv);
 
-	// Close old fd (if not shared)
+	// Close old fd
 	ProcManPid pid=procManGetPidFromProcess(process);
-	KernelFsFd oldProgmemFd=procManData.processes[pid].progmemFd;
+	kernelFsFileClose(procManData.processes[pid].progmemFd);
 	procManData.processes[pid].progmemFd=newProgmemFd;
-
-	ProcManPid i;
-	for(i=0; i<ProcManPidMax; ++i)
-		if (procManData.processes[i].progmemFd==oldProgmemFd)
-			break;
-	if (i==ProcManPidMax)
-		kernelFsFileClose(oldProgmemFd);
 
 	// Reset instruction pointer
 	procData->regs[BytecodeRegisterIP]=0;
@@ -2773,7 +2969,7 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not resize new processes RAM file at '%s' to %u\n"), procManGetPidFromProcess(process), ramPath, newRamTotalSize);
 		return false;
 	}
-	procData->ramFd=kernelFsFileOpen(ramPath);
+	procData->ramFd=kernelFsFileOpen(ramPath, KernelFsFdModeRW);
 	assert(procData->ramFd!=KernelFsFdInvalid);
 
 	// Write env vars into ram file
@@ -2813,6 +3009,8 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 
 KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart, const char *envPath, const char *envPwd) {
 	assert(process!=NULL);
+	assert(argc!=NULL);
+	assert(argvStart!=NULL);
 
 	// Grab a copy of the exec path so we can modify it
 	char originalExecPath[KernelFsPathMax];
@@ -2883,7 +3081,7 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 		const char *loopExecFile=(magicByteRecursionCount>0 ? argvStart : originalExecPath);
 
 		// Attempt to open program file
-		newProgmemFd=kernelFsFileOpen(loopExecFile);
+		newProgmemFd=kernelFsFileOpen(loopExecFile, KernelFsFdModeRO);
 		if (newProgmemFd==KernelFsFdInvalid) {
 			kernelLog(LogTypeWarning, kstrP("loading executable in %u failed - could not open program at '%s'\n"), procManGetPidFromProcess(process), loopExecFile);
 			return KernelFsFdInvalid;
@@ -2947,11 +3145,17 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 }
 
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	BytecodeWord offset=procData->regs[2];
 	return procManProcessReadCommon(process, procData, offset);
 }
 
 bool procManProcessRead32(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	uint16_t offsetPtr=procData->regs[2];
 	BytecodeDoubleWord offset;
 	if (!procManProcessMemoryReadDoubleWord(process, procData, offsetPtr, &offset))
@@ -2961,17 +3165,27 @@ bool procManProcessRead32(ProcManProcess *process, ProcManProcessProcData *procD
 }
 
 bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset) {
-	KernelFsFd fd=procData->regs[1];
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
+	// Grab read parameters
+	ProcManLocalFd localFd=procData->regs[1];
 	uint16_t bufAddr=procData->regs[3];
 	BytecodeWord len=procData->regs[4];
 
+	// Grab global fd from local one
+	KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+	if (globalFd==KernelFsFdInvalid)
+		return false;
+
+	// Read a block at a time
 	BytecodeWord i=0;
 	while(i<len) {
 		BytecodeWord chunkSize=len-i;
 		if (chunkSize>256)
 			chunkSize=256;
 
-		BytecodeWord read=kernelFsFileReadOffset(fd, offset+i, (uint8_t *)procManScratchBuf256, chunkSize);
+		BytecodeWord read=kernelFsFileReadOffset(globalFd, offset+i, (uint8_t *)procManScratchBuf256, chunkSize);
 		if (read==0)
 			break;
 
@@ -2983,31 +3197,45 @@ bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *p
 			break;
 	}
 
+	// Update r0 to indicate how many bytes were read
 	procData->regs[0]=i;
 
 	return true;
 }
 
 bool procManProcessWrite(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	uint16_t offset=procData->regs[2];
 	return procManProcessWriteCommon(process, procData, offset);
 }
 
 bool procManProcessWrite32(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	uint16_t offsetPtr=procData->regs[2];
 	KernelFsFileOffset offset;
-	if (!procManProcessMemoryReadDoubleWord(process, procData, offsetPtr, &offset)) {
-		kernelLog(LogTypeWarning, kstrP("failed during write32 syscall, could not read 32 bit offset at %u, process %u (%s), killing\n"), offsetPtr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	if (!procManProcessMemoryReadDoubleWord(process, procData, offsetPtr, &offset))
 		return false;
-	}
 
 	return procManProcessWriteCommon(process, procData, offset);
 }
 
 bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset) {
-	KernelFsFd fd=procData->regs[1];
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
+	// Grab write parameters
+	ProcManLocalFd localFd=procData->regs[1];
 	uint16_t bufAddr=procData->regs[3];
 	KernelFsFileOffset len=procData->regs[4];
+
+	// Grab global fd from local one
+	KernelFsFd globalFd=procManProcessGetGlobalFdFromLocal(process, procData, localFd);
+	if (globalFd==KernelFsFdInvalid)
+		return false;
 
 	// Write up to a block at a time
 	KernelFsFileOffset i=0;
@@ -3016,60 +3244,80 @@ bool procManProcessWriteCommon(ProcManProcess *process, ProcManProcessProcData *
 		if (chunkSize>256)
 			chunkSize=256;
 
-		if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
-			kernelLog(LogTypeWarning, kstrP("failed during write syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		if (!procManProcessMemoryReadBlock(process, procData, bufAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true))
 			return false;
-		}
-		KernelFsFileOffset written=kernelFsFileWriteOffset(fd, offset+i, (const uint8_t *)procManScratchBuf256, chunkSize);
+		KernelFsFileOffset written=kernelFsFileWriteOffset(globalFd, offset+i, (const uint8_t *)procManScratchBuf256, chunkSize);
 		i+=written;
 		if (written<chunkSize)
 			break;
 	}
 
+	// Update r0 to indicate number of bytes written
 	procData->regs[0]=i;
 
 	return true;
 }
 
-KernelFsFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessProcData *procData, const char *path) {
+ProcManLocalFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessProcData *procData, const char *path, KernelFsFdMode mode) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(path!=NULL);
+
+	// Ensure mode is sensible
+	if (mode==KernelFsFdModeNone || mode>=KernelFsFdModeMax) {
+		kernelLog(LogTypeWarning, kstrP("failed to open file: path '%s', bad mode %u, process %u (%s)\n"), path, mode, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		return ProcManLocalFdInvalid;
+	}
+
 	// Ensure process has a spare slot in the fds table
-	unsigned fdsIndex;
-	for(fdsIndex=0; fdsIndex<ProcManMaxFds; ++fdsIndex)
-		if (procData->fds[fdsIndex]==KernelFsFdInvalid)
+	ProcManLocalFd localFd;
+	for(localFd=1; localFd<ProcManMaxFds; ++localFd)
+		if (procData->fds[localFd-1]==KernelFsFdInvalid)
 			break;
 
-	if (fdsIndex==ProcManMaxFds) {
-		kernelLog(LogTypeWarning, kstrP("failed to open file '%s', fds table full, process %u (%s)\n"), path, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-		return KernelFsFdInvalid;
+	if (localFd==ProcManMaxFds-1) {
+		kernelLog(LogTypeWarning, kstrP("failed to open file: path '%s', mode %s, fds table full, process %u (%s)\n"), path, kernelFsFdModeToString(mode), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		return ProcManLocalFdInvalid;
 	}
 
 	// Attempt to open file (and if successful add to fds table)
-	procData->fds[fdsIndex]=kernelFsFileOpen(path);
-	if (procData->fds[fdsIndex]==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, kstrP("failed to open file '%s', open failed, process %u (%s)\n"), path, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-		return KernelFsFdInvalid;
+	procData->fds[localFd-1]=kernelFsFileOpen(path, mode);
+	if (procData->fds[localFd-1]==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("failed to open file: path '%s', mode %s, open failed, process %u (%s)\n"), path, kernelFsFdModeToString(mode), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		return ProcManLocalFdInvalid;
 	}
 
 	// Write to log.
-	kernelLog(LogTypeInfo, kstrP("openned file: path='%s' fd=%u, fdsindex=%u, process %u (%s)\n"), path, procData->fds[fdsIndex], fdsIndex, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	kernelLog(LogTypeInfo, kstrP("openned userspace file: path '%s', mode %s, local fd %u, global fd %u, process %u (%s)\n"), path, kernelFsFdModeToString(mode), localFd, procData->fds[localFd-1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 
-	return procData->fds[fdsIndex];
+	return localFd;
 }
 
-void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *procData, unsigned slot) {
-	assert(slot<ProcManMaxFds);
+void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *procData, ProcManLocalFd localFd) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
 
-	// Is there actually an open file in the given slot?
-	if (procData->fds[slot]==KernelFsFdInvalid) {
-		kernelLog(LogTypeWarning, kstrP("could not close file, fd table slot %u is empty, process %u (%s)\n"), slot ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	// Special case for invalid fd (must be null-op)
+	if (localFd==ProcManLocalFdInvalid)
+		return;
+
+	// Fd out of range?
+	if (localFd>=ProcManMaxFds) {
+		kernelLog(LogTypeWarning, kstrP("close syscall, local fd %u outside of valid range, process %u (%s)\n"), localFd ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		return;
+	}
+
+	// Is there actually an open file in the fd table for the given fd?
+	if (procData->fds[localFd-1]==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("could not close file, local fd %u is unused, process %u (%s)\n"), localFd ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 		return;
 	}
 
 	// Grab path first for logging, before we close the file and lose it.
-	KStr pathKStr=kernelFsGetFilePath(procData->fds[slot]);
+	KStr pathKStr=kernelFsGetFilePath(procData->fds[localFd-1]);
 	if (kstrIsNull(pathKStr)) {
-		kernelLog(LogTypeWarning, kstrP("could not close file, fd %u not open (fd table slot %u), process %u (%s)\n"), procData->fds[slot], slot ,procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-		procData->fds[slot]=KernelFsFdInvalid; // might as well remove for safety
+		kernelLog(LogTypeWarning, kstrP("could not close file, global fd %u not open (local fd %u), process %u (%s)\n"), procData->fds[localFd-1], localFd, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		procData->fds[localFd-1]=KernelFsFdInvalid; // might as well remove for safety
 		return;
 	}
 
@@ -3077,11 +3325,11 @@ void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *pr
 	kstrStrcpy(path, pathKStr);
 
 	// Close file
-	kernelFsFileClose(procData->fds[slot]);
+	unsigned newRefCount=kernelFsFileClose(procData->fds[localFd-1]);
 
-	// Special case - is this a pipe file?
+	// Special case - is this a pipe file which now has no more references?
 	unsigned pipeId=(kstrStrncmp(path, kstrP("/dev/pipe"), 9)==0 ? atoi(path+9) : 0);
-	if (pipeId>0) {
+	if (pipeId>0 && !kernelFsFileIsOpen(path)) {
 		// Unmount circular buffer
 		kernelUnmount(path);
 
@@ -3093,12 +3341,54 @@ void procManProcessCloseFile(ProcManProcess *process, ProcManProcessProcData *pr
 
 	// Write to log
 	if (pipeId>0)
-		kernelLog(LogTypeInfo, kstrP("closed pipe file '%s', fd=%u, slot %u, process %u (%s)\n"), path, procData->fds[slot], slot, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		kernelLog(LogTypeInfo, kstrP("closed userspace reference to pipe file '%s', local fd %u, global fd %u, new ref count %u, process %u (%s)\n"), path, localFd, procData->fds[localFd-1], newRefCount, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 	else
-		kernelLog(LogTypeInfo, kstrP("closed file '%s', fd=%u, slot %u, process %u (%s)\n"), path, procData->fds[slot], slot, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		kernelLog(LogTypeInfo, kstrP("closed userspace reference to file '%s', local fd %u, global fd %u, new ref count %u, process %u (%s)\n"), path, localFd, procData->fds[localFd-1], newRefCount, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 
 	// Remove from fd table
-	procData->fds[slot]=KernelFsFdInvalid;
+	procData->fds[localFd-1]=KernelFsFdInvalid;
+}
+
+KernelFsFd procManProcessGetGlobalFdFromLocal(ProcManProcess *process, ProcManProcessProcData *procData, ProcManLocalFd localFd) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
+	// Bad localFd?
+	if (localFd==ProcManLocalFdInvalid || localFd>=ProcManMaxFds)
+		return KernelFsFdInvalid;
+
+	// Lookup global fd in table
+	KernelFsFd globalFd=procData->fds[localFd-1];
+
+	// Check for bad fd globally
+	// TODO: should we terminate the process if this check fails? it suggests that the fds array is corrupt
+	if (!kernelFsFileIsOpenByFd(globalFd))
+		return KernelFsFdInvalid;
+
+	assert(globalFd!=KernelFsFdInvalid && globalFd<KernelFsFdMax);
+	return globalFd;
+}
+
+KernelFsFd procManProcessGetGlobalFdFromLocalWithPid(ProcManPid pid, ProcManLocalFd localFd) {
+	assert(pid<ProcManPidMax);
+	assert(localFd<ProcManMaxFds);
+
+	// Invalid local fd?
+	if (localFd==ProcManLocalFdInvalid)
+		return KernelFsFdInvalid;
+
+	// Grab process (if exists)
+	ProcManProcess *process=procManGetProcessByPid(pid);
+	if (process==NULL)
+		return KernelFsFdInvalid;
+
+	// Load proc data
+	ProcManProcessProcData procData;
+	if (!procManProcessLoadProcData(process, &procData))
+		return KernelFsFdInvalid;
+
+	// Lookup in fds table
+	return procData.fds[localFd-1];
 }
 
 void procManResetInstructionCounters(void) {
@@ -3107,11 +3397,16 @@ void procManResetInstructionCounters(void) {
 }
 
 void procManProcessDebug(ProcManProcess *process, ProcManProcessProcData *procData) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
 	// Simply print PID and register values
 	kernelLog(LogTypeInfo, kstrP("Process %u debug: r0=%u, r1=%u, r2=%u, r3=%u, r4=%u, r5=%u, r6=%u, r7=%u\n"), procManGetPidFromProcess(process), procData->regs[0], procData->regs[1], procData->regs[2], procData->regs[3], procData->regs[4], procData->regs[5], procData->regs[6], procData->regs[7]);
 }
 
 char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n) {
+	assert(argvStart!=NULL);
+
 	// Check n is in range
 	if (n>=argc)
 		return NULL;
@@ -3124,6 +3419,8 @@ char *procManArgvStringGetArgN(uint8_t argc, char *argvStart, uint8_t n) {
 }
 
 const char *procManArgvStringGetArgNConst(uint8_t argc, const char *argvStart, uint8_t n) {
+	assert(argvStart!=NULL);
+
 	// Check n is in range
 	if (n>=argc)
 		return NULL;
@@ -3136,6 +3433,8 @@ const char *procManArgvStringGetArgNConst(uint8_t argc, const char *argvStart, u
 }
 
 int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart) {
+	assert(argvStart!=NULL);
+
 	int len=0;
 	while(argc>0)
 		argc-=(argvStart[len++]=='\0');
@@ -3143,6 +3442,8 @@ int procManArgvStringGetTotalSize(uint8_t argc, const char *argvStart) {
 }
 
 void procManArgvStringPathNormaliseArg0(uint8_t argc, char *argvStart) {
+	assert(argvStart!=NULL);
+
 	// Ensure argc is sensible
 	if (argc<1)
 		return;
@@ -3166,6 +3467,10 @@ void procManArgvStringPathNormaliseArg0(uint8_t argc, char *argvStart) {
 }
 
 void procManArgvUpdateForInterpreter(uint8_t *argc, char *argvStart, const char *interpreterPath) {
+	assert(argc!=NULL);
+	assert(argvStart!=NULL);
+	assert(interpreterPath!=NULL);
+
 	int interpreterPathSize=strlen(interpreterPath)+1;
 	int arg0Size=strlen(argvStart)+1;
 
@@ -3180,10 +3485,17 @@ void procManArgvUpdateForInterpreter(uint8_t *argc, char *argvStart, const char 
 }
 
 void procManPrefetchDataClear(ProcManPrefetchData *pd) {
+	assert(pd!=NULL);
+
 	pd->len=0;
 }
 
 bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *process, ProcManProcessProcData *procData, uint16_t addr, uint8_t *value) {
+	assert(pd!=NULL);
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(value!=NULL);
+
 	// Not already in cache?
 	if (addr<pd->baseAddr || addr>=pd->baseAddr+pd->len) {
 		// Attempt to read largest block we can, but try smaller sizes if this fails.
@@ -3205,6 +3517,8 @@ bool procManPrefetchDataReadByte(ProcManPrefetchData *pd, ProcManProcess *proces
 }
 
 void procManArgvDebug(uint8_t argc, const char *argvStart) {
+	assert(argvStart!=NULL);
+
 	kernelLog(LogTypeInfo, kstrP("Argv Debug: argc=%u, arg0='%s'\n"), argc, argvStart);
 	for(int i=1; i<argc; ++i) {
 		const char *arg=procManArgvStringGetArgNConst(argc, argvStart, i);

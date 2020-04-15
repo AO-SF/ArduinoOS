@@ -665,16 +665,11 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [trywritebyte] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case BytecodeSyscallIdEnvGetStdinFd:
-							process->regs[0]=process->envVars.stdinFd;
+						case BytecodeSyscallIdGetPathGlobal: {
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envgetstinfd] (return fd = %u)\n", syscallId, process->regs[0]);
-						break;
-						case BytecodeSyscallIdEnvSetStdinFd:
-							process->envVars.stdinFd=process->regs[0];
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetstdinfd], new fd %u\n", syscallId, process->envVars.stdinFd);
-						break;
+								printf("Info: syscall(id=%i [getpathglobal] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						} break;
 						case BytecodeSyscallIdEnvGetPwd:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
@@ -690,16 +685,6 @@ bool processRunNextInstruction(Process *process) {
 						case BytecodeSyscallIdEnvSetPath:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
-						break;
-						case BytecodeSyscallIdEnvGetStdoutFd:
-							process->regs[0]=process->envVars.stdoutFd;
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envgetstoutfd] (return fd = %u)\n", syscallId, process->regs[0]);
-						break;
-						case BytecodeSyscallIdEnvSetStdoutFd:
-							process->envVars.stdoutFd=process->regs[0];
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetstdoutfd], new fd %u\n", syscallId, process->envVars.stdoutFd);
 						break;
 						case BytecodeSyscallIdTimeMonotonic16s:
 							if (infoSyscalls)
@@ -813,7 +798,7 @@ bool processRunNextInstruction(Process *process) {
 						case BytecodeSyscallIdPipeOpen:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [pipeopen] (unimplemented)\n", syscallId);
-							process->regs[0]=KernelFsFdInvalid;
+							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdStrchr: {
 							// TODO: Check arguments better

@@ -4,6 +4,7 @@ requireend lib/std/proc/exit.s
 requireend lib/std/proc/forkexec.s
 requireend lib/std/proc/forkexecwait.s
 
+db ttyPath '/dev/ttyS0', 0
 db startupPath '/etc/startup', 0
 db shutdownPath '/etc/shutdown', 0
 db shellPath '/bin/sh', 0
@@ -32,6 +33,17 @@ jmp error
 mov r0 SyscallIdRegisterSignalHandler
 mov r1 SignalIdSuicide
 mov r2 suicideHandler
+syscall
+
+; Open stdin and stdout (these will naturally use fds 1 and 2)
+mov r0 SyscallIdOpen
+mov r1 ttyPath
+mov r2 FdModeRO ; read only for stdin
+syscall
+
+mov r0 SyscallIdOpen
+mov r1 ttyPath
+mov r2 FdModeWO ; write only for stdout
 syscall
 
 ; call forkexecwait to run startup file and wait for it to complete

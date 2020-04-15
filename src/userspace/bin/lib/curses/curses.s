@@ -1,6 +1,6 @@
+require ../sys/sys.s
 requireend ../std/io/fput.s
 requireend ../std/io/fputdec.s
-require ../sys/syscall.s
 
 db cursesEscSeqStrClearScreen 27, '[2J', 0
 db cursesEscSeqStrClearLine 27, '[2K', 0
@@ -58,10 +58,8 @@ ret
 ; cursesSetEcho(value=r0) - turns terminal echo on/off
 label cursesSetEcho
 mov r3 r0 ; on/off value
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
-mov r1 r0 ; fd for stdout
 mov r0 SyscallIdIoctl
+mov r1 FdStdout
 mov r2 0 ; set echo command
 syscall
 ret
@@ -109,11 +107,7 @@ ret
 
 ; cursesGetChar() - puts single byte into r0, or 256 if no data to read
 label cursesGetChar
-; grab stdio fd
-mov r0 SyscallIdEnvGetStdinFd
-syscall
-; call tryreadbyte syscall
-mov r1 r0
-mov r0 264
+mov r0 SyscallIdTryReadByte
+mov r1 FdStdin
 syscall
 ret

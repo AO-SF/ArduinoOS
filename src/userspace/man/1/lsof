@@ -10,10 +10,15 @@ DESCRIPTION
       Prints a list of files open per process.
 
       Each file, that each process has open produces its own line of output which
-      is of the form: PID EXECPATH FD FDPATH
+      is of the form: PID EXECPATH LOCALFD GLOBALFD FDPATH
 
       Example output:
-		00001 /bin/sh 00057 /dev/ttyS0
-		00001 /bin/sh 00056 /dev/ttyS0
-		00002 /home/blinkfast 00052 /dev/pin15
-
+        00 /bin/init 01 60 /dev/ttyS0
+        00 /bin/init 02 59 /dev/ttyS0
+        01 /bin/sh 01 60 /dev/ttyS0
+        01 /bin/sh 02 59 /dev/ttyS0
+        02 /usr/bin/hash 01 60 /dev/ttyS0
+        02 /usr/bin/hash 02 59 /dev/ttyS0
+        02 /usr/bin/hash 03 52 /dev/urandom
+        03 /usr/bin/lsof 01 60 /dev/ttyS0
+        03 /usr/bin/lsof 02 59 /dev/ttyS0

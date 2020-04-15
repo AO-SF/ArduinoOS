@@ -14,8 +14,6 @@ requireend lib/std/str/strrchr.s
 requireend lib/std/str/strcmp.s
 requireend lib/std/str/strtrimnewline.s
 
-db stdinPath '/dev/ttyS0', 0
-db stdoutPath '/dev/ttyS0', 0
 db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
@@ -25,7 +23,6 @@ db exitStr 'exit', 0
 db emptyStr 0
 db homeDir '/home', 0
 
-ab handlingStdio 1
 const inputBufLen 128
 ab inputBuf inputBufLen
 ab absBuf PathMax
@@ -75,44 +72,6 @@ mov r1 SignalIdInterrupt
 mov r2 interruptHandlerTrampoline
 syscall
 
-; Is stdinfd already sensible? (we simply ignore stdout)
-mov r0 handlingStdio
-mov r1 0
-store8 r0 r1
-
-mov r0 SyscallIdEnvGetStdinFd
-syscall
-cmp r0 r0 r0
-skipeqz r0
-jmp startDone
-
-; No - open stdin and stdout, storing fds into environment variables
-mov r0 handlingStdio
-mov r1 1
-store8 r0 r1
-
-mov r0 SyscallIdOpen
-mov r1 stdinPath
-syscall
-cmp r1 r0 r0
-skipneqz r1
-jmp exiterror
-mov r1 r0
-mov r0 SyscallIdEnvSetStdinFd
-syscall
-
-mov r0 SyscallIdOpen
-mov r1 stdoutPath
-syscall
-cmp r1 r0 r0
-skipneqz r1
-jmp exiterror
-mov r1 r0
-mov r0 SyscallIdEnvSetStdoutFd
-syscall
-
-label startDone
-
 ; Check for scripts passed as arguments
 mov r1 1 ; child loop index
 label argLoopStart
@@ -128,6 +87,7 @@ jmp argLoopEnd
 
 ; Open file
 mov r0 inputBuf
+mov r1 FdModeRO
 call openpath
 
 mov r1 inputFd
@@ -161,8 +121,7 @@ label argLoopEnd
 pop8 r1
 
 ; Call shellRunFd on stdin fd
-mov r0 SyscallIdEnvGetStdinFd
-syscall
+mov r0 FdStdin
 mov r1 inputFd
 store8 r1 r0
 

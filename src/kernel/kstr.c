@@ -7,19 +7,19 @@
 #include "ktime.h"
 
 KStr kstrNull(void) {
-	KStr kstr={.type=KStrTypeNull, .ptr=(uintptr_t)NULL};
+	KStr kstr={.type=KStrTypeNull, .spare=0, .ptr=(uintptr_t)NULL};
 	return kstr;
 }
 
 #ifdef ARDUINO
 KStr kstrAllocProgmemRaw(uint_farptr_t progmemAddr) {
-	KStr kstr={.type=KStrTypeProgmem, .ptr=progmemAddr};
+	KStr kstr={.type=KStrTypeProgmem, .spare=0, .ptr=progmemAddr};
 	return kstr;
 }
 #endif
 
 KStr kstrAllocStatic(char *staticBuffer) {
-	KStr kstr={.type=KStrTypeStatic, .ptr=(uintptr_t)staticBuffer};
+	KStr kstr={.type=KStrTypeStatic, .spare=0, .ptr=(uintptr_t)staticBuffer};
 	return kstr;
 }
 
@@ -28,8 +28,17 @@ KStr kstrAllocCopy(const char *src) {
 	if (dest==NULL)
 		return kstrNull();
 	strcpy(dest, src);
-	KStr kstr={.type=KStrTypeHeap, .ptr=(uintptr_t)dest};
+	KStr kstr={.type=KStrTypeHeap, .spare=0, .ptr=(uintptr_t)dest};
 	return kstr;
+}
+
+unsigned kstrGetSpare(KStr str) {
+	return str.spare;
+}
+
+void kstrSetSpare(KStr *str, unsigned spare) {
+	if (spare<KStrSpareMax)
+		str->spare=spare;
 }
 
 uint16_t kstrStrlen(KStr kstr) {

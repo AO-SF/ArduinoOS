@@ -49,7 +49,7 @@ bool kernelMount(KernelMountFormat format, const char *devicePath, const char *d
 	}
 
 	// Open device file
-	KernelFsFd deviceFd=kernelFsFileOpen(devicePath);
+	KernelFsFd deviceFd=kernelFsFileOpen(devicePath, KernelFsFdModeRW);
 	if (deviceFd==KernelFsFdInvalid) {
 		kernelLog(LogTypeWarning, kstrP("could not mount - could not open device file (format=%u, devicePath='%s', dirPath='%s')\n"), format, devicePath, dirPath);
 		return false;
@@ -387,29 +387,32 @@ KernelFsFileOffset kernelMountCharacterWriteFunctor(void *userData, const uint8_
 			return 0;
 		} break;
 		case KernelMountFormatCircBuf: {
-			// Nothing to write? (special case to simplify logic below)
-			if (len==0)
-				return 0;
-
 			// Get offset info
 			KernelFsFileOffset offsetSize=kernelMountCircBufGetOffsetSize(deviceFd);
 			KernelFsFileOffset headOffset=kernelMountCircBufGetHeadOffset(deviceFd);
 			KernelFsFileOffset tailOffset=kernelMountCircBufGetTailOffset(deviceFd);
 
-			// Full?
-			KernelFsFileOffset newTailOffset=kernelMountCircBufIncOffset(deviceFd, tailOffset);
-			if (newTailOffset==headOffset)
+			// Writing loop
+			KernelFsFileOffset written;
+			for(written=0; written<len; ++written) {
+				// Full?
+				KernelFsFileOffset newTailOffset=kernelMountCircBufIncOffset(deviceFd, tailOffset);
+				if (newTailOffset==headOffset)
+					break;
+
+				// Write one byte at current tail
+				if (!kernelFsFileWriteByte(deviceFd, 2*offsetSize+tailOffset, data[written]))
+					return 0;
+
+				// Update tail offset to virtually push the byte
+				tailOffset=newTailOffset;
+			}
+
+			// Write back tail offset as potentially changed
+			if (!kernelMountCircBufSetTailOffset(deviceFd, tailOffset))
 				return 0;
 
-			// Write one byte at current tail
-			if (!kernelFsFileWriteByte(deviceFd, 2*offsetSize+tailOffset, data[0]))
-				return 0;
-
-			// Advance tail to push byte and write it back
-			if (!kernelMountCircBufSetTailOffset(deviceFd, newTailOffset))
-				return 0;
-
-			return 1;
+			return written;
 		} break;
 	}
 

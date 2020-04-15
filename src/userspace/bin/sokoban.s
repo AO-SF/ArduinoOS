@@ -120,6 +120,7 @@ call exit
 ; Read a level - takes path in r0, returns true/false in r0
 label levelRead
 ; Open level file
+mov r1 FdModeRO
 call openpath
 cmp r1 r0 r0
 skipneqz r1

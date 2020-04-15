@@ -59,6 +59,7 @@ call int32fromStr
 
 ; Open data file
 mov r0 pathBuf
+mov r1 FdModeRO
 call fopen
 
 mov r1 FdInvalid
@@ -138,13 +139,7 @@ call putc0
 mov r0 '\n'
 call putc0
 
-; Close data file
-label done
-mov r0 fd
-load8 r0 r0
-call fclose
-
-; Exit
+; Exit (data file closed automatically by OS)
 mov r0 0
 call exit
 

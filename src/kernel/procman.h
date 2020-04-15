@@ -9,7 +9,10 @@
 typedef uint8_t ProcManPid;
 #define ProcManPidMax 16
 
-#define ProcManMaxFds 8 // maximum amount of open files a single process can have
+// Local fds are indexes into the fds table of each process ProcManProcessProcData struct. These are what userspace sees as fds, but are not the same as the globally unique fds used by the kernelfs module.
+typedef uint8_t ProcManLocalFd;
+#define ProcManLocalFdInvalid 0
+#define ProcManMaxFds 9 // maximum value a 'local'/userspace fd can have is one less than this - so 0 to 8 (also 0 is used to represent an invalid fd)
 
 typedef enum {
 	ProcManExitStatusSuccess=0, // 0 and all other unused values can be used when calling exit
@@ -47,6 +50,6 @@ void procManProcessSendSignal(ProcManPid pid, BytecodeSignalId signalId);
 
 bool procManProcessExists(ProcManPid pid);
 
-bool procManProcessGetOpenFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]); // if process is active (in tick loop) this may be out of date
+bool procManProcessGetOpenGlobalFds(ProcManPid pid, KernelFsFd fds[ProcManMaxFds]); // if process is active (in tick loop) this may be out of date
 
 #endif
