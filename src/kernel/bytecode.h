@@ -112,6 +112,16 @@ typedef enum {
 	BytecodeSyscallIdHwDeviceSdCardReaderUnmount=M(7,4),
 	BytecodeSyscallIdHwDeviceDht22GetTemperature=M(7,5),
 	BytecodeSyscallIdHwDeviceDht22GetHumidity=M(7,6),
+	ByteCodeSyscallIdInt32Add16=M(8,0),
+	ByteCodeSyscallIdInt32Add32=M(8,1),
+	ByteCodeSyscallIdInt32Sub16=M(8,2),
+	ByteCodeSyscallIdInt32Sub32=M(8,3),
+	ByteCodeSyscallIdInt32Mul16=M(8,4),
+	ByteCodeSyscallIdInt32Mul32=M(8,5),
+	ByteCodeSyscallIdInt32Div16=M(8,6),
+	ByteCodeSyscallIdInt32Div32=M(8,7),
+	ByteCodeSyscallIdInt32Shl=M(8,8),
+	ByteCodeSyscallIdInt32Shr=M(8,9),
 #undef M
 } BytecodeSyscallId;
 
