@@ -11,8 +11,8 @@
 
 #define PathMax 64 // TODO: use KernelFsPathMax
 #define InitPid 0
-#define StdinFd 1
-#define StdoutFd 1
+#define FdStdin 1
+#define FdStdout 2
 
 typedef struct {
 	int argc;
@@ -20,8 +20,6 @@ typedef struct {
 
 	char pwd[PathMax];
 	char path[PathMax];
-	uint8_t stdinFd;
-	uint8_t stdoutFd;
 } ProcessEnvVars;
 
 typedef struct {
@@ -98,8 +96,6 @@ int main(int argc, char **argv) {
 	process->envVars.argv=argv+inputArgBaseIndex;
 	strcpy(process->envVars.pwd, "/bin");
 	strcpy(process->envVars.path, "/bin");
-	process->envVars.stdinFd=StdinFd;
-	process->envVars.stdoutFd=StdoutFd;
 
 	// Read-in input file
 	const char *inputPath=argv[inputArgBaseIndex];
@@ -500,7 +496,7 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdRead:
-							if (process->regs[1]==process->envVars.stdinFd) {
+							if (process->regs[1]==FdStdin) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[3]], process->regs[4]);
 								if (result>=0)
 									process->regs[0]=result;
@@ -522,7 +518,7 @@ bool processRunNextInstruction(Process *process) {
 							uint16_t bufAddr=process->regs[3];
 							uint16_t bufLen=process->regs[4];
 
-							if (fd==process->envVars.stdoutFd) {
+							if (fd==FdStdout) {
 								for(int i=0; i<bufLen; ++i)
 									printf("%c", process->memory[bufAddr+i]);
 								fflush(stdout);
@@ -590,7 +586,7 @@ bool processRunNextInstruction(Process *process) {
 						break;
 						case BytecodeSyscallIdRead32: {
 							// Note: this is identical to 16 bit case as we only support stdin anyway, which ignores offset.
-							if (process->regs[1]==process->envVars.stdinFd) {
+							if (process->regs[1]==FdStdin) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[3]], process->regs[4]);
 								if (result>=0)
 									process->regs[0]=result;
@@ -612,7 +608,7 @@ bool processRunNextInstruction(Process *process) {
 							uint16_t bufAddr=process->regs[3];
 							uint16_t bufLen=process->regs[4];
 
-							if (fd==process->envVars.stdoutFd) {
+							if (fd==FdStdout) {
 								for(int i=0; i<bufLen; ++i)
 									printf("%c", process->memory[bufAddr+i]);
 								fflush(stdout);
