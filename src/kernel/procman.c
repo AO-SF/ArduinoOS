@@ -2667,6 +2667,256 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case ByteCodeSyscallIdInt32Add16: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bValue=procData->regs[2];
+
+			// Read 32 bit value from process memory
+			BytecodeDoubleWord aValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32add16 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			aValue+=bValue;
+
+			// Write result back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32add16 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdInt32Add32: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bPtr=procData->regs[2];
+
+			// Read 32 bit values from process memory
+			BytecodeDoubleWord aValue, bValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue) ||
+			    !procManProcessMemoryReadDoubleWord(process, procData, bPtr, &bValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32add32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			aValue+=bValue;
+
+			// Write result back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32add32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdInt32Sub16: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bValue=procData->regs[2];
+
+			// Read 32 bit value from process memory
+			BytecodeDoubleWord aValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32sub16 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			aValue-=bValue;
+
+			// Write result back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32sub16 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdInt32Sub32: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bPtr=procData->regs[2];
+
+			// Read 32 bit values from process memory
+			BytecodeDoubleWord aValue, bValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue) ||
+			    !procManProcessMemoryReadDoubleWord(process, procData, bPtr, &bValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32sub32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			aValue-=bValue;
+
+			// Write result back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32sub32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdInt32Mul16: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bValue=procData->regs[2];
+
+			// Read 32 bit value from process memory
+			BytecodeDoubleWord aValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32mul16 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			aValue*=bValue;
+
+			// Write result back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32mul16 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdInt32Mul32: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bPtr=procData->regs[2];
+
+			// Read 32 bit values from process memory
+			BytecodeDoubleWord aValue, bValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue) ||
+			    !procManProcessMemoryReadDoubleWord(process, procData, bPtr, &bValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32mul32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			aValue*=bValue;
+
+			// Write result back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32mul32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdInt32Div16: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bValue=procData->regs[2];
+
+			// Read 32 bit value from process memory
+			BytecodeDoubleWord aValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32div16 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			if (bValue==0) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32div16 syscall, divide by 0, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			BytecodeDoubleWord quotient=aValue/bValue;
+			BytecodeWord remainder=aValue-quotient*bValue;
+
+			// Write result back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, quotient)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32div16 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			procData->regs[0]=remainder;
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdInt32Div32: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bPtr=procData->regs[2];
+			BytecodeWord rPtr=procData->regs[3];
+
+			// Read 32 bit values from process memory
+			BytecodeDoubleWord aValue, bValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue) ||
+			    !procManProcessMemoryReadDoubleWord(process, procData, bPtr, &bValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32div32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			if (bValue==0) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32div32 syscall, divide by 0, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			BytecodeDoubleWord quotient=aValue/bValue;
+			BytecodeDoubleWord remainder=aValue-quotient*bValue;
+
+			// Write results back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, quotient) ||
+			    !procManProcessMemoryWriteDoubleWord(process, procData, rPtr, remainder)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32div32 syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdInt32Shl: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bValue=procData->regs[2];
+
+			// Read 32 bit value from process memory
+			BytecodeDoubleWord aValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32shl syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			aValue<<=bValue;
+
+			// Write result back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32shl syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdInt32Shr: {
+			// Grab arguments
+			BytecodeWord aPtr=procData->regs[1];
+			BytecodeWord bValue=procData->regs[2];
+
+			// Read 32 bit value from process memory
+			BytecodeDoubleWord aValue;
+			if (!procManProcessMemoryReadDoubleWord(process, procData, aPtr, &aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32shr syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Compute result
+			aValue>>=bValue;
+
+			// Write result back into process memory
+			if (!procManProcessMemoryWriteDoubleWord(process, procData, aPtr, aValue)) {
+				kernelLog(LogTypeWarning, kstrP("failed during int32shr syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			return true;
+		} break;
 	}
 
 	kernelLog(LogTypeWarning, kstrP("invalid syscall id=%i, process %u (%s), killing\n"), syscallId, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));

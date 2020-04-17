@@ -1,5 +1,7 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32add.s
+requireend lib/std/int32/int32set.s
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
@@ -17,6 +19,8 @@ ab sourceFd 1
 ab destFd 1
 
 ab cpScratchBuf PathMax
+
+aw fileOffset 2 ; 32 bit integer
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -66,12 +70,14 @@ mov r1 cpScratchBuf
 call getpath
 
 ; Create/resize dest path
-mov r0 SyscallIdGetFileLen
+mov r0 SyscallIdGetFileLen32
 mov r1 sourceArg
+mov r2 fileOffset
 syscall
 mov r2 r0
-mov r0 SyscallIdResizeFile
+mov r0 SyscallIdResizeFile32
 mov r1 destArg
+mov r2 fileOffset
 syscall
 
 ; Open dest
@@ -85,12 +91,15 @@ mov r1 destFd
 store8 r1 r0
 
 ; Copy bytes from source file to dest file
-mov r2 0 ; loop index and read/write offset
+mov r0 fileOffset
+mov r1 0
+call int32set16
 label cpCopyLoopStart
 ; Read a byte from source
-mov r0 SyscallIdRead
+mov r0 SyscallIdRead32
 mov r1 sourceFd
 load8 r1 r1
+mov r2 fileOffset
 mov r3 cpScratchBuf
 mov r4 1
 syscall
@@ -98,9 +107,10 @@ cmp r0 r0 r0
 skipneqz r0
 jmp cpCopyLoopEnd
 ; Write byte
-mov r0 SyscallIdWrite
+mov r0 SyscallIdWrite32
 mov r1 destFd
 load8 r1 r1
+mov r2 fileOffset
 mov r3 cpScratchBuf
 mov r4 1
 syscall
@@ -108,7 +118,8 @@ cmp r0 r0 r0
 skipneqz r0
 jmp cpCopyLoopEnd
 ; Loop again to copy next byte
-inc r2
+mov r0 fileOffset
+call int32inc
 jmp cpCopyLoopStart
 label cpCopyLoopEnd
 

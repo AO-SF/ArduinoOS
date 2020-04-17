@@ -1,5 +1,7 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32add.s
+requireend lib/std/int32/int32set.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/str/strcmp.s
@@ -9,6 +11,7 @@ db dashStr '-',0
 ab argBuf PathMax
 ab pathBuf PathMax
 ab fd 1
+aw readOffset 2 ; 32 bit integer
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -88,13 +91,16 @@ skipneqz r1
 jmp error
 
 ; Read data from file, printing to stdout
-mov r2 0 ; loop index
+mov r0 readOffset
+mov r1 0
+call int32set16
 label catArgNLoopStart
 
 ; Read block (reusing pathBuf)
-mov r0 SyscallIdRead
+mov r0 SyscallIdRead32
 mov r1 fd
 load8 r1 r1
+mov r2 readOffset
 mov r3 pathBuf
 mov r4 PathMax
 syscall
@@ -117,7 +123,9 @@ skipneqz r0
 jmp catArgNLoopEnd
 
 ; Advance to next block
-add r2 r2 r4
+mov r0 readOffset
+mov r1 r4
+call int32add16
 jmp catArgNLoopStart
 label catArgNLoopEnd
 

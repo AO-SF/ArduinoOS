@@ -1,8 +1,5 @@
 require int32common.s
 
-requireend int32div.s
-requireend int32set.s
-
 ; int32mod32(x=r0, y=r1) - stores remainder of x/y into x (both operands pointers to 32 bit values)
 label int32mod32
 ; We could compute via x-(x/y)*x, but instead use division function which also returns remainder

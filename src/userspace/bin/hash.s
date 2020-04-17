@@ -1,5 +1,7 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32add.s
+requireend lib/std/int32/int32set.s
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputhex.s
@@ -10,6 +12,7 @@ ab argBuf PathMax
 ab pathBuf PathMax
 ab fd 1
 aw hash 1
+aw fileOffset 2 ; 32 bit int
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -70,15 +73,16 @@ mov r0 hash
 mov r1 5381
 store16 r0 r1
 
-mov r1 0 ; loop index
+mov r0 fileOffset
+mov r1 0
+call int32set16
 label hashArgNLoopStart
 
 ; Read character
 mov r0 fd
 load8 r0 r0
-push16 r1
-call fgetc
-pop16 r1
+mov r1 fileOffset
+call fgetc32
 
 ; Check for EOF
 mov r2 256
@@ -97,7 +101,8 @@ add r2 r2 r3
 store16 r4 r2
 
 ; Advance to next character
-inc r1
+mov r0 fileOffset
+call int32inc
 jmp hashArgNLoopStart
 label hashArgNLoopEnd
 

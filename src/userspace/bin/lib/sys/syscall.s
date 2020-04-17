@@ -73,6 +73,17 @@ const SyscallIdHwDeviceSdCardReaderUnmount 1796
 const SyscallIdHwDeviceDht22GetTemperature 1797
 const SyscallIdHwDeviceDht22GetHumidity 1798
 
+const SyscallIdInt32Add16 2048
+const SyscallIdInt32Add32 2049
+const SyscallIdInt32Sub16 2050
+const SyscallIdInt32Sub32 2051
+const SyscallIdInt32Mul16 2052
+const SyscallIdInt32Mul32 2053
+const SyscallIdInt32Div16 2054
+const SyscallIdInt32Div32 2055
+const SyscallIdInt32Shl 2056
+const SyscallIdInt32Shr 2057
+
 ; Exec flags
 const SyscallExecPathFlagLiteral 0
 const SyscallExecPathFlagSearch 1

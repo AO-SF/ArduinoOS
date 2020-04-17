@@ -1,5 +1,7 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32add.s
+requireend lib/std/int32/int32set.s
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
@@ -31,7 +33,7 @@ ab argc 1
 
 ab interactiveMode 1
 ab inputFd 1
-aw readOffset 1
+aw readOffset 2 ; 32 bit int
 
 ab runInBackground 1
 
@@ -144,7 +146,7 @@ call exit
 label shellRunFd
 mov r0 readOffset
 mov r1 0
-store16 r0 r1
+call int32set16
 label shellRunFdInputLoopStart
 
 ; Only print prompt in interactive mode
@@ -169,16 +171,16 @@ label shellRunFdInputPromptEnd
 mov r0 inputFd
 load8 r0 r0
 mov r1 readOffset
-load16 r1 r1
 mov r2 inputBuf
 mov r3 inputBufLen
-call fgets
+call fgets32
 
 ; Update read offset for next time
-mov r2 readOffset
-load16 r1 r2
-add r1 r1 r0
-store16 r2 r1
+push16 r0
+mov r1 r0
+mov r0 readOffset
+call int32add16
+pop16 r0
 
 ; If in file mode and empty read then EOF
 cmp r0 r0 r0

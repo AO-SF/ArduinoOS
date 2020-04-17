@@ -1,5 +1,7 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32add.s
+requireend lib/std/int32/int32set.s
 requireend lib/std/io/fputhex.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
@@ -10,6 +12,8 @@ db dashStr '-',0
 ab argBuf PathMax
 ab pathBuf PathMax
 ab fd 1
+
+aw fileOffset 2 ; 32 bit int
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -89,14 +93,16 @@ skipneqz r1
 jmp error
 
 ; Read data from file, printing to stdout
-mov r2 0 ; loop index
+mov r0 fileOffset
+mov r1 0
+call int32set16
 label hexDumpArgNLoopStart
 
 ; Read block (reusing pathBuf)
-mov r0 SyscallIdRead
+mov r0 SyscallIdRead32
 mov r1 fd
 load8 r1 r1
-; r2 is already set
+mov r2 fileOffset
 mov r3 pathBuf
 mov r4 PathMax
 syscall ; r0 now contains length of read block
@@ -107,20 +113,18 @@ skipneqz r4
 jmp hexDumpArgNLoopEnd
 
 ; Print block (r0 contains length)
-; Note: need to protect r0 and r2
+; Note: need to protect r0
 mov r1 0 ; r1 contains index to pathBuf
 label printLoopStart
 ; print block - load byte
 push8 r0
 push8 r1
-push16 r2
 mov r0 pathBuf
 add r0 r0 r1
 load8 r0 r0
 call puthex8
 mov r0 ' '
 call putc0
-pop16 r2
 pop8 r1
 pop8 r0
 ; print block - end of loop?
@@ -130,7 +134,9 @@ skipge r4
 jmp printLoopStart
 
 ; Advance to next block
-add r2 r2 r0
+mov r1 r0
+mov r0 fileOffset
+call int32add16
 jmp hexDumpArgNLoopStart
 label hexDumpArgNLoopEnd
 

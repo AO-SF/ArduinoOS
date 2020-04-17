@@ -36,14 +36,8 @@ label int32toStrLoopStart
 ; Divide x by 10 while making note of the remainder.
 push16 r0
 mov r0 int32toStrScratchInt32
-mov r1 Int32Const1E1
-mov r2 r6 ; use stack to store remainder
-inc4 r6
-call int32div32rem
-mov r0 r6
-dec4 r0
-call int32getLower16
-dec4 r6 ; restore stack as we are finished with the remainder
+mov r1 10
+call int32div16
 mov r1 r0
 pop16 r0
 ; Print digit to str (str ptr in r0, digit in r1)

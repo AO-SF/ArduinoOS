@@ -1,5 +1,6 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32str.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
@@ -10,6 +11,8 @@ db usageStr 'usage: truncate size file\n',0
 ab sizeArgBuf ArgLenMax
 ab pathArgBuf ArgLenMax
 ab pathAbsBuf ArgLenMax
+
+aw newSize 2 ; 32 bit integer
 
 ; Grab args
 mov r0 SyscallIdArgvN
@@ -28,9 +31,9 @@ skipneqz r0
 jmp usage
 
 ; Convert size to integer
-mov r0 sizeArgBuf
-call strtoint
-push8 r0
+mov r0 newSize
+mov r1 sizeArgBuf
+call int32fromStr
 
 ; Make path absolute
 mov r0 pathAbsBuf
@@ -38,9 +41,9 @@ mov r1 pathArgBuf
 call getabspath
 
 ; Resize file
-mov r0 SyscallIdResizeFile
+mov r0 SyscallIdResizeFile32
 mov r1 pathAbsBuf
-pop8 r2
+mov r2 newSize
 syscall
 
 cmp r0 r0 r0

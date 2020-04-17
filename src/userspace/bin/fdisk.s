@@ -12,6 +12,7 @@ requireend lib/std/proc/getabspath.s
 requireend lib/std/int32/int32endianness.s
 requireend lib/std/int32/int32fput.s
 requireend lib/std/int32/int32mul.s
+requireend lib/std/int32/int32shift.s
 
 const MagicByte0 85 ; 0x55
 const MagicByte1 170 ; 0xAA
