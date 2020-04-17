@@ -69,3 +69,26 @@ ret
 label fgetcDone
 pop8 r0 ; pop read character off stack
 ret
+
+; r0=fgetc32(fd=r0, offsetPtr=r1), returns 256 on failure
+label fgetc32
+; read single character onto stack
+mov r2 r1
+mov r1 r0
+mov r0 SyscallIdRead32
+mov r3 r6
+inc r6
+mov r4 1
+syscall
+; check for failure
+cmp r0 r0 r0
+skipeqz r0
+jmp fgetc32Done
+; failed
+dec r6 ; fix stack
+mov r0 256
+ret
+; success
+label fgetc32Done
+pop8 r0 ; pop read character off stack
+ret
