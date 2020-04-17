@@ -60,6 +60,7 @@ echo "	Creating /home mockup..."
 cp -R ./src/userspace/home ./tmp/mockups/usrbinmockup
 ./bin/aosf-asm ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/aosf-asm ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
+./bin/aosf-asm ./src/userspace/bin/pipetest.s ./tmp/mockups/homemockup/pipetest
 
 echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/burn.s ./tmp/mockups/usrbinmockup/burn
