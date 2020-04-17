@@ -57,7 +57,6 @@ cp ./src/userspace/bin/shutdown.sh ./tmp/mockups/etcmockup/shutdown
 
 echo "	Creating /home mockup..."
 ./bin/aosf-asm ./src/userspace/bin/fib.s ./tmp/mockups/homemockup/fib
-./bin/aosf-asm ./src/userspace/bin/fib32.s ./tmp/mockups/homemockup/fib32
 cp -R ./src/userspace/home ./tmp/mockups/usrbinmockup
 ./bin/aosf-asm ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/aosf-asm ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
