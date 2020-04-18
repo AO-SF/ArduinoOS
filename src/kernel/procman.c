@@ -466,7 +466,7 @@ void procManProcessKill(ProcManPid pid, ProcManExitStatus exitStatus, ProcManPro
 
 	// Write to log
 	if (procData!=NULL)
-		kernelLog(LogTypeInfo, kstrP("killed process %u (post-IP=%u)\n"), pid, procData->regs[BytecodeRegisterIP]);
+		kernelLog(LogTypeInfo, kstrP("killed process %u (post-IP=%u=0x%04X)\n"), pid, procData->regs[BytecodeRegisterIP], procData->regs[BytecodeRegisterIP]);
 	else
 		kernelLog(LogTypeInfo, kstrP("killed process %u\n"), pid);
 
