@@ -8,6 +8,10 @@ call strlen
 mov r1 r0
 pop16 r0
 
+cmp r2 r1 r1
+skipneqz r2
+jmp strtrimnewlineend
+
 add r2 r0 r1
 dec r2
 
@@ -20,4 +24,5 @@ mov r3 0
 skipneq r4
 store8 r2 r3
 
+label strtrimnewlineend
 ret
