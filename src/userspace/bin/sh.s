@@ -182,16 +182,11 @@ mov r0 readOffset
 call int32add16
 pop16 r0
 
-; If in file mode and empty read then EOF
+; If empty read then EOF
 cmp r0 r0 r0
 skipeqz r0
 jmp shellRunFdInputNoEof
-mov r0 interactiveMode
-load8 r0 r0
-cmp r0 r0 r0
-skipeqz r0
-jmp shellRunFdInputNoEof
-mov r0 1 ; continue
+mov r0 1 ; continue onto next input file
 ret
 label shellRunFdInputNoEof
 
