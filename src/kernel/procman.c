@@ -859,12 +859,12 @@ bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcDat
 	assert(procData!=NULL);
 	assert(value!=NULL);
 
-	uint8_t upper, lower;
-	if (!procManProcessMemoryReadByte(process, procData, addr, &upper))
+	uint8_t parts[2];
+	if (!procManProcessMemoryReadBlock(process, procData, addr, parts, 2, true))
 		return false;
-	if (!procManProcessMemoryReadByte(process, procData, addr+1, &lower))
-		return false;
-	*value=(((BytecodeWord)upper)<<8)|((BytecodeWord)lower);
+
+	*value=(((BytecodeWord)parts[0])<<8)|((BytecodeWord)parts[1]);
+
 	return true;
 }
 
@@ -873,12 +873,12 @@ bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessP
 	assert(procData!=NULL);
 	assert(value!=NULL);
 
-	uint16_t upper, lower;
-	if (!procManProcessMemoryReadWord(process, procData, addr, &upper))
+	uint8_t parts[4];
+	if (!procManProcessMemoryReadBlock(process, procData, addr, parts, 4, true))
 		return false;
-	if (!procManProcessMemoryReadWord(process, procData, addr+2, &lower))
-		return false;
-	*value=(((BytecodeDoubleWord)upper)<<16)|((BytecodeDoubleWord)lower);
+
+	*value=(((BytecodeDoubleWord)parts[0])<<24)|(((BytecodeDoubleWord)parts[1])<<16)|(((BytecodeDoubleWord)parts[2])<<8)|((BytecodeDoubleWord)parts[3]);
+
 	return true;
 }
 
@@ -936,12 +936,12 @@ bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcMa
 	assert(procData!=NULL);
 	assert(value!=NULL);
 
-	uint8_t upper, lower;
-	if (!procManProcessMemoryReadByteAtRamfileOffset(process, procData, offset, &upper))
+	uint8_t parts[2];
+	if (!procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, parts, 2, true))
 		return false;
-	if (!procManProcessMemoryReadByteAtRamfileOffset(process, procData, offset+1, &lower))
-		return false;
-	*value=(((BytecodeWord)upper)<<8)|((BytecodeWord)lower);
+
+	*value=(((BytecodeWord)parts[0])<<8)|((BytecodeWord)parts[1]);
+
 	return true;
 }
 
@@ -993,22 +993,16 @@ bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcDa
 	assert(process!=NULL);
 	assert(procData!=NULL);
 
-	if (!procManProcessMemoryWriteByte(process, procData, addr, (value>>8)))
-		return false;
-	if (!procManProcessMemoryWriteByte(process, procData, addr+1, (value&0xFF)))
-		return false;
-	return true;
+	uint8_t data[2]={value>>8, value&255};
+	return procManProcessMemoryWriteBlock(process, procData, addr, data, 2);
 }
 
 bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord value) {
 	assert(process!=NULL);
 	assert(procData!=NULL);
 
-	if (!procManProcessMemoryWriteWord(process, procData, addr, (value>>16)))
-		return false;
-	if (!procManProcessMemoryWriteWord(process, procData, addr+2, (value&0xFFFF)))
-		return false;
-	return true;
+	uint8_t data[4]={(value>>24)&255, (value>>16)&255, (value>>8)&255, value&255};
+	return procManProcessMemoryWriteBlock(process, procData, addr, data, 4);
 }
 
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str) {
