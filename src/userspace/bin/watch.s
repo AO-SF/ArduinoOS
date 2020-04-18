@@ -8,7 +8,7 @@ requireend lib/std/proc/waitpid.s
 requireend lib/std/str/strtoint.s
 requireend lib/std/time/sleep.s
 
-db usageStr 'usage: watch interval cmd cmdArg\n', 0
+db usageStr 'usage: watch interval program [programarg1 [programarg2 ...]]\n', 0
 db forkErrorStr 'could not fork\n', 0
 db emptyStr 0
 
