@@ -10,40 +10,34 @@ requireend lib/std/str/strtoint.s
 db usageStr 'usage: setpin pin state\n',0
 db badPinStr 'Bad pin\n',0
 
-ab pinArgBuf ArgLenMax
-ab stateArgBuf ArgLenMax
-
-; Grab args
+; Grab pin arg and convert to integer
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 pinArgBuf
 syscall
-cmp r0 r0 r0
-skipneqz r0
-jmp usage
-mov r0 SyscallIdArgvN
-mov r1 2
-mov r2 stateArgBuf
-syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usage
 
-; Convert args to integers
-mov r0 pinArgBuf
 call strtopin
-
 push8 r0 ; protect pinNum
+
 call pinvalid
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp badPin ; no need to restore stack as we will exit very soon
 
-mov r0 stateArgBuf
-call strtoint
-mov r1 r0
+; Grab state arg and convert to integer
+mov r0 SyscallIdArgvN
+mov r1 2
+syscall
+cmp r1 r0 r0
+skipneqz r1
+jmp usage
 
-pop8 r0 ; restore pinNum
+call strtoint
+
+mov r1 r0 ; place state into r1
+pop8 r0 ; restore pinNum into r0
 
 ; Use pin library to set state
 call pinset

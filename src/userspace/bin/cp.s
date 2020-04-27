@@ -18,37 +18,35 @@ ab destArg PathMax
 ab sourceFd 1
 ab destFd 1
 
-ab cpScratchBuf PathMax
+ab copyBuf PathMax
 
 aw fileOffset 2 ; 32 bit integer
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
 
-; Get source and dest arguments
+; Get source argument and call getpath on it
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 sourceArg
-mov r3 PathMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
-jmp showUsage
-mov r0 SyscallIdArgvN
-mov r1 2
-mov r2 destArg
-mov r3 PathMax
-syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp showUsage
 
-; Call getpath on source path
-mov r0 cpScratchBuf
-mov r1 sourceArg
-call strcpy
+mov r1 r0
 mov r0 sourceArg
-mov r1 cpScratchBuf
+call getpath
+
+; Get dest argument and call getpath on it
+mov r0 SyscallIdArgvN
+mov r1 2
+syscall
+cmp r1 r0 r0
+skipneqz r1
+jmp showUsage
+
+mov r1 r0
+mov r0 destArg
 call getpath
 
 ; Open source file
@@ -60,14 +58,6 @@ skipneqz r1
 jmp couldNotOpenSource
 mov r1 sourceFd
 store8 r1 r0
-
-; Call getpath on dest path
-mov r0 cpScratchBuf
-mov r1 destArg
-call strcpy
-mov r0 destArg
-mov r1 cpScratchBuf
-call getpath
 
 ; Create/resize dest path
 mov r0 SyscallIdGetFileLen32
@@ -100,7 +90,7 @@ mov r0 SyscallIdRead32
 mov r1 sourceFd
 load8 r1 r1
 mov r2 fileOffset
-mov r3 cpScratchBuf
+mov r3 copyBuf
 mov r4 1
 syscall
 cmp r0 r0 r0
@@ -111,7 +101,7 @@ mov r0 SyscallIdWrite32
 mov r1 destFd
 load8 r1 r1
 mov r2 fileOffset
-mov r3 cpScratchBuf
+mov r3 copyBuf
 mov r4 1
 syscall
 cmp r0 r0 r0

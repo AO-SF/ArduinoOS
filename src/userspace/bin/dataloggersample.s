@@ -21,29 +21,24 @@ db usageStr 'usage: sensorhwdeviceslot datafile\n',0
 ; Grab first argument as DHT22 sensor device slot
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 buf
-mov r3 ArgLenMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usage
 
-mov r0 buf
 call strtoint
 push8 r0 ; protect device slot
 
 ; Grab data file path argument
 mov r0 SyscallIdArgvN
 mov r1 2
-mov r2 buf
-mov r3 ArgLenMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usage
 
+mov r1 r0
 mov r0 outputPath
-mov r1 buf
 call getabspath
 
 ; Read temperature and humidity values into buffer

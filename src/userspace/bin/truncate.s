@@ -8,36 +8,34 @@ requireend lib/std/str/strtoint.s
 
 db usageStr 'usage: truncate size file\n',0
 
-ab sizeArgBuf ArgLenMax
-ab pathArgBuf ArgLenMax
 ab pathAbsBuf ArgLenMax
 
 aw newSize 2 ; 32 bit integer
 
-; Grab args
+; Grab size arg and convert to integer
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 sizeArgBuf
 syscall
-cmp r0 r0 r0
-skipneqz r0
-jmp usage
-mov r0 SyscallIdArgvN
-mov r1 2
-mov r2 pathArgBuf
-syscall
-cmp r0 r0 r0
-skipneqz r0
+
+cmp r1 r0 r0
+skipneqz r1
 jmp usage
 
-; Convert size to integer
+mov r1 r0
 mov r0 newSize
-mov r1 sizeArgBuf
 call int32fromStr
 
-; Make path absolute
+; Grab path argument and make absolute
+mov r0 SyscallIdArgvN
+mov r1 2
+syscall
+
+cmp r1 r0 r0
+skipneqz r1
+jmp usage
+
+mov r1 r0
 mov r0 pathAbsBuf
-mov r1 pathArgBuf
 call getabspath
 
 ; Resize file

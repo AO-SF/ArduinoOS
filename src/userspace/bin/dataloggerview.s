@@ -32,29 +32,25 @@ store8 r0 r1
 ; Grab data file path argument
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 scratchBuf
-mov r3 ArgLenMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usage
 
+mov r1 r0
 mov r0 pathBuf
-mov r1 scratchBuf
 call getabspath
 
 ; Grab sample num argument
 mov r0 SyscallIdArgvN
 mov r1 2
-mov r2 scratchBuf
-mov r3 ArgLenMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usage
 
+mov r1 r0
 mov r0 sampleNum
-mov r1 scratchBuf
 call int32fromStr
 
 ; Open data file
