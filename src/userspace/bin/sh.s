@@ -155,9 +155,7 @@ skipneqz r0
 jmp shellRunFdInputPromptEnd
 
 ; Print pwd (reuse inputBuf to save space)
-mov r0 inputBuf
 call getpwd
-mov r0 inputBuf
 call puts0
 
 ; Print prompt

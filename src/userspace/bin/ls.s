@@ -4,6 +4,7 @@ requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/getpwd.s
+requireend lib/std/str/strcpy.s
 requireend lib/std/str/strlen.s
 
 ab queryDir PathMax
@@ -28,8 +29,10 @@ call getabspath
 jmp gotArg
 
 label noArg
-mov r0 queryDir
 call getpwd
+mov r1 r0
+mov r0 queryDir
+call strcpy
 label gotArg
 
 ; Attempt to open queryDir
