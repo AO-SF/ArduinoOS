@@ -668,7 +668,8 @@ bool processRunNextInstruction(Process *process) {
 						} break;
 						case BytecodeSyscallIdEnvGetPwd:
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [envgetpwd] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdEnvSetPwd:
 							if (infoSyscalls)
@@ -676,7 +677,8 @@ bool processRunNextInstruction(Process *process) {
 						break;
 						case BytecodeSyscallIdEnvGetPath:
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [envgetpath] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdEnvSetPath:
 							if (infoSyscalls)
