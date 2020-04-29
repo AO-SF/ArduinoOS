@@ -15,8 +15,7 @@ skipneqz r1
 jmp usage
 
 call strtoint
-
-mov r3 r0
+push8 r0
 
 ; Grab signalid from second argument and convert to integer
 mov r0 SyscallIdArgvN
@@ -30,7 +29,7 @@ call strtoint
 
 ; Invoke syscall to send signal
 mov r2 r0 ; set signal id as 2nd arg
-mov r1 r3 ; set process pid as 1st arg
+pop8 r1 ; set process pid as 1st arg
 mov r0 SyscallIdSignal
 syscall
 
