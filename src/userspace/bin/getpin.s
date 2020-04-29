@@ -14,6 +14,7 @@ db offStr 'off\n',0
 ; Grab arg
 mov r0 SyscallIdArgvN
 mov r1 1
+syscall
 cmp r1 r0 r0
 skipneqz r1
 jmp usage
