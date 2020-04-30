@@ -35,13 +35,11 @@ jmp getpathMakeAbsoluteNoStackRestore
 ; look for directories in PATH environment variable
 mov r2 r0
 mov r3 r1
-mov r1 r6 ; use stack to store PATH
-mov r0 EnvVarPathMax
-add r6 r6 r0
 mov r0 SyscallIdEnvGetPath
 syscall
+mov r1 r0
 mov r0 r2
-mov r2 r1
+mov r2 r1 ; PATH now in r2
 mov r1 r3
 label getpathPATHLoopStart
 ; look for colon indicating end of path dir
@@ -95,8 +93,6 @@ jmp getpathPATHLoopContinue
 ; it does - copy path into dest in r0
 mov r1 getpathScratchBuf
 call strcpy
-mov r4 EnvVarPathMax ; restore stack
-sub r6 r6 r4
 ret
 ; it does not - update offset in r2 for next time and loop again
 label getpathPATHLoopContinue
@@ -106,8 +102,6 @@ jmp getpathPATHLoopStart
 ; Otherwise make sure dest path is absolute
 label getpathMakeAbsoluteStackRestore
 call getabspath
-mov r4 EnvVarPathMax ; restore stack
-sub r6 r6 r4
 ret
 label getpathMakeAbsoluteNoStackRestore
 call getabspath

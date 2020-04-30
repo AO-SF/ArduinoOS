@@ -8,7 +8,6 @@ requireend lib/std/str/strcmp.s
 
 db dashStr '-',0
 
-ab argBuf PathMax
 ab pathBuf PathMax
 ab fd 1
 aw readOffset 2 ; 32 bit integer
@@ -38,21 +37,20 @@ label catArgN
 ; Get arg
 mov r1 r0
 mov r0 SyscallIdArgvN
-mov r2 argBuf
-mov r3 PathMax
 syscall
 
 ; No arg found?
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp error
 
 ; Check for dash to mean use stdin
-mov r0 argBuf
+push16 r0
 mov r1 dashStr
 call strcmp
-cmp r0 r0 r0
-skipeqz r0
+cmp r1 r0 r0
+pop16 r0
+skipeqz r1
 jmp catArgNSetupFdPath
 jmp catArgNSetupFdStdin
 
@@ -67,8 +65,8 @@ jmp catArgNSetupFdCommon
 
 ; Path given - make absolute
 label catArgNSetupFdPath
+mov r1 r0
 mov r0 pathBuf
-mov r1 argBuf
 call getabspath
 
 ; Open file and store fd

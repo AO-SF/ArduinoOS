@@ -6,21 +6,19 @@ requireend lib/std/proc/getpath.s
 
 db usageErrorStr 'usage: unmount dir\n',0
 
-ab scratchBuf PathMax
-
 ab dirPath PathMax
 
 ; Read dir argument
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 scratchBuf
-mov r3 PathMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+
+cmp r1 r0 r0
+skipneqz r1
 jmp usageerror
+
+mov r1 r0
 mov r0 dirPath
-mov r1 scratchBuf
 call getpath
 
 ; Invoke unmount syscall

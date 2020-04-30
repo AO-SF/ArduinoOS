@@ -1,4 +1,5 @@
 require ../str/strcat.s
+require ../str/strcpy.s
 require getpwd.s
 
 db libprocSlashStr '/', 0
@@ -18,11 +19,15 @@ skipneq r2
 jmp getabspathnext ; already has a '/', continue
 
 ; Add pwd
-push16 r0
 push16 r1
+push16 r0
 call getpwd
-pop16 r1
+mov r1 r0
 pop16 r0
+push16 r0
+call strcpy
+pop16 r0
+pop16 r1
 
 ; Add '/'
 push16 r0

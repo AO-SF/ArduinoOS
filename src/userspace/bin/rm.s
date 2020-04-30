@@ -7,21 +7,19 @@ requireend lib/std/proc/getpath.s
 db usageStr 'usage: rm PATH\n', 0
 
 ab pathArg PathMax
-ab rmScratchBuf PathMax
 
 ; Get path argument
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 rmScratchBuf
-mov r3 PathMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+
+cmp r1 r0 r0
+skipneqz r1
 jmp showUsage
 
 ; Call getpath
+mov r1 r0
 mov r0 pathArg
-mov r1 rmScratchBuf
 call getpath
 
 ; Invoke delete syscall

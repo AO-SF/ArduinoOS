@@ -40,7 +40,7 @@ db fdiskMemPrintGbStr 'gb',0
 
 aw fdiskMemPrintRemainder 2
 
-ab scratchBuf PathMax ; used to grab path argument, and also to hold partition table entries (hence size of MAX(16,PathMax))
+ab entry 16 ; used to hold partition table entries
 ab pathBuf PathMax
 ab fd 1
 
@@ -52,16 +52,14 @@ store8 r0 r1
 ; Grab argument
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 scratchBuf
-mov r3 PathMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp showUsage
 
 ; Ensure path is absolute
+mov r1 r0
 mov r0 pathBuf
-mov r1 scratchBuf
 call getabspath
 
 ; Open disk
@@ -157,7 +155,7 @@ mov r2 16
 mul r1 r1 r2
 mov r2 446
 add r1 r1 r2
-mov r2 scratchBuf
+mov r2 entry
 mov r3 16 ; each entry is 16 bytes
 call fread
 mov r1 16
@@ -168,7 +166,7 @@ jmp fdiskPrintEntryReadError
 ; Print attributes (byte 0)
 mov r0 partitionAttributesStr
 call puts0
-mov r0 scratchBuf
+mov r0 entry
 load8 r0 r0
 call puthex8
 mov r0 '\n'
@@ -177,7 +175,7 @@ call putc0
 ; Print type (byte 4)
 mov r0 partitionTypeStr
 call puts0
-mov r0 scratchBuf
+mov r0 entry
 inc4 r0
 load8 r0 r0
 call puthex8
@@ -187,10 +185,10 @@ call putc0
 ; Print sectors (bytes 12-15, little endian)
 mov r0 partitionSectorsStr
 call puts0
-mov r0 scratchBuf
+mov r0 entry
 inc12 r0
 call int32SwapEndianness
-mov r0 scratchBuf
+mov r0 entry
 inc12 r0
 call int32put0
 mov r0 '\n'
@@ -199,10 +197,10 @@ call putc0
 ; Print start sector (bytes 8-11, little endian)
 mov r0 partitionStartSectorStr
 call puts0
-mov r0 scratchBuf
+mov r0 entry
 inc8 r0
 call int32SwapEndianness
-mov r0 scratchBuf
+mov r0 entry
 inc8 r0
 call int32put0
 mov r0 '\n'
@@ -211,7 +209,7 @@ call putc0
 ; Print size in human readable form
 mov r0 partitionSizeStr
 call puts0
-mov r0 scratchBuf
+mov r0 entry
 inc12 r0
 call fdiskMemPrint
 mov r0 '\n'

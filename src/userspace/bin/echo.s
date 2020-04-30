@@ -3,60 +3,38 @@ require lib/sys/sys.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 
-ab buf ArgLenMax
-
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
 
-; Get argc
-mov r0 SyscallIdArgc
-syscall
-push8 r0
-
 ; Init ready for loop
-mov r4 1
+mov r1 1
 
 label loopstart
 
-; Check if hit argc
-pop8 r0
-push8 r0
-cmp r0 r0 r4
-skipneq r0
-jmp loopend
-
-; Do we need to print a space?
+; Print space if needed
 mov r0 1
-cmp r0 r4 r0
-skipgt r0
-jmp skipspace
-
-; Print space
-push8 r0
-push8 r4
+cmp r2 r1 r0
 mov r0 ' '
+push8 r1
+skiple r2
 call putc0
-pop8 r4
-pop8 r0
-label skipspace
+pop8 r1
 
 ; Get arg
 mov r0 SyscallIdArgvN
-mov r1 r4
-mov r2 buf
-mov r3 ArgLenMax
 syscall
 
+cmp r2 r0 r0
+skipneqz r2
+jmp loopend
+
 ; Write out arg
-push8 r0
-push8 r4
-mov r0 buf
+push8 r1
 call puts0
-pop8 r4
-pop8 r0
+pop8 r1
 
 ; Move onto next argument
-inc r4
+inc r1
 jmp loopstart
 
 label loopend

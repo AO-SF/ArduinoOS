@@ -35,6 +35,8 @@
 #define ProcManPipeSize 128
 #define ProcManMaxPipes 64
 
+#define ProcManEnvVarsVirtualOffset ((BytecodeWord)64512u) // =63k - we map things like argv in to last 1kb of process memory
+
 typedef enum {
 	ProcManProcessStateUnused,
 	ProcManProcessStateActive,
@@ -59,10 +61,9 @@ struct ProcManProcessProcData {
 	// as localfd=0 is invalid we need one less entry than it would seem
 	KernelFsFd fds[ProcManMaxFds-1];
 
-	// The following fields are pointers into the start of the ramFd file.
-	// The arguments are fixed, but pwd and path may be updated later by the process itself to point to new strings, beyond the initial read-only section (and so need a full 16 bit offset).
-	uint8_t argc; // argument count
-	uint8_t argvStart; // ptr to start of char array representing 1st arg, followed directly by one for 2nd arg, etc
+	uint8_t argc; // argument count (argv is stored with pwd and path in 'pre-space' in ram file)
+
+	// The following fields are pointers into the the process memory space.
 	uint16_t pwd; // set to '/' when init is called
 	uint16_t path; // set to '/usr/games:/usr/bin:/bin:' when init is called
 };
@@ -147,17 +148,14 @@ bool procManProcessMemoryReadWord(ProcManProcess *process, ProcManProcessProcDat
 bool procManProcessMemoryReadDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord *value);
 bool procManProcessMemoryReadStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, char *str, uint16_t len);
 bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t *data, uint16_t len, bool verbose); // block should not cross split in memory between two types
-bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value);
-bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value);
-bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, char *str, uint16_t len);
-bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose);
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value);
 bool procManProcessMemoryWriteWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeWord value);
 bool procManProcessMemoryWriteDoubleWord(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, BytecodeDoubleWord value);
 bool procManProcessMemoryWriteStr(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const char *str);
 bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, const uint8_t *data, uint16_t len); // Note: addr with len should not cross over the boundary between the two parts of memory.
 
-bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]); // Returns false to indicate illegal memory operation. Always succeeds otherwise, but str may be 0 length.
+bool procManProcessGetArgvNAddr(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, BytecodeWord *addr); // Sets addr to 0 to indicate no such arg
+bool procManProcessGetArgvNStr(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char *str);
 
 bool procManProcessGetInstruction(ProcManProcess *process, ProcManProcessProcData *procData, ProcManPrefetchData *prefetchData, BytecodeInstruction3Byte *instruction);
 bool procManProcessExecInstruction(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeInstruction3Byte instruction, ProcManPrefetchData *prefetchData, ProcManExitStatus *exitStatus);
@@ -278,25 +276,25 @@ ProcManPid procManProcessNew(const char *programPath) {
 	// Create env vars data
 	uint8_t envVarDataLen=0;
 
+	procData.argc=argc;
+	assert(envVarDataLen==0); // always place argv at the start so we dont have to store an offset (given that argv can never change once after process creation, unlike the other env vars)
+	int argvTotalSize=procManArgvStringGetTotalSize(argc, argvStart);
+	memcpy(envVarData+envVarDataLen, argvStart, argvTotalSize);
+	envVarDataLen+=argvTotalSize;
+
 	char tempPwd[KernelFsPathMax];
 	strcpy(tempPwd, programPath);
 	char *dirname, *basename;
 	kernelFsPathSplit(tempPwd, &dirname, &basename);
 	assert(dirname==tempPwd);
-	procData.pwd=envVarDataLen;
+	procData.pwd=ProcManEnvVarsVirtualOffset+envVarDataLen;
 	strcpy(envVarData+envVarDataLen, dirname);
 	envVarDataLen+=strlen(dirname)+1;
 
 	strcpy(tempPath, "/usr/games:/usr/bin:/bin:");
-	procData.path=envVarDataLen;
+	procData.path=ProcManEnvVarsVirtualOffset+envVarDataLen;
 	strcpy(envVarData+envVarDataLen, tempPath);
 	envVarDataLen+=strlen(tempPath)+1;
-
-	procData.argc=argc;
-	procData.argvStart=envVarDataLen;
-	int argvTotalSize=procManArgvStringGetTotalSize(argc, argvStart);
-	memcpy(envVarData+envVarDataLen, argvStart, argvTotalSize);
-	envVarDataLen+=argvTotalSize;
 
 	// Attempt to create proc and ram files
 	if (!kernelFsFileCreateWithSize(procPath, sizeof(ProcManProcessProcData))) {
@@ -916,70 +914,37 @@ bool procManProcessMemoryReadBlock(ProcManProcess *process, ProcManProcessProcDa
 	} else if (addr>=BytecodeMemoryRamAddr) {
 		// Address is in RAM
 		BytecodeWord ramIndex=(addr-BytecodeMemoryRamAddr);
-		KernelFsFileOffset ramOffset=ramIndex+procData->envVarDataLen;
-		return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, ramOffset, data, len, verbose);
+		if (ramIndex<procData->ramLen) {
+			// Standard RAM
+			if (kernelFsFileReadOffset(procData->ramFd, ramIndex+procData->envVarDataLen, data, len)!=len) {
+				if (verbose)
+					kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (0x%04X, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, len);
+				return false;
+			}
+			return true;
+		} else if (addr>=ProcManEnvVarsVirtualOffset) {
+			// Specially mapped top 1kb of RAM (which is actually located at the start of the ram file)
+			BytecodeWord offset=(addr-ProcManEnvVarsVirtualOffset);
+			if (offset<procData->envVarDataLen) {
+				if (kernelFsFileReadOffset(procData->ramFd, offset, data, len)!=len) {
+					if (verbose)
+						kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (0x%04X, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, len);
+					return false;
+				}
+				return true;
+			} else {
+				if (verbose)
+					kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (0x%04X, len %u, but EnvVarData size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, len, procData->envVarDataLen);
+				return false;
+			}
+		} else {
+			if (verbose)
+				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (0x%04X, len %u, but RAM size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, len, procData->ramLen);
+			return false;
+		}
 	} else
 		// Block spans both regions of memory, invalid call.
 		return false;
-}
-
-bool procManProcessMemoryReadByteAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *value) {
-	assert(process!=NULL);
-	assert(procData!=NULL);
-	assert(value!=NULL);
-
-	return procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, value, 1, true);
-}
-
-bool procManProcessMemoryReadWordAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, BytecodeWord *value) {
-	assert(process!=NULL);
-	assert(procData!=NULL);
-	assert(value!=NULL);
-
-	uint8_t parts[2];
-	if (!procManProcessMemoryReadBlockAtRamfileOffset(process, procData, offset, parts, 2, true))
-		return false;
-
-	*value=(((BytecodeWord)parts[0])<<8)|((BytecodeWord)parts[1]);
-
-	return true;
-}
-
-bool procManProcessMemoryReadStrAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, char *str, uint16_t len) {
-	assert(process!=NULL);
-	assert(procData!=NULL);
-	assert(str!=NULL);
-
-	while(len-->0) {
-		uint8_t c;
-		if (!procManProcessMemoryReadByteAtRamfileOffset(process, procData, offset++, &c))
-			return false;
-		*str++=c;
-		if (c=='\0')
-			break;
-	}
-
-	return true;
-}
-
-bool procManProcessMemoryReadBlockAtRamfileOffset(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord offset, uint8_t *data, uint16_t len, bool verbose) {
-	assert(process!=NULL);
-	assert(procData!=NULL);
-	assert(data!=NULL);
-
-	KernelFsFileOffset ramTotalSize=procData->envVarDataLen+procData->ramLen;
-	if (offset+len<=ramTotalSize) {
-		if (kernelFsFileReadOffset(procData->ramFd, offset, data, len)!=len) {
-			if (verbose)
-				kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read valid address (RAM file offset %u, len %u) but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len);
-			return false;
-		}
-		return true;
-	} else {
-		if (verbose)
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to read invalid address (RAM file offset %u, len %u, but size is only %u), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), offset, len, ramTotalSize);
-		return false;
-	}
 }
 
 bool procManProcessMemoryWriteByte(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord addr, uint8_t value) {
@@ -1031,8 +996,17 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 	// addr is in RAM
 	BytecodeWord ramIndex=(addr-BytecodeMemoryRamAddr);
 	if (ramIndex+len<procData->ramLen) {
+		// Standard RAM
 		if (kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, data, len)!=len) {
-			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to valid RAM address (0x%04X, ram offset %u, len %u), but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, len);
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to valid RAM address (0x%04X, len %u), but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, len);
+			return false;
+		}
+		return true;
+	} else if (addr>=ProcManEnvVarsVirtualOffset) {
+		// Special upper 1kb of RAM (mapped from start of file)
+		BytecodeWord offset=addr-ProcManEnvVarsVirtualOffset;
+		if (kernelFsFileWriteOffset(procData->ramFd, offset, data, len)!=len) {
+			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to valid RAM address (0x%04X, len %u), but failed, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, len);
 			return false;
 		}
 		return true;
@@ -1075,7 +1049,7 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 			goto error;
 		}
 
-		// Update stored ram len and write byte
+		// Update stored ram len and write data
 		procData->ramLen=newRamLen;
 		if (kernelFsFileWriteOffset(procData->ramFd, procData->envVarDataLen+ramIndex, data, len)!=len) {
 			kernelLog(LogTypeWarning, kstrP("process %u (%s) tried to write to RAM (0x%04X, offset %u, len %u) had to resize (%u vs %u), but could not write, killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), addr, ramIndex, len, newRamLen, oldRamLen);
@@ -1091,39 +1065,65 @@ bool procManProcessMemoryWriteBlock(ProcManProcess *process, ProcManProcessProcD
 	}
 }
 
-bool procManProcessGetArgvN(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char str[ProcManArgLenMax]) {
+bool procManProcessGetArgvNAddr(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, BytecodeWord *addr) {
 	assert(process!=NULL);
 	assert(procData!=NULL);
-
-	char *dest=str;
+	assert(addr!=NULL);
 
 	// Check n is sensible
 	if (n>=ARGVMAX || n>=procData->argc) {
-		*dest='\0';
+		*addr=0;
 		return true;
 	}
 
-	// Grab argument
-	// Note that we have to loop over all args to find the one in question
-	uint16_t index=procData->argvStart;
-	while(1) {
+	// Loop over args until we find the start of the one asked for
+	*addr=ProcManEnvVarsVirtualOffset;
+	while(n>0) {
 		// Read a character
 		uint8_t c;
-		if (kernelFsFileReadOffset(procData->ramFd, index, &c, 1)!=1) {
+		if (!procManProcessMemoryReadByte(process, procData, (*addr)++, &c)) {
 			kernelLog(LogTypeWarning, kstrP("corrupt argvdata or ram file more generally? Process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			return false;
 		}
 
-		// Is this character part of the arg that was asked for?
-		if (n==0) {
-			*dest++=c;
-			if (c=='\0')
-				break;
+		// If hit terminator then next character will be start of a new argument
+		if (c=='\0')
+			--n;
+	}
+
+	return true;
+}
+
+bool procManProcessGetArgvNStr(ProcManProcess *process, ProcManProcessProcData *procData, uint8_t n, char *str) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(str!=NULL);
+
+	// Check n is sensible
+	if (n>=ARGVMAX || n>=procData->argc) {
+		strcpy(str, "");
+		return true;
+	}
+
+	// Loop over args until we find the start of the one asked for
+	BytecodeWord addr=ProcManEnvVarsVirtualOffset;
+	while(n>0) {
+		// Read a character
+		uint8_t c;
+		if (!procManProcessMemoryReadByte(process, procData, addr++, &c)) {
+			kernelLog(LogTypeWarning, kstrP("corrupt argvdata or ram file more generally? Process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			return false;
 		}
 
-		// Advance to next character, potentially updating n if we have read a whole argument
-		++index;
-		n-=(c=='\0');
+		// If hit terminator then next character will be start of a new argument
+		if (c=='\0')
+			--n;
+	}
+
+	// Copy found argv into given str pointer
+	if (!procManProcessMemoryReadStr(process, procData, addr, str, UINT16_MAX)) {
+		kernelLog(LogTypeWarning, kstrP("corrupt argvdata or ram file more generally? Process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+		return false;
 	}
 
 	return true;
@@ -1438,22 +1438,10 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 		break;
 		case BytecodeSyscallIdGetArgVN: {
 			uint8_t n=procData->regs[1];
-			BytecodeWord bufAddr=procData->regs[2];
-			// TODO: Use this: BytecodeWord bufLen=procData->regs[3];
 
-			if (n>=procData->argc)
-				procData->regs[0]=0;
-			else {
-				char arg[ProcManArgLenMax];
-				if (!procManProcessGetArgvN(process, procData, n, arg)) {
-					kernelLog(LogTypeWarning, kstrP("failed during getargvn syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
-				if (!procManProcessMemoryWriteStr(process, procData, bufAddr, arg)) {
-					kernelLog(LogTypeWarning, kstrP("failed during getargvn syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-					return false;
-				}
-				procData->regs[0]=strlen(arg);
+			if (!procManProcessGetArgvNAddr(process, procData, n, &procData->regs[0])) {
+				kernelLog(LogTypeWarning, kstrP("failed during exec getargvn, n=%u, process %u (%s), killing\n"), n, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
 			}
 
 			return true;
@@ -2102,55 +2090,24 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdEnvGetPwd: {
-			char pwd[KernelFsPathMax];
-			if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, pwd, KernelFsPathMax)) {
-				kernelLog(LogTypeWarning, kstrP("failed during envgetpwd syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
-			}
-			kernelFsPathNormalise(pwd);
-
-			if (!procManProcessMemoryWriteStr(process, procData, procData->regs[1], pwd)) {
-				kernelLog(LogTypeWarning, kstrP("failed during envgetpwd syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
-			}
-
+			procData->regs[0]=procData->pwd;
 			return true;
 		} break;
 		case BytecodeSyscallIdEnvSetPwd: {
 			BytecodeWord addr=procData->regs[1];
-			if (addr<BytecodeMemoryRamAddr) {
-				kernelLog(LogTypeWarning, kstrP("failed during envsetpwd syscall - addr 0x%04X does not point to RW region, process %u (%s), killing\n"), addr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
-			}
 
-			KernelFsFileOffset ramIndex=addr-BytecodeMemoryRamAddr;
-			procData->pwd=ramIndex+procData->envVarDataLen;
+			procData->pwd=addr;
 
 			return true;
 		} break;
 		case BytecodeSyscallIdEnvGetPath: {
-			char path[ProcManEnvVarPathMax];
-			if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->path, path, KernelFsPathMax)) {
-				kernelLog(LogTypeWarning, kstrP("failed during envgetpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
-			}
-
-			if (!procManProcessMemoryWriteStr(process, procData, procData->regs[1], path)) {
-				kernelLog(LogTypeWarning, kstrP("failed during envgetpath syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
-			}
-
+			procData->regs[0]=procData->path;
 			return true;
 		} break;
 		case BytecodeSyscallIdEnvSetPath: {
 			BytecodeWord addr=procData->regs[1];
-			if (addr<BytecodeMemoryRamAddr) {
-				kernelLog(LogTypeWarning, kstrP("failed during envsetpath syscall - addr 0x%04X does not point to RW region, process %u (%s), killing\n"), addr, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-				return false;
-			}
 
-			KernelFsFileOffset ramIndex=addr-BytecodeMemoryRamAddr;
-			procData->path=ramIndex+procData->envVarDataLen;
+			procData->path=addr;
 
 			return true;
 		} break;
@@ -3128,7 +3085,7 @@ bool procManProcessExec2(ProcManProcess *process, ProcManProcessProcData *procDa
 	// Create argv string by reading existing kernel space argv string
 	KernelFsFileOffset argvOffset=0;
 	for(unsigned i=0; i<argc; ++i) {
-		if (!procManProcessGetArgvN(process, procData, start+i, argv+argvOffset)) {
+		if (!procManProcessGetArgvNStr(process, procData, start+i, argv+argvOffset)) {
 			kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read argv[%u]\n"), procManGetPidFromProcess(process), start+i);
 			return false;
 		}
@@ -3160,14 +3117,14 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 	kernelLogAppend(LogTypeInfo, kstrP("\n"));
 
 	// Grab pwd and path env vars as these may now point into general ram, which is about to be cleared when we resize
-	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->pwd, tempPwd, KernelFsPathMax)) {
-		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read env var pwd at offset %u\n"), procManGetPidFromProcess(process), procData->pwd);
+	if (!procManProcessMemoryReadStr(process, procData, procData->pwd, tempPwd, KernelFsPathMax)) {
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read env var pwd at addr %u\n"), procManGetPidFromProcess(process), procData->pwd);
 		return false;
 	}
 	kernelFsPathNormalise(tempPwd);
 
-	if (!procManProcessMemoryReadStrAtRamfileOffset(process, procData, procData->path, tempPath, KernelFsPathMax)) {
-		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read env var path at offset %u\n"), procManGetPidFromProcess(process), procData->path);
+	if (!procManProcessMemoryReadStr(process, procData, procData->path, tempPath, KernelFsPathMax)) {
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not read env var path at addr %u\n"), procManGetPidFromProcess(process), procData->path);
 		return false;
 	}
 	kernelFsPathNormalise(tempPath);
@@ -3193,14 +3150,14 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 	// Update env var array and calculate new len
 	procData->envVarDataLen=0;
 
-	procData->pwd=procData->envVarDataLen;
-	procData->envVarDataLen+=strlen(tempPwd)+1;
-	procData->path=procData->envVarDataLen;
-	procData->envVarDataLen+=strlen(tempPath)+1;
-
 	procData->argc=argc;
-	procData->argvStart=procData->envVarDataLen;
+	assert(procData->envVarDataLen==0); // argv is always at offset=0 so we do not have to store its address
 	procData->envVarDataLen+=argvTotalSize;
+
+	procData->pwd=ProcManEnvVarsVirtualOffset+procData->envVarDataLen;
+	procData->envVarDataLen+=strlen(tempPwd)+1;
+	procData->path=ProcManEnvVarsVirtualOffset+procData->envVarDataLen;
+	procData->envVarDataLen+=strlen(tempPath)+1;
 
 	// Resize ram file (clear data and add new arguments)
 	procData->ramLen=0; // no ram needed initially
@@ -3217,18 +3174,18 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 	assert(procData->ramFd!=KernelFsFdInvalid);
 
 	// Write env vars into ram file
-	if (kernelFsFileWriteOffset(procData->ramFd, procData->pwd, (const uint8_t *)(tempPwd), strlen(tempPwd)+1)!=strlen(tempPwd)+1) {
+	if (kernelFsFileWriteOffset(procData->ramFd, 0, (const uint8_t *)(argv), argvTotalSize)!=argvTotalSize) {
+		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not write argv into new processes memory\n"), procManGetPidFromProcess(process));
+		return false;
+	}
+
+	if (kernelFsFileWriteOffset(procData->ramFd, procData->pwd-ProcManEnvVarsVirtualOffset, (const uint8_t *)(tempPwd), strlen(tempPwd)+1)!=strlen(tempPwd)+1) {
 		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not write env var pwd into new processes memory\n"), procManGetPidFromProcess(process));
 		return false;
 	}
 
-	if (kernelFsFileWriteOffset(procData->ramFd, procData->path, (const uint8_t *)(tempPath), strlen(tempPath)+1)!=strlen(tempPath)+1) {
+	if (kernelFsFileWriteOffset(procData->ramFd, procData->path-ProcManEnvVarsVirtualOffset, (const uint8_t *)(tempPath), strlen(tempPath)+1)!=strlen(tempPath)+1) {
 		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not write env var path into new processes memory\n"), procManGetPidFromProcess(process));
-		return false;
-	}
-
-	if (kernelFsFileWriteOffset(procData->ramFd, procData->argvStart, (const uint8_t *)(argv), argvTotalSize)!=argvTotalSize) {
-		kernelLog(LogTypeWarning, kstrP("exec in %u failed - could not write argv into new processes memory\n"), procManGetPidFromProcess(process));
 		return false;
 	}
 

@@ -7,21 +7,16 @@ requireend lib/std/math/mod.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strtoint.s
 
-ab argBuf ArgLenMax
-
 db usageStr 'usage: sensorhwdeviceslot\n',0
 
 ; Grab first argument as DHT22 sensor device slot
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 argBuf
-mov r3 ArgLenMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usage
 
-mov r0 argBuf
 call strtoint
 
 ; Print temperature

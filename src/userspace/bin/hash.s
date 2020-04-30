@@ -8,7 +8,6 @@ requireend lib/std/io/fputhex.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 
-ab argBuf PathMax
 ab pathBuf PathMax
 ab fd 1
 aw hash 1
@@ -40,18 +39,16 @@ label hashArgN
 ; Get arg
 mov r1 r0
 mov r0 SyscallIdArgvN
-mov r2 argBuf
-mov r3 PathMax
 syscall
 
 ; No arg found?
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp done
 
 ; Convert to absolute path
+mov r1 r0
 mov r0 pathBuf
-mov r1 argBuf
 call getabspath
 
 ; Open file

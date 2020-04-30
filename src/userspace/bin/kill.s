@@ -3,12 +3,9 @@ require lib/sys/sys.s
 requireend lib/std/proc/exit.s
 requireend lib/std/str/strtoint.s
 
-ab argBuf ArgLenMax
-
 ; Grab pid from first argument
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 argBuf
 mov r3 64
 syscall
 
@@ -17,7 +14,6 @@ skipneqz r1
 jmp done
 
 ; Convert to integer
-mov r0 argBuf
 call strtoint
 
 ; Kill
