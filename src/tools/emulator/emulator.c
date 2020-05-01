@@ -17,8 +17,8 @@
 typedef struct {
 	int argc;
 
-	char pwd[PathMax];
-	char path[PathMax];
+	BytecodeWord pwd;
+	BytecodeWord path;
 } ProcessEnvVars;
 
 typedef struct {
@@ -92,16 +92,20 @@ int main(int argc, char **argv) {
 	process->pid=(rand()%(ProcManPidMax-1))+1; // +1 to avoid InitPid at 0
 
 	process->envVars.argc=argc-inputArgBaseIndex;
-	strcpy(process->envVars.pwd, "/bin");
-	strcpy(process->envVars.path, "/bin");
-
-	// Copy argv into process memory (in the kernel it is mapped to 63k onwards)
-	char *argvPtr=(char *)(process->memory+(63*1024));
+	BytecodeWord upperRegionOffset=63*1024;
 	for(unsigned i=0; i<process->envVars.argc; ++i) {
 		const char *arg=argv[i+inputArgBaseIndex];
-		strcpy(argvPtr, arg);
-		argvPtr+=strlen(arg)+1;
+		strcpy(((char *)(process->memory+upperRegionOffset)), arg);
+		upperRegionOffset+=strlen(arg)+1;
 	}
+
+	process->envVars.pwd=upperRegionOffset;
+	strcpy(((char *)(process->memory+process->envVars.pwd)), "/bin");
+	upperRegionOffset+=strlen("/bin")+1;
+
+	process->envVars.path=upperRegionOffset;
+	strcpy(((char *)(process->memory+process->envVars.path)), "/usr/games:/usr/bin:/bin:");
+	upperRegionOffset+=strlen("/usr/games:/usr/bin:/bin:")+1;
 
 	// Read-in input file
 	const char *inputPath=argv[inputArgBaseIndex];
@@ -440,7 +444,7 @@ bool processRunNextInstruction(Process *process) {
 							BytecodeWord timeout=process->regs[2];
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [waitpid], pid=%u, timeout=%u\n", syscallId, waitPid, timeout);
+								printf("Info: syscall(id=%i [waitpid], pid=%u, timeout=%u)\n", syscallId, waitPid, timeout);
 							if (waitPid==InitPid || waitPid==process->pid) {
 								if (timeout==0) {
 									printf("Warning: Entered infinite waitpid syscall (waiting for own or init's PID with infinite timeout), exiting\n");
@@ -470,7 +474,7 @@ bool processRunNextInstruction(Process *process) {
 						case BytecodeSyscallIdKill: {
 							ProcManPid pid=process->regs[1];
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [kill], pid=%u\n", syscallId, pid);
+								printf("Info: syscall(id=%i [kill], pid=%u)\n", syscallId, pid);
 							if (pid==process->pid) {
 								printf("Killed by own kill syscall\n");
 								return false;
@@ -669,22 +673,24 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 						} break;
 						case BytecodeSyscallIdEnvGetPwd:
+							process->regs[0]=process->envVars.pwd;
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envgetpwd] (unimplemented)\n", syscallId);
-							process->regs[0]=0;
+								printf("Info: syscall(id=%i [envgetpwd], pwd=%u='%s')\n", syscallId, process->envVars.pwd, (char *)(process->memory+process->envVars.pwd));
 						break;
 						case BytecodeSyscallIdEnvSetPwd:
+							process->envVars.pwd=process->regs[1];
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [envsetpwd], pwd=%u='%s')\n", syscallId, process->envVars.pwd, (char *)(process->memory+process->envVars.pwd));
 						break;
 						case BytecodeSyscallIdEnvGetPath:
+							process->regs[0]=process->envVars.path;
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envgetpath] (unimplemented)\n", syscallId);
-							process->regs[0]=0;
+								printf("Info: syscall(id=%i [envgetpath], path=%u='%s')\n", syscallId, process->envVars.path, (char *)(process->memory+process->envVars.path));
 						break;
 						case BytecodeSyscallIdEnvSetPath:
+							process->envVars.path=process->regs[1];
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [envsetpath], path=%u='%s')\n", syscallId, process->envVars.path, (char *)(process->memory+process->envVars.path));
 						break;
 						case BytecodeSyscallIdTimeMonotonic16s:
 							if (infoSyscalls)
