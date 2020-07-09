@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define PinNB 96 // all valid pin numbers are less than this value
+
 #define PinInvalid 127
 
 #define PinA0 40

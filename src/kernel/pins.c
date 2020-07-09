@@ -6,7 +6,6 @@
 #include "log.h"
 #include "pins.h"
 
-#define PinNB 96
 const uint8_t pinsValidArray[PinNB]={
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, //  0-15
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, // 16-31
