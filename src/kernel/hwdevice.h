@@ -10,6 +10,7 @@ typedef enum {
 	HwDeviceTypeSdCardReader,
 	HwDeviceTypeDht22, // DHT22 moisture and humidity sensor
 } HwDeviceType;
+#define HwDeviceTypeBits 2
 
 typedef uint8_t HwDeviceId;
 #define HwDeviceIdMax 4

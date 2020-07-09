@@ -42,8 +42,9 @@ typedef struct {
 	uint32_t cacheBlock:30; // Note: using only 30 bits is safe as some bits of addresses are 'used up' by the fixed size 512 byte blocks, so not all 32 bits are needed (only 32-9=23 strictly needed)
 } HwDeviceSdCardReaderData;
 
+STATICASSERT(HwDeviceTypeBits<=8);
 typedef struct {
-	HwDeviceType type;
+	uint8_t type;
 	union {
 		HwDeviceSdCardReaderData sdCardReader;
 		HwDeviceDht22Data dht22;
