@@ -266,7 +266,7 @@ void kernelShutdownNext(void) {
 
 void kernelBoot(void) {
 	// Set logging level to warnings and errors only
-	//kernelLogSetLevel(LogLevelWarning);
+	kernelLogSetLevel(LogLevelWarning);
 
 	// Initialise HW devices ASAP
 	hwDeviceInit();
