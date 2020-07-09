@@ -23,7 +23,7 @@ typedef enum {
 	SpiClockSpeedDiv128,
 } SpiClockSpeed;
 
-void spiInit(SpiClockSpeed clockSpeed);
+bool spiInit(SpiClockSpeed clockSpeed);
 
 // Note: the following functions should only be used directly from kernel space if the SPI bus is 'locked' first - see kernelSpiGrabLock.
 

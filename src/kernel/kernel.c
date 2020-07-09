@@ -268,14 +268,17 @@ void kernelBoot(void) {
 	// Set logging level to warnings and errors only
 	kernelLogSetLevel(LogLevelWarning);
 
-	// Initialise HW devices ASAP
-	hwDeviceInit();
-
 	// Init SPI bus (ready to map to /dev/spi).
-	spiInit(SpiClockSpeedDiv64);
+	if (!spiInit(SpiClockSpeedDiv64))
+		kernelFatalError(kstrP("could not initialise SPI\n"));
 
 	// Init terminal/serial interface (connected to /dev/ttyS0)
-	ttyInit();
+	if (!ttyInit())
+		kernelFatalError(kstrP("could not initialise TTY\n"));
+
+	// Initialise HW device pins
+	// Any pins which are not reserved by this point are considered general purpose for the user
+	hwDeviceInit();
 
 	// Enter booting state
 	kernelSetState(KernelStateBooting);
