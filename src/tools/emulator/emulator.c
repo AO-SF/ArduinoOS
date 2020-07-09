@@ -888,11 +888,12 @@ bool processRunNextInstruction(Process *process) {
 							// Always fail
 							uint16_t id=process->regs[1];
 							uint16_t type=process->regs[2];
+							uint16_t pinsAddr=process->regs[3];
 
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [hwdeviceregister], id=%u, type=%u\n", syscallId, id, type);
+								printf("Info: syscall(id=%i [hwdeviceregister], id=%u, type=%u, pinsAddr=%u\n", syscallId, id, type, pinsAddr);
 						} break;
 						case BytecodeSyscallIdHwDeviceDeregister: {
 							// Nothing to do - cannot register such devices in the first place
