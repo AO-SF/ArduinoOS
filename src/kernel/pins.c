@@ -31,8 +31,17 @@ bool pinStates[PinNB]={0};
 
 #endif
 
+bool pinIsValid(uint8_t pinNum) {
+	// Out of range?
+	if (pinNum>=PinNB)
+		return false;
+
+	// Use lookup array
+	return pinsValidArray[pinNum];
+}
+
 void pinSetMode(uint8_t pinNum, PinMode mode) {
-	if (pinNum>=PinNB) {
+	if (!pinIsValid(pinNum)) {
 		kernelLog(LogTypeWarning, kstrP("bad pin %u in setmode\n"), pinNum);
 		return;
 	}
@@ -50,7 +59,7 @@ void pinSetMode(uint8_t pinNum, PinMode mode) {
 }
 
 bool pinRead(uint8_t pinNum) {
-	if (pinNum>=PinNB) {
+	if (!pinIsValid(pinNum)) {
 		kernelLog(LogTypeWarning, kstrP("bad pin %u in read\n"), pinNum);
 		return false;
 	}
@@ -62,7 +71,7 @@ bool pinRead(uint8_t pinNum) {
 }
 
 bool pinWrite(uint8_t pinNum, bool value) {
-	if (pinNum>=PinNB) {
+	if (!pinIsValid(pinNum)) {
 		kernelLog(LogTypeWarning, kstrP("bad pin %u in write\n"), pinNum);
 		return false;
 	}
