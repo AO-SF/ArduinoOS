@@ -16,6 +16,15 @@ const uint8_t pinsValidArray[PinNB]={
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 80-95
 };
 
+uint8_t pinsUsedArray[PinNB]={
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //  0-15
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 16-31
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 32-47
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 48-63
+	0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, // 64-79
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 80-95
+};
+
 #ifdef ARDUINO
 #define PinsGroupMax 12
 volatile uint8_t *pinsArrayPin[PinsGroupMax]={&PINA, &PINB, &PINC, &PIND, &PINE, &PINF, &PING, &PINH, NULL, &PINJ, &PINK, &PINL};
@@ -38,6 +47,32 @@ bool pinIsValid(uint8_t pinNum) {
 
 	// Use lookup array
 	return pinsValidArray[pinNum];
+}
+
+bool pinGrab(uint8_t pinNum) {
+	if (!pinIsValid(pinNum))
+		return false;
+
+	if (pinInUse(pinNum))
+		return false;
+
+	pinsUsedArray[pinNum]=true;
+
+	return true;
+}
+
+void pinRelease(uint8_t pinNum) {
+	if (!pinIsValid(pinNum))
+		return;
+
+	pinsUsedArray[pinNum]=false;
+}
+
+bool pinInUse(uint8_t pinNum) {
+	if (!pinIsValid(pinNum))
+		return false;
+
+	return pinsUsedArray[pinNum];
 }
 
 void pinSetMode(uint8_t pinNum, PinMode mode) {

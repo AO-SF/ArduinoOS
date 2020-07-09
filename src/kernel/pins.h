@@ -87,6 +87,10 @@ typedef enum {
 
 bool pinIsValid(uint8_t pinNum);
 
+bool pinGrab(uint8_t pinNum); // returns false if already reserved
+void pinRelease(uint8_t pinNum);
+bool pinInUse(uint8_t pinNum);
+
 void pinSetMode(uint8_t pinNum, PinMode mode);
 bool pinRead(uint8_t pinNum);
 bool pinWrite(uint8_t pinNum, bool value);
