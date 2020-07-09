@@ -2559,10 +2559,20 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdHwDeviceRegister: {
+			// Grab arguments
 			HwDeviceId id=procData->regs[1];
 			HwDeviceType type=procData->regs[2];
+			BytecodeWord pinsAddr=procData->regs[3];
 
-			procData->regs[0]=hwDeviceRegister(id, type);
+			// Copy pins array from user space (using a scratch buffer as an intermediate)
+			unsigned pinCount=hwDeviceTypeGetPinCount(type);
+			if (!procManProcessMemoryReadBlock(process, procData, pinsAddr, (uint8_t *)procManScratchBuf256, pinCount, true)) {
+				kernelLog(LogTypeWarning, kstrP("failed during HW device register syscall, could not read pins array %u size %u (type %u), process %u (%s), killing\n"), pinsAddr, pinCount, type, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Register the device
+			procData->regs[0]=hwDeviceRegister(id, type, (const uint8_t *)procManScratchBuf256);
 
 			return true;
 		} break;
