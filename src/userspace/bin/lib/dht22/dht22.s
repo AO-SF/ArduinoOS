@@ -1,19 +1,6 @@
 require ../sys/sys.s
 
-; dht22Register (r0=hw device slot, returns 1/0 for success/failure in r0)
-label dht22Register
-mov r1 r0
-mov r2 SyscallHwDeviceTypeDht22
-mov r0 SyscallIdHwDeviceRegister
-syscall
-ret
-
-; dht22Deregister (r0=hw device slot)
-label dht22Deregister
-mov r1 r0
-mov r0 SyscallIdHwDeviceDeregister
-syscall
-ret
+; These functions assume the DHT22 device is already registered at the given HW device slot
 
 ; dht22GetTemperature (r0=hw device slot, returns temperature in degrees C times 10, as an integer in r0)
 label dht22GetTemperature
