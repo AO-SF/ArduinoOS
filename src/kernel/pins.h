@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define PinInvalid 255
+#define PinInvalid 127
 
 #define PinA0 40
 #define PinA1 41

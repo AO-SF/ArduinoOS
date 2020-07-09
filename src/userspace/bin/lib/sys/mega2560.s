@@ -1,4 +1,4 @@
-const PinInvalid 255
+const PinInvalid 127
 
 const PinA0 40
 const PinA1 41
