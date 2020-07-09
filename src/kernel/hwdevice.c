@@ -16,18 +16,6 @@
 #include "util.h"
 
 typedef struct {
-	uint8_t powerPin;
-	uint8_t dataPin;
-} HwDevicePinPair;
-
-static const HwDevicePinPair hwDevicePinPairs[HwDeviceIdMax] PROGMEM ={
-	{.powerPin=PinD42, .dataPin=PinD43},
-	{.powerPin=PinD44, .dataPin=PinD45},
-	{.powerPin=PinD46, .dataPin=PinD47},
-	{.powerPin=PinD48, .dataPin=PinD49},
-};
-
-typedef struct {
 	KTime lastReadTime;
 	int16_t temperature;
 	int16_t humitity;
@@ -45,6 +33,7 @@ typedef struct {
 STATICASSERT(HwDeviceTypeBits<=8);
 typedef struct {
 	uint8_t type;
+	uint8_t pins[HwDevicePinsMax];
 	union {
 		HwDeviceSdCardReaderData sdCardReader;
 		HwDeviceDht22Data dht22;
@@ -67,13 +56,12 @@ KernelFsFileOffset hwDeviceSdCardReaderWriteFunctor(KernelFsFileOffset addr, con
 ////////////////////////////////////////////////////////////////////////////////
 
 void hwDeviceInit(void) {
-	// Set all pins as output, with power pins low (no power) and data pins high (disabled for SPI slave select pins).
-	for(unsigned i=0; i<HwDeviceIdMax; ++i) {
-		pinSetMode(hwDeviceGetPowerPin(i), PinModeOutput);
-		pinWrite(hwDeviceGetPowerPin(i), false);
-
-		pinSetMode(hwDeviceGetDataPin(i), PinModeOutput);
-		pinWrite(hwDeviceGetDataPin(i), true);
+	// Ensure all pins which have not been reserved by the kernel are set to default state (output, low)
+	for(unsigned pinNum=0; pinNum<PinNB; ++pinNum) {
+		if (!pinIsValid(pinNum) || pinInUse(pinNum))
+			continue;
+		pinWrite(pinNum, false);
+		pinSetMode(pinNum, PinModeOutput);
 	}
 
 	// Clear device table
@@ -102,7 +90,7 @@ void hwDeviceTick(void) {
 	}
 }
 
-bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
+bool hwDeviceRegister(HwDeviceId id, HwDeviceType type, const uint8_t *pins) {
 	// Bad id or type?
 	if (id>=HwDeviceIdMax || type==HwDeviceTypeUnused)
 		return false;
@@ -111,11 +99,22 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 	if (hwDevices[id].type!=HwDeviceTypeUnused)
 		return false;
 
-	// Write to log
-	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u\n"), id, type);
-
-	// Set type to mark slot as used
+	// Set type to mark slot as used and set pins array to invalid initally
 	hwDevices[id].type=type;
+
+	unsigned pinCount=hwDeviceTypeGetPinCount(hwDevices[id].type);
+	for(unsigned i=0; i<pinCount; ++i)
+		hwDevices[id].pins[i]=PinInvalid;
+
+	// Attempt to grab the given pins
+	for(unsigned i=0; i<pinCount; ++i) {
+		if (!pinGrab(pins[i])) {
+			kernelLog(LogTypeInfo, kstrP("could not register HW device id=%u type=%u - could not grab pin %u\n"), id, type, pins[i]);
+			goto error;
+		}
+
+		hwDevices[id].pins[i]=pins[i];
+	}
 
 	// Type-specific logic
 	switch(type) {
@@ -125,29 +124,40 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 		break;
 		case HwDeviceTypeSdCardReader:
 			hwDevices[id].d.sdCardReader.cache=malloc(SdBlockSize);
-			if (hwDevices[id].d.sdCardReader.cache==NULL)
+			if (hwDevices[id].d.sdCardReader.cache==NULL) {
+				kernelLog(LogTypeInfo, kstrP("could not register HW device id=%u type=%u - could not allocate cache of size %u\n"), id, type, SdBlockSize);
 				goto error;
+			}
 			hwDevices[id].d.sdCardReader.sdCard.type=SdTypeBadCard;
 		break;
 		case HwDeviceTypeDht22:
 			// Set data pin to input mode and then turn on power pin to enable device
-			pinWrite(hwDeviceGetDataPin(id), false);
-			pinSetMode(hwDeviceGetDataPin(id), PinModeInput);
-			pinWrite(hwDeviceGetPowerPin(id), true);
+			pinWrite(hwDeviceDht22GetDataPin(id), false);
+			pinSetMode(hwDeviceDht22GetDataPin(id), PinModeInput);
+			pinWrite(hwDeviceDht22GetPowerPin(id), true);
 
-			// Set initial values (we have to wait at least 2s after powering on to read values, so this is the best we can do).
-			hwDevices[id].d.dht22.temperature=0; // indicate we need to read again ASAP
-			hwDevices[id].d.dht22.humitity=0; // indicate we need to read again ASAP
-			hwDevices[id].d.dht22.lastReadTime=0; // indicate we need to read again ASAP
+			// Set initial values to 0 to indicate we need to read (we have to wait at least 2s after poweringon to read values, so this is the best we can do).
+			hwDevices[id].d.dht22.temperature=0;
+			hwDevices[id].d.dht22.humitity=0;
+			hwDevices[id].d.dht22.lastReadTime=0;
 		break;
 	}
+
+	// Write to log
+	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u\n"), id, type);
 
 	return true;
 
 	error:
 	hwDevices[id].type=HwDeviceTypeUnused;
-	pinWrite(hwDeviceGetPowerPin(id), false);
-	pinWrite(hwDeviceGetDataPin(id), true);
+	for(unsigned i=0; i<pinCount; ++i) {
+		uint8_t pinNum=hwDevices[id].pins[i];
+		if (pinNum==PinInvalid)
+			continue;
+		pinWrite(pinNum, false);
+		pinSetMode(pinNum, PinModeOutput);
+		pinRelease(pinNum);
+	}
 	return false;
 }
 
@@ -178,9 +188,16 @@ void hwDeviceDeregister(HwDeviceId id) {
 		break;
 	}
 
-	// Force pins back to default to be safe
-	pinWrite(hwDeviceGetPowerPin(id), false);
-	pinWrite(hwDeviceGetDataPin(id), true);
+	// Force pins back to default to be safe (output low), then release them
+	unsigned pinCount=hwDeviceTypeGetPinCount(hwDevices[id].type);
+	for(unsigned i=0; i<pinCount; ++i) {
+		uint8_t pinNum=hwDeviceGetPinN(id, i);
+		if (pinNum==PinInvalid)
+			continue;
+		pinWrite(pinNum, false);
+		pinSetMode(pinNum, PinModeOutput);
+		pinRelease(pinNum);
+	}
 
 	// Write to log
 	kernelLog(LogTypeInfo, kstrP("deregistered HW device id=%u type=%u\n"), id, hwDevices[id].type);
@@ -196,33 +213,40 @@ HwDeviceType hwDeviceGetType(HwDeviceId id) {
 	return hwDevices[id].type;
 }
 
-uint8_t hwDeviceGetPowerPin(HwDeviceId id) {
+uint8_t hwDeviceGetPinN(HwDeviceId id, unsigned n) {
 	if (id>=HwDeviceIdMax)
 		return PinInvalid;
 
-#ifdef ARDUINO
-	return pgm_read_byte_far(pgm_get_far_address(hwDevicePinPairs)+id*sizeof(HwDevicePinPair)+offsetof(HwDevicePinPair,powerPin));
-#else
-	return hwDevicePinPairs[id].powerPin;
-#endif
-}
-
-uint8_t hwDeviceGetDataPin(HwDeviceId id) {
-	if (id>=HwDeviceIdMax)
+	if (n>=hwDeviceTypeGetPinCount(hwDevices[id].type))
 		return PinInvalid;
 
-#ifdef ARDUINO
-	return pgm_read_byte_far(pgm_get_far_address(hwDevicePinPairs)+id*sizeof(HwDevicePinPair)+offsetof(HwDevicePinPair,dataPin));
-#else
-	return hwDevicePinPairs[id].dataPin;
-#endif
+	return hwDevices[id].pins[n];
 }
 
 HwDeviceId hwDeviceGetDeviceForPin(uint8_t pinNum) {
-	for(unsigned i=0; i<HwDeviceIdMax; ++i)
-		if (pinNum==hwDeviceGetPowerPin(i) || pinNum==hwDeviceGetDataPin(i))
-			return i;
+	// Invalid pin?
+	if (!pinIsValid(pinNum))
+		return HwDeviceIdMax;
+
+	// Loop over devices
+	for(unsigned i=0; i<HwDeviceIdMax; ++i) {
+		// Loop over pins for this device looking for a match
+		// (note: we do not bother checking for unused type as pin count will be 0 anyway)
+		unsigned pinCount=hwDeviceTypeGetPinCount(hwDevices[i].type);
+		for(unsigned j=0; j<pinCount; ++j)
+			if (pinNum==hwDeviceGetPinN(i, j))
+				return i;
+	}
+
 	return HwDeviceIdMax;
+}
+
+uint8_t hwDeviceSdCardReaderGetPowerPin(HwDeviceId id) {
+	return hwDeviceGetPinN(id, 0);
+}
+
+uint8_t hwDeviceSdCardReaderGetSlaveSelectPin(HwDeviceId id) {
+	return hwDeviceGetPinN(id, 1);
 }
 
 bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
@@ -245,7 +269,7 @@ bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
 	}
 
 	// Attempt to power on and initialise SD card
-	SdInitResult sdInitRes=sdInit(&hwDevices[id].d.sdCardReader.sdCard, hwDeviceGetPowerPin(id), hwDeviceGetDataPin(id));
+	SdInitResult sdInitRes=sdInit(&hwDevices[id].d.sdCardReader.sdCard, hwDeviceSdCardReaderGetPowerPin(id), hwDeviceSdCardReaderGetSlaveSelectPin(id));
 	if (sdInitRes!=SdInitResultOk) {
 		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: sd init failed with %u (id=%u, mountPoint='%s')\n"), sdInitRes, id, mountPoint);
 		return false;
@@ -313,6 +337,14 @@ void hwDeviceSdCardReaderUnmount(HwDeviceId id) {
 	kstrFree(&hwDevices[id].d.sdCardReader.mountPoint);
 }
 
+uint8_t hwDeviceDht22GetPowerPin(HwDeviceId id) {
+	return hwDeviceGetPinN(id, 0);
+}
+
+uint8_t hwDeviceDht22GetDataPin(HwDeviceId id) {
+	return hwDeviceGetPinN(id, 1);
+}
+
 int16_t hwDeviceDht22GetTemperature(HwDeviceId id) {
 	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
 		return 0;
@@ -331,13 +363,31 @@ uint32_t hwDeviceDht22GetLastReadTime(HwDeviceId id) {
 	return hwDevices[id].d.dht22.lastReadTime;
 }
 
+unsigned hwDeviceTypeGetPinCount(HwDeviceType type) {
+	switch(type) {
+		case HwDeviceTypeUnused:
+			return 0;
+		break;
+		case HwDeviceTypeRaw:
+			return HwDevicePinsMax;
+		break;
+		case HwDeviceTypeSdCardReader:
+			return 2; // power + slave select (SPI pins are general do not count towards this particular HW device)
+		break;
+		case HwDeviceTypeDht22:
+			return 2; // power + data
+		break;
+	}
+	return 0;
+}
+
 bool hwDeviceDht22Read(HwDeviceId id) {
 	// Check device is actually registered as a DHT22 sensor
 	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
 		return false;
 
 	// Attempt to read data
-	uint8_t pin=hwDeviceGetDataPin(id);
+	uint8_t pin=hwDeviceDht22GetDataPin(id);
 
 	pinWrite(pin, false);
 	pinSetMode(pin, PinModeOutput);
