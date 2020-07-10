@@ -806,19 +806,24 @@ uint32_t kernelDevDigitalPinFsFunctor(KernelFsDeviceFunctorType type, void *user
 
 int16_t kernelDevDigitalPinReadFunctor(void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
+
+	if (pinInUse(pinNum))
+		return false;
+
 	return pinRead(pinNum);
 }
 
 bool kernelDevDigitalPinCanReadFunctor(void *userData) {
-	return true;
+	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
+
+	return !pinInUse(pinNum);
 }
 
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData) {
 	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
 
-	// Forbid writes from user space to HW device pins (unless associated device has type HwDeviceTypeRaw).
-	HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
-	if (hwDeviceId!=HwDeviceIdMax && hwDeviceGetType(hwDeviceId)!=HwDeviceTypeRaw)
+	// Forbid writes from user space to pins already in use (by e.g. a HW device or the SPI bus)
+	if (pinInUse(pinNum))
 		return 0;
 
 	// Simply write last of values given (considered as a boolean),
@@ -830,5 +835,7 @@ KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFs
 }
 
 bool kernelDevDigitalPinCanWriteFunctor(void *userData) {
-	return true;
+	uint8_t pinNum=(uint8_t)(uintptr_t)userData;
+
+	return !pinInUse(pinNum);
 }

@@ -2270,16 +2270,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
 				switch(command) {
 					case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
-						// Forbid mode changes to HW device pins.
-						if (spiIsReservedPin(pinNum)) {
-							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), pinNum, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-							break;
-						}
-
-						// Forbid mode changes from user space to HW device pins (even if associated device has type HwDeviceTypeRaw).
-						HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
-						if (hwDeviceId!=HwDeviceIdMax) {
-							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), pinNum, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						// Forbid mode changes to pins which are in use (for things such as HW devices or the SPI bus).
+						if (pinInUse(pinNum)) {
+							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of pin %u but it is in use (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), pinNum, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							break;
 						}
 
