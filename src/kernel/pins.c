@@ -6,7 +6,7 @@
 #include "log.h"
 #include "pins.h"
 
-const uint8_t pinsValidArray[PinNB/8]={
+const uint8_t pinsValidArray[PinNB/8] PROGMEM = {
 	0xFF, 0xFF, //  0-15
 	0xFF, 0x8F, // 16-31
 	0x3B, 0xFF, // 32-47
@@ -45,7 +45,11 @@ bool pinIsValid(uint8_t pinNum) {
 		return false;
 
 	// Use lookup array
+#ifdef ARDUINO
+	return (pgm_read_byte_far(pgm_get_far_address(pinIsValid)+pinNum/8)>>(pinNum%8))&1;
+#else
 	return (pinsValidArray[pinNum/8]>>(pinNum%8))&1;
+#endif
 }
 
 bool pinGrab(uint8_t pinNum) {
