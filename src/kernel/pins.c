@@ -6,13 +6,13 @@
 #include "log.h"
 #include "pins.h"
 
-const uint8_t pinsValidArray[PinNB]={
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, //  0-15
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, // 16-31
-	1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, // 32-47
-	1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, // 48-63
-	0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, // 64-79
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 80-95
+const uint8_t pinsValidArray[PinNB/8]={
+	0xFF, 0xFF, //  0-15
+	0xFF, 0x8F, // 16-31
+	0x3B, 0xFF, // 32-47
+	0x27, 0x7B, // 48-63
+	0x00, 0x03, // 64-79
+	0xFF, 0xFF, // 80-95
 };
 
 uint8_t pinsUsedArray[PinNB/8]={
@@ -45,7 +45,7 @@ bool pinIsValid(uint8_t pinNum) {
 		return false;
 
 	// Use lookup array
-	return pinsValidArray[pinNum];
+	return (pinsValidArray[pinNum/8]>>(pinNum%8))&1;
 }
 
 bool pinGrab(uint8_t pinNum) {
