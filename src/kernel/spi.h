@@ -23,7 +23,7 @@ typedef enum {
 	SpiClockSpeedDiv128,
 } SpiClockSpeed;
 
-void spiInit(SpiClockSpeed clockSpeed);
+bool spiInit(SpiClockSpeed clockSpeed);
 
 // Note: the following functions should only be used directly from kernel space if the SPI bus is 'locked' first - see kernelSpiGrabLock.
 
@@ -34,7 +34,5 @@ uint8_t spiReadByte(void);
 void spiWriteByte(uint8_t value);
 void spiWriteStr(const char *str);
 void spiWriteBlock(const uint8_t *data, size_t len);
-
-bool spiIsReservedPin(uint8_t pinNum); // is the given pin a one used by the SPI bus?
 
 #endif

@@ -18,6 +18,7 @@
 #include "kernelfs.h"
 #include "kstr.h"
 #include "log.h"
+#include "pins.h"
 #include "procman.h"
 #include "tty.h"
 
@@ -51,7 +52,11 @@ ISR(USART0_RX_vect) {
 }
 #endif
 
-void ttyInit(void) {
+bool ttyInit(void) {
+	// Reserve the TX0/RX0 serial pins so they are not otherwise used
+	if (!pinGrab(TtyPinTX0) || !pinGrab(TtyPinRX0))
+		return false;
+
 	// Initialise common fields
 	ttyFlags=TtyFlagEcho|TtyFlagBlocking;
 	ttyCircBufActivityCount=0;
@@ -88,6 +93,8 @@ void ttyInit(void) {
 
 	tcsetattr(STDIN_FILENO, TCSANOW, &newConfig);
 #endif
+
+	return true;
 }
 
 void ttyQuit(void) {

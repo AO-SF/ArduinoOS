@@ -4,7 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-void ttyInit(void);
+#define TtyPinTX0 PinD0
+#define TtyPinRX0 PinD1
+
+bool ttyInit(void);
 void ttyQuit(void);
 
 void ttyTick(void);

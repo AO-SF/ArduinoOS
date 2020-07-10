@@ -19,18 +19,22 @@ typedef enum {
 	SdTypeBadCard,
 	SdTypeSdVer2Plus,
 } SdType;
+#define SdTypeBits 1
 
 typedef enum {
 	SdAddressModeByte,
 	SdAddressModeBlock,
 } SdAddressMode;
+#define SdAddressModeBits 1
 
+STATICASSERT(SdTypeBits+SdAddressModeBits<=8);
 typedef struct {
 	uint32_t blockCount; // Card size is blockCount*SdBlockSize, allowing up to 2TB. However we only support 4gb due to 32 bit addressing (see hwDeviceSdCardReaderMount).
-	SdType type;
+	uint8_t type:SdTypeBits;
+	uint8_t addressMode:SdAddressModeBits;
+	uint8_t reserved:(8-SdTypeBits-SdAddressModeBits);
 	uint8_t powerPin;
 	uint8_t slaveSelectPin;
-	SdAddressMode addressMode;
 } SdCard;
 
 SdInitResult sdInit(SdCard *card, uint8_t powerPin, uint8_t slaveSelectPin);

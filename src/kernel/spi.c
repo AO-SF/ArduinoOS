@@ -1,6 +1,10 @@
 #include "spi.h"
 
-void spiInit(SpiClockSpeed clockSpeed) {
+bool spiInit(SpiClockSpeed clockSpeed) {
+	// Reserve the four SPI pins so they are not otherwise used
+	if (!pinGrab(SpiPinMiso) || !pinGrab(SpiPinMosi) || !pinGrab(SpiPinSck) || !pinGrab(SpiPinSlaveSelect))
+		return false;
+
 	// Ensure pin 53 is set high to avoid Mega thinking it should go into slave mode.
 	pinSetMode(SpiPinSlaveSelect, PinModeOutput);
 	pinWrite(SpiPinSlaveSelect, true);
@@ -37,6 +41,8 @@ void spiInit(SpiClockSpeed clockSpeed) {
 	// With MSB first data order implied due to lack of DORD flag, among others.
 	SPCR|=(1<<SPE|1<<MSTR|clockSpeedFlags);
 #endif
+
+	return true;
 }
 
 uint8_t spiTransmitByte(uint8_t value) {
@@ -68,8 +74,4 @@ void spiWriteStr(const char *str) {
 void spiWriteBlock(const uint8_t *data, size_t len) {
 	for(size_t i=0; i<len; ++i)
 		spiWriteByte(data[i]);
-}
-
-bool spiIsReservedPin(uint8_t pinNum) {
-	return (pinNum==SpiPinMiso || pinNum==SpiPinMosi || pinNum==SpiPinSck || pinNum==SpiPinSlaveSelect);
 }

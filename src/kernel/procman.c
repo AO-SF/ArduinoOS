@@ -2270,16 +2270,9 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 				uint8_t pinNum=atoi(procManScratchBufPath0+8); // TODO: Verify valid number (e.g. currently '/dev/pin' will operate pin0 (although the file /dev/pin must exist so should be fine for now)
 				switch(command) {
 					case BytecodeSyscallIdIoctlCommandDevPinSetMode: {
-						// Forbid mode changes to HW device pins.
-						if (spiIsReservedPin(pinNum)) {
-							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), pinNum, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-							break;
-						}
-
-						// Forbid mode changes from user space to HW device pins (even if associated device has type HwDeviceTypeRaw).
-						HwDeviceId hwDeviceId=hwDeviceGetDeviceForPin(pinNum);
-						if (hwDeviceId!=HwDeviceIdMax) {
-							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of HW device pin %u (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), pinNum, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+						// Forbid mode changes to pins which are in use (for things such as HW devices or the SPI bus).
+						if (pinInUse(pinNum)) {
+							kernelLog(LogTypeWarning, kstrP("ioctl attempting to set mode of pin %u but it is in use (local fd %u, global fd %u, device '%s'), process %u (%s)\n"), pinNum, localFd, globalFd, procManScratchBufPath0, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 							break;
 						}
 
@@ -2559,10 +2552,20 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdHwDeviceRegister: {
+			// Grab arguments
 			HwDeviceId id=procData->regs[1];
 			HwDeviceType type=procData->regs[2];
+			BytecodeWord pinsAddr=procData->regs[3];
 
-			procData->regs[0]=hwDeviceRegister(id, type);
+			// Copy pins array from user space (using a scratch buffer as an intermediate)
+			unsigned pinCount=hwDeviceTypeGetPinCount(type);
+			if (!procManProcessMemoryReadBlock(process, procData, pinsAddr, (uint8_t *)procManScratchBuf256, pinCount, true)) {
+				kernelLog(LogTypeWarning, kstrP("failed during HW device register syscall, could not read pins array %u size %u (type %u), process %u (%s), killing\n"), pinsAddr, pinCount, type, procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			// Register the device
+			procData->regs[0]=hwDeviceRegister(id, type, (const uint8_t *)procManScratchBuf256);
 
 			return true;
 		} break;
