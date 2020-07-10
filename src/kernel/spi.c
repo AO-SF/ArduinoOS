@@ -75,7 +75,3 @@ void spiWriteBlock(const uint8_t *data, size_t len) {
 	for(size_t i=0; i<len; ++i)
 		spiWriteByte(data[i]);
 }
-
-bool spiIsReservedPin(uint8_t pinNum) {
-	return (pinNum==SpiPinMiso || pinNum==SpiPinMosi || pinNum==SpiPinSck || pinNum==SpiPinSlaveSelect);
-}
