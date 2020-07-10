@@ -90,6 +90,7 @@ void hwDeviceTick(void) {
 	}
 }
 
+STATICASSERT(HwDevicePinsMax==4); // For hwDeviceRegister logging logic
 bool hwDeviceRegister(HwDeviceId id, HwDeviceType type, const uint8_t *pins) {
 	// Bad id or type?
 	if (id>=HwDeviceIdMax || type==HwDeviceTypeUnused)
@@ -144,7 +145,14 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type, const uint8_t *pins) {
 	}
 
 	// Write to log
-	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u\n"), id, type);
+	// TODO: think of a better way of handling pins so that we do not require static assert (above) and switch statement
+	switch(pinCount) {
+		case 0: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u\n"), id, type); break;
+		case 1: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u]\n"), id, type, pins[0]); break;
+		case 2: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u]\n"), id, type, pins[0], pins[1]); break;
+		case 3: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2]); break;
+		case 4: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3]); break;
+	}
 
 	return true;
 
