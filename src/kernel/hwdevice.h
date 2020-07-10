@@ -25,7 +25,6 @@ void hwDeviceDeregister(HwDeviceId id);
 
 HwDeviceType hwDeviceGetType(HwDeviceId id);
 uint8_t hwDeviceGetPinN(HwDeviceId id, unsigned n); // returns PinInvalid on failure (bad id or n too large for device type)
-HwDeviceId hwDeviceGetDeviceForPin(uint8_t pinNum); // returns HwDeviceIdMax if given pin is not associated with any device (used or unused)
 
 uint8_t hwDeviceSdCardReaderGetPowerPin(HwDeviceId id); // returns PinInvalid on failure (bad id)
 uint8_t hwDeviceSdCardReaderGetSlaveSelectPin(HwDeviceId id); // returns PinInvalid on failure (bad id)

@@ -231,24 +231,6 @@ uint8_t hwDeviceGetPinN(HwDeviceId id, unsigned n) {
 	return hwDevices[id].pins[n];
 }
 
-HwDeviceId hwDeviceGetDeviceForPin(uint8_t pinNum) {
-	// Invalid pin?
-	if (!pinIsValid(pinNum))
-		return HwDeviceIdMax;
-
-	// Loop over devices
-	for(unsigned i=0; i<HwDeviceIdMax; ++i) {
-		// Loop over pins for this device looking for a match
-		// (note: we do not bother checking for unused type as pin count will be 0 anyway)
-		unsigned pinCount=hwDeviceTypeGetPinCount(hwDevices[i].type);
-		for(unsigned j=0; j<pinCount; ++j)
-			if (pinNum==hwDeviceGetPinN(i, j))
-				return i;
-	}
-
-	return HwDeviceIdMax;
-}
-
 uint8_t hwDeviceSdCardReaderGetPowerPin(HwDeviceId id) {
 	return hwDeviceGetPinN(id, 0);
 }
