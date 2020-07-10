@@ -97,4 +97,6 @@ void pinSetMode(uint8_t pinNum, PinMode mode);
 bool pinRead(uint8_t pinNum);
 bool pinWrite(uint8_t pinNum, bool value);
 
+void pinsDebug(void);
+
 #endif

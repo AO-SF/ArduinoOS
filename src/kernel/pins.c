@@ -119,3 +119,13 @@ bool pinWrite(uint8_t pinNum, bool value) {
 #endif
 	return true;
 }
+
+void pinsDebug(void) {
+	kernelLog(LogTypeInfo, kstrP("Pins Info:\n"));
+	for(unsigned i=0; i<PinNB; ++i) {
+		if (!pinIsValid(i))
+			continue;
+
+		kernelLog(LogTypeInfo, kstrP("	%u - state=%u (%s)\n"), i, pinRead(i), (pinInUse(i) ? "used" : "free"));
+	}
+}
