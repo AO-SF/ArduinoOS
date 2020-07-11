@@ -72,6 +72,8 @@ const SyscallIdHwDeviceSdCardReaderMount 1795
 const SyscallIdHwDeviceSdCardReaderUnmount 1796
 const SyscallIdHwDeviceDht22GetTemperature 1797
 const SyscallIdHwDeviceDht22GetHumidity 1798
+const SyscallIdHwDeviceKeypadMount 1799
+const SyscallIdHwDeviceKeypadUnmount 1800
 
 const SyscallIdInt32Add16 2048
 const SyscallIdInt32Add32 2049
@@ -99,7 +101,7 @@ const SyscallWaitpidStatusTimeout 65535
 const SyscallHwDeviceIdMax 4
 
 const SyscallHwDeviceTypeUnused 0
-const SyscallHwDeviceTypeRaw 1
+const SyscallHwDeviceTypeKeypad 1
 const SyscallHwDeviceTypeSdCardReader 2
 const SyscallHwDeviceTypeDht22 3
 

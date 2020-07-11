@@ -78,6 +78,7 @@ echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/hwdereg.s ./tmp/mockups/usrbinmockup/hwdereg
 ./bin/aosf-asm ./src/userspace/bin/hwinfo.s ./tmp/mockups/usrbinmockup/hwinfo
 ./bin/aosf-asm ./src/userspace/bin/hwreg.s ./tmp/mockups/usrbinmockup/hwreg
+./bin/aosf-asm ./src/userspace/bin/hwkeypadmnt.s ./tmp/mockups/usrbinmockup/hwkeypadmnt
 ./bin/aosf-asm ./src/userspace/bin/hwsdmnt.s ./tmp/mockups/usrbinmockup/hwsdmnt
 ./bin/aosf-asm ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/aosf-asm ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime

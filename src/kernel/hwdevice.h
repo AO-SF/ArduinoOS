@@ -4,11 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define HwDevicePinsMax 4 // max pins per HW device (not including general pins such as those used by the SPI bus)
+#define HwDevicePinsMax 8 // max pins per HW device (not including general pins such as those used by the SPI bus)
 
 typedef enum {
 	HwDeviceTypeUnused,
-	HwDeviceTypeRaw, // let the user write to the two associated pins
+	HwDeviceTypeKeypad, // a 4x4 keypad with 0-9 and A-F
 	HwDeviceTypeSdCardReader,
 	HwDeviceTypeDht22, // DHT22 moisture and humidity sensor
 } HwDeviceType;
@@ -26,6 +26,11 @@ void hwDeviceDeregister(HwDeviceId id);
 HwDeviceType hwDeviceGetType(HwDeviceId id);
 uint8_t hwDeviceGetPinN(HwDeviceId id, unsigned n); // returns PinInvalid on failure (bad id or n too large for device type)
 
+uint8_t hwDeviceKeypadGetRowPin(HwDeviceId id, unsigned n); // n<4
+uint8_t hwDeviceKeypadGetColumnPin(HwDeviceId id, unsigned n); // n<4
+bool hwDeviceKeypadMount(HwDeviceId id, const char *mountPoint);
+void hwDeviceKeypadUnmount(HwDeviceId id);
+
 uint8_t hwDeviceSdCardReaderGetPowerPin(HwDeviceId id); // returns PinInvalid on failure (bad id)
 uint8_t hwDeviceSdCardReaderGetSlaveSelectPin(HwDeviceId id); // returns PinInvalid on failure (bad id)
 bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint);
@@ -36,7 +41,6 @@ uint8_t hwDeviceDht22GetDataPin(HwDeviceId id); // returns PinInvalid on failure
 int16_t hwDeviceDht22GetTemperature(HwDeviceId id);
 int16_t hwDeviceDht22GetHumidity(HwDeviceId id);
 uint32_t hwDeviceDht22GetLastReadTime(HwDeviceId id);
-bool hwDeviceDht22Read(HwDeviceId id);
 
 unsigned hwDeviceTypeGetPinCount(HwDeviceType type); // number of pins that should be contained in the array passed to hwDeviceRegister
 

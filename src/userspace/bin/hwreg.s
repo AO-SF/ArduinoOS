@@ -7,7 +7,7 @@ requireend lib/std/str/strtoint.s
 
 db usageStr 'usage: id type\n',0
 db badTypeStr 'Bad type\n',0
-db typeStrRaw 'raw',0
+db typeStrKeypad 'keypad',0
 db typeStrSdCardReader 'sdcardreader',0
 db typeStrDht22 'dht22',0
 
@@ -35,12 +35,12 @@ jmp usage ; id is not popped from stack but no harm
 
 ; Convert type arg to integer
 push16 r0
-mov r1 typeStrRaw
+mov r1 typeStrKeypad
 call strcmp
 cmp r1 r0 r0
 pop16 r0
 skipneqz r1
-jmp typeIsRaw
+jmp typeIsKeypad
 
 push16 r0
 mov r1 typeStrSdCardReader
@@ -60,8 +60,8 @@ jmp typeIsDht22
 
 jmp badType
 
-label typeIsRaw
-mov r0 SyscallHwDeviceTypeRaw
+label typeIsKeypad
+mov r0 SyscallHwDeviceTypeKeypad
 push8 r0
 jmp foundType
 
