@@ -943,6 +943,21 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [hwdevicedht22gethumidity], id=%u\n", syscallId, id);
 						} break;
+						case BytecodeSyscallIdHwDeviceKeypadMount: {
+							// HW devices are unsupported
+							uint16_t id=process->regs[1];
+							process->regs[0]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [hwdevicekeypadmount], id=%u\n", syscallId, id);
+						} break;
+						case BytecodeSyscallIdHwDeviceKeypadUnmount: {
+							// HW devices are unsupported
+							uint16_t id=process->regs[1];
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [hwdevicekeypadunmount], id=%u\n", syscallId, id);
+						} break;
 						case ByteCodeSyscallIdInt32Add16: {
 							BytecodeWord aPtr=process->regs[1];
 							BytecodeWord bValue=process->regs[2];

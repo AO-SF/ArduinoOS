@@ -72,6 +72,8 @@ const SyscallIdHwDeviceSdCardReaderMount 1795
 const SyscallIdHwDeviceSdCardReaderUnmount 1796
 const SyscallIdHwDeviceDht22GetTemperature 1797
 const SyscallIdHwDeviceDht22GetHumidity 1798
+const SyscallIdHwDeviceKeypadMount 1799
+const SyscallIdHwDeviceKeypadUnmount 1800
 
 const SyscallIdInt32Add16 2048
 const SyscallIdInt32Add32 2049

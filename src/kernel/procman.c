@@ -2621,6 +2621,30 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case BytecodeSyscallIdHwDeviceKeypadMount: {
+			// Grab arguments
+			HwDeviceId id=procData->regs[1];
+			uint16_t mountPointAddr=procData->regs[2];
+
+			char mountPoint[KernelFsPathMax];
+			if (!procManProcessMemoryReadStr(process, procData, mountPointAddr, mountPoint, KernelFsPathMax)) {
+				kernelLog(LogTypeWarning, kstrP("failed during hwdevicekeypadmount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			kernelFsPathNormalise(mountPoint);
+
+			// Attempt to mount
+			procData->regs[0]=hwDeviceKeypadMount(id, mountPoint);
+
+			return true;
+		} break;
+		case BytecodeSyscallIdHwDeviceKeypadUnmount: {
+			HwDeviceId id=procData->regs[1];
+
+			hwDeviceKeypadUnmount(id);
+
+			return true;
+		} break;
 		case ByteCodeSyscallIdInt32Add16: {
 			// Grab arguments
 			BytecodeWord aPtr=procData->regs[1];
