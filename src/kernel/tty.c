@@ -32,6 +32,8 @@
 volatile uint8_t ttyFlags;
 
 volatile CircBuf ttyCircBuf;
+#define ttyCircBufSize 128
+volatile uint8_t ttyCircBufBuffer[ttyCircBufSize];
 volatile uint8_t ttyCircBufActivityCount;
 
 #ifndef ARDUINO
@@ -60,7 +62,7 @@ bool ttyInit(void) {
 	// Initialise common fields
 	ttyFlags=TtyFlagEcho|TtyFlagBlocking;
 	ttyCircBufActivityCount=0;
-	circBufInit(&ttyCircBuf);
+	circBufInit(&ttyCircBuf, ttyCircBufBuffer, ttyCircBufSize);
 
 	// Arduino only: init uart for serial (for kernel logging, and ready to map to /dev/ttyS0).
 #ifdef ARDUINO

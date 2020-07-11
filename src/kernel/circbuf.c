@@ -3,12 +3,14 @@
 
 #include "circbuf.h"
 
-#define circBufIndexNext(i) (((i)==CircBufSizeMinusOne) ? 0 : ((i)+1))
-#define circBufIndexPrev(i) (((i)==0) ? CircBufSizeMinusOne : ((i)-1))
+#define circBufIndexNext(i) (((i)==cb->size-1) ? 0 : ((i)+1))
+#define circBufIndexPrev(i) (((i)==0) ? cb->size-1 : ((i)-1))
 
-void circBufInit(volatile CircBuf *cb) {
+void circBufInit(volatile CircBuf *cb, volatile uint8_t *buffer, uint8_t size) {
 	assert(cb!=NULL);
 
+	cb->buffer=buffer;
+	cb->size=size;
 	cb->head=cb->tail=0;
 }
 
