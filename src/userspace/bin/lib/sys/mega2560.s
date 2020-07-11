@@ -74,4 +74,4 @@ const PinD53 8
 
 const PinLed PinD13
 
-const HwDevicePinMax 4 ; max pins per HW device (not including general pins such as those used by the SPI bus)
+const HwDevicePinMax 8 ; max pins per HW device (not including general pins such as those used by the SPI bus)

@@ -90,7 +90,7 @@ void hwDeviceTick(void) {
 	}
 }
 
-STATICASSERT(HwDevicePinsMax==4); // For hwDeviceRegister logging logic
+STATICASSERT(HwDevicePinsMax==8); // For hwDeviceRegister logging logic
 bool hwDeviceRegister(HwDeviceId id, HwDeviceType type, const uint8_t *pins) {
 	// Bad id or type?
 	if (id>=HwDeviceIdMax || type==HwDeviceTypeUnused)
@@ -159,6 +159,10 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type, const uint8_t *pins) {
 		case 2: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u]\n"), id, type, pins[0], pins[1]); break;
 		case 3: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2]); break;
 		case 4: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3]); break;
+		case 5:	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3], pins[4]); break;
+		case 6:	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3], pins[4], pins[5]); break;
+		case 7:	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3], pins[4], pins[5], pins[6]); break;
+		case 8:	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u,%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3], pins[4], pins[5], pins[6], pins[7]); break;
 	}
 
 	return true;

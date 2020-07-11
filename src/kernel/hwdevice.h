@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define HwDevicePinsMax 4 // max pins per HW device (not including general pins such as those used by the SPI bus)
+#define HwDevicePinsMax 8 // max pins per HW device (not including general pins such as those used by the SPI bus)
 
 typedef enum {
 	HwDeviceTypeUnused,
