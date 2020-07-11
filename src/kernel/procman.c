@@ -2590,7 +2590,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			char mountPoint[KernelFsPathMax];
 			if (!procManProcessMemoryReadStr(process, procData, mountPointAddr, mountPoint, KernelFsPathMax)) {
-				kernelLog(LogTypeWarning, kstrP("failed during spidevicesdcardreadermount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				kernelLog(LogTypeWarning, kstrP("failed during hwdevicesdcardreadermount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 				return false;
 			}
 			kernelFsPathNormalise(mountPoint);
