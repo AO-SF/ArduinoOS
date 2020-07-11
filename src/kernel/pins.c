@@ -46,7 +46,7 @@ bool pinIsValid(uint8_t pinNum) {
 
 	// Use lookup array
 #ifdef ARDUINO
-	return (pgm_read_byte_far(pgm_get_far_address(pinIsValid)+pinNum/8)>>(pinNum%8))&1;
+	return (pgm_read_byte_far(pgm_get_far_address(pinsValidArray)+pinNum/8)>>(pinNum%8))&1;
 #else
 	return (pinsValidArray[pinNum/8]>>(pinNum%8))&1;
 #endif
