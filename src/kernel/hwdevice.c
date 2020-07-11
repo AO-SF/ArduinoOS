@@ -108,13 +108,20 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type, const uint8_t *pins) {
 		hwDevices[id].pins[i]=PinInvalid;
 
 	// Attempt to grab the given pins
+	// Also set them to output low in case they are not already
 	for(unsigned i=0; i<pinCount; ++i) {
+		// Attempt to grab pin
 		if (!pinGrab(pins[i])) {
 			kernelLog(LogTypeInfo, kstrP("could not register HW device id=%u type=%u - could not grab pin %u\n"), id, type, pins[i]);
 			goto error;
 		}
 
+		// Update device pins array
 		hwDevices[id].pins[i]=pins[i];
+
+		// Set pin to low then output for safety
+		pinWrite(pins[i], false);
+		pinSetMode(pins[i], PinModeOutput);
 	}
 
 	// Type-specific logic
