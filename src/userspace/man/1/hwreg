@@ -10,7 +10,7 @@ DESCRIPTION
       Registers a hardware device of the given kind in the given slot, using the given pins
 
       Type can be one of:
-      * raw - allows user space access to associated pins
+      * keypad - a 4x4 keypad with 0-9 and A-Z (requires 8 pins/channels A-H)
       * sdcardreader - for SPI based SD card readers (requires power pin and slave select pin)
       * dht22 - for DHT22 temperature and humidity sensors (requires power pin and data pin)
 

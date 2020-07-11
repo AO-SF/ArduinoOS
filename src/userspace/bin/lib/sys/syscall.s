@@ -99,7 +99,7 @@ const SyscallWaitpidStatusTimeout 65535
 const SyscallHwDeviceIdMax 4
 
 const SyscallHwDeviceTypeUnused 0
-const SyscallHwDeviceTypeRaw 1
+const SyscallHwDeviceTypeKeypad 1
 const SyscallHwDeviceTypeSdCardReader 2
 const SyscallHwDeviceTypeDht22 3
 

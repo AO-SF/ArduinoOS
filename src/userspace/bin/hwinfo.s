@@ -5,7 +5,7 @@ requireend lib/std/io/fputdec.s
 requireend lib/std/proc/exit.s
 
 db typeStrUnused 'unused',0
-db typeStrRaw 'raw',0
+db typeStrKeypad 'keypad',0
 db typeStrSdCardReader 'SD card reader',0
 db typeStrDht22 'DHT22 Sensor',0
 db typeStrUnknown 'unknown',0
@@ -38,10 +38,10 @@ cmp r1 r0 r1
 skipneq r1
 jmp printTypeUnused
 
-mov r1 SyscallHwDeviceTypeRaw
+mov r1 SyscallHwDeviceTypeKeypad
 cmp r1 r0 r1
 skipneq r1
-jmp printTypeRaw
+jmp printTypeKeypad
 
 mov r1 SyscallHwDeviceTypeSdCardReader
 cmp r1 r0 r1
@@ -62,8 +62,8 @@ mov r0 typeStrUnused
 call puts0
 jmp printTypeEnd
 
-label printTypeRaw
-mov r0 typeStrRaw
+label printTypeKeypad
+mov r0 typeStrKeypad
 call puts0
 jmp printTypeEnd
 
