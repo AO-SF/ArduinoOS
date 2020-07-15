@@ -32,7 +32,7 @@
 volatile uint8_t ttyFlags;
 
 volatile CircBuf ttyCircBuf;
-#define ttyCircBufSize 128
+#define ttyCircBufSize 64
 volatile uint8_t ttyCircBufBuffer[ttyCircBufSize];
 volatile uint8_t ttyCircBufActivityCount;
 
