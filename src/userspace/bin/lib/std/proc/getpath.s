@@ -1,6 +1,7 @@
 require ../../sys/sys.s
 
 requireend ../proc/getabspath.s
+requireend ../mem/memmove.s
 requireend ../str/strcat.s
 requireend ../str/strchr.s
 requireend ../str/strcpy.s
@@ -55,26 +56,32 @@ pop16 r2
 pop16 r1
 pop16 r0
 skipneqz r4
-jmp getpathMakeAbsoluteStackRestore
-; colon found - replace with null byte
-mov r4 0
-store8 r3 r4
-
-; create combined string from PATH dir and src string
+jmp getpathMakeAbsoluteStackRestore ; no colon found so we have reached the end of the PATH directory list
+; colon found - create combined string from PATH dir and src string
 push16 r3
 push16 r2
 push16 r0
 push16 r1
+; add current directory from PATH (r2 contains start of directory entry, while r3 points to the terminating colon which is immediately after)
+mov r0 getpathScratchBuf
+sub r4 r3 r2 ; compute length of PATH sub part
+add r0 r0 r4
+mov r4 0
+store8 r0 r4 ; store null byte ready to terminate new string
 mov r0 getpathScratchBuf
 mov r1 r2
-call strcpy
+mov r2 r3
+call memmove ; copy current part of PATH, ignoring terminating colon
+; add joining slash
 mov r0 getpathScratchBuf
 mov r1 getpathSlashStr
 call strcat
+; add user provided src path
 mov r0 getpathScratchBuf
 pop16 r1
 push16 r1
 call strcat
+; restore registers and stack
 pop16 r1
 pop16 r0
 pop16 r2
