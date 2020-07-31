@@ -44,6 +44,7 @@ echo "	Creating /bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/sh.s ./tmp/mockups/binmockup/sh
 ./bin/aosf-asm ./src/userspace/bin/shutdown.s ./tmp/mockups/binmockup/shutdown
 ./bin/aosf-asm ./src/userspace/bin/signal.s ./tmp/mockups/binmockup/signal
+./bin/aosf-asm ./src/userspace/bin/size.s ./tmp/mockups/binmockup/size
 ./bin/aosf-asm ./src/userspace/bin/sleep.s ./tmp/mockups/binmockup/sleep
 ./bin/aosf-asm ./src/userspace/bin/true.s ./tmp/mockups/binmockup/true
 ./bin/aosf-asm ./src/userspace/bin/truncate.s ./tmp/mockups/binmockup/truncate

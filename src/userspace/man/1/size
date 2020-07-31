@@ -1,0 +1,10 @@
+SIZE(1) - User Commands
+
+NAME
+      size - Print a file's size in a human readable format
+
+SYNOPSIS
+      size FILE
+
+DESCRIPTION
+      Print the size of the given file in a human readable format. Directories and character devices are treated as having size zero.
