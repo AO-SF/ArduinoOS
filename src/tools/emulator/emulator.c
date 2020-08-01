@@ -702,13 +702,16 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [envsetpath], path=%u='%s')\n", syscallId, process->envVars.path, (char *)(process->memory+process->envVars.path));
 						break;
 						case BytecodeSyscallIdTimeMonotonic16s:
+							process->regs[0]=(getMonotonicTimeMs()/1000) & 0xFFFF;
+
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timemonotonic16s] (unimplemented)\n", syscallId);
-							process->regs[0]=0;
+								printf("Info: syscall(id=%i [timemonotonic16s]\n", syscallId);
 						break;
 						case BytecodeSyscallIdTimeMonotonic16ms:
+							process->regs[0]=getMonotonicTimeMs() & 0xFFFF;
+
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timemonotonic16ms] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [timemonotonic16ms]\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdTimeMonotonic32s: {
@@ -723,13 +726,14 @@ bool processRunNextInstruction(Process *process) {
 								return false;
 							}
 
-							process->memory[destPtr]=0;
-							process->memory[destPtr+1]=0;
-							process->memory[destPtr+2]=0;
-							process->memory[destPtr+3]=0;
+							uint64_t monoTimeS=getMonotonicTimeMs()/1000;
+							process->memory[destPtr+0]=(monoTimeS>>24)&0xFF;
+							process->memory[destPtr+1]=(monoTimeS>>16)&0xFF;
+							process->memory[destPtr+2]=(monoTimeS>> 8)&0xFF;
+							process->memory[destPtr+3]=(monoTimeS>> 0)&0xFF;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timemonotonic32s] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [timemonotonic32s] (destPtr=%u)\n", syscallId, destPtr);
 						} break;
 						case BytecodeSyscallIdTimeMonotonic32ms: {
 							uint16_t destPtr=process->regs[1];
@@ -743,13 +747,14 @@ bool processRunNextInstruction(Process *process) {
 								return false;
 							}
 
-							process->memory[destPtr]=0;
-							process->memory[destPtr+1]=0;
-							process->memory[destPtr+2]=0;
-							process->memory[destPtr+3]=0;
+							uint64_t realTimeMs=getMonotonicTimeMs();
+							process->memory[destPtr+0]=(realTimeMs>>24)&0xFF;
+							process->memory[destPtr+1]=(realTimeMs>>16)&0xFF;
+							process->memory[destPtr+2]=(realTimeMs>> 8)&0xFF;
+							process->memory[destPtr+3]=(realTimeMs>> 0)&0xFF;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timemonotonic32ms] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [timemonotonic32ms] (destPtr=%u)\n", syscallId, destPtr);
 						} break;
 						case BytecodeSyscallIdTimeReal32s: {
 							uint16_t destPtr=process->regs[1];
@@ -763,22 +768,41 @@ bool processRunNextInstruction(Process *process) {
 								return false;
 							}
 
-							process->memory[destPtr]=0;
-							process->memory[destPtr+1]=0;
-							process->memory[destPtr+2]=0;
-							process->memory[destPtr+3]=0;
+							uint64_t realTimeS=getRealTimeMs()/1000;
+							process->memory[destPtr+0]=(realTimeS>>24)&0xFF;
+							process->memory[destPtr+1]=(realTimeS>>16)&0xFF;
+							process->memory[destPtr+2]=(realTimeS>> 8)&0xFF;
+							process->memory[destPtr+3]=(realTimeS>> 0)&0xFF;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timereal32s] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [timereal32s] (destPtr=%u)\n", syscallId, destPtr);
 						} break;
 						case BytecodeSyscallIdTimeToDate32s: {
-							// uint16_t destPtr=process->regs[1];
-							// uint16_t srcTimePtr=process->regs[1];
+							// Grab arguments
+							uint16_t destDatePtr=process->regs[1];
+							uint16_t srcTimePtr=process->regs[2];
 
-							// TODO: at least write all zeros to fields
+							// Grab source time
+							// TODO: check srcTimePtr range is ok
+							BytecodeDoubleWord srcTime=(process->memory[srcTimePtr+0]<<24)|(process->memory[srcTimePtr+1]<<16)|(process->memory[srcTimePtr+2]<<8)|process->memory[srcTimePtr+3];
+
+							// Decompose into date
+							KDate date;
+							ktimeTimeMsToDate(srcTime*((KTime)1000), &date);
+
+							// User space date struct has a slightly different structure.
+							// So have to copy field by field.
+							// TODO: check destDatePtr range is ok
+							process->memory[destDatePtr+0]=(date.year>>8);
+							process->memory[destDatePtr+1]=(date.year&0xFF);
+							process->memory[destDatePtr+2]=date.month;
+							process->memory[destDatePtr+3]=date.day;
+							process->memory[destDatePtr+4]=date.hour;
+							process->memory[destDatePtr+5]=date.minute;
+							process->memory[destDatePtr+6]=date.second;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timetodate32s] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [timetodate32s] (srcTimeS=%lu)\n", syscallId, srcTime);
 						} break;
 						case BytecodeSyscallIdRegisterSignalHandler:
 							if (infoSyscalls)
