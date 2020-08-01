@@ -174,7 +174,8 @@ call putc0
 pop16 r0
 push16 r0
 call int32dateGetYear
-call putdec
+mov r1 2
+call putdecpad
 ; Print space
 mov r0 ' '
 call putc0
