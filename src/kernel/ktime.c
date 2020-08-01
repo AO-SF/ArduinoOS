@@ -7,7 +7,9 @@
 #include <sys/time.h>
 #endif
 
+#ifndef KTIMENOLOG
 #include "log.h"
+#endif
 #include "ktime.h"
 #include "util.h"
 
@@ -59,7 +61,9 @@ void ktimeInit(void) {
 
 	// Set boot time
 	ktimeBootTime=ktimeGetRawMs();
+#ifndef KTIMENOLOG
 	kernelLog(LogTypeInfo, kstrP("set kernel boot time to %"PRIu64"\n"), ktimeBootTime);
+#endif
 
 	// In PC wrapper we can update real time offset at any time, so might as well do it now.
 	#ifndef ARDUINO
@@ -89,7 +93,9 @@ void ktimeSetRealMs(KTime ms) {
 	if (newOffset==ktimeRealTimeOffset)
 		return;
 
+#ifndef KTIMENOLOG
 	kernelLog(LogTypeInfo, kstrP("set kernel real time offset to %"PRIu64" (was %"PRIu64")\n"), newOffset, ktimeRealTimeOffset);
+#endif
 	ktimeRealTimeOffset=newOffset;
 }
 
