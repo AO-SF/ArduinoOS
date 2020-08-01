@@ -3,10 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
 #include "bytecode.h"
+#include "ktime.h"
 #include "procman.h"
 
 #define PathMax 64 // TODO: use KernelFsPathMax
@@ -42,11 +44,16 @@ bool slow=false;
 bool passOnExitStatus=false;
 int exitStatus=EXIT_SUCCESS;
 
+uint64_t bootTimeMs;
+
 bool processRunNextInstruction(Process *process);
 void processDebug(const Process *process);
 
 int emulatorClz8(uint8_t x);
 int emulatorClz16(uint16_t x);
+
+uint64_t getMonotonicTimeMs(void);
+uint64_t getRealTimeMs(void);
 
 int main(int argc, char **argv) {
 	FILE *inputFile=NULL;
@@ -139,6 +146,8 @@ int main(int argc, char **argv) {
 		*next++=c;
 
 	// Run process
+	bootTimeMs=getRealTimeMs();
+
 	do {
 		if (slow)
 			sleep(1);
@@ -1362,4 +1371,14 @@ int emulatorClz16(uint16_t x) {
 
 	uint8_t lower=x&255;
 	return emulatorClz8(lower)+8;
+}
+
+uint64_t getMonotonicTimeMs(void) {
+	return getRealTimeMs()-bootTimeMs;
+}
+
+uint64_t getRealTimeMs(void) {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return tv.tv_sec*1000llu+tv.tv_usec/1000llu;
 }

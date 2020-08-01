@@ -1,8 +1,8 @@
 CPP = clang
-CFLAGS = -std=gnu11 -Wall -O0 -ggdb3 -I../../kernel
+CFLAGS = -std=gnu11 -Wall -O0 -ggdb3 -I../../kernel -DKTIMENOLOG
 LFLAGS = -lm
 
-OBJS = emulator.o ../../kernel/bytecode.o
+OBJS = emulator.o ../../kernel/bytecode.o ../../kernel/ktime.o
 
 ALL: $(OBJS)
 	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/aosf-emu $(LFLAGS)
