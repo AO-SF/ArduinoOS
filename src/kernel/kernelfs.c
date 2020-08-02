@@ -1312,21 +1312,7 @@ bool kernelFsFileCanOpenMany(const char *path) {
 	if (device!=NULL) {
 		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
-				switch(device->block.format) {
-					case KernelFsBlockDeviceFormatCustomMiniFs: {
-						MiniFs miniFs;
-						miniFsMountFast(&miniFs, &kernelFsMiniFsReadWrapper, (device->common.writable ? &kernelFsMiniFsWriteWrapper : NULL), device);
-						bool res=miniFsGetReadOnly(&miniFs);
-						miniFsUnmount(&miniFs);
-						return res;
-					} break;
-					case KernelFsBlockDeviceFormatFlatFile:
-						return !device->common.writable;
-					break;
-					case KernelFsBlockDeviceFormatNB:
-						assert(false);
-					break;
-				}
+				return !device->common.writable;
 			break;
 			case KernelFsDeviceTypeCharacter:
 				return device->common.characterCanOpenManyFlag;
@@ -1348,14 +1334,9 @@ bool kernelFsFileCanOpenMany(const char *path) {
 		switch(parentDevice->common.type) {
 			case KernelFsDeviceTypeBlock:
 				switch(parentDevice->block.format) {
-					case KernelFsBlockDeviceFormatCustomMiniFs: {
-						MiniFs miniFs;
-						miniFsMountFast(&miniFs, &kernelFsMiniFsReadWrapper, (parentDevice->common.writable ? &kernelFsMiniFsWriteWrapper : NULL), parentDevice);
-						bool res=miniFsGetReadOnly(&miniFs);
-						miniFsUnmount(&miniFs);
-						if (res)
-							return true;
-					} break;
+					case KernelFsBlockDeviceFormatCustomMiniFs:
+						return !parentDevice->common.writable;
+					break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
 						return false;
