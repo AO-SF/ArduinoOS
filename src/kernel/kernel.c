@@ -16,6 +16,7 @@
 #include "hwdevice.h"
 #include "kernel.h"
 #include "kernelfs.h"
+#include "kernelmount.h"
 #include "ktime.h"
 #include "log.h"
 #include "minifs.h"
@@ -28,11 +29,11 @@
 #include "commonprogmem.h"
 
 #ifdef KERNELCUSTOMRAMSIZE
-#define KernelTmpDataPoolSize KERNELCUSTOMRAMSIZE
+#define KernelRamSize KERNELCUSTOMRAMSIZE
 #else
-#define KernelTmpDataPoolSize (2*1024) // 2kb - used as ram (note: Arduino Mega only has 8kb total)
+#define KernelRamSize (2*1024) // 2kb - used as ram (note: Arduino Mega only has 8kb total)
 #endif
-uint8_t kernelTmpDataPool[KernelTmpDataPoolSize];
+uint8_t kernelRamData[KernelRamSize];
 
 #define KernelEepromTotalSize (4*1024) // Mega has 4kb for example
 #define KernelEepromEtcOffset (0)
@@ -61,6 +62,7 @@ typedef enum {
 	KernelVirtualDevFileSpi,
 	KernelVirtualDevFileURandom,
 	KernelVirtualDevFileZero,
+	KernelVirtualDevFileRam,
 } KernelVirtualDevFile;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -83,11 +85,7 @@ uint32_t kernelEepromGenericFsFunctor(KernelFsDeviceFunctorType type, void *user
 KernelFsFileOffset kernelEepromGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
 
-uint32_t kernelTmpFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
-KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
-KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
-uint16_t kernelTmpMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
-
+uint16_t kernelVirtualDevFileDevRamMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
 uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 
 uint32_t kernelDevDigitalPinFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
@@ -310,11 +308,6 @@ void kernelBoot(void) {
 	kernelLog(LogTypeInfo, kstrP("openned pseudo EEPROM storage file (PC wrapper)\n"));
 #endif
 
-	// Format RAM used for /tmp
-	if (!miniFsFormat(&kernelTmpMiniFsWriteFunctor, NULL, KernelTmpDataPoolSize))
-		kernelFatalError(kstrP("could not format /tmp volume\n"));
-	kernelLog(LogTypeInfo, kstrP("formatted volume representing /tmp (size %u)\n"), KernelTmpDataPoolSize);
-
 	// Init file system and add virtual devices
 	kernelFsInit();
 	bool error;
@@ -331,8 +324,15 @@ void kernelBoot(void) {
 	if (error)
 		kernelFatalError(kstrP("fs init failure: base directories\n"));
 
-	// ... essential: tmp directory used for ram
-	if (!kernelFsAddBlockDeviceFile(kstrP("/tmp"), &kernelTmpFsFunctor, NULL, KernelFsBlockDeviceFormatCustomMiniFs, KernelTmpDataPoolSize, true))
+	// ... essential: /dev/ram file and /tmp directory used for ram
+	if (!kernelFsAddBlockDeviceFile(kstrP("/dev/ram"), &kernelVirtualDevFileGenericFsFunctor, (void *)(uintptr_t)KernelVirtualDevFileRam, KernelFsBlockDeviceFormatFlatFile, KernelRamSize, true))
+		kernelFatalError(kstrP("fs init failure: /dev/ram\n"));
+
+	if (!miniFsFormat(&kernelVirtualDevFileDevRamMiniFsWriteFunctor, (void *)(uintptr_t)KernelVirtualDevFileRam, KernelRamSize))
+		kernelFatalError(kstrP("could not format /dev/ram volume\n"));
+	kernelLog(LogTypeInfo, kstrP("formatted /tmp volume in /dev/ram (size %u)\n"), KernelRamSize);
+
+	if (!kernelMount(KernelMountFormatMiniFs, "/dev/ram", "/tmp")) // TODO: can these paths be moved to progmem?
 		kernelFatalError(kstrP("fs init failure: /tmp\n"));
 
 	// ... RO volumes
@@ -631,43 +631,8 @@ KernelFsFileOffset kernelEepromGenericWriteFunctor(KernelFsFileOffset addr, cons
 #endif
 }
 
-uint32_t kernelTmpFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
-	switch(type) {
-		case KernelFsDeviceFunctorTypeCommonFlush:
-			return true;
-		break;
-		case KernelFsDeviceFunctorTypeCharacterRead:
-		break;
-		case KernelFsDeviceFunctorTypeCharacterCanRead:
-		break;
-		case KernelFsDeviceFunctorTypeCharacterWrite:
-		break;
-		case KernelFsDeviceFunctorTypeCharacterCanWrite:
-		break;
-		case KernelFsDeviceFunctorTypeBlockRead:
-			return kernelTmpReadFunctor(addr, data, len, userData);
-		break;
-		case KernelFsDeviceFunctorTypeBlockWrite:
-			return kernelTmpWriteFunctor(addr, data, len, userData);
-		break;
-	}
-
-	assert(false);
-	return 0;
-}
-
-KernelFsFileOffset kernelTmpReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
-	memcpy(data, kernelTmpDataPool+addr, len);
-	return len;
-}
-
-KernelFsFileOffset kernelTmpWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
-	memcpy(kernelTmpDataPool+addr, data, len);
-	return len;
-}
-
-uint16_t kernelTmpMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData) {
-	return kernelTmpWriteFunctor(addr, data, len, userData);
+uint16_t kernelVirtualDevFileDevRamMiniFsWriteFunctor(uint16_t addr, const uint8_t *data, uint16_t len, void *userData) {
+	return kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorTypeBlockWrite, userData, (uint8_t *)data, len, addr);
 }
 
 uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
@@ -696,6 +661,10 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 				case KernelVirtualDevFileZero:
 					return 0;
 				break;
+				case KernelVirtualDevFileRam:
+					assert(false);
+					return 0;
+				break;
 			}
 		break;
 		case KernelFsDeviceFunctorTypeCharacterCanRead:
@@ -717,6 +686,10 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 				break;
 				case KernelVirtualDevFileZero:
 					return true;
+				break;
+				case KernelVirtualDevFileRam:
+					assert(false);
+					return false;
 				break;
 			}
 		break;
@@ -743,6 +716,10 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 				case KernelVirtualDevFileZero:
 					return len;
 				break;
+				case KernelVirtualDevFileRam:
+					assert(false);
+					return 0;
+				break;
 			}
 		break;
 		case KernelFsDeviceFunctorTypeCharacterCanWrite:
@@ -765,11 +742,45 @@ uint32_t kernelVirtualDevFileGenericFsFunctor(KernelFsDeviceFunctorType type, vo
 				case KernelVirtualDevFileZero:
 					return true;
 				break;
+				case KernelVirtualDevFileRam:
+					assert(false);
+					return false;
+				break;
 			}
 		break;
 		case KernelFsDeviceFunctorTypeBlockRead:
+			switch(file) {
+				case KernelVirtualDevFileFull:
+				case KernelVirtualDevFileNull:
+				case KernelVirtualDevFileTtyS0:
+				case KernelVirtualDevFileSpi:
+				case KernelVirtualDevFileURandom:
+				case KernelVirtualDevFileZero:
+					assert(false);
+					return 0;
+				break;
+				case KernelVirtualDevFileRam:
+					memcpy(data, kernelRamData+addr, len);
+					return len;
+				break;
+			}
 		break;
 		case KernelFsDeviceFunctorTypeBlockWrite:
+			switch(file) {
+				case KernelVirtualDevFileFull:
+				case KernelVirtualDevFileNull:
+				case KernelVirtualDevFileTtyS0:
+				case KernelVirtualDevFileSpi:
+				case KernelVirtualDevFileURandom:
+				case KernelVirtualDevFileZero:
+					assert(false);
+					return 0;
+				break;
+				case KernelVirtualDevFileRam:
+					memcpy(kernelRamData+addr, data, len);
+					return len;
+				break;
+			}
 		break;
 	}
 
