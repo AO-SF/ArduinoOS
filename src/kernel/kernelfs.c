@@ -1296,6 +1296,22 @@ const char *kernelFsFdModeToString(KernelFsFdMode mode) {
 	return kernelFsFdModeToStringArray[mode];
 }
 
+uint16_t kernelFsFdMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData) {
+	assert(data!=NULL);
+	assert(userData!=NULL);
+
+	KernelFsFd fd=(KernelFsFd)(uintptr_t)userData;
+	return kernelFsFileReadOffset(fd, addr, data, len);
+}
+
+uint16_t kernelFsFdMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t len, void *userData) {
+	assert(data!=NULL);
+	assert(userData!=NULL);
+
+	KernelFsFd fd=(KernelFsFd)(uintptr_t)userData;
+	return kernelFsFileWriteOffset(fd, addr, data, len);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////

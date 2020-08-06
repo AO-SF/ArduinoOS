@@ -141,4 +141,9 @@ void kernelFsPathSplitStaticKStr(KStr kstr, char **dirnamePtr, char **basenamePt
 
 const char *kernelFsFdModeToString(KernelFsFdMode mode);
 
+// These two functions can be passed to the miniFsMount functions to allow reading/writing a MiniFs volume in an open file,
+// with the fd passed as the userData field (cast via uintptr_t)
+uint16_t kernelFsFdMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
+uint16_t kernelFsFdMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
+
 #endif
