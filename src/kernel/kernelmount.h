@@ -18,4 +18,7 @@ typedef enum {
 bool kernelMount(KernelMountFormat format, const char *devicePath, const char *dirPath);
 void kernelUnmount(const char *dirPath);
 
+bool KernelMountFormatIsFile(KernelMountFormat format);
+bool KernelMountFormatIsDir(KernelMountFormat format);
+
 #endif

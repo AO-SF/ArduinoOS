@@ -166,6 +166,42 @@ void kernelUnmount(const char *dirPath) {
 	kernelLog(LogTypeInfo, kstrP("unmounted (dirPath='%s', slot=%u)\n"), dirPath, i);
 }
 
+bool KernelMountFormatIsFile(KernelMountFormat format) {
+	switch(format) {
+		case KernelMountFormatMiniFs:
+			return false;
+		break;
+		case KernelMountFormatFlatFile:
+		case KernelMountFormatPartition1:
+		case KernelMountFormatPartition2:
+		case KernelMountFormatPartition3:
+		case KernelMountFormatPartition4:
+		case KernelMountFormatCircBuf:
+			return true;
+		break;
+	}
+
+	return false;
+}
+
+bool KernelMountFormatIsDir(KernelMountFormat format) {
+	switch(format) {
+		case KernelMountFormatMiniFs:
+			return true;
+		break;
+		case KernelMountFormatFlatFile:
+		case KernelMountFormatPartition1:
+		case KernelMountFormatPartition2:
+		case KernelMountFormatPartition3:
+		case KernelMountFormatPartition4:
+		case KernelMountFormatCircBuf:
+			return false;
+		break;
+	}
+
+	return false;
+}
+
 uint32_t kernelMountFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
 	switch(type) {
 		case KernelFsDeviceFunctorTypeCommonFlush:
