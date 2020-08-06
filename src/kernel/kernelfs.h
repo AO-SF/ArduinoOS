@@ -105,7 +105,7 @@ KernelFsFdMode kernelFsGetFileMode(KernelFsFd fd); // returns KernelFsFdModeNone
 
 // The following functions are for non-directory files only.
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes read
-KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes read. blocking only affects some character device files
+KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes read.
 bool kernelFsFileCanRead(KernelFsFd fd); // character device files may return false if a read would block, all other files return true (as they never block)
 
 bool kernelFsFileReadByte(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *value);
