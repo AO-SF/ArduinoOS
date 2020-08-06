@@ -97,7 +97,7 @@ KernelFsFileOffset kernelFsDeviceInvokeFunctorCharacterWrite(KernelFsDevice *dev
 bool kernelFsDeviceInvokeFunctorCharacterCanWrite(KernelFsDevice *device);
 
 KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockRead(KernelFsDevice *device, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
-KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockwrite(KernelFsDevice *device, const uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
+KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockWrite(KernelFsDevice *device, const uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
 
 // The following functions deal with logic handling the mode and ref count stored in the spare bits of fdt path fields.
 STATICASSERT(KernelFsFdModeNone==0); // so that make function can return 0 for error unambiguously
@@ -987,7 +987,7 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 						// These act as directories at the top level (we check below for child)
 					break;
 					case KernelFsBlockDeviceFormatFlatFile:
-						return kernelFsDeviceInvokeFunctorBlockwrite(device, data, dataLen, offset);
+						return kernelFsDeviceInvokeFunctorBlockWrite(device, data, dataLen, offset);
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -1590,7 +1590,7 @@ KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockRead(KernelFsDevice *device, 
 	return (KernelFsFileOffset)device->common.functor(KernelFsDeviceFunctorTypeBlockRead, device->common.userData, data, len, addr);
 }
 
-KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockwrite(KernelFsDevice *device, const uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+KernelFsFileOffset kernelFsDeviceInvokeFunctorBlockWrite(KernelFsDevice *device, const uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
 	return (KernelFsFileOffset)device->common.functor(KernelFsDeviceFunctorTypeBlockWrite, device->common.userData, (uint8_t *)data, len, addr);
 }
 
@@ -1653,5 +1653,5 @@ uint16_t kernelFsDeviceMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, ui
 	assert(device->block.format==KernelFsBlockDeviceFormatCustomMiniFs);
 	assert(device->common.writable);
 
-	return kernelFsDeviceInvokeFunctorBlockwrite(device, data, len, addr);
+	return kernelFsDeviceInvokeFunctorBlockWrite(device, data, len, addr);
 }
