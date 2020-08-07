@@ -4,6 +4,7 @@
 
 #include "kernelmount.h"
 #include "log.h"
+#include "minifs.h"
 #include "ptable.h"
 
 typedef struct {
@@ -164,6 +165,169 @@ void kernelUnmount(const char *dirPath) {
 
 	// Success
 	kernelLog(LogTypeInfo, kstrP("unmounted (dirPath='%s', slot=%u)\n"), dirPath, i);
+}
+
+bool kernelRemount(KernelMountFormat newFormat, const char *newDevicePath, const char *dirPath) {
+	char pathBuffer[KernelFsPathMax];
+	uint8_t copyBuffer[kernelRemountCopyBufferSize];
+	return kernelRemountWithBuffers(newFormat, newDevicePath, dirPath, pathBuffer, copyBuffer);
+}
+
+bool kernelRemountWithBuffers(KernelMountFormat newFormat, const char *newDevicePath, const char *dirPath, char *pathBuffer, uint8_t *copyBuffer) {
+	// Check dir path is valid
+	if (!kernelFsPathIsValid(dirPath)) {
+		kernelLog(LogTypeWarning, kstrP("could not remount - bad dir path (newDevicePath='%s', dirPath='%s')\n"), newDevicePath, dirPath);
+		return false;
+	}
+
+	// Grab existing device fd stored in dirPath device userdata
+	KernelFsFd oldDeviceFd=(KernelFsFd)(uintptr_t)kernelFsDeviceFileGetUserData(dirPath);
+
+	// Find entry in our table for this mount
+	uint8_t i;
+	for(i=0; i<kernelMountedDevicesNext; ++i)
+		if (oldDeviceFd==kernelMountedDevices[i].fd)
+			break;
+
+	if (i>=kernelMountedDevicesNext) {
+		kernelLog(LogTypeWarning, kstrP("could not remount - no such device mounted (newDevicePath='%s', dirPath='%s', oldDeviceFd=%u)\n"), newDevicePath, dirPath, oldDeviceFd);
+		return false;
+	}
+
+	// Verify new format is compatible
+	bool isDir=KernelMountFormatIsDir(newFormat);
+	KernelMountFormat oldFormat=kernelMountedDevices[i].format;
+	if (isDir!=KernelMountFormatIsDir(oldFormat)) {
+		kernelLog(LogTypeWarning, kstrP("could not remount - mismatched formats %u and %u (newDevicePath='%s', dirPath='%s', oldDeviceFd=%u)\n"), newFormat, oldFormat, newDevicePath, dirPath, oldDeviceFd);
+		return false;
+	}
+
+	// Open new device file
+	KernelFsFd newDeviceFd=kernelFsFileOpen(newDevicePath, KernelFsFdModeRW);
+	if (newDeviceFd==KernelFsFdInvalid) {
+		kernelLog(LogTypeWarning, kstrP("could not remount - could not open new device file (newFormat=%u, newDevicePath='%s', oldDeviceFd=%u, dirPath='%s')\n"), newFormat, newDevicePath, oldDeviceFd, dirPath);
+		return false;
+	}
+
+	KernelFsFileOffset newDeviceLen=kernelFsFileGetLen(newDevicePath);
+
+	// Format new 'volume' and copy over files/contents from old one
+	switch(newFormat) {
+		case KernelMountFormatMiniFs:
+			// Format the new backing file to be a MiniFs volume
+			if (!miniFsFormat(&kernelFsFdMiniFsWriteWrapper, (void *)(uintptr_t)newDeviceFd, newDeviceLen)) {
+				kernelLog(LogTypeWarning, kstrP("could not remount - could not format MiniFs volume (len=%u, newDevicePath='%s', oldDeviceFd=%u, dirPath='%s')\n"), newDeviceLen, newDevicePath, oldDeviceFd, dirPath);
+				kernelFsFileClose(newDeviceFd);
+				return false;
+			}
+
+			// Copy files
+			MiniFs oldMiniFs, newMiniFs;
+			if (!miniFsMountFast(&oldMiniFs, &kernelFsFdMiniFsReadWrapper, &kernelFsFdMiniFsWriteWrapper, (void *)(uintptr_t)oldDeviceFd)) {
+				kernelLog(LogTypeWarning, kstrP("could not remount - could not mount old MiniFs volume (newDevicePath='%s', oldDeviceFd=%u, dirPath='%s')\n"), newDevicePath, oldDeviceFd, dirPath);
+				kernelFsFileClose(newDeviceFd);
+				return false;
+			}
+			if (!miniFsMountFast(&newMiniFs, &kernelFsFdMiniFsReadWrapper, &kernelFsFdMiniFsWriteWrapper, (void *)(uintptr_t)newDeviceFd)) {
+				kernelLog(LogTypeWarning, kstrP("could not remount - could not mount new MiniFs volume (newDevicePath='%s', oldDeviceFd=%u, dirPath='%s')\n"), newDevicePath, oldDeviceFd, dirPath);
+				kernelFsFileClose(newDeviceFd);
+				return false;
+			}
+
+			uint8_t childCount=miniFsGetChildCount(&oldMiniFs);
+			for(uint8_t child=0; child<childCount; ++child) {
+				if (miniFsGetChildN(&oldMiniFs, child, pathBuffer)) {
+					// Create file in new volume
+					uint16_t childLen=miniFsFileGetLen(&oldMiniFs, pathBuffer);
+					if (!miniFsFileCreate(&newMiniFs, pathBuffer, childLen)) {
+						kernelLog(LogTypeWarning, kstrP("could not remount - could not create file '%s' in new MiniFs volume (newDevicePath='%s', oldDeviceFd=%u, dirPath='%s')\n"), pathBuffer, newDevicePath, oldDeviceFd, dirPath);
+						kernelFsFileClose(newDeviceFd);
+						return false;
+					}
+
+					// Copy current file to new volume
+					uint16_t offset;
+					for(offset=0; offset<childLen; offset+=kernelRemountCopyBufferSize) {
+						uint16_t chunkSize=childLen-offset;
+						if (chunkSize>kernelRemountCopyBufferSize)
+							chunkSize=kernelRemountCopyBufferSize;
+
+						if (miniFsFileRead(&oldMiniFs, pathBuffer, offset, copyBuffer, chunkSize)!=chunkSize) {
+							kernelLog(LogTypeWarning, kstrP("could not remount - could not read file '%s' from old MiniFs volume (newDevicePath='%s', oldDeviceFd=%u, dirPath='%s')\n"), pathBuffer, newDevicePath, oldDeviceFd, dirPath);
+							kernelFsFileClose(newDeviceFd);
+							return false;
+						}
+						if (miniFsFileWrite(&newMiniFs, pathBuffer, offset, copyBuffer, chunkSize)!=chunkSize) {
+							kernelLog(LogTypeWarning, kstrP("could not remount - could not write file '%s' to new MiniFs volume (newDevicePath='%s', oldDeviceFd=%u, dirPath='%s')\n"), pathBuffer, newDevicePath, oldDeviceFd, dirPath);
+							kernelFsFileClose(newDeviceFd);
+							return false;
+						}
+
+					}
+				}
+			}
+
+			miniFsUnmount(&oldMiniFs);
+			miniFsUnmount(&newMiniFs);
+		break;
+		case KernelMountFormatFlatFile:
+		case KernelMountFormatPartition1:
+		case KernelMountFormatPartition2:
+		case KernelMountFormatPartition3:
+		case KernelMountFormatPartition4:
+		case KernelMountFormatCircBuf:
+			// TODO: these cases
+			kernelFsFileClose(newDeviceFd);
+			kernelLog(LogTypeWarning, kstrP("could not remount - unhandled new format %u (newDevicePath='%s', oldDeviceFd=%u, dirPath='%s')\n"), newFormat, newDevicePath, oldDeviceFd, dirPath);
+			return false;
+		break;
+	}
+
+	// Update our array to indicate the changes
+	// Note: we have to do this now so that we can use kernelMountFsFunctor when adding the new device file
+	kernelMountedDevices[i].format=newFormat;
+	kernelMountedDevices[i].fd=newDeviceFd;
+
+	// Update device file at dirPath
+	switch(newFormat) {
+		case KernelMountFormatMiniFs:
+			// Add virtual block device to virtual file system
+			// Note: we reuse the pathBuffer here but for a different purpose than above
+			if (!kernelFsUpdateBlockDeviceFileWithBuffer(kstrC(dirPath), &kernelMountFsFunctor, (void *)(uintptr_t)(newDeviceFd), KernelFsBlockDeviceFormatCustomMiniFs, newDeviceLen, true, pathBuffer)) {
+				kernelLog(LogTypeWarning, kstrP("could not remount - could not add new virtual block device file (newFormat=%u, newDevicePath='%s', dirPath='%s', newDeviceFd=%u)\n"), newFormat, newDevicePath, dirPath, newDeviceFd);
+				goto postcloseerror;
+			}
+		break;
+		case KernelMountFormatFlatFile:
+		case KernelMountFormatPartition1:
+		case KernelMountFormatPartition2:
+		case KernelMountFormatPartition3:
+		case KernelMountFormatPartition4:
+		case KernelMountFormatCircBuf:
+			// TODO: these cases
+			assert(false); // should have triggered early return in above switch statement
+			goto postcloseerror;
+		break;
+	}
+
+	// Close old device file
+	kernelFsFileClose(oldDeviceFd);
+
+	// Success
+	kernelLog(LogTypeInfo, kstrP("remounted (newFormat=%u, newDevicePath='%s', dirPath='%s', slot=%u)\n"), newFormat, newDevicePath, dirPath, i);
+
+	return true;
+
+	postcloseerror:
+
+	// Close newly opened device
+	kernelFsFileClose(newDeviceFd);
+
+	// Reset kernelMountedDevices array
+	kernelMountedDevices[i].format=oldFormat;
+	kernelMountedDevices[i].fd=oldDeviceFd;
+
+	return false;
 }
 
 bool KernelMountFormatIsFile(KernelMountFormat format) {
