@@ -69,6 +69,9 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor,
 
 void kernelFsRemoveDeviceFile(const char *mountPoint); // note: unlike kernelFsFileDelete this does not require virtual directory to be empty
 
+// The below function acts as calling kernelFsAddBlockDeviceFile and kernelFsAddBlockDeviceFile with the same mountPoint
+bool kernelFsUpdateBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable);
+
 void *kernelFsDeviceFileGetUserData(const char *mountPoint);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -105,7 +108,7 @@ KernelFsFdMode kernelFsGetFileMode(KernelFsFd fd); // returns KernelFsFdModeNone
 
 // The following functions are for non-directory files only.
 KernelFsFileOffset kernelFsFileRead(KernelFsFd fd, uint8_t *data, KernelFsFileOffset dataLen); // Returns number of bytes read
-KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes read. blocking only affects some character device files
+KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *data, KernelFsFileOffset dataLen); // offset is ignored for character device files. Returns number of bytes read.
 bool kernelFsFileCanRead(KernelFsFd fd); // character device files may return false if a read would block, all other files return true (as they never block)
 
 bool kernelFsFileReadByte(KernelFsFd fd, KernelFsFileOffset offset, uint8_t *value);
@@ -140,5 +143,10 @@ void kernelFsPathSplitStaticKStr(KStr kstr, char **dirnamePtr, char **basenamePt
 ////////////////////////////////////////////////////////////////////////////////
 
 const char *kernelFsFdModeToString(KernelFsFdMode mode);
+
+// These two functions can be passed to the miniFsMount functions to allow reading/writing a MiniFs volume in an open file,
+// with the fd passed as the userData field (cast via uintptr_t)
+uint16_t kernelFsFdMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
+uint16_t kernelFsFdMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
 
 #endif

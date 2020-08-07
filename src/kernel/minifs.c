@@ -427,7 +427,7 @@ uint16_t miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, cons
 	if (contentOffset==0)
 		return 0;
 
-	// Write byte
+	// Write bytes
 	return miniFsWrite(fs, contentOffset+offset, data, len);
 }
 

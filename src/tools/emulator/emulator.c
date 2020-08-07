@@ -802,7 +802,7 @@ bool processRunNextInstruction(Process *process) {
 							process->memory[destDatePtr+6]=date.second;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timetodate32s] (srcTimeS=%lu)\n", syscallId, srcTime);
+								printf("Info: syscall(id=%i [timetodate32s] (srcTimeS=%u)\n", syscallId, srcTime);
 						} break;
 						case BytecodeSyscallIdRegisterSignalHandler:
 							if (infoSyscalls)
@@ -837,6 +837,11 @@ bool processRunNextInstruction(Process *process) {
 						case BytecodeSyscallIdPipeOpen:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [pipeopen] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						break;
+						case BytecodeSyscallIdRemount:
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [remount] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdStrchr: {

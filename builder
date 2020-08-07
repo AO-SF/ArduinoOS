@@ -40,6 +40,7 @@ echo "	Creating /bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/ls.s ./tmp/mockups/binmockup/ls
 ./bin/aosf-asm ./src/userspace/bin/mount.s ./tmp/mockups/binmockup/mount
 ./bin/aosf-asm ./src/userspace/bin/pwd.s ./tmp/mockups/binmockup/pwd
+./bin/aosf-asm ./src/userspace/bin/remount.s ./tmp/mockups/binmockup/remount
 ./bin/aosf-asm ./src/userspace/bin/rm.s ./tmp/mockups/binmockup/rm
 ./bin/aosf-asm ./src/userspace/bin/sh.s ./tmp/mockups/binmockup/sh
 ./bin/aosf-asm ./src/userspace/bin/shutdown.s ./tmp/mockups/binmockup/shutdown
