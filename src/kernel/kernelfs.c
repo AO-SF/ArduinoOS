@@ -79,6 +79,7 @@ bool kernelFsPathIsDevice(const char *path);
 bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
+KernelFsDevice *kernelFsGetDeviceFromPathIncludingChild(const char *path);
 KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device);
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsDeviceType type, bool writable);
@@ -680,20 +681,11 @@ KernelFsFd kernelFsFileOpen(const char *path, KernelFsFdMode mode) {
 	kernelFsSetFileSpare(newFd, kernelFsFdPathSpareMake(mode, 1)); // store mode and refcount=1 in spare bits of path string
 
 	// Grab device index to save doing this repeatedly in the future
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	KernelFsDevice *device=kernelFsGetDeviceFromPathIncludingChild(path);
 	if (device==NULL) {
-		// Must be child of a device file
-		char *dirname, *basename;
-		kernelFsPathSplitStatic(path, &dirname, &basename);
-
-		device=kernelFsGetDeviceFromPath(dirname);
-
-		// Still no device?
-		if (device==NULL) {
-			// File shouldn't have passed earlier kernelFsFileExists test but this code is here for safety.
-			kernelFsData.fdt[newFd].path=kstrNull();
-			return KernelFsFdInvalid;
-		}
+		// File shouldn't have passed earlier kernelFsFileExists test but this code is here for safety.
+		kernelFsData.fdt[newFd].path=kstrNull();
+		return KernelFsFdInvalid;
 	}
 
 	kernelFsData.fdt[newFd].deviceIndex=kernelFsGetDeviceIndexFromDevice(device);
@@ -1393,6 +1385,21 @@ KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path) {
 			return device;
 	}
 	return NULL;
+}
+
+KernelFsDevice *kernelFsGetDeviceFromPathIncludingChild(const char *path) {
+	assert(path!=NULL);
+
+	// Try as device file itself
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	if (device!=NULL)
+		return device;
+
+	// Try for child of a device file
+	char *dirname, *basename;
+	kernelFsPathSplitStatic(path, &dirname, &basename);
+
+	return kernelFsGetDeviceFromPath(dirname);
 }
 
 KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device) {
