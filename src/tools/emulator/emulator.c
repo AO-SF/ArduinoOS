@@ -839,6 +839,11 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [pipeopen] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
+						case BytecodeSyscallIdRemount:
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [remount] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						break;
 						case BytecodeSyscallIdStrchr: {
 							// TODO: Check arguments better
 							uint16_t strAddr=process->regs[1];

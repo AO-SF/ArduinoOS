@@ -1415,6 +1415,7 @@ bool procManProcessExecInstructionMisc(ProcManProcess *process, ProcManProcessPr
 	return false;
 }
 
+STATICASSERT(kernelRemountCopyBufferSize<=256); // this is for the kernelRemountWithBuffer call in Remount syscall handling
 bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *procData, ProcManExitStatus *exitStatus) {
 	assert(process!=NULL);
 	assert(procData!=NULL);
@@ -2370,6 +2371,38 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			procData->regs[0]=1;
 
 			return true;
+		} break;
+		case BytecodeSyscallIdRemount: {
+#define newDevicePath procManScratchBufPath0
+#define dirPath procManScratchBufPath1
+#define pathBuffer procManScratchBufPath2
+#define copyBuffer ((uint8_t *)procManScratchBuf256)
+
+			// Grab arguments
+			uint16_t format=procData->regs[1];
+			uint16_t newDevicePathAddr=procData->regs[2];
+			uint16_t dirPathAddr=procData->regs[3];
+
+			if (!procManProcessMemoryReadStr(process, procData, newDevicePathAddr, newDevicePath, KernelFsPathMax)) {
+				kernelLog(LogTypeWarning, kstrP("failed during remount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			if (!procManProcessMemoryReadStr(process, procData, dirPathAddr, dirPath, KernelFsPathMax)) {
+				kernelLog(LogTypeWarning, kstrP("failed during remount syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			kernelFsPathNormalise(newDevicePath);
+			kernelFsPathNormalise(dirPath);
+
+			// Attempt to remount
+			procData->regs[0]=kernelRemountWithBuffers(format, newDevicePath, dirPath, pathBuffer, copyBuffer);
+
+			return true;
+
+#undef newDevicePath
+#undef dirPath
+#undef pathBuffer
+#undef copyBuffer
 		} break;
 		case BytecodeSyscallIdStrchr: {
 			uint16_t strAddr=procData->regs[1];
