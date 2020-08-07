@@ -219,6 +219,43 @@ void kernelFsRemoveDeviceFile(const char *mountPoint) {
 		kernelFsRemoveDeviceFileRaw(device);
 }
 
+bool kernelFsUpdateBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable) {
+	char pathBuffer[KernelFsPathMax];
+	return kernelFsUpdateBlockDeviceFileWithBuffer(mountPoint, functor, userData, format, size, writable, pathBuffer);
+}
+
+bool kernelFsUpdateBlockDeviceFileWithBuffer(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable, char *pathBuffer) {
+	assert(!kstrIsNull(mountPoint));
+	assert(functor!=NULL);
+
+	// TODO: Fail gracefully here if we do fail, leaving original device unchanged
+
+	// Remove existing device
+	kstrStrcpy(pathBuffer, mountPoint);
+	kernelFsRemoveDeviceFile(pathBuffer);
+
+	// Add new device
+	if (!kernelFsAddBlockDeviceFile(mountPoint, functor, userData, format, size, writable))
+		return false;
+
+	// Refresh cached FDT device ids
+	for(unsigned i=0; i<KernelFsFdModeMax; ++i) {
+		if (kstrIsNull(kernelFsData.fdt[i].path))
+			continue;
+
+		kstrStrcpy(pathBuffer, kernelFsData.fdt[i].path);
+		KernelFsDevice *device=kernelFsGetDeviceFromPathIncludingChild(pathBuffer);
+		if (device==NULL) {
+			kernelLog(LogTypeError, kstrP("Failed to update block device - could not refresh FDT device id cache for '%s'\n"), pathBuffer);
+			continue;
+		}
+
+		kernelFsData.fdt[i].deviceIndex=kernelFsGetDeviceIndexFromDevice(device);
+	}
+
+	return true;
+}
+
 void *kernelFsDeviceFileGetUserData(const char *mountPoint) {
 	assert(mountPoint!=NULL);
 

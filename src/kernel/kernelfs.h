@@ -69,6 +69,10 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor,
 
 void kernelFsRemoveDeviceFile(const char *mountPoint); // note: unlike kernelFsFileDelete this does not require virtual directory to be empty
 
+// The below function acts as calling kernelFsAddBlockDeviceFile and kernelFsAddBlockDeviceFile with the same mountPoint
+bool kernelFsUpdateBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable);
+bool kernelFsUpdateBlockDeviceFileWithBuffer(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable, char *pathBuffer); // pathBuffer must have space for at least KernelFsPathMax bytes
+
 void *kernelFsDeviceFileGetUserData(const char *mountPoint);
 
 ////////////////////////////////////////////////////////////////////////////////
