@@ -292,8 +292,7 @@ bool kernelRemountWithBuffers(KernelMountFormat newFormat, const char *newDevice
 	switch(newFormat) {
 		case KernelMountFormatMiniFs:
 			// Add virtual block device to virtual file system
-			// Note: we reuse the pathBuffer here but for a different purpose than above
-			if (!kernelFsUpdateBlockDeviceFileWithBuffer(kstrC(dirPath), &kernelMountFsFunctor, (void *)(uintptr_t)(newDeviceFd), KernelFsBlockDeviceFormatCustomMiniFs, newDeviceLen, true, pathBuffer)) {
+			if (!kernelFsUpdateBlockDeviceFile(kstrC(dirPath), &kernelMountFsFunctor, (void *)(uintptr_t)(newDeviceFd), KernelFsBlockDeviceFormatCustomMiniFs, newDeviceLen, true)) {
 				kernelLog(LogTypeWarning, kstrP("could not remount - could not add new virtual block device file (newFormat=%u, newDevicePath='%s', dirPath='%s', newDeviceFd=%u)\n"), newFormat, newDevicePath, dirPath, newDeviceFd);
 				goto postcloseerror;
 			}

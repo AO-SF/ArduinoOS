@@ -220,40 +220,48 @@ void kernelFsRemoveDeviceFile(const char *mountPoint) {
 }
 
 bool kernelFsUpdateBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable) {
-	char pathBuffer[KernelFsPathMax];
-	return kernelFsUpdateBlockDeviceFileWithBuffer(mountPoint, functor, userData, format, size, writable, pathBuffer);
-}
-
-bool kernelFsUpdateBlockDeviceFileWithBuffer(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsBlockDeviceFormat format, KernelFsFileOffset size, bool writable, char *pathBuffer) {
 	assert(!kstrIsNull(mountPoint));
 	assert(functor!=NULL);
 
-	// TODO: Fail gracefully here if we do fail, leaving original device unchanged
-
-	// Remove existing device
-	kstrStrcpy(pathBuffer, mountPoint);
-	kernelFsRemoveDeviceFile(pathBuffer);
-
-	// Add new device
-	if (!kernelFsAddBlockDeviceFile(mountPoint, functor, userData, format, size, writable))
+	// Find device
+	KernelFsDevice *device=kernelFsGetDeviceFromPathKStr(mountPoint);
+	if (device==NULL)
 		return false;
 
-	// Refresh cached FDT device ids
-	for(unsigned i=0; i<KernelFsFdModeMax; ++i) {
-		if (kstrIsNull(kernelFsData.fdt[i].path))
-			continue;
+	// Update device fields
+	KernelFsDevice oldDevice=*device;
 
-		kstrStrcpy(pathBuffer, kernelFsData.fdt[i].path);
-		KernelFsDevice *device=kernelFsGetDeviceFromPathIncludingChild(pathBuffer);
-		if (device==NULL) {
-			kernelLog(LogTypeError, kstrP("Failed to update block device - could not refresh FDT device id cache for '%s'\n"), pathBuffer);
-			continue;
-		}
+	device->common.functor=functor;
+	device->common.userData=userData;
+	device->common.type=KernelFsDeviceTypeBlock;
+	device->common.writable=writable;
 
-		kernelFsData.fdt[i].deviceIndex=kernelFsGetDeviceIndexFromDevice(device);
+	device->block.format=format;
+	device->block.size=size;
+
+	// Attempt to mount
+	switch(format) {
+		case KernelFsBlockDeviceFormatCustomMiniFs: {
+			MiniFs miniFs;
+			if (!miniFsMountSafe(&miniFs, &kernelFsDeviceMiniFsReadWrapper, (writable ? &kernelFsDeviceMiniFsWriteWrapper : NULL), device))
+				goto error;
+			miniFsUnmount(&miniFs);
+		} break;
+		case KernelFsBlockDeviceFormatFlatFile:
+		break;
+		case KernelFsBlockDeviceFormatNB:
+			goto error;
+		break;
 	}
 
 	return true;
+
+	error:
+
+	// Restore device fields
+	*device=oldDevice;
+
+	return false;
 }
 
 void *kernelFsDeviceFileGetUserData(const char *mountPoint) {
