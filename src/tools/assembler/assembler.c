@@ -1809,8 +1809,12 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 				// Create instruction which sets or adjusts the IP register
 
 				// Check for trivial case of jumping to a label defined immediately after jump instruction.
-				if (addr==instruction->machineCodeOffset+instruction->machineCodeLen)
-					break; // 'nop' in the most literal sense - no code needed
+				if (addr==instruction->machineCodeOffset+instruction->machineCodeLen) {
+					// While techinically we do not need any instruction here,
+					// there may be skipN instructions preceeding and so a nop is added to preserve their function.
+					instruction->machineCode[0]=bytecodeInstructionCreateMiscNop();
+					break;
+				}
 
 				// Inspect previous iteration length and try to improve
 				if (instruction->machineCodeLen==3) {
