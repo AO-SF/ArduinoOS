@@ -1814,7 +1814,7 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 
 				// Inspect previous iteration length and try to improve
 				if (instruction->machineCodeLen==3) {
-					BytecodeWord len2Addr=(addr>instruction->machineCodeOffset ? addr-1 : addr); // value addr will have next iteration if we do manage to reduce down to 2 bytes
+					BytecodeWord len2Addr=(addr>instruction->machineCodeOffset ? addr-1 : addr); // value that addr will have next iteration if we do manage to reduce down to 2 bytes
 
 					// set8 at 2 bytes?
 					if (len2Addr<256) {
