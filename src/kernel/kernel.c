@@ -305,7 +305,7 @@ void kernelBoot(void) {
 		++eepromInitialSize;
 	}
 
-	kernelLog(LogTypeInfo, kstrP("openned pseudo EEPROM storage file (PC wrapper)\n"));
+	kernelLog(LogTypeInfo, kstrP("opened pseudo EEPROM storage file (PC wrapper)\n"));
 #endif
 
 	// Init file system and add virtual devices

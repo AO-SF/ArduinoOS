@@ -714,7 +714,7 @@ KernelFsFd kernelFsFileOpen(const char *path, KernelFsFdMode mode) {
 			alreadyOpen=true;
 	}
 
-	// If file is already open, decide if it can be openned more than once
+	// If file is already open, decide if it can be opened more than once
 	if (alreadyOpen && !kernelFsFileCanOpenMany(path))
 		return KernelFsFdInvalid;
 

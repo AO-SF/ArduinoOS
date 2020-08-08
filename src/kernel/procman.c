@@ -2366,7 +2366,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 
 			// Write to log
-			kernelLog(LogTypeInfo, kstrP("process %u (%s) openned pipe - local read fd %u, local write fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), readFd, writeFd, pipeId);
+			kernelLog(LogTypeInfo, kstrP("process %u (%s) opened pipe - local read fd %u, local write fd %u, pipeId %u\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process), readFd, writeFd, pipeId);
 
 			procData->regs[0]=1;
 
@@ -3549,7 +3549,7 @@ ProcManLocalFd procManProcessOpenFile(ProcManProcess *process, ProcManProcessPro
 	}
 
 	// Write to log.
-	kernelLog(LogTypeInfo, kstrP("openned userspace file: path '%s', mode %s, local fd %u, global fd %u, process %u (%s)\n"), path, kernelFsFdModeToString(mode), localFd, procData->fds[localFd-1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+	kernelLog(LogTypeInfo, kstrP("opened userspace file: path '%s', mode %s, local fd %u, global fd %u, process %u (%s)\n"), path, kernelFsFdModeToString(mode), localFd, procData->fds[localFd-1], procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 
 	return localFd;
 }
