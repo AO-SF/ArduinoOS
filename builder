@@ -85,6 +85,7 @@ echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/date.s ./tmp/mockups/usrbinmockup/date
 ./bin/aosf-asm ./src/userspace/bin/fdisk.s ./tmp/mockups/usrbinmockup/fdisk
 ./bin/aosf-asm ./src/userspace/bin/tree.s ./tmp/mockups/usrbinmockup/tree
+./bin/aosf-asm ./src/userspace/bin/less.s ./tmp/mockups/usrbinmockup/less
 
 echo "	Creating /usr/datalogger mockup..."
 ./bin/aosf-asm ./src/userspace/bin/dataloggersample.s ./tmp/mockups/usrdataloggermockup/sample
