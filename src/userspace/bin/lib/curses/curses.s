@@ -8,6 +8,8 @@ db cursesEscSeqStrSetRgb 27, '[38;2;', 0
 db cursesEscSeqStrResetAttributes 27, '[0m', 0
 db cursesEscSeqStrCursorShow 27, '[?25h', 0
 db cursesEscSeqStrCursorHide 27, '[?25l', 0
+db cursesEscSeqStrScrollUp 27, '[1T', 0
+db cursesEscSeqStrScrollDown 27, '[1S', 0
 
 ; cursesReset - clear screen and set (visible) cursor to (0,0)
 label cursesReset
@@ -110,4 +112,16 @@ label cursesGetChar
 mov r0 SyscallIdTryReadByte
 mov r1 FdStdin
 syscall
+ret
+
+; cursesScrollUp() - scroll text up by one line
+label cursesScrollUp
+mov r0 cursesEscSeqStrScrollUp
+call puts0
+ret
+
+; cursesScrollDown() - scroll text down by one line
+label cursesScrollDown
+mov r0 cursesEscSeqStrScrollDown
+call puts0
 ret
