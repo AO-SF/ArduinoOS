@@ -2,6 +2,12 @@ require ../sys/sys.s
 requireend ../std/io/fput.s
 requireend ../std/io/fputdec.s
 
+const cursesKeyError 65535
+const cursesKeyUpArrow 321
+const cursesKeyDownArrow 322
+const cursesKeyRightArrow 323
+const cursesKeyLeftArrow 324
+
 db cursesEscSeqStrClearScreen 27, '[2J', 0
 db cursesEscSeqStrClearLine 27, '[2K', 0
 db cursesEscSeqStrSetRgb 27, '[38;2;', 0
@@ -107,11 +113,47 @@ mov r0 'm'
 call putc0
 ret
 
-; cursesGetChar() - puts single byte into r0, or 256 if no data to read
+; cursesGetChar() - puts 16 bit value into r0, see cursesKeyXXX constants
 label cursesGetChar
+; Try to read a byte from stdin
 mov r0 SyscallIdTryReadByte
 mov r1 FdStdin
 syscall
+mov r2 256 ; r2 should be kept equal to 256 for the rest of the function
+cmp r1 r0 r2
+skipneq r1
+jmp cursesGetCharError
+; Check for escape sequence
+mov r1 27 ; ESC character
+cmp r1 r0 r1
+skipneq r1
+jmp cursesGetCharSequence
+; Otherwise return raw byte as read (which is still in r0)
+ret
+; Handle escape sequences
+label cursesGetCharSequence
+; Try to read a 2nd byte
+mov r0 SyscallIdTryReadByte
+mov r1 FdStdin
+syscall ; no need to check for error as we explicitly check for '[' char next
+; Check for '[' character
+mov r1 91 ;
+cmp r1 r0 r1
+skipeq r1
+jmp cursesGetCharError
+; Try to read a 3rd byte
+mov r0 SyscallIdTryReadByte
+mov r1 FdStdin
+syscall
+cmp r1 r0 r2
+skipneq r1
+jmp cursesGetCharError
+; Return as 16 bit value to differentiate from standard characters
+or r0 r0 r2
+ret
+; Error case
+label cursesGetCharError
+mov r0 cursesKeyError
 ret
 
 ; cursesScrollUp() - scroll text up by one line

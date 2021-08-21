@@ -60,7 +60,7 @@ call cursesSetPosXY
 
 ; wait for key press
 call cursesGetChar
-mov r1 256
+mov r1 cursesKeyError
 cmp r1 r0 r1
 skipneq r1
 jmp inputLoop
