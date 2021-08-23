@@ -2551,6 +2551,26 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 			return true;
 		} break;
+		case ByteCodeSyscallIdMemchr: {
+			uint16_t haystackAddr=procData->regs[1];
+			uint16_t c=procData->regs[2];
+			uint16_t size=procData->regs[3];
+
+			procData->regs[0]=0;
+			for(uint16_t i=0; i<size; ++i,++haystackAddr) {
+				uint8_t value;
+				if (!procManProcessMemoryReadByte(process, procData, haystackAddr, &value)) {
+					kernelLog(LogTypeWarning, kstrP("failed during memchr syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+
+				if (value==c) {
+					procData->regs[0]=haystackAddr;
+					break;
+				}
+			}
+			return true;
+		} break;
 		case BytecodeSyscallIdHwDeviceRegister: {
 			// Grab arguments
 			HwDeviceId id=procData->regs[1];
