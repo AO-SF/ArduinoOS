@@ -11,13 +11,13 @@ db notFoundStr 'error: not such manual entry\n',0
 db execStr 'error: could not display manual\n',0
 db basePath '/usr/man/',0
 db slashStr '/',0
-db catPath 'cat',0
+db lessPath 'less',0
 db emptyStr 0
 
 ab pageArgBuf ArgLenMax
 
 ab pathBuf ArgLenMax
-ab argvBuffer ArgLenMax ; TODO: should be ArgLenMax+5 at least? (for 'cat '), can also avoid using two buffers
+ab argvBuffer ArgLenMax ; TODO: should be ArgLenMax+5 at least? (for 'less\0'), can also avoid using two buffers
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -61,17 +61,17 @@ cmp r0 r0 r0
 skipneqz r0
 jmp notFound
 
-; create argv for exec call to cat
-mov r0 argvBuffer ; start with 'cat' with a terminating null byte
-mov r1 catPath
+; create argv for exec call to less
+mov r0 argvBuffer ; start with 'less' with a terminating null byte
+mov r1 lessPath
 call strcpy
 
 mov r0 argvBuffer ; append path as argument
-inc4 r0
+inc5 r0
 mov r1 pathBuf
 call strcpy
 
-; exec to cat to display file
+; exec to 'less' to display file
 mov r0 2
 mov r1 argvBuffer
 call runpath
