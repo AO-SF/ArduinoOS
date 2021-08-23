@@ -137,7 +137,7 @@ mov r0 SyscallIdTryReadByte
 mov r1 FdStdin
 syscall ; no need to check for error as we explicitly check for '[' char next
 ; Check for '[' character
-mov r1 91 ;
+mov r1 '['
 cmp r1 r0 r1
 skipeq r1
 jmp cursesGetCharError
