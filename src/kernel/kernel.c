@@ -73,7 +73,7 @@ void kernelSetState(KernelState newState);
 
 void kernelShutdownNext(void);
 
-void kernelBoot(void);
+void kernelBoot(LogLevel logLevel);
 void kernelShutdownFinal(void);
 
 void kernelHalt(void);
@@ -103,17 +103,30 @@ int main(void) {
 #else
 int main(int argc, char **argv) {
 	// Handle arguments
+	LogLevel logLevel=LogLevelWarning;
 	kernelFlagProfile=false;
 	for(int i=1; i<argc; ++i) {
 		if (strcmp(argv[i], "--profile")==0)
 			kernelFlagProfile=true;
+		else if (strcmp(argv[i], "--Winfo")==0)
+			logLevel=LogLevelInfo;
+		else if (strcmp(argv[i], "--Wwarning")==0)
+			logLevel=LogLevelWarning;
+		else if (strcmp(argv[i], "--Werror")==0)
+			logLevel=LogLevelError;
+		else if (strcmp(argv[i], "--Wnone")==0)
+			logLevel=LogLevelNone;
 		else
 			printf("Warning: Unknown option '%s'\n", argv[i]);
 	}
 #endif
 
 	// Init
-	kernelBoot();
+#ifdef ARDUINO
+	kernelBoot(LogLevelWarning);
+#else
+	kernelBoot(logLevel);
+#endif
 
 	// Run processes
 	kernelSetState(KernelStateRunning);
@@ -262,9 +275,9 @@ void kernelShutdownNext(void) {
 	procManProcessSendSignal(0, BytecodeSignalIdSuicide);
 }
 
-void kernelBoot(void) {
-	// Set logging level to warnings and errors only
-	kernelLogSetLevel(LogLevelWarning);
+void kernelBoot(LogLevel logLevel) {
+	// Set logging level (default is warnings and errors)
+	kernelLogSetLevel(logLevel);
 
 	// Init SPI bus (ready to map to /dev/spi).
 	if (!spiInit(SpiClockSpeedDiv64))
