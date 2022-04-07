@@ -1,8 +1,9 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32add.s
+requireend lib/std/int32/int32set.s
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
-requireend lib/std/io/fputdec.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/getpwd.s
@@ -13,10 +14,8 @@ requireend lib/std/proc/waitpid.s
 requireend lib/std/str/strchr.s
 requireend lib/std/str/strrchr.s
 requireend lib/std/str/strcmp.s
-requireend lib/std/str/strtrimlast.s
+requireend lib/std/str/strtrimnewline.s
 
-db stdinPath '/dev/ttyS0', 0
-db stdoutPath '/dev/ttyS0', 0
 db prompt '$ ', 0
 db forkErrorStr 'could not fork\n', 0
 db execErrorStr 'could not exec: ', 0
@@ -26,7 +25,6 @@ db exitStr 'exit', 0
 db emptyStr 0
 db homeDir '/home', 0
 
-ab handlingStdio 1
 const inputBufLen 128
 ab inputBuf inputBufLen
 ab absBuf PathMax
@@ -35,7 +33,7 @@ ab argc 1
 
 ab interactiveMode 1
 ab inputFd 1
-aw readOffset 1
+aw readOffset 2 ; 32 bit int
 
 ab runInBackground 1
 
@@ -76,59 +74,20 @@ mov r1 SignalIdInterrupt
 mov r2 interruptHandlerTrampoline
 syscall
 
-; Is stdinfd already sensible? (we simply ignore stdout)
-mov r0 handlingStdio
-mov r1 0
-store8 r0 r1
-
-mov r0 SyscallIdEnvGetStdinFd
-syscall
-cmp r0 r0 r0
-skipeqz r0
-jmp startDone
-
-; No - open stdin and stdout, storing fds into environment variables
-mov r0 handlingStdio
-mov r1 1
-store8 r0 r1
-
-mov r0 SyscallIdOpen
-mov r1 stdinPath
-syscall
-cmp r1 r0 r0
-skipneqz r1
-jmp exiterror
-mov r1 r0
-mov r0 SyscallIdEnvSetStdinFd
-syscall
-
-mov r0 SyscallIdOpen
-mov r1 stdoutPath
-syscall
-cmp r1 r0 r0
-skipneqz r1
-jmp exiterror
-mov r1 r0
-mov r0 SyscallIdEnvSetStdoutFd
-syscall
-
-label startDone
-
 ; Check for scripts passed as arguments
 mov r1 1 ; child loop index
 label argLoopStart
 push8 r1
 mov r0 SyscallIdArgvN
-mov r2 inputBuf
 syscall
 
 ; No argument?
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp argLoopEnd
 
 ; Open file
-mov r0 inputBuf
+mov r1 FdModeRO
 call openpath
 
 mov r1 inputFd
@@ -162,8 +121,7 @@ label argLoopEnd
 pop8 r1
 
 ; Call shellRunFd on stdin fd
-mov r0 SyscallIdEnvGetStdinFd
-syscall
+mov r0 FdStdin
 mov r1 inputFd
 store8 r1 r0
 
@@ -186,7 +144,7 @@ call exit
 label shellRunFd
 mov r0 readOffset
 mov r1 0
-store16 r0 r1
+call int32set16
 label shellRunFdInputLoopStart
 
 ; Only print prompt in interactive mode
@@ -197,9 +155,7 @@ skipneqz r0
 jmp shellRunFdInputPromptEnd
 
 ; Print pwd (reuse inputBuf to save space)
-mov r0 inputBuf
 call getpwd
-mov r0 inputBuf
 call puts0
 
 ; Print prompt
@@ -211,27 +167,22 @@ label shellRunFdInputPromptEnd
 mov r0 inputFd
 load8 r0 r0
 mov r1 readOffset
-load16 r1 r1
 mov r2 inputBuf
 mov r3 inputBufLen
-call fgets
+call fgets32
 
 ; Update read offset for next time
-mov r2 readOffset
-load16 r1 r2
-add r1 r1 r0
-store16 r2 r1
+push16 r0
+mov r1 r0
+mov r0 readOffset
+call int32add16
+pop16 r0
 
-; If in file mode and empty read then EOF
+; If empty read then EOF
 cmp r0 r0 r0
 skipeqz r0
 jmp shellRunFdInputNoEof
-mov r0 interactiveMode
-load8 r0 r0
-cmp r0 r0 r0
-skipeqz r0
-jmp shellRunFdInputNoEof
-mov r0 1 ; continue
+mov r0 1 ; continue onto next input file
 ret
 label shellRunFdInputNoEof
 
@@ -240,9 +191,9 @@ mov r0 argc
 mov r1 1 ; initially set to 1 as we always require a command (so can avoid an increment operation)
 store8 r0 r1
 
-; Parse input - trim trailing newline
+; Parse input - trim trailing newline (if any)
 mov r0 inputBuf
-call strtrimlast
+call strtrimnewline
 
 ; Trim trailing comment (if any)
 mov r0 inputBuf

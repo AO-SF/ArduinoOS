@@ -1,0 +1,12 @@
+REMOUNT(1) - User Commands
+
+NAME
+      remount - remount filesystems
+
+SYNOPSIS
+      remount newType newDevice target
+
+DESCRIPTION
+      Acts as unmounting the original target and mounting the newDevice in its place. All files/contents of the original target are copied into the new one.
+
+      See MOUNT(1) for a list of valid type values.

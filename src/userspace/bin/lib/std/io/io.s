@@ -1,4 +1,5 @@
 require fclose.s
+require fflush.s
 require fget.s
 require fopen.s
 require fput.s

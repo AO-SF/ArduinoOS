@@ -9,6 +9,7 @@ label rand8 ; returns random 8-bit value in r0
 ; Open /dev/urandom
 mov r0 SyscallIdOpen
 mov r1 rand8DevURandomPath
+mov r2 FdModeRO
 syscall
 cmp r1 r0 r0
 skipneqz r1
@@ -23,7 +24,10 @@ mov r0 SyscallIdClose
 pop8 r1
 syscall
 ; Move read value into r0 to return
+; Also AND it with 255 in case fgetc returned EOF
 mov r0 r2
+mov r1 255
+and r0 r0 r1
 ret
 ; Error case
 label rand8BadOpen

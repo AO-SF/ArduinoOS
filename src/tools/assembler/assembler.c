@@ -23,6 +23,7 @@ typedef struct {
 
 const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeInc, .str="inc", .ops=0, .incDecValue=1},
+	{.type=BytecodeInstructionAluTypeInc, .str="inc1", .ops=0, .incDecValue=1},
 	{.type=BytecodeInstructionAluTypeInc, .str="inc2", .ops=0, .incDecValue=2},
 	{.type=BytecodeInstructionAluTypeInc, .str="inc3", .ops=0, .incDecValue=3},
 	{.type=BytecodeInstructionAluTypeInc, .str="inc4", .ops=0, .incDecValue=4},
@@ -87,6 +88,7 @@ const AssemblerInstructionAluData assemblerInstructionAluData[]={
 	{.type=BytecodeInstructionAluTypeInc, .str="inc63", .ops=0, .incDecValue=63},
 	{.type=BytecodeInstructionAluTypeInc, .str="inc64", .ops=0, .incDecValue=64},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec", .ops=0, .incDecValue=1},
+	{.type=BytecodeInstructionAluTypeDec, .str="dec1", .ops=0, .incDecValue=1},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec2", .ops=0, .incDecValue=2},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec3", .ops=0, .incDecValue=3},
 	{.type=BytecodeInstructionAluTypeDec, .str="dec4", .ops=0, .incDecValue=4},
@@ -1807,12 +1809,16 @@ bool assemblerProgramGenerateMachineCode(AssemblerProgram *program, bool *change
 				// Create instruction which sets or adjusts the IP register
 
 				// Check for trivial case of jumping to a label defined immediately after jump instruction.
-				if (addr==instruction->machineCodeOffset+instruction->machineCodeLen)
-					break; // 'nop' in the most literal sense - no code needed
+				if (addr==instruction->machineCodeOffset+instruction->machineCodeLen) {
+					// While techinically we do not need any instruction here,
+					// there may be skipN instructions preceeding and so a nop is added to preserve their function.
+					instruction->machineCode[0]=bytecodeInstructionCreateMiscNop();
+					break;
+				}
 
 				// Inspect previous iteration length and try to improve
 				if (instruction->machineCodeLen==3) {
-					BytecodeWord len2Addr=(addr>instruction->machineCodeOffset ? addr-1 : addr); // value addr will have next iteration if we do manage to reduce down to 2 bytes
+					BytecodeWord len2Addr=(addr>instruction->machineCodeOffset ? addr-1 : addr); // value that addr will have next iteration if we do manage to reduce down to 2 bytes
 
 					// set8 at 2 bytes?
 					if (len2Addr<256) {

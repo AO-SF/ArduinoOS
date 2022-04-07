@@ -1,15 +1,17 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32add.s
+requireend lib/std/int32/int32set.s
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/io/fputhex.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 
-ab argBuf PathMax
 ab pathBuf PathMax
 ab fd 1
 aw hash 1
+aw fileOffset 2 ; 32 bit int
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -37,23 +39,22 @@ label hashArgN
 ; Get arg
 mov r1 r0
 mov r0 SyscallIdArgvN
-mov r2 argBuf
-mov r3 PathMax
 syscall
 
 ; No arg found?
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp done
 
 ; Convert to absolute path
+mov r1 r0
 mov r0 pathBuf
-mov r1 argBuf
 call getabspath
 
 ; Open file
 mov r0 SyscallIdOpen
 mov r1 pathBuf
+mov r2 FdModeRO
 syscall
 
 mov r1 fd
@@ -69,15 +70,16 @@ mov r0 hash
 mov r1 5381
 store16 r0 r1
 
-mov r1 0 ; loop index
+mov r0 fileOffset
+mov r1 0
+call int32set16
 label hashArgNLoopStart
 
 ; Read character
 mov r0 fd
 load8 r0 r0
-push16 r1
-call fgetc
-pop16 r1
+mov r1 fileOffset
+call fgetc32
 
 ; Check for EOF
 mov r2 256
@@ -96,7 +98,8 @@ add r2 r2 r3
 store16 r4 r2
 
 ; Advance to next character
-inc r1
+mov r0 fileOffset
+call int32inc
 jmp hashArgNLoopStart
 label hashArgNLoopEnd
 

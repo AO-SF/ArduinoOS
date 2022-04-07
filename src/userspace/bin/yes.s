@@ -4,7 +4,6 @@ requireend lib/std/io/fput.s
 requireend lib/std/str/strcpy.s
 
 db standardMsg 'y', 0
-ab argBuf ArgLenMax
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -12,24 +11,19 @@ require lib/std/proc/suicidehandler.s
 ; Grab argument
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 argBuf
-mov r3 ArgLenMax
 syscall
 
-; If no argument, copy standard one into buffer instead
-cmp r0 r0 r0
-skipeqz r0
-jmp loopstart
+; If no argument, use standard one instead
+cmp r1 r0 r0
+skipneqz r1
+mov r0 standardMsg
 
-mov r0 argBuf
-mov r1 standardMsg
-call strcpy
-
-; Print argument repeatedly
+; Print argument repeatedly (r0 contains ptr to string)
 label loopstart
-mov r0 argBuf
+push16 r0
 call puts0
 mov r0 '\n'
 call putc0
+pop16 r0
 jmp loopstart
 

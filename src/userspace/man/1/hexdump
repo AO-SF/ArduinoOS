@@ -8,3 +8,5 @@ SYNOPSIS
 
 DESCRIPTION
       For each file given, print its contents as a series of pairs of hexadecimal values - each representing a single byte - each separated by a single space.
+
+      Instead of a file system path, a dash '-' can be passed to use stdin for that argument.

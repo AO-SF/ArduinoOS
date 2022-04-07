@@ -8,3 +8,4 @@ require strlen.s
 require strpad.s
 require strtoint.s
 require strtrimlast.s
+require strtrimnewline.s

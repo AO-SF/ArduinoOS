@@ -8,14 +8,13 @@ requireend lib/std/proc/waitpid.s
 requireend lib/std/str/strtoint.s
 requireend lib/std/time/sleep.s
 
-db usageStr 'usage: watch interval cmd cmdArg\n', 0
+db usageStr 'usage: watch interval program [programarg1 [programarg2 ...]]\n', 0
 db forkErrorStr 'could not fork\n', 0
 db emptyStr 0
 
 aw delayTime 1
 ab childPid 1
 ab quitFlag 1
-ab argBuf ArgLenMax
 
 jmp start
 
@@ -77,11 +76,8 @@ syscall
 ; Grab delay time
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 argBuf ; use this as a scratch buffer for now
-mov r3 ArgLenMax
 syscall
 
-mov r0 argBuf
 call strtoint
 
 mov r1 delayTime

@@ -7,6 +7,7 @@
 #include <stddef.h>
 #endif
 
+#include "circbuf.h"
 #include "kernelfs.h"
 #include "ktime.h"
 #include "log.h"
@@ -15,17 +16,20 @@
 #include "hwdevice.h"
 #include "util.h"
 
-typedef struct {
-	uint8_t powerPin;
-	uint8_t dataPin;
-} HwDevicePinPair;
-
-static const HwDevicePinPair hwDevicePinPairs[HwDeviceIdMax] PROGMEM ={
-	{.powerPin=PinD42, .dataPin=PinD43},
-	{.powerPin=PinD44, .dataPin=PinD45},
-	{.powerPin=PinD46, .dataPin=PinD47},
-	{.powerPin=PinD48, .dataPin=PinD49},
+const char hwDeviceKeypadMapping[16] PROGMEM ={ // this should be accessed as hwDeviceKeypadMapping[row*4+col]
+	'1', '2', '3', 'F',
+	'4', '5', '6', 'E',
+	'7', '8', '9', 'D',
+	'A', '0', 'B', 'C',
 };
+
+typedef struct {
+	KStr mountPoint;
+	uint16_t states; // a bitset of the 16 keys where 1s represent pressed buttons
+	volatile CircBuf circBuf;
+	#define HwDeviceKeypadCircBufSize 8
+	volatile uint8_t circBufBuffer[HwDeviceKeypadCircBufSize];
+} HwDeviceKeypadData;
 
 typedef struct {
 	KTime lastReadTime;
@@ -42,9 +46,12 @@ typedef struct {
 	uint32_t cacheBlock:30; // Note: using only 30 bits is safe as some bits of addresses are 'used up' by the fixed size 512 byte blocks, so not all 32 bits are needed (only 32-9=23 strictly needed)
 } HwDeviceSdCardReaderData;
 
+STATICASSERT(HwDeviceTypeBits<=8);
 typedef struct {
-	HwDeviceType type;
+	uint8_t type;
+	uint8_t pins[HwDevicePinsMax];
 	union {
+		HwDeviceKeypadData keypad;
 		HwDeviceSdCardReaderData sdCardReader;
 		HwDeviceDht22Data dht22;
 	} d;
@@ -56,21 +63,29 @@ HwDevice hwDevices[HwDeviceIdMax];
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
+uint32_t hwDeviceKeypadFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
+void hwDeviceKeypadRead(HwDeviceId id);
+bool hwDeviceKeypadIsPressed(HwDeviceId id, unsigned col, unsigned row); // unlike other similar functions, this does not verify id, col or row are sensible
+void hwDeviceKeypadSetPressed(HwDeviceId id, unsigned col, unsigned row, bool pressed);
+
+uint32_t hwDeviceSdCardReaderFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
+bool hwDeviceSdCardReaderFlushFunctor(void *userData);
 KernelFsFileOffset hwDeviceSdCardReaderReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
 KernelFsFileOffset hwDeviceSdCardReaderWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
+
+bool hwDeviceDht22Read(HwDeviceId id);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
 void hwDeviceInit(void) {
-	// Set all pins as output, with power pins low (no power) and data pins high (disabled for SPI slave select pins).
-	for(unsigned i=0; i<HwDeviceIdMax; ++i) {
-		pinSetMode(hwDeviceGetPowerPin(i), PinModeOutput);
-		pinWrite(hwDeviceGetPowerPin(i), false);
-
-		pinSetMode(hwDeviceGetDataPin(i), PinModeOutput);
-		pinWrite(hwDeviceGetDataPin(i), true);
+	// Ensure all pins which have not been reserved by the kernel are set to default state (output, low)
+	for(unsigned pinNum=0; pinNum<PinNB; ++pinNum) {
+		if (!pinIsValid(pinNum) || pinInUse(pinNum))
+			continue;
+		pinWrite(pinNum, false);
+		pinSetMode(pinNum, PinModeOutput);
 	}
 
 	// Clear device table
@@ -83,9 +98,11 @@ void hwDeviceTick(void) {
 		HwDevice *device=&hwDevices[i];
 		switch(device->type) {
 			case HwDeviceTypeUnused:
-			case HwDeviceTypeRaw:
 			case HwDeviceTypeSdCardReader:
 				// Nothing to do
+			break;
+			case HwDeviceTypeKeypad:
+				hwDeviceKeypadRead(i);
 			break;
 			case HwDeviceTypeDht22: {
 				// Not yet time to read values again?
@@ -99,7 +116,8 @@ void hwDeviceTick(void) {
 	}
 }
 
-bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
+STATICASSERT(HwDevicePinsMax==8); // For hwDeviceRegister logging logic
+bool hwDeviceRegister(HwDeviceId id, HwDeviceType type, const uint8_t *pins) {
 	// Bad id or type?
 	if (id>=HwDeviceIdMax || type==HwDeviceTypeUnused)
 		return false;
@@ -108,43 +126,102 @@ bool hwDeviceRegister(HwDeviceId id, HwDeviceType type) {
 	if (hwDevices[id].type!=HwDeviceTypeUnused)
 		return false;
 
-	// Write to log
-	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u\n"), id, type);
-
-	// Set type to mark slot as used
+	// Set type to mark slot as used and set pins array to invalid initally
 	hwDevices[id].type=type;
+
+	unsigned pinCount=hwDeviceTypeGetPinCount(hwDevices[id].type);
+	for(unsigned i=0; i<pinCount; ++i)
+		hwDevices[id].pins[i]=PinInvalid;
+
+	// Attempt to grab the given pins
+	// Also set them to output low in case they are not already
+	for(unsigned i=0; i<pinCount; ++i) {
+		// Attempt to grab pin
+		if (!pinGrab(pins[i])) {
+			kernelLog(LogTypeInfo, kstrP("could not register HW device id=%u type=%u - could not grab pin %u\n"), id, type, pins[i]);
+			goto error;
+		}
+
+		// Update device pins array
+		hwDevices[id].pins[i]=pins[i];
+
+		// Set pin to low then output for safety
+		pinWrite(pins[i], false);
+		pinSetMode(pins[i], PinModeOutput);
+	}
 
 	// Type-specific logic
 	switch(type) {
 		case HwDeviceTypeUnused:
 		break;
-		case HwDeviceTypeRaw:
+		case HwDeviceTypeKeypad:
+			// Set mountPoint to null string to indicate not mounted
+			hwDevices[id].d.keypad.mountPoint=kstrNull();
+
+			// Initialise states bitset
+			hwDevices[id].d.keypad.states=0;
+
+			// Initialise circular buffer
+			circBufInit(&hwDevices[id].d.keypad.circBuf, hwDevices[id].d.keypad.circBufBuffer, HwDeviceKeypadCircBufSize);
+
+			// Set row pins to input then high to enable pullup
+			for(unsigned i=0; i<4; ++i) {
+				uint8_t rowPin=hwDeviceKeypadGetRowPin(id, i);
+				pinSetMode(rowPin, PinModeInput);
+				pinWrite(rowPin, true);
+			}
+
+			// Set column pins to high (already set to output above in common code)
+			for(unsigned i=0; i<4; ++i)
+				pinWrite(hwDeviceKeypadGetColumnPin(id, i), true);
 		break;
 		case HwDeviceTypeSdCardReader:
 			hwDevices[id].d.sdCardReader.cache=malloc(SdBlockSize);
-			if (hwDevices[id].d.sdCardReader.cache==NULL)
+			if (hwDevices[id].d.sdCardReader.cache==NULL) {
+				kernelLog(LogTypeInfo, kstrP("could not register HW device id=%u type=%u - could not allocate cache of size %u\n"), id, type, SdBlockSize);
 				goto error;
+			}
 			hwDevices[id].d.sdCardReader.sdCard.type=SdTypeBadCard;
 		break;
 		case HwDeviceTypeDht22:
 			// Set data pin to input mode and then turn on power pin to enable device
-			pinWrite(hwDeviceGetDataPin(id), false);
-			pinSetMode(hwDeviceGetDataPin(id), PinModeInput);
-			pinWrite(hwDeviceGetPowerPin(id), true);
+			pinWrite(hwDeviceDht22GetDataPin(id), false);
+			pinSetMode(hwDeviceDht22GetDataPin(id), PinModeInput);
+			pinWrite(hwDeviceDht22GetPowerPin(id), true);
 
-			// Set initial values (we have to wait at least 2s after powering on to read values, so this is the best we can do).
-			hwDevices[id].d.dht22.temperature=0; // indicate we need to read again ASAP
-			hwDevices[id].d.dht22.humitity=0; // indicate we need to read again ASAP
-			hwDevices[id].d.dht22.lastReadTime=0; // indicate we need to read again ASAP
+			// Set initial values to 0 to indicate we need to read (we have to wait at least 2s after powering on to read values, so this is the best we can do).
+			hwDevices[id].d.dht22.temperature=0;
+			hwDevices[id].d.dht22.humitity=0;
+			hwDevices[id].d.dht22.lastReadTime=0;
 		break;
+	}
+
+	// Write to log
+	// TODO: think of a better way of handling pins so that we do not require static assert (above) and switch statement
+	switch(pinCount) {
+		case 0: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u\n"), id, type); break;
+		case 1: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u]\n"), id, type, pins[0]); break;
+		case 2: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u]\n"), id, type, pins[0], pins[1]); break;
+		case 3: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2]); break;
+		case 4: kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3]); break;
+		case 5:	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3], pins[4]); break;
+		case 6:	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3], pins[4], pins[5]); break;
+		case 7:	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3], pins[4], pins[5], pins[6]); break;
+		case 8:	kernelLog(LogTypeInfo, kstrP("registered HW device id=%u type=%u, pins=[%u,%u,%u,%u,%u,%u,%u,%u]\n"), id, type, pins[0], pins[1], pins[2], pins[3], pins[4], pins[5], pins[6], pins[7]); break;
 	}
 
 	return true;
 
 	error:
 	hwDevices[id].type=HwDeviceTypeUnused;
-	pinWrite(hwDeviceGetPowerPin(id), false);
-	pinWrite(hwDeviceGetDataPin(id), true);
+	for(unsigned i=0; i<pinCount; ++i) {
+		uint8_t pinNum=hwDevices[id].pins[i];
+		if (pinNum==PinInvalid)
+			continue;
+		pinWrite(pinNum, false);
+		pinSetMode(pinNum, PinModeOutput);
+		pinRelease(pinNum);
+	}
 	return false;
 }
 
@@ -161,7 +238,9 @@ void hwDeviceDeregister(HwDeviceId id) {
 	switch(hwDevices[id].type) {
 		case HwDeviceTypeUnused:
 		break;
-		case HwDeviceTypeRaw:
+		case HwDeviceTypeKeypad:
+			// May have to unmount
+			hwDeviceKeypadUnmount(id);
 		break;
 		case HwDeviceTypeSdCardReader:
 			// We may have to unmount an SD card
@@ -175,9 +254,16 @@ void hwDeviceDeregister(HwDeviceId id) {
 		break;
 	}
 
-	// Force pins back to default to be safe
-	pinWrite(hwDeviceGetPowerPin(id), false);
-	pinWrite(hwDeviceGetDataPin(id), true);
+	// Force pins back to default to be safe (output low), then release them
+	unsigned pinCount=hwDeviceTypeGetPinCount(hwDevices[id].type);
+	for(unsigned i=0; i<pinCount; ++i) {
+		uint8_t pinNum=hwDeviceGetPinN(id, i);
+		if (pinNum==PinInvalid)
+			continue;
+		pinWrite(pinNum, false);
+		pinSetMode(pinNum, PinModeOutput);
+		pinRelease(pinNum);
+	}
 
 	// Write to log
 	kernelLog(LogTypeInfo, kstrP("deregistered HW device id=%u type=%u\n"), id, hwDevices[id].type);
@@ -193,33 +279,103 @@ HwDeviceType hwDeviceGetType(HwDeviceId id) {
 	return hwDevices[id].type;
 }
 
-uint8_t hwDeviceGetPowerPin(HwDeviceId id) {
+uint8_t hwDeviceGetPinN(HwDeviceId id, unsigned n) {
 	if (id>=HwDeviceIdMax)
 		return PinInvalid;
 
-#ifdef ARDUINO
-	return pgm_read_byte_far(pgm_get_far_address(hwDevicePinPairs)+id*sizeof(HwDevicePinPair)+offsetof(HwDevicePinPair,powerPin));
-#else
-	return hwDevicePinPairs[id].powerPin;
-#endif
-}
-
-uint8_t hwDeviceGetDataPin(HwDeviceId id) {
-	if (id>=HwDeviceIdMax)
+	if (n>=hwDeviceTypeGetPinCount(hwDevices[id].type))
 		return PinInvalid;
 
-#ifdef ARDUINO
-	return pgm_read_byte_far(pgm_get_far_address(hwDevicePinPairs)+id*sizeof(HwDevicePinPair)+offsetof(HwDevicePinPair,dataPin));
-#else
-	return hwDevicePinPairs[id].dataPin;
-#endif
+	return hwDevices[id].pins[n];
 }
 
-HwDeviceId hwDeviceGetDeviceForPin(uint8_t pinNum) {
-	for(unsigned i=0; i<HwDeviceIdMax; ++i)
-		if (pinNum==hwDeviceGetPowerPin(i) || pinNum==hwDeviceGetDataPin(i))
-			return i;
-	return HwDeviceIdMax;
+uint8_t hwDeviceKeypadGetRowPin(HwDeviceId id, unsigned n) {
+	// Bad id or value for n, or device slot not used for a keypad?
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeKeypad)
+		return PinInvalid;
+
+	// Calculate pin offset and use common function to actually grab the pin
+	// Rows use channels E-H
+	return hwDeviceGetPinN(id, 4+n);
+}
+
+uint8_t hwDeviceKeypadGetColumnPin(HwDeviceId id, unsigned n) {
+	// Bad id or value for n, or device slot not used for a keypad?
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeKeypad)
+		return PinInvalid;
+
+	// Calculate pin offset and use common function to actually grab the pin
+	// Columns use channels A-D
+	return hwDeviceGetPinN(id, n);
+}
+
+bool hwDeviceKeypadMount(HwDeviceId id, const char *mountPoint) {
+	// Bad id?
+	if (id>=HwDeviceIdMax) {
+		kernelLog(LogTypeInfo, kstrP("HW device keypad mount failed: bad id (id=%u, mountPoint='%s')\n"), id, mountPoint);
+		return false;
+	}
+
+	// Device slot not used for a keypad?
+	if (hwDeviceGetType(id)!=HwDeviceTypeKeypad) {
+		kernelLog(LogTypeInfo, kstrP("HW device keypad mount failed: bad device type (id=%u, mountPoint='%s')\n"), id, mountPoint);
+		return false;
+	}
+
+	// Already mounted?
+	if (!kstrIsNull(hwDevices[id].d.keypad.mountPoint)) {
+		kernelLog(LogTypeInfo, kstrP("HW device keypad mount failed: already mounted (id=%u, mountPoint='%s')\n"), id, mountPoint);
+		return false;
+	}
+
+	// Add character device at given point mount
+	if (!kernelFsAddCharacterDeviceFile(kstrC(mountPoint), &hwDeviceKeypadFsFunctor, (void *)(uintptr_t)id, false, false)) {
+		kernelLog(LogTypeInfo, kstrP("HW device keypad mount failed: could not add character device to VFS (id=%u, mountPoint='%s')\n"), id, mountPoint);
+		return false;
+	}
+
+	// Copy mount point
+	hwDevices[id].d.keypad.mountPoint=kstrC(mountPoint);
+
+	// Write to log
+	kernelLog(LogTypeInfo, kstrP("HW device keypad mount success (id=%u, mountPoint='%s')\n"), id, mountPoint);
+
+	return true;
+}
+
+void hwDeviceKeypadUnmount(HwDeviceId id) {
+	// Bad id?
+	if (id>=HwDeviceIdMax)
+		return;
+
+	// Device slot not used for a keypad?
+	if (hwDeviceGetType(id)!=HwDeviceTypeKeypad)
+		return;
+
+	// Not mounted?
+	if (kstrIsNull(hwDevices[id].d.keypad.mountPoint))
+		return;
+
+	// Grab local copy of mount point
+	char mountPoint[KernelFsPathMax];
+	kstrStrcpy(mountPoint, hwDevices[id].d.keypad.mountPoint);
+
+	// Write to log
+	kernelLog(LogTypeInfo, kstrP("HW device keypad unmount (id=%u, mountPoint='%s')\n"), id, mountPoint);
+
+	// Remove virtual device file representing the card
+	kernelFsFileDelete(mountPoint);
+
+	// Free memory
+	kstrFree(&hwDevices[id].d.keypad.mountPoint);
+}
+
+uint8_t hwDeviceSdCardReaderGetPowerPin(HwDeviceId id) {
+	return hwDeviceGetPinN(id, 0);
+}
+
+uint8_t hwDeviceSdCardReaderGetSlaveSelectPin(HwDeviceId id) {
+	return hwDeviceGetPinN(id, 1);
 }
 
 bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
@@ -242,7 +398,7 @@ bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
 	}
 
 	// Attempt to power on and initialise SD card
-	SdInitResult sdInitRes=sdInit(&hwDevices[id].d.sdCardReader.sdCard, hwDeviceGetPowerPin(id), hwDeviceGetDataPin(id));
+	SdInitResult sdInitRes=sdInit(&hwDevices[id].d.sdCardReader.sdCard, hwDeviceSdCardReaderGetPowerPin(id), hwDeviceSdCardReaderGetSlaveSelectPin(id));
 	if (sdInitRes!=SdInitResultOk) {
 		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: sd init failed with %u (id=%u, mountPoint='%s')\n"), sdInitRes, id, mountPoint);
 		return false;
@@ -261,7 +417,7 @@ bool hwDeviceSdCardReaderMount(HwDeviceId id, const char *mountPoint) {
 	}
 	size*=SdBlockSize;
 
-	if (!kernelFsAddBlockDeviceFile(kstrC(mountPoint), KernelFsBlockDeviceFormatFlatFile, size, &hwDeviceSdCardReaderReadFunctor, &hwDeviceSdCardReaderWriteFunctor, (void *)(uintptr_t)id)) {
+	if (!kernelFsAddBlockDeviceFile(kstrC(mountPoint), &hwDeviceSdCardReaderFsFunctor, (void *)(uintptr_t)id, KernelFsBlockDeviceFormatFlatFile, size, true)) {
 		kernelLog(LogTypeInfo, kstrP("HW device SD card reader mount failed: could not add block device to VFS (id=%u, mountPoint='%s', size=%"PRIu32")\n"), id, mountPoint, size);
 		sdQuit(&hwDevices[id].d.sdCardReader.sdCard);
 		return false;
@@ -310,6 +466,14 @@ void hwDeviceSdCardReaderUnmount(HwDeviceId id) {
 	kstrFree(&hwDevices[id].d.sdCardReader.mountPoint);
 }
 
+uint8_t hwDeviceDht22GetPowerPin(HwDeviceId id) {
+	return hwDeviceGetPinN(id, 0);
+}
+
+uint8_t hwDeviceDht22GetDataPin(HwDeviceId id) {
+	return hwDeviceGetPinN(id, 1);
+}
+
 int16_t hwDeviceDht22GetTemperature(HwDeviceId id) {
 	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
 		return 0;
@@ -328,72 +492,180 @@ uint32_t hwDeviceDht22GetLastReadTime(HwDeviceId id) {
 	return hwDevices[id].d.dht22.lastReadTime;
 }
 
-bool hwDeviceDht22Read(HwDeviceId id) {
-	// Check device is actually registered as a DHT22 sensor
-	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
-		return false;
-
-	// Attempt to read data
-	uint8_t pin=hwDeviceGetDataPin(id);
-
-	pinWrite(pin, false);
-	pinSetMode(pin, PinModeOutput);
-	ktimeDelayUs(600);
-	pinSetMode(pin, PinModeInput);
-
-	ktimeDelayUs(70);
-	if (pinRead(pin))
-		return false;
-
-	ktimeDelayUs(80);
-	if (!pinRead(pin))
-		return false;
-
-	uint8_t buffer[5];
-	for(uint8_t b=0; b<5; ++b) {
-		uint8_t inByte=0;
-		for (uint8_t i=0; i<8; ++i)	{
-			uint8_t toCount=0;
-			while(pinRead(pin)) {
-				ktimeDelayUs(2);
-				if (toCount++>25)
-					return false;
-			}
-			ktimeDelayUs(5);
-
-			toCount=0;
-			while(!pinRead(pin)) {
-				ktimeDelayUs(2);
-				if (toCount++>28)
-					return false;
-			}
-			ktimeDelayUs(50);
-
-			inByte<<=1;
-			if (pinRead(pin)) // read bit
-				inByte|=1;
-		}
-		buffer[b]=inByte;
+unsigned hwDeviceTypeGetPinCount(HwDeviceType type) {
+	switch(type) {
+		case HwDeviceTypeUnused:
+			return 0;
+		break;
+		case HwDeviceTypeKeypad:
+			return 8;
+		break;
+		case HwDeviceTypeSdCardReader:
+			return 2; // power + slave select (SPI pins are general do not count towards this particular HW device)
+		break;
+		case HwDeviceTypeDht22:
+			return 2; // power + data
+		break;
 	}
-
-	// Verify checksum is correct
-	uint8_t checksum=buffer[0]+buffer[1]+buffer[2]+buffer[3];
-	if (buffer[4]!=checksum)
-		return false;
-
-	// Read humidity and temperature values
-	hwDevices[id].d.dht22.humitity=(((uint16_t)buffer[0])<<8)|buffer[1]; // note: datasheet is very misleading here
-	hwDevices[id].d.dht22.temperature=(((uint16_t)buffer[2])<<8)|buffer[3];
-
-	// Successful read - update last read time
-	hwDevices[id].d.dht22.lastReadTime=ktimeGetMonotonicMs();
-
-	return true;
+	return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
+
+uint32_t hwDeviceKeypadFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	HwDeviceId id=(HwDeviceId)(uintptr_t)userData;
+
+	// Functor-type specific logic
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			// Nothing to flush
+			return true;
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead: {
+			// Verify id is valid and that it represents a keypad device which is mounted.
+			if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeKeypad || kstrIsNull(hwDevices[id].d.keypad.mountPoint))
+				return -1;
+
+			// Attempt to pop character from circular buffer
+			uint8_t keyChar;
+			if (circBufPop(&hwDevices[id].d.keypad.circBuf, &keyChar))
+				return keyChar;
+
+			return -1;
+		} break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+			// Verify id is valid and that it represents a keypad device which is mounted.
+			if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeKeypad || kstrIsNull(hwDevices[id].d.keypad.mountPoint))
+				return false;
+
+			// Check if any characters waiting in circular buffer
+			return !circBufIsEmpty(&hwDevices[id].d.keypad.circBuf);
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+			// Not writable
+			return 0;
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
+			// Not wrtiable
+			return false;
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+		break;
+	}
+
+	assert(false);
+	return 0;
+}
+
+void hwDeviceKeypadRead(HwDeviceId id) {
+	// Check device is actually registered as a keypad
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeKeypad)
+		return;
+
+	// Loop over columns to test each row within
+	for(unsigned col=0; col<4; ++col) {
+		uint8_t colPin=hwDeviceKeypadGetColumnPin(id, col);
+
+		// Start testing cells in this column by setting column pin low
+		pinWrite(colPin, false);
+		ktimeDelayUs(3*1000);
+
+		// Loop over rows testing each cell within
+		for(unsigned row=0; row<4; ++row) {
+			// Check for change to this cell's state
+			bool pressed=!pinRead(hwDeviceKeypadGetRowPin(id, row)); // check for row input pin pulled low by column output pin
+			if (pressed==hwDeviceKeypadIsPressed(id, col, row))
+				continue;
+
+			// Update state
+			hwDeviceKeypadSetPressed(id, col, row, pressed);
+
+			// If now pressed then add a character to the circular buffer
+			if (pressed) {
+#ifdef ARDUINO
+				char keyChar=pgm_read_byte_far(pgm_get_far_address(hwDeviceKeypadMapping)+row*4+col);
+#else
+				char keyChar=hwDeviceKeypadMapping[row*4+col];
+#endif
+				circBufPush(&hwDevices[id].d.keypad.circBuf, keyChar);
+			}
+		}
+
+		// Reset column pin to high
+		pinWrite(colPin, true);
+		ktimeDelayUs(3*1000);
+	}
+}
+
+bool hwDeviceKeypadIsPressed(HwDeviceId id, unsigned col, unsigned row) {
+	assert(id<HwDeviceIdMax && hwDeviceGetType(id)==HwDeviceTypeKeypad);
+	assert(col<4);
+	assert(row<4);
+
+	unsigned offset=row*4+col;
+	return (hwDevices[id].d.keypad.states>>offset)&1;
+}
+
+void hwDeviceKeypadSetPressed(HwDeviceId id, unsigned col, unsigned row, bool pressed) {
+	assert(id<HwDeviceIdMax && hwDeviceGetType(id)==HwDeviceTypeKeypad);
+	assert(col<4);
+	assert(row<4);
+
+	unsigned offset=row*4+col;
+	if (pressed)
+		hwDevices[id].d.keypad.states|=(1u<<offset);
+	else
+		hwDevices[id].d.keypad.states&=~(1u<<offset);
+}
+
+uint32_t hwDeviceSdCardReaderFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			return hwDeviceSdCardReaderFlushFunctor(userData);
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+			return hwDeviceSdCardReaderReadFunctor(addr, data, len, userData);
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+			return hwDeviceSdCardReaderWriteFunctor(addr, data, len, userData);
+		break;
+	}
+
+	assert(false);
+	return 0;
+}
+
+bool hwDeviceSdCardReaderFlushFunctor(void *userData) {
+	HwDeviceId id=(HwDeviceId)(uintptr_t)userData;
+
+	// Verify id is valid and that it represents an sd card reader device, with a mounted card.
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeSdCardReader || hwDevices[id].d.sdCardReader.sdCard.type==SdTypeBadCard)
+		return false;
+
+	// Nothing to do? (invalid or clean cache)
+	if (!hwDevices[id].d.sdCardReader.cacheIsValid || !hwDevices[id].d.sdCardReader.cacheIsDirty)
+		return true;
+
+	// Write out cached block
+	if (!sdWriteBlock(&hwDevices[id].d.sdCardReader.sdCard, hwDevices[id].d.sdCardReader.cacheBlock, hwDevices[id].d.sdCardReader.cache))
+		return false;
+
+	hwDevices[id].d.sdCardReader.cacheIsDirty=false;
+
+	return true;
+}
 
 KernelFsFileOffset hwDeviceSdCardReaderReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
 	HwDeviceId id=(HwDeviceId)(uintptr_t)userData;
@@ -497,4 +769,67 @@ KernelFsFileOffset hwDeviceSdCardReaderWriteFunctor(KernelFsFileOffset addr, con
 	}
 
 	return writeCount;
+}
+
+bool hwDeviceDht22Read(HwDeviceId id) {
+	// Check device is actually registered as a DHT22 sensor
+	if (id>=HwDeviceIdMax || hwDeviceGetType(id)!=HwDeviceTypeDht22)
+		return false;
+
+	// Attempt to read data
+	uint8_t pin=hwDeviceDht22GetDataPin(id);
+
+	pinWrite(pin, false);
+	pinSetMode(pin, PinModeOutput);
+	ktimeDelayUs(600);
+	pinSetMode(pin, PinModeInput);
+
+	ktimeDelayUs(70);
+	if (pinRead(pin))
+		return false;
+
+	ktimeDelayUs(80);
+	if (!pinRead(pin))
+		return false;
+
+	uint8_t buffer[5];
+	for(uint8_t b=0; b<5; ++b) {
+		uint8_t inByte=0;
+		for (uint8_t i=0; i<8; ++i)	{
+			uint8_t toCount=0;
+			while(pinRead(pin)) {
+				ktimeDelayUs(2);
+				if (toCount++>25)
+					return false;
+			}
+			ktimeDelayUs(5);
+
+			toCount=0;
+			while(!pinRead(pin)) {
+				ktimeDelayUs(2);
+				if (toCount++>28)
+					return false;
+			}
+			ktimeDelayUs(50);
+
+			inByte<<=1;
+			if (pinRead(pin)) // read bit
+				inByte|=1;
+		}
+		buffer[b]=inByte;
+	}
+
+	// Verify checksum is correct
+	uint8_t checksum=buffer[0]+buffer[1]+buffer[2]+buffer[3];
+	if (buffer[4]!=checksum)
+		return false;
+
+	// Read humidity and temperature values
+	hwDevices[id].d.dht22.humitity=(((uint16_t)buffer[0])<<8)|buffer[1]; // note: datasheet is very misleading here
+	hwDevices[id].d.dht22.temperature=(((uint16_t)buffer[2])<<8)|buffer[3];
+
+	// Successful read - update last read time
+	hwDevices[id].d.dht22.lastReadTime=ktimeGetMonotonicMs();
+
+	return true;
 }

@@ -1,43 +1,60 @@
 requireend lib/std/io/fput.s
-requireend lib/std/io/fputdec.s
 requireend lib/std/proc/exit.s
 
+requireend lib/std/int32/int32add.s
+requireend lib/std/int32/int32cmp.s
+requireend lib/std/int32/int32fput.s
+requireend lib/std/int32/int32set.s
+
 db commaSpaceStr ', ',0
+
+aw lower 2
+aw upper 2
+aw scratch 2
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
 
 ; Init sequence
-mov r4 0 ; r4 is the lower of the two current values
-mov r5 1 ; r5 is the higher
+mov r0 lower
+mov r1 0
+call int32set16
+
+mov r0 upper
+mov r1 1
+call int32set16
 
 label loopstart
-; Print lowest of two values (protecting r4 and r5)
-push16 r4
-push16 r5
-mov r0 r4
-call putdec
-pop16 r5
-pop16 r4
+; Print lowest of two values
+mov r0 lower
+call int32put0
 
 ; Time to end?
-mov r3 40000
-cmp r3 r4 r3
-skiplt r3 ; if r4<40000 is true this causes us to skip the next instruction and continue executing the loop
-jmp loopend ; but if false then we end up here and break out of the loop
+mov r0 lower
+mov r1 Int32Const2E9
+call int32LessThan
+skip0 r0
+jmp loopend
 
 ; Print comma and space
-push16 r4
-push16 r5
 mov r0 commaSpaceStr
 call puts0
-pop16 r5
-pop16 r4
 
 ; Perform single Fibonacci step
-add r3 r4 r5 ; add two numbers and store into temp register
-mov r4 r5 ; move higher into lower
-mov r5 r3 ; move sum into higher
+; Add upper to lower, then swap
+mov r0 lower
+mov r1 upper
+call int32add32
+
+mov r0 scratch
+mov r1 lower
+call int32set32
+mov r0 lower
+mov r1 upper
+call int32set32
+mov r0 upper
+mov r1 scratch
+call int32set32
 
 jmp loopstart
 

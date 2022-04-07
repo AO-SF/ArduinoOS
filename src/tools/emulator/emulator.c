@@ -3,25 +3,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
 #include "bytecode.h"
+#include "ktime.h"
 #include "procman.h"
 
 #define PathMax 64 // TODO: use KernelFsPathMax
 #define InitPid 0
-#define StdinFd 1
-#define StdoutFd 1
+#define FdStdin 1
+#define FdStdout 2
 
 typedef struct {
 	int argc;
-	char **argv;
 
-	char pwd[PathMax];
-	char path[PathMax];
-	uint8_t stdinFd;
-	uint8_t stdoutFd;
+	BytecodeWord pwd;
+	BytecodeWord path;
 } ProcessEnvVars;
 
 typedef struct {
@@ -45,11 +44,16 @@ bool slow=false;
 bool passOnExitStatus=false;
 int exitStatus=EXIT_SUCCESS;
 
+uint64_t bootTimeMs;
+
 bool processRunNextInstruction(Process *process);
 void processDebug(const Process *process);
 
 int emulatorClz8(uint8_t x);
 int emulatorClz16(uint16_t x);
+
+uint64_t getMonotonicTimeMs(void);
+uint64_t getRealTimeMs(void);
 
 int main(int argc, char **argv) {
 	FILE *inputFile=NULL;
@@ -95,11 +99,20 @@ int main(int argc, char **argv) {
 	process->pid=(rand()%(ProcManPidMax-1))+1; // +1 to avoid InitPid at 0
 
 	process->envVars.argc=argc-inputArgBaseIndex;
-	process->envVars.argv=argv+inputArgBaseIndex;
-	strcpy(process->envVars.pwd, "/bin");
-	strcpy(process->envVars.path, "/bin");
-	process->envVars.stdinFd=StdinFd;
-	process->envVars.stdoutFd=StdoutFd;
+	BytecodeWord upperRegionOffset=63*1024;
+	for(unsigned i=0; i<process->envVars.argc; ++i) {
+		const char *arg=argv[i+inputArgBaseIndex];
+		strcpy(((char *)(process->memory+upperRegionOffset)), arg);
+		upperRegionOffset+=strlen(arg)+1;
+	}
+
+	process->envVars.pwd=upperRegionOffset;
+	strcpy(((char *)(process->memory+process->envVars.pwd)), "/bin");
+	upperRegionOffset+=strlen("/bin")+1;
+
+	process->envVars.path=upperRegionOffset;
+	strcpy(((char *)(process->memory+process->envVars.path)), "/usr/games:/usr/bin:/bin:");
+	upperRegionOffset+=strlen("/usr/games:/usr/bin:/bin:")+1;
 
 	// Read-in input file
 	const char *inputPath=argv[inputArgBaseIndex];
@@ -133,6 +146,8 @@ int main(int argc, char **argv) {
 		*next++=c;
 
 	// Run process
+	bootTimeMs=getRealTimeMs();
+
 	do {
 		if (slow)
 			sleep(1);
@@ -403,24 +418,20 @@ bool processRunNextInstruction(Process *process) {
 						} break;
 						case BytecodeSyscallIdGetArgVN: {
 							int n=process->regs[1];
-							int buf=process->regs[2];
-							int len=process->regs[3];
 
 							if (n>=process->envVars.argc) {
 								process->regs[0]=0;
 
 								if (infoSyscalls)
-									printf("Info: syscall(id=%i [getargvn], n=%i, buf=%i, len=%i, return=0 as n>=argc)\n", syscallId, n, buf, len);
+									printf("Info: syscall(id=%i [getargvn], n=%i, return=0 as n>=argc)\n", syscallId, n);
 							} else {
-								const char *str=process->envVars.argv[n];
-								int trueLen=strlen(str);
+								BytecodeWord argAddr=63*1024;
 
-								if (infoSyscalls)
-									printf("Info: syscall(id=%i [getargvn], n=%i, buf=%i, len=%i, return=%u with '%s')\n", syscallId, n, buf, len, trueLen, str);
+								while(n>0)
+									if (process->memory[argAddr++]=='\0')
+										--n;
 
-								for(int i=0; i<len && i<trueLen; ++i)
-									process->memory[buf+i]=str[i];
-								process->regs[0]=trueLen;
+								process->regs[0]=argAddr;
 							}
 						} break;
 						case BytecodeSyscallIdFork:
@@ -442,7 +453,7 @@ bool processRunNextInstruction(Process *process) {
 							BytecodeWord timeout=process->regs[2];
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [waitpid], pid=%u, timeout=%u\n", syscallId, waitPid, timeout);
+								printf("Info: syscall(id=%i [waitpid], pid=%u, timeout=%u)\n", syscallId, waitPid, timeout);
 							if (waitPid==InitPid || waitPid==process->pid) {
 								if (timeout==0) {
 									printf("Warning: Entered infinite waitpid syscall (waiting for own or init's PID with infinite timeout), exiting\n");
@@ -472,7 +483,7 @@ bool processRunNextInstruction(Process *process) {
 						case BytecodeSyscallIdKill: {
 							ProcManPid pid=process->regs[1];
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [kill], pid=%u\n", syscallId, pid);
+								printf("Info: syscall(id=%i [kill], pid=%u)\n", syscallId, pid);
 							if (pid==process->pid) {
 								printf("Killed by own kill syscall\n");
 								return false;
@@ -500,7 +511,7 @@ bool processRunNextInstruction(Process *process) {
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdRead:
-							if (process->regs[1]==process->envVars.stdinFd) {
+							if (process->regs[1]==FdStdin) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[3]], process->regs[4]);
 								if (result>=0)
 									process->regs[0]=result;
@@ -522,7 +533,7 @@ bool processRunNextInstruction(Process *process) {
 							uint16_t bufAddr=process->regs[3];
 							uint16_t bufLen=process->regs[4];
 
-							if (fd==process->envVars.stdoutFd) {
+							if (fd==FdStdout) {
 								for(int i=0; i<bufLen; ++i)
 									printf("%c", process->memory[bufAddr+i]);
 								fflush(stdout);
@@ -590,7 +601,7 @@ bool processRunNextInstruction(Process *process) {
 						break;
 						case BytecodeSyscallIdRead32: {
 							// Note: this is identical to 16 bit case as we only support stdin anyway, which ignores offset.
-							if (process->regs[1]==process->envVars.stdinFd) {
+							if (process->regs[1]==FdStdin) {
 								ssize_t result=read(STDIN_FILENO, &process->memory[process->regs[3]], process->regs[4]);
 								if (result>=0)
 									process->regs[0]=result;
@@ -612,7 +623,7 @@ bool processRunNextInstruction(Process *process) {
 							uint16_t bufAddr=process->regs[3];
 							uint16_t bufLen=process->regs[4];
 
-							if (fd==process->envVars.stdoutFd) {
+							if (fd==FdStdout) {
 								for(int i=0; i<bufLen; ++i)
 									printf("%c", process->memory[bufAddr+i]);
 								fflush(stdout);
@@ -655,50 +666,52 @@ bool processRunNextInstruction(Process *process) {
 								printf("Info: syscall(id=%i [append] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						} break;
-						case BytecodeSyscallIdEnvGetStdinFd:
-							process->regs[0]=process->envVars.stdinFd;
+						case BytecodeSyscallIdFlush: {
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envgetstinfd] (return fd = %u)\n", syscallId, process->regs[0]);
-						break;
-						case BytecodeSyscallIdEnvSetStdinFd:
-							process->envVars.stdinFd=process->regs[0];
+								printf("Info: syscall(id=%i [flush] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						} break;
+						case BytecodeSyscallIdTryWriteByte:
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetstdinfd], new fd %u\n", syscallId, process->envVars.stdinFd);
-						break;
-						case BytecodeSyscallIdEnvGetPwd:
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
-						break;
-						case BytecodeSyscallIdEnvSetPwd:
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetpwd] (unimplemented)\n", syscallId);
-						break;
-						case BytecodeSyscallIdEnvGetPath:
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
-						break;
-						case BytecodeSyscallIdEnvSetPath:
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetpath] (unimplemented)\n", syscallId);
-						break;
-						case BytecodeSyscallIdEnvGetStdoutFd:
-							process->regs[0]=process->envVars.stdoutFd;
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envgetstoutfd] (return fd = %u)\n", syscallId, process->regs[0]);
-						break;
-						case BytecodeSyscallIdEnvSetStdoutFd:
-							process->envVars.stdoutFd=process->regs[0];
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [envsetstdoutfd], new fd %u\n", syscallId, process->envVars.stdoutFd);
-						break;
-						case BytecodeSyscallIdTimeMonotonic16s:
-							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timemonotonic16s] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [trywritebyte] (unimplemented)\n", syscallId);
 							process->regs[0]=0;
 						break;
-						case BytecodeSyscallIdTimeMonotonic16ms:
+						case BytecodeSyscallIdGetPathGlobal: {
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timemonotonic16ms] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [getpathglobal] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						} break;
+						case BytecodeSyscallIdEnvGetPwd:
+							process->regs[0]=process->envVars.pwd;
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [envgetpwd], pwd=%u='%s')\n", syscallId, process->envVars.pwd, (char *)(process->memory+process->envVars.pwd));
+						break;
+						case BytecodeSyscallIdEnvSetPwd:
+							process->envVars.pwd=process->regs[1];
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [envsetpwd], pwd=%u='%s')\n", syscallId, process->envVars.pwd, (char *)(process->memory+process->envVars.pwd));
+						break;
+						case BytecodeSyscallIdEnvGetPath:
+							process->regs[0]=process->envVars.path;
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [envgetpath], path=%u='%s')\n", syscallId, process->envVars.path, (char *)(process->memory+process->envVars.path));
+						break;
+						case BytecodeSyscallIdEnvSetPath:
+							process->envVars.path=process->regs[1];
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [envsetpath], path=%u='%s')\n", syscallId, process->envVars.path, (char *)(process->memory+process->envVars.path));
+						break;
+						case BytecodeSyscallIdTimeMonotonic16s:
+							process->regs[0]=(getMonotonicTimeMs()/1000) & 0xFFFF;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [timemonotonic16s]\n", syscallId);
+						break;
+						case BytecodeSyscallIdTimeMonotonic16ms:
+							process->regs[0]=getMonotonicTimeMs() & 0xFFFF;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [timemonotonic16ms]\n", syscallId);
 							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdTimeMonotonic32s: {
@@ -713,13 +726,14 @@ bool processRunNextInstruction(Process *process) {
 								return false;
 							}
 
-							process->memory[destPtr]=0;
-							process->memory[destPtr+1]=0;
-							process->memory[destPtr+2]=0;
-							process->memory[destPtr+3]=0;
+							uint64_t monoTimeS=getMonotonicTimeMs()/1000;
+							process->memory[destPtr+0]=(monoTimeS>>24)&0xFF;
+							process->memory[destPtr+1]=(monoTimeS>>16)&0xFF;
+							process->memory[destPtr+2]=(monoTimeS>> 8)&0xFF;
+							process->memory[destPtr+3]=(monoTimeS>> 0)&0xFF;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timemonotonic32s] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [timemonotonic32s] (destPtr=%u)\n", syscallId, destPtr);
 						} break;
 						case BytecodeSyscallIdTimeMonotonic32ms: {
 							uint16_t destPtr=process->regs[1];
@@ -733,13 +747,14 @@ bool processRunNextInstruction(Process *process) {
 								return false;
 							}
 
-							process->memory[destPtr]=0;
-							process->memory[destPtr+1]=0;
-							process->memory[destPtr+2]=0;
-							process->memory[destPtr+3]=0;
+							uint64_t realTimeMs=getMonotonicTimeMs();
+							process->memory[destPtr+0]=(realTimeMs>>24)&0xFF;
+							process->memory[destPtr+1]=(realTimeMs>>16)&0xFF;
+							process->memory[destPtr+2]=(realTimeMs>> 8)&0xFF;
+							process->memory[destPtr+3]=(realTimeMs>> 0)&0xFF;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timemonotonic32ms] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [timemonotonic32ms] (destPtr=%u)\n", syscallId, destPtr);
 						} break;
 						case BytecodeSyscallIdTimeReal32s: {
 							uint16_t destPtr=process->regs[1];
@@ -753,22 +768,41 @@ bool processRunNextInstruction(Process *process) {
 								return false;
 							}
 
-							process->memory[destPtr]=0;
-							process->memory[destPtr+1]=0;
-							process->memory[destPtr+2]=0;
-							process->memory[destPtr+3]=0;
+							uint64_t realTimeS=getRealTimeMs()/1000;
+							process->memory[destPtr+0]=(realTimeS>>24)&0xFF;
+							process->memory[destPtr+1]=(realTimeS>>16)&0xFF;
+							process->memory[destPtr+2]=(realTimeS>> 8)&0xFF;
+							process->memory[destPtr+3]=(realTimeS>> 0)&0xFF;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timereal32s] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [timereal32s] (destPtr=%u)\n", syscallId, destPtr);
 						} break;
 						case BytecodeSyscallIdTimeToDate32s: {
-							// uint16_t destPtr=process->regs[1];
-							// uint16_t srcTimePtr=process->regs[1];
+							// Grab arguments
+							uint16_t destDatePtr=process->regs[1];
+							uint16_t srcTimePtr=process->regs[2];
 
-							// TODO: at least write all zeros to fields
+							// Grab source time
+							// TODO: check srcTimePtr range is ok
+							BytecodeDoubleWord srcTime=(process->memory[srcTimePtr+0]<<24)|(process->memory[srcTimePtr+1]<<16)|(process->memory[srcTimePtr+2]<<8)|process->memory[srcTimePtr+3];
+
+							// Decompose into date
+							KDate date;
+							ktimeTimeMsToDate(srcTime*((KTime)1000), &date);
+
+							// User space date struct has a slightly different structure.
+							// So have to copy field by field.
+							// TODO: check destDatePtr range is ok
+							process->memory[destDatePtr+0]=(date.year>>8);
+							process->memory[destDatePtr+1]=(date.year&0xFF);
+							process->memory[destDatePtr+2]=date.month;
+							process->memory[destDatePtr+3]=date.day;
+							process->memory[destDatePtr+4]=date.hour;
+							process->memory[destDatePtr+5]=date.minute;
+							process->memory[destDatePtr+6]=date.second;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [timetodate32s] (unimplemented)\n", syscallId);
+								printf("Info: syscall(id=%i [timetodate32s] (srcTimeS=%u)\n", syscallId, srcTime);
 						} break;
 						case BytecodeSyscallIdRegisterSignalHandler:
 							if (infoSyscalls)
@@ -799,6 +833,16 @@ bool processRunNextInstruction(Process *process) {
 						case BytecodeSyscallIdSetLogLevel:
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [setloglevel] (unimplemented)\n", syscallId);
+						break;
+						case BytecodeSyscallIdPipeOpen:
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [pipeopen] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
+						break;
+						case BytecodeSyscallIdRemount:
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [remount] (unimplemented)\n", syscallId);
+							process->regs[0]=0;
 						break;
 						case BytecodeSyscallIdStrchr: {
 							// TODO: Check arguments better
@@ -882,11 +926,12 @@ bool processRunNextInstruction(Process *process) {
 							// Always fail
 							uint16_t id=process->regs[1];
 							uint16_t type=process->regs[2];
+							uint16_t pinsAddr=process->regs[3];
 
 							process->regs[0]=0;
 
 							if (infoSyscalls)
-								printf("Info: syscall(id=%i [hwdeviceregister], id=%u, type=%u\n", syscallId, id, type);
+								printf("Info: syscall(id=%i [hwdeviceregister], id=%u, type=%u, pinsAddr=%u\n", syscallId, id, type, pinsAddr);
 						} break;
 						case BytecodeSyscallIdHwDeviceDeregister: {
 							// Nothing to do - cannot register such devices in the first place
@@ -935,6 +980,360 @@ bool processRunNextInstruction(Process *process) {
 
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [hwdevicedht22gethumidity], id=%u\n", syscallId, id);
+						} break;
+						case BytecodeSyscallIdHwDeviceKeypadMount: {
+							// HW devices are unsupported
+							uint16_t id=process->regs[1];
+							process->regs[0]=0;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [hwdevicekeypadmount], id=%u\n", syscallId, id);
+						} break;
+						case BytecodeSyscallIdHwDeviceKeypadUnmount: {
+							// HW devices are unsupported
+							uint16_t id=process->regs[1];
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [hwdevicekeypadunmount], id=%u\n", syscallId, id);
+						} break;
+						case ByteCodeSyscallIdInt32Add16: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bValue=process->regs[2];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32add16 syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32add16 syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+
+							BytecodeDoubleWord sum=aValue+bValue;
+
+							process->memory[aPtr+0]=(sum>>24)&255;
+							process->memory[aPtr+1]=(sum>>16)&255;
+							process->memory[aPtr+2]=(sum>>8)&255;
+							process->memory[aPtr+3]=(sum>>0)&255;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32add16], aPtr=%u, a=%u, b=%u, sum=%u\n", syscallId, aPtr, aValue, bValue, sum);
+						} break;
+						case ByteCodeSyscallIdInt32Add32: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bPtr=process->regs[2];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32add32 syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32add32 syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (bPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32add32 syscall with b-ptr partially beyond end of memory (bPtr=%u), exiting\n", bPtr);
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+							BytecodeDoubleWord bValue=(((BytecodeDoubleWord)process->memory[bPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+3])<<0);
+
+							BytecodeDoubleWord sum=aValue+bValue;
+
+							process->memory[aPtr+0]=(sum>>24)&255;
+							process->memory[aPtr+1]=(sum>>16)&255;
+							process->memory[aPtr+2]=(sum>>8)&255;
+							process->memory[aPtr+3]=(sum>>0)&255;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32add32], aPtr=%u, bPtr=%u, a=%u, b=%u, sum=%u\n", syscallId, aPtr, bPtr, aValue, bValue, sum);
+						} break;
+						case ByteCodeSyscallIdInt32Sub16: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bValue=process->regs[2];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32sub16 syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32sub16 syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+
+							BytecodeDoubleWord diff=aValue-bValue;
+
+							process->memory[aPtr+0]=(diff>>24)&255;
+							process->memory[aPtr+1]=(diff>>16)&255;
+							process->memory[aPtr+2]=(diff>>8)&255;
+							process->memory[aPtr+3]=(diff>>0)&255;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32sub16], aPtr=%u, a=%u, b=%u, diff=%u\n", syscallId, aPtr, aValue, bValue, diff);
+						} break;
+						case ByteCodeSyscallIdInt32Sub32: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bPtr=process->regs[2];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32sub32 syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32sub32 syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (bPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32sub32 syscall with b-ptr partially beyond end of memory (bPtr=%u), exiting\n", bPtr);
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+							BytecodeDoubleWord bValue=(((BytecodeDoubleWord)process->memory[bPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+3])<<0);
+
+							BytecodeDoubleWord diff=aValue-bValue;
+
+							process->memory[aPtr+0]=(diff>>24)&255;
+							process->memory[aPtr+1]=(diff>>16)&255;
+							process->memory[aPtr+2]=(diff>>8)&255;
+							process->memory[aPtr+3]=(diff>>0)&255;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32sub32], aPtr=%u, bPtr=%u, a=%u, b=%u, diff=%u\n", syscallId, aPtr, bPtr, aValue, bValue, diff);
+						} break;
+						case ByteCodeSyscallIdInt32Mul16: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bValue=process->regs[2];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32mul16 syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32mul16 syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+
+							BytecodeDoubleWord product=aValue*bValue;
+
+							process->memory[aPtr+0]=(product>>24)&255;
+							process->memory[aPtr+1]=(product>>16)&255;
+							process->memory[aPtr+2]=(product>>8)&255;
+							process->memory[aPtr+3]=(product>>0)&255;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32mul16], aPtr=%u, a=%u, b=%u, product=%u\n", syscallId, aPtr, aValue, bValue, product);
+						} break;
+						case ByteCodeSyscallIdInt32Mul32: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bPtr=process->regs[2];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32mul32 syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32mul32 syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (bPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32mul32 syscall with b-ptr partially beyond end of memory (bPtr=%u), exiting\n", bPtr);
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+							BytecodeDoubleWord bValue=(((BytecodeDoubleWord)process->memory[bPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+3])<<0);
+
+							BytecodeDoubleWord product=aValue*bValue;
+
+							process->memory[aPtr+0]=(product>>24)&255;
+							process->memory[aPtr+1]=(product>>16)&255;
+							process->memory[aPtr+2]=(product>>8)&255;
+							process->memory[aPtr+3]=(product>>0)&255;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32mul32], aPtr=%u, bPtr=%u, a=%u, b=%u, product=%u\n", syscallId, aPtr, bPtr, aValue, bValue, product);
+						} break;
+						case ByteCodeSyscallIdInt32Div16: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bValue=process->regs[2];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32div16 syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32div16 syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (bValue==0) {
+								printf("Error: int32div16 syscall divide by 0, exiting\n");
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+
+
+							BytecodeDoubleWord quotient=aValue/bValue;
+							BytecodeWord remainder=aValue-quotient*bValue;
+
+							process->memory[aPtr+0]=(quotient>>24)&255;
+							process->memory[aPtr+1]=(quotient>>16)&255;
+							process->memory[aPtr+2]=(quotient>>8)&255;
+							process->memory[aPtr+3]=(quotient>>0)&255;
+
+							process->regs[0]=remainder;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32div16], aPtr=%u, a=%u, b=%u, q=%u, r=%u\n", syscallId, aPtr, aValue, bValue, quotient, remainder);
+						} break;
+						case ByteCodeSyscallIdInt32Div32: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bPtr=process->regs[2];
+							BytecodeWord rPtr=process->regs[3];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32div32 syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32div32 syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (bPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32div32 syscall with b-ptr partially beyond end of memory (bPtr=%u), exiting\n", bPtr);
+								return false;
+							}
+							if (rPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32div32 syscall with r-ptr in read-only region (rPtr=%u), exiting\n", rPtr);
+								return false;
+							}
+							if (rPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32div32 syscall with r-ptr partially beyond end of writable region (rPtr=%u), exiting\n", rPtr);
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+							BytecodeDoubleWord bValue=(((BytecodeDoubleWord)process->memory[bPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[bPtr+3])<<0);
+
+							if (bValue==0) {
+								printf("Error: int32div32 syscall divide by 0, exiting\n");
+								return false;
+							}
+
+							BytecodeDoubleWord quotient=aValue/bValue;
+							BytecodeDoubleWord remainder=aValue-quotient*bValue;
+
+							process->memory[aPtr+0]=(quotient>>24)&255;
+							process->memory[aPtr+1]=(quotient>>16)&255;
+							process->memory[aPtr+2]=(quotient>>8)&255;
+							process->memory[aPtr+3]=(quotient>>0)&255;
+							process->memory[rPtr+0]=(remainder>>24)&255;
+							process->memory[rPtr+1]=(remainder>>16)&255;
+							process->memory[rPtr+2]=(remainder>>8)&255;
+							process->memory[rPtr+3]=(remainder>>0)&255;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32div32], aPtr=%u, bPtr=%u, rPtr=%u, a=%u, b=%u, q=%u, r=%u\n", syscallId, aPtr, bPtr, rPtr, aValue, bValue, quotient, remainder);
+						} break;
+						case ByteCodeSyscallIdInt32Shl: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bValue=process->regs[2];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32shl syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32shl syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+
+							BytecodeDoubleWord result=aValue<<bValue;
+
+							process->memory[aPtr+0]=(result>>24)&255;
+							process->memory[aPtr+1]=(result>>16)&255;
+							process->memory[aPtr+2]=(result>>8)&255;
+							process->memory[aPtr+3]=(result>>0)&255;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32shl], aPtr=%u, a=%u, b=%u, result=%u\n", syscallId, aPtr, aValue, bValue, result);
+						} break;
+						case ByteCodeSyscallIdInt32Shr: {
+							BytecodeWord aPtr=process->regs[1];
+							BytecodeWord bValue=process->regs[2];
+
+							if (aPtr<BytecodeMemoryRamAddr) {
+								printf("Error: int32shr syscall with a-ptr in read-only region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+							if (aPtr>=BytecodeMemoryTotalSize-3) {
+								printf("Error: int32shr syscall with a-ptr partially beyond end of writable region (aPtr=%u), exiting\n", aPtr);
+								return false;
+							}
+
+							BytecodeDoubleWord aValue=(((BytecodeDoubleWord)process->memory[aPtr+0])<<24)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+1])<<16)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+2])<<8)|
+							                          (((BytecodeDoubleWord)process->memory[aPtr+3])<<0);
+
+							BytecodeDoubleWord result=aValue>>bValue;
+
+							process->memory[aPtr+0]=(result>>24)&255;
+							process->memory[aPtr+1]=(result>>16)&255;
+							process->memory[aPtr+2]=(result>>8)&255;
+							process->memory[aPtr+3]=(result>>0)&255;
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [int32shr], aPtr=%u, a=%u, b=%u, result=%u\n", syscallId, aPtr, aValue, bValue, result);
 						} break;
 						default:
 							if (infoSyscalls)
@@ -1001,4 +1400,14 @@ int emulatorClz16(uint16_t x) {
 
 	uint8_t lower=x&255;
 	return emulatorClz8(lower)+8;
+}
+
+uint64_t getMonotonicTimeMs(void) {
+	return getRealTimeMs()-bootTimeMs;
+}
+
+uint64_t getRealTimeMs(void) {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return tv.tv_sec*1000llu+tv.tv_usec/1000llu;
 }

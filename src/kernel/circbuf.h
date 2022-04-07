@@ -4,15 +4,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define CircBufSizeMinusOne (127u)
-#define CircBufSize (CircBufSizeMinusOne+1)
-
 typedef struct {
-	volatile uint8_t buffer[CircBufSize];
+	volatile uint8_t *buffer;
+	uint8_t size;
 	volatile uint8_t head, tail; // push to tail, pop from head
 } CircBuf;
 
-void circBufInit(volatile CircBuf *cb);
+void circBufInit(volatile CircBuf *cb, volatile uint8_t *buffer, uint8_t size);
 
 bool circBufIsEmpty(volatile CircBuf *cb);
 

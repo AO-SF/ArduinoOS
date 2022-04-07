@@ -1,27 +1,25 @@
 require fput.s
 require ../str/inttostr.s
 
-; putdecpad(x=r0, padLen=r1)
+; putdecpad(x=r0, padLen=r1) - returns number of bytes written in r0
 label putdecpad
 mov r2 r1
 mov r1 r0
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
+mov r0 FdStdout
 jmp fputdeccommon
 
-; putdec(x=r0)
+; putdec(x=r0) - returns number of bytes written in r0
 label putdec
 mov r1 r0
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
+mov r0 FdStdout
 jmp fputdec
 
-; fputdec(fd=r0, x=r1)
+; fputdec(fd=r0, x=r1) - returns number of bytes written in r0
 label fputdec
 mov r2 0
 jmp fputdeccommon
 
-; fputdeccommon(fd=r0, x=r1, padLen=r2) - write x in ascii as a decimal value to given fd, optionally padded with zeros to given length
+; fputdeccommon(fd=r0, x=r1, padLen=r2) - write x in ascii as a decimal value to given fd, optionally padded with zeros to given length, returns number of bytes written in r0
 label fputdeccommon
 ; reserve 6 bytes of stack to store temporary string
 mov r3 r6

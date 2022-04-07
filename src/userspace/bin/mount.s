@@ -11,14 +11,12 @@ db typeStrPartition1 'partition1',0
 db typeStrPartition2 'partition2',0
 db typeStrPartition3 'partition3',0
 db typeStrPartition4 'partition4',0
+db typeStrCircBuf 'circbuf',0
 db typeStrFat 'fat',0
 
 db badTypeErrorStr 'bad type argument\n',0
 db usageErrorStr 'usage: mount type device dir\n',0
 
-ab scratchBuf PathMax
-
-ab typeArg ArgLenMax
 aw typeId 1
 ab devicePath PathMax
 ab dirPath PathMax
@@ -26,53 +24,68 @@ ab dirPath PathMax
 ; Grab type argument
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 typeArg
-mov r3 ArgLenMax
 syscall
+cmp r1 r0 r0
+skipneqz r1
+jmp usageerror;
 
-mov r0 typeArg
+push16 r0
 mov r1 typeStrCustomMiniFs
 call strcmp
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+pop16 r0
+skipneqz r1
 jmp foundTypeCustomMiniFs
 
-mov r0 typeArg
+push16 r0
 mov r1 typeStrFlatFile
 call strcmp
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+pop16 r0
+skipneqz r1
 jmp foundTypeFlatFile
 
-mov r0 typeArg
+push16 r0
 mov r1 typeStrPartition1
 call strcmp
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+pop16 r0
+skipneqz r1
 jmp foundTypePartition1
 
-mov r0 typeArg
+push16 r0
 mov r1 typeStrPartition2
 call strcmp
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+pop16 r0
+skipneqz r1
 jmp foundTypePartition2
 
-mov r0 typeArg
+push16 r0
 mov r1 typeStrPartition3
 call strcmp
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+pop16 r0
+skipneqz r1
 jmp foundTypePartition3
 
-mov r0 typeArg
+push16 r0
 mov r1 typeStrPartition4
 call strcmp
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+pop16 r0
+skipneqz r1
 jmp foundTypePartition4
 
-mov r0 typeArg
+push16 r0
+mov r1 typeStrCircBuf
+call strcmp
+cmp r1 r0 r0
+pop16 r0
+skipneqz r1
+jmp foundTypeCircBuf
+
+push16 r0
 mov r1 typeStrFat
 call strcmp
 cmp r0 r0 r0
@@ -120,6 +133,12 @@ mov r1 SyscallMountFormatPartition4
 store16 r0 r1
 jmp gottypearg
 
+label foundTypeCircBuf
+mov r0 typeId
+mov r1 SyscallMountFormatCircBuf
+store16 r0 r1
+jmp gottypearg
+
 label foundTypeFat
 mov r0 typeId
 mov r1 SyscallMountFormatFat
@@ -131,26 +150,24 @@ label gottypearg
 ; Read other two arguments
 mov r0 SyscallIdArgvN
 mov r1 2
-mov r2 scratchBuf
-mov r3 PathMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usageerror
+
+mov r1 r0
 mov r0 devicePath
-mov r1 scratchBuf
 call getpath
 
 mov r0 SyscallIdArgvN
 mov r1 3
-mov r2 scratchBuf
-mov r3 PathMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usageerror
+
+mov r1 r0
 mov r0 dirPath
-mov r1 scratchBuf
 call getpath
 
 ; Invoke mount syscall

@@ -4,24 +4,18 @@ requireend ../io/fputdec.s
 requireend int32get.s
 requireend int32str.s
 
-; int32put0(x=r0) - equivalent to int32fput0(x, stdout)
+; int32put0(x=r0) - equivalent to int32fput0(x, stdout), returns number of bytes written in r0
 label int32put0
-; Protect x
-mov r2 r0
-; Grab stdout fd
-mov r0 SyscallIdEnvGetStdoutFd ; Grab stdout fd and put it in r0
-syscall
 ; Jump into fput0 version to do rest of the work
-mov r1 r0 ; set fd
-mov r0 r2 ; set x
+mov r1 FdStdout ; set fd
 jmp int32fput0
 
-; int32fput0(x=r0, fd=r1) - equivalent to int32fput(x, fd, 0)
+; int32fput0(x=r0, fd=r1) - equivalent to int32fput(x, fd, 0), returns number of bytes written in r0
 label int32fput0
 mov r2 0
 jmp int32fput
 
-; int32fput(x=r0, fd=r1, offset=r2) - write 32 bit value pointed to by x into given fd at given offset
+; int32fput(x=r0, fd=r1, offset=r2) - write 32 bit value pointed to by x into given fd at given offset, returns number of bytes written in r0
 label int32fput
 ; Reserve space on stack for string
 mov r3 r6 ; r3 contains ptr to temporary str

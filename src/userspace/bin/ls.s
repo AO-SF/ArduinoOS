@@ -4,9 +4,8 @@ requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/getpwd.s
+requireend lib/std/str/strcpy.s
 requireend lib/std/str/strlen.s
-
-ab argBuf PathMax
 
 ab queryDir PathMax
 ab queryDirFd 1
@@ -18,25 +17,28 @@ require lib/std/proc/suicidehandler.s
 ; Check for argument, otherwise use pwd
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 argBuf
-mov r3 PathMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+
+cmp r1 r0 r0
+skipneqz r1
 jmp noArg
+
+mov r1 r0
 mov r0 queryDir
-mov r1 argBuf
 call getabspath
 jmp gotArg
 
 label noArg
-mov r0 queryDir
 call getpwd
+mov r1 r0
+mov r0 queryDir
+call strcpy
 label gotArg
 
 ; Attempt to open queryDir
 mov r0 SyscallIdOpen
 mov r1 queryDir
+mov r2 FdModeRO
 syscall
 
 mov r1 queryDirFd
@@ -106,13 +108,7 @@ label success
 mov r0 '\n'
 call putc0
 
-; Close queryDir
-mov r0 SyscallIdClose
-mov r1 queryDirFd
-load8 r1 r1
-syscall
-
-; Exit
+; Exit (queryDir closed by OS)
 mov r0 0
 call exit
 

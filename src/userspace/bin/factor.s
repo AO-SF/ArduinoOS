@@ -8,7 +8,6 @@ requireend lib/std/str/strtoint.s
 db primes 2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,199,211,223,227,229,233,239,241,251,0
 
 db separator ': ', 0
-ab argBuf ArgLenMax
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
@@ -32,17 +31,14 @@ label factorArgN
 ; Get arg
 mov r1 r0
 mov r0 SyscallIdArgvN
-mov r2 argBuf
-mov r3 ArgLenMax
 syscall
 
 ; No arg found?
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp error
 
 ; Convert arg to integer
-mov r0 argBuf
 call strtoint
 
 ; Bad string or 0?

@@ -2,7 +2,7 @@
 
 bool pTableParseEntryPath(const char *path, unsigned n, PTableEntry *entry) {
 	// Open disk
-	KernelFsFd fd=kernelFsFileOpen(path);
+	KernelFsFd fd=kernelFsFileOpen(path, KernelFsFdModeRO);
 	if (fd==KernelFsFdInvalid)
 		return false;
 
@@ -18,7 +18,7 @@ bool pTableParseEntryPath(const char *path, unsigned n, PTableEntry *entry) {
 bool pTableParseEntryFd(KernelFsFd fd, unsigned n, PTableEntry *entry) {
 	// Check magic bytes
 	uint8_t magicBytes[2];
-	if (kernelFsFileReadOffset(fd, 510, magicBytes, 2, false)!=2)
+	if (kernelFsFileReadOffset(fd, 510, magicBytes, 2)!=2)
 		return false;
 
 	if (magicBytes[0]!=0x55 || magicBytes[1]!=0xAA)
@@ -27,7 +27,7 @@ bool pTableParseEntryFd(KernelFsFd fd, unsigned n, PTableEntry *entry) {
 	// Read partition table entry
 	unsigned offset=446+16*n;
 	uint8_t buffer[16];
-	if (kernelFsFileReadOffset(fd, offset, buffer, 16, false)!=16)
+	if (kernelFsFileReadOffset(fd, offset, buffer, 16)!=16)
 		return false;
 
 	// Parse entry

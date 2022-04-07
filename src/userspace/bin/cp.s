@@ -1,5 +1,7 @@
 require lib/sys/sys.s
 
+requireend lib/std/int32/int32add.s
+requireend lib/std/int32/int32set.s
 requireend lib/std/io/fget.s
 requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
@@ -11,44 +13,30 @@ db usageStr 'usage: cp SOURCE DEST\n', 0
 db errorStrBadSource 'could not open source\n', 0
 db errorStrBadDest 'could not create/open dest\n', 0
 
-ab sourceArg PathMax
-ab destArg PathMax
+ab buf PathMax
 ab sourceFd 1
 ab destFd 1
 
-ab cpScratchBuf PathMax
+aw fileOffset 2 ; 32 bit integer
 
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
 
-; Get source and dest arguments
+; Get source argument and call getpath on it
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 sourceArg
-mov r3 PathMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
-jmp showUsage
-mov r0 SyscallIdArgvN
-mov r1 2
-mov r2 destArg
-mov r3 PathMax
-syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp showUsage
 
-; Call getpath on source path
-mov r0 cpScratchBuf
-mov r1 sourceArg
-call strcpy
-mov r0 sourceArg
-mov r1 cpScratchBuf
+mov r1 r0
+mov r0 buf
 call getpath
 
 ; Open source file
-mov r0 sourceArg
+mov r0 buf
+mov r1 FdModeRO
 call openpath
 cmp r1 r0 r0
 skipneqz r1
@@ -56,25 +44,34 @@ jmp couldNotOpenSource
 mov r1 sourceFd
 store8 r1 r0
 
-; Call getpath on dest path
-mov r0 cpScratchBuf
-mov r1 destArg
-call strcpy
-mov r0 destArg
-mov r1 cpScratchBuf
+; Grab size of source
+mov r0 SyscallIdGetFileLen32
+mov r1 buf
+mov r2 fileOffset
+syscall
+
+; Get dest argument and call getpath on it
+mov r0 SyscallIdArgvN
+mov r1 2
+syscall
+cmp r1 r0 r0
+skipneqz r1
+jmp showUsage
+
+mov r1 r0
+mov r0 buf
 call getpath
 
 ; Create/resize dest path
-mov r0 SyscallIdGetFileLen
-mov r1 sourceArg
-syscall
 mov r2 r0
-mov r0 SyscallIdResizeFile
-mov r1 destArg
+mov r0 SyscallIdResizeFile32
+mov r1 buf
+mov r2 fileOffset
 syscall
 
 ; Open dest
-mov r0 destArg
+mov r0 buf
+mov r1 FdModeWO
 call openpath
 cmp r1 r0 r0
 skipneqz r1
@@ -83,48 +80,42 @@ mov r1 destFd
 store8 r1 r0
 
 ; Copy bytes from source file to dest file
-mov r2 0 ; loop index and read/write offset
+mov r0 fileOffset
+mov r1 0
+call int32set16
 label cpCopyLoopStart
 ; Read a byte from source
-mov r0 SyscallIdRead
+mov r0 SyscallIdRead32
 mov r1 sourceFd
 load8 r1 r1
-mov r3 cpScratchBuf
+mov r2 fileOffset
+mov r3 buf
 mov r4 1
 syscall
 cmp r0 r0 r0
 skipneqz r0
 jmp cpCopyLoopEnd
 ; Write byte
-mov r0 SyscallIdWrite
+mov r0 SyscallIdWrite32
 mov r1 destFd
 load8 r1 r1
-mov r3 cpScratchBuf
+mov r2 fileOffset
+mov r3 buf
 mov r4 1
 syscall
 cmp r0 r0 r0
 skipneqz r0
 jmp cpCopyLoopEnd
 ; Loop again to copy next byte
-inc r2
+mov r0 fileOffset
+call int32inc
 jmp cpCopyLoopStart
 label cpCopyLoopEnd
 
-; Close dest file
-mov r0 SyscallIdClose
-mov r1 destFd
-load8 r1 r1
-syscall
-
-; Close source file
-mov r0 SyscallIdClose
-mov r1 sourceFd
-load8 r1 r1
-syscall
-
-; Exit
+; Exit (note: no need to close files as they are reclaimed by the OS automatically)
 mov r0 0
 call exit
+
 ; Errors
 label showUsage
 mov r0 usageStr

@@ -12,6 +12,7 @@ rm -rf ./tmp/mockups/usrbinmockup/*
 rm -rf ./tmp/mockups/homemockup/*
 rm -rf ./tmp/mockups/etcmockup/*
 rm -rf ./tmp/mockups/usrgamesmockup/*
+rm -rf ./tmp/mockups/usrdataloggermockup/*
 rm -rf ./tmp/mockups/usrman1mockup/*
 rm -rf ./tmp/mockups/usrman2mockup/*
 rm -rf ./tmp/mockups/usrman3mockup/*
@@ -22,6 +23,7 @@ mkdir -p ./tmp/mockups/usrbinmockup
 mkdir -p ./tmp/mockups/homemockup
 mkdir -p ./tmp/mockups/etcmockup
 mkdir -p ./tmp/mockups/usrgamesmockup
+mkdir -p ./tmp/mockups/usrdataloggermockup
 mkdir -p ./tmp/mockups/usrman1mockup
 mkdir -p ./tmp/mockups/usrman2mockup
 mkdir -p ./tmp/mockups/usrman3mockup
@@ -38,10 +40,12 @@ echo "	Creating /bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/ls.s ./tmp/mockups/binmockup/ls
 ./bin/aosf-asm ./src/userspace/bin/mount.s ./tmp/mockups/binmockup/mount
 ./bin/aosf-asm ./src/userspace/bin/pwd.s ./tmp/mockups/binmockup/pwd
+./bin/aosf-asm ./src/userspace/bin/remount.s ./tmp/mockups/binmockup/remount
 ./bin/aosf-asm ./src/userspace/bin/rm.s ./tmp/mockups/binmockup/rm
 ./bin/aosf-asm ./src/userspace/bin/sh.s ./tmp/mockups/binmockup/sh
 ./bin/aosf-asm ./src/userspace/bin/shutdown.s ./tmp/mockups/binmockup/shutdown
 ./bin/aosf-asm ./src/userspace/bin/signal.s ./tmp/mockups/binmockup/signal
+./bin/aosf-asm ./src/userspace/bin/size.s ./tmp/mockups/binmockup/size
 ./bin/aosf-asm ./src/userspace/bin/sleep.s ./tmp/mockups/binmockup/sleep
 ./bin/aosf-asm ./src/userspace/bin/true.s ./tmp/mockups/binmockup/true
 ./bin/aosf-asm ./src/userspace/bin/truncate.s ./tmp/mockups/binmockup/truncate
@@ -55,10 +59,10 @@ cp ./src/userspace/bin/shutdown.sh ./tmp/mockups/etcmockup/shutdown
 
 echo "	Creating /home mockup..."
 ./bin/aosf-asm ./src/userspace/bin/fib.s ./tmp/mockups/homemockup/fib
-./bin/aosf-asm ./src/userspace/bin/fib32.s ./tmp/mockups/homemockup/fib32
 cp -R ./src/userspace/home ./tmp/mockups/usrbinmockup
 ./bin/aosf-asm ./src/userspace/bin/bomb.s ./tmp/mockups/homemockup/bomb
 ./bin/aosf-asm ./src/userspace/bin/blink.s ./tmp/mockups/homemockup/blink
+./bin/aosf-asm ./src/userspace/bin/pipetest.s ./tmp/mockups/homemockup/pipetest
 
 echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/burn.s ./tmp/mockups/usrbinmockup/burn
@@ -76,6 +80,7 @@ echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/hwdereg.s ./tmp/mockups/usrbinmockup/hwdereg
 ./bin/aosf-asm ./src/userspace/bin/hwinfo.s ./tmp/mockups/usrbinmockup/hwinfo
 ./bin/aosf-asm ./src/userspace/bin/hwreg.s ./tmp/mockups/usrbinmockup/hwreg
+./bin/aosf-asm ./src/userspace/bin/hwkeypadmnt.s ./tmp/mockups/usrbinmockup/hwkeypadmnt
 ./bin/aosf-asm ./src/userspace/bin/hwsdmnt.s ./tmp/mockups/usrbinmockup/hwsdmnt
 ./bin/aosf-asm ./src/userspace/bin/time.s ./tmp/mockups/usrbinmockup/time
 ./bin/aosf-asm ./src/userspace/bin/uptime.s ./tmp/mockups/usrbinmockup/uptime
@@ -83,6 +88,10 @@ echo "	Creating /usr/bin mockup..."
 ./bin/aosf-asm ./src/userspace/bin/date.s ./tmp/mockups/usrbinmockup/date
 ./bin/aosf-asm ./src/userspace/bin/fdisk.s ./tmp/mockups/usrbinmockup/fdisk
 ./bin/aosf-asm ./src/userspace/bin/tree.s ./tmp/mockups/usrbinmockup/tree
+
+echo "	Creating /usr/datalogger mockup..."
+./bin/aosf-asm ./src/userspace/bin/dataloggersample.s ./tmp/mockups/usrdataloggermockup/sample
+./bin/aosf-asm ./src/userspace/bin/dataloggerview.s ./tmp/mockups/usrdataloggermockup/view
 
 echo "	Creating /usr/games mockup..."
 cp ./src/userspace/usrgames/* ./tmp/mockups/usrgamesmockup
@@ -125,6 +134,7 @@ echo "	Formatting static PROGMEM data files from userspace files and mockups..."
 ./bin/aosf-minifsbuilder -fcheader "./tmp/mockups/binmockup" "_bin" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./tmp/mockups/usrbinmockup" "_usr_bin" "./tmp/progmemdata"
 ./bin/aosf-minifsbuilder -fcheader "./tmp/mockups/usrgamesmockup" "_usr_games" "./tmp/progmemdata"
+./bin/aosf-minifsbuilder -fcheader "./tmp/mockups/usrdataloggermockup" "_usr_datalogger" "./tmp/progmemdata"
 
 echo "	Creating common header file to describe all static PROGMEM data files..."
 ./builderprogmem

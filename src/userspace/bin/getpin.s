@@ -11,19 +11,15 @@ db badPinStr 'Bad pin\n',0
 db onStr 'on\n',0
 db offStr 'off\n',0
 
-ab argBuf ArgLenMax
-
 ; Grab arg
 mov r0 SyscallIdArgvN
 mov r1 1
-mov r2 argBuf
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usage
 
 ; Convert arg to integer pin num
-mov r0 argBuf
 call strtopin
 
 ; Bad pin?

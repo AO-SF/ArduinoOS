@@ -7,19 +7,19 @@
 #include "ktime.h"
 
 KStr kstrNull(void) {
-	KStr kstr={.type=KStrTypeNull, .ptr=(uintptr_t)NULL};
+	KStr kstr={.type=KStrTypeNull, .spare=0, .ptr=(uintptr_t)NULL};
 	return kstr;
 }
 
 #ifdef ARDUINO
 KStr kstrAllocProgmemRaw(uint_farptr_t progmemAddr) {
-	KStr kstr={.type=KStrTypeProgmem, .ptr=progmemAddr};
+	KStr kstr={.type=KStrTypeProgmem, .spare=0, .ptr=progmemAddr};
 	return kstr;
 }
 #endif
 
 KStr kstrAllocStatic(char *staticBuffer) {
-	KStr kstr={.type=KStrTypeStatic, .ptr=(uintptr_t)staticBuffer};
+	KStr kstr={.type=KStrTypeStatic, .spare=0, .ptr=(uintptr_t)staticBuffer};
 	return kstr;
 }
 
@@ -28,8 +28,17 @@ KStr kstrAllocCopy(const char *src) {
 	if (dest==NULL)
 		return kstrNull();
 	strcpy(dest, src);
-	KStr kstr={.type=KStrTypeHeap, .ptr=(uintptr_t)dest};
+	KStr kstr={.type=KStrTypeHeap, .spare=0, .ptr=(uintptr_t)dest};
 	return kstr;
+}
+
+unsigned kstrGetSpare(KStr str) {
+	return str.spare;
+}
+
+void kstrSetSpare(KStr *str, unsigned spare) {
+	if (spare<KStrSpareMax)
+		str->spare=spare;
 }
 
 uint16_t kstrStrlen(KStr kstr) {
@@ -107,6 +116,51 @@ int kstrDoubleStrcmp(KStr a, KStr b) {
 #ifdef ARDUINO
 	assert(a.type==KStrTypeProgmem && b.type==KStrTypeProgmem);
 	for(uintptr_t i=0; ; ++i) {
+		uint8_t aByte=pgm_read_byte_far(a.ptr+i);
+		uint8_t bByte=pgm_read_byte_far(b.ptr+i);
+		if (aByte<bByte)
+			return -1;
+		else if (aByte>bByte)
+			return 1;
+		else if (aByte=='\0')
+			break;
+	}
+#endif
+	return 0;
+}
+
+int kstrStrncmp(const char *a, KStr b, size_t n) {
+	switch(b.type) {
+		case KStrTypeNull:
+		break;
+		case KStrTypeProgmem:
+			#ifdef ARDUINO
+			return strncmp_PF(a, (uint_farptr_t)b.ptr, n);
+			#else
+			return 0; // Shouldn't really happen
+			#endif
+		break;
+		case KStrTypeStatic:
+		case KStrTypeHeap:
+			return strncmp(a, (const char *)(uintptr_t)b.ptr, n);
+		break;
+	}
+	return 0;
+}
+
+int kstrDoubleStrncmp(KStr a, KStr b, size_t n) {
+	// Simple cases
+	if (a.type==KStrTypeNull || b.type==KStrTypeNull)
+		return 0;
+	if (a.type==KStrTypeStatic || a.type==KStrTypeHeap)
+		return kstrStrncmp((const char *)(uintptr_t)a.ptr, b, n);
+	if (b.type==KStrTypeStatic || b.type==KStrTypeHeap)
+		return kstrStrncmp((const char *)(uintptr_t)b.ptr, a, n);
+
+	// Otherwise both are in progmem
+#ifdef ARDUINO
+	assert(a.type==KStrTypeProgmem && b.type==KStrTypeProgmem);
+	for(uintptr_t i=0; i<n; ++i) {
 		uint8_t aByte=pgm_read_byte_far(a.ptr+i);
 		uint8_t bByte=pgm_read_byte_far(b.ptr+i);
 		if (aByte<bByte)

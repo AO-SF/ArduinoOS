@@ -1,0 +1,10 @@
+HWSDMNT(1) - User Commands
+
+NAME
+      hwkeypadmnt - Mount a keypad a registered HW device
+
+SYNOPSIS
+      hwkeypadmnt id mountpoint
+
+DESCRIPTION
+      Attempts to mount a keypad to the given mount point, using the HW device with the given id. Requires that said HW device has been registered already as a keypad.

@@ -4,7 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define PinInvalid 255
+#define PinNB 96 // all valid pin numbers are less than this value
+
+#define PinInvalid 127
 
 #define PinA0 40
 #define PinA1 41
@@ -85,8 +87,16 @@ typedef enum {
 	PinModeOutput=1,
 } PinMode;
 
+bool pinIsValid(uint8_t pinNum);
+
+bool pinGrab(uint8_t pinNum); // returns false if already reserved
+void pinRelease(uint8_t pinNum);
+bool pinInUse(uint8_t pinNum);
+
 void pinSetMode(uint8_t pinNum, PinMode mode);
 bool pinRead(uint8_t pinNum);
 bool pinWrite(uint8_t pinNum, bool value);
+
+void pinsDebug(void);
 
 #endif

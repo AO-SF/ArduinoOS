@@ -3,8 +3,7 @@ require fput.s
 ; puthex16(x=r0) - takes 16 bit unsigned int and prints as 4 hex digits to stdout
 label puthex16
 mov r1 r0
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
+mov r0 FdStdout
 jmp fputhex16
 
 ; fputhex16(fd=r0, x=r1) - takes 16 bit unsigned int and prints as 4 hex digits to given fd
@@ -46,8 +45,7 @@ ret
 ; puthex8(x=r0) - takes 8 bit unsigned int and prints as 2 hex digits to stdout
 label puthex8
 mov r1 r0
-mov r0 SyscallIdEnvGetStdoutFd
-syscall
+mov r0 FdStdout
 jmp fputhex8
 
 ; fputhex8(fd=r0, x=r1) - takes 8 bit unsigned int and prints as 2 hex digits to given fd

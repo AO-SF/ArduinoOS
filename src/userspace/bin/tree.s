@@ -89,6 +89,7 @@ mov r4 r0 ; r4 contains length
 ; Attempt to open file (so if it is a dir we can read the children)
 mov r0 SyscallIdOpen
 mov r1 pathBuf
+mov r2 FdModeRO
 syscall
 
 ; Bad fd?

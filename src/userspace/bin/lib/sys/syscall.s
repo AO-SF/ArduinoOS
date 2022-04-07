@@ -32,15 +32,14 @@ const SyscallIdWrite32 269
 const SyscallIdResizeFile32 270
 const SyscallIdGetFileLen32 271
 const SyscallIdAppend 272
+const SyscallIdFlush 273
+const SyscallIdTryWriteByte 274
+const SyscallIdGetPathGlobal 275
 
-const SyscallIdEnvGetStdinFd 512
-const SyscallIdEnvSetStdinFd 513
 const SyscallIdEnvGetPwd 514
 const SyscallIdEnvSetPwd 515
 const SyscallIdEnvGetPath 516
 const SyscallIdEnvSetPath 517
-const SyscallIdEnvGetStdoutFd 518
-const SyscallIdEnvSetStdoutFd 519
 
 const SyscallIdTimeMonotonic16s 768
 const SyscallIdTimeMonotonic16ms 769
@@ -57,6 +56,8 @@ const SyscallIdUnmount 1282
 const SyscallIdIoctl 1283
 const SyscallIdGetLogLevel 1284
 const SyscallIdSetLogLevel 1285
+const SyscallIdPipeOpen 1286
+const SyscallIdRemount 1287
 
 const SyscallIdStrChr 1536
 const SyscallIdStrChrNul 1537
@@ -72,6 +73,19 @@ const SyscallIdHwDeviceSdCardReaderMount 1795
 const SyscallIdHwDeviceSdCardReaderUnmount 1796
 const SyscallIdHwDeviceDht22GetTemperature 1797
 const SyscallIdHwDeviceDht22GetHumidity 1798
+const SyscallIdHwDeviceKeypadMount 1799
+const SyscallIdHwDeviceKeypadUnmount 1800
+
+const SyscallIdInt32Add16 2048
+const SyscallIdInt32Add32 2049
+const SyscallIdInt32Sub16 2050
+const SyscallIdInt32Sub32 2051
+const SyscallIdInt32Mul16 2052
+const SyscallIdInt32Mul32 2053
+const SyscallIdInt32Div16 2054
+const SyscallIdInt32Div32 2055
+const SyscallIdInt32Shl 2056
+const SyscallIdInt32Shr 2057
 
 ; Exec flags
 const SyscallExecPathFlagLiteral 0
@@ -88,7 +102,7 @@ const SyscallWaitpidStatusTimeout 65535
 const SyscallHwDeviceIdMax 4
 
 const SyscallHwDeviceTypeUnused 0
-const SyscallHwDeviceTypeRaw 1
+const SyscallHwDeviceTypeKeypad 1
 const SyscallHwDeviceTypeSdCardReader 2
 const SyscallHwDeviceTypeDht22 3
 
@@ -99,4 +113,5 @@ const SyscallMountFormatPartition1 2
 const SyscallMountFormatPartition2 3
 const SyscallMountFormatPartition3 4
 const SyscallMountFormatPartition4 5
-const SyscallMountFormatFat 6
+const SyscallMountFormatCircBuf 6
+const SyscallMountFormatFat 7

@@ -1,8 +1,7 @@
 require ../../sys/syscall.s
 
-; getpwd(r0=dest addr)
+; getpwd() - returns pointer to pwd string in r0
 label getpwd
-mov r1 r0
 mov r0 SyscallIdEnvGetPwd
 syscall
 ret

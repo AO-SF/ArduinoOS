@@ -1,8 +1,10 @@
 require int32common.s
 
+requireend int32add.s
 requireend int32div.s
 requireend int32get.s
 requireend int32log.s
+requireend int32mul.s
 requireend int32set.s
 
 const int32toStrBufSize 12 ; includes space for null terminator and potential minus sign
@@ -34,14 +36,8 @@ label int32toStrLoopStart
 ; Divide x by 10 while making note of the remainder.
 push16 r0
 mov r0 int32toStrScratchInt32
-mov r1 Int32Const1E1
-mov r2 r6 ; use stack to store remainder
-inc4 r6
-call int32div32rem
-mov r0 r6
-dec4 r0
-call int32getLower16
-dec4 r6 ; restore stack as we are finished with the remainder
+mov r1 10
+call int32div16
 mov r1 r0
 pop16 r0
 ; Print digit to str (str ptr in r0, digit in r1)
@@ -58,4 +54,44 @@ pop16 r0
 skipneqz r1
 jmp int32toStrLoopStart
 ; Done
+ret
+
+; int32fromStr(x=r0, str=r1) - attempt to parse given str as a 32 bit integer, stores 0 in x on failure
+label int32fromStr
+; Set x=0
+push16 r0
+push16 r1
+mov r1 0
+call int32set16
+pop16 r1
+pop16 r0
+; Loop until we hit a character outside of '0'-'9' range
+label int32fromStrLoopStart
+; Subtract '0' from char and test if in valid range
+load8 r2 r1
+dec48 r2
+mov r3 0
+cmp r3 r2 r3
+skipge r3
+jmp int32fromStrLoopEnd
+mov r3 9
+cmp r3 r2 r3
+skiple r3
+jmp int32fromStrLoopEnd
+; Append this digit to running total
+push16 r1
+push16 r0
+push8 r2
+mov r1 Int32Const1E1
+call int32mul32
+pop8 r1
+pop16 r0
+push16 r0
+call int32add16
+pop16 r0
+pop16 r1
+; Loop to try next character
+inc r1
+jmp int32fromStrLoopStart
+label int32fromStrLoopEnd
 ret

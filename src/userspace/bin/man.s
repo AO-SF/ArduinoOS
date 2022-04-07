@@ -14,7 +14,6 @@ db slashStr '/',0
 db catPath 'cat',0
 db emptyStr 0
 
-ab sectionArgBuf ArgLenMax
 ab pageArgBuf ArgLenMax
 
 ab pathBuf ArgLenMax
@@ -23,37 +22,35 @@ ab argvBuffer ArgLenMax ; TODO: should be ArgLenMax+5 at least? (for 'cat '), ca
 ; Register simple suicide handler
 require lib/std/proc/suicidehandler.s
 
-; Get args
-mov r0 SyscallIdArgvN ; grab section number as string
-mov r1 1
-mov r2 sectionArgBuf
-mov r3 ArgLenMax
-syscall
-cmp r0 r0 r0
-skipneqz r0
-jmp usage
-
+; Get args (done in reverse so we can get off stack in correct order)
 mov r0 SyscallIdArgvN ; get page string
 mov r1 2
-mov r2 pageArgBuf
-mov r3 ArgLenMax
 syscall
-cmp r0 r0 r0
-skipneqz r0
+cmp r1 r0 r0
+skipneqz r1
 jmp usage
+push16 r0
+
+mov r0 SyscallIdArgvN ; grab section number as string
+mov r1 1
+syscall
+cmp r1 r0 r0
+skipneqz r1
+jmp usage
+push16 r0
 
 ; Create path where manual will exist if it does
 mov r0 pathBuf ; start with base path
 mov r1 basePath
 call strcpy
 mov r0 pathBuf ; then add section number
-mov r1 sectionArgBuf
+pop16 r1
 call strcat
 mov r0 pathBuf ; then add a slash
 mov r1 slashStr
 call strcat
 mov r0 pathBuf ; finally add page
-mov r1 pageArgBuf
+pop16 r1
 call strcat
 
 ; Check file exists
