@@ -94,6 +94,12 @@ bool kernelDevDigitalPinCanReadFunctor(void *userData);
 KernelFsFileOffset kernelDevDigitalPinWriteFunctor(const uint8_t *data, KernelFsFileOffset len, void *userData);
 bool kernelDevDigitalPinCanWriteFunctor(void *userData);
 
+#ifndef ARDUINO
+uint32_t kernelExternalMountGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr);
+KernelFsFileOffset kernelExternalMountGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
+KernelFsFileOffset kernelExternalMountGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -101,14 +107,43 @@ bool kernelDevDigitalPinCanWriteFunctor(void *userData);
 #ifdef ARDUINO
 int main(void) {
 #else
+
+typedef struct {
+	const char *virtualDestPath;
+	const char *hostSrcPath;
+} KernelExternalMountEntry;
+
 int main(int argc, char **argv) {
 	// Handle arguments
-	LogLevel logLevel=LogLevelWarning;
 	kernelFlagProfile=false;
+	LogLevel logLevel=LogLevelWarning;
+	KernelExternalMountEntry *externalMountEntries=NULL;
+	size_t externalMountEntryCount=0;
 	for(int i=1; i<argc; ++i) {
 		if (strcmp(argv[i], "--profile")==0)
 			kernelFlagProfile=true;
-		else if (strcmp(argv[i], "--Winfo")==0)
+		else if (strcmp(argv[i], "--mountfile")==0) {
+			if (i+2>=argc) {
+				// Not enough args
+				printf("Warning: not enough arguments for --mountfile option (expect: host src and virtual dest)\n");
+			} else {
+				// Grab paths from arguments
+				const char *virtualDestPath=argv[++i];
+				const char *hostSrcPath=argv[++i];
+
+				// Attempt to enlarge array
+				KernelExternalMountEntry *newPtr=realloc(externalMountEntries, sizeof(KernelExternalMountEntry)*(externalMountEntryCount+1));
+				if (newPtr==NULL) {
+					printf("Warning: no memory for --mountfile option\n");
+				} else {
+					externalMountEntries=newPtr;
+
+					externalMountEntries[externalMountEntryCount].virtualDestPath=virtualDestPath;
+					externalMountEntries[externalMountEntryCount].hostSrcPath=hostSrcPath;
+					++externalMountEntryCount;
+				}
+			}
+		} else if (strcmp(argv[i], "--Winfo")==0)
 			logLevel=LogLevelInfo;
 		else if (strcmp(argv[i], "--Wwarning")==0)
 			logLevel=LogLevelWarning;
@@ -126,6 +161,33 @@ int main(int argc, char **argv) {
 	kernelBoot(LogLevelWarning);
 #else
 	kernelBoot(logLevel);
+#endif
+
+	// Add any externally mounted files to the virtual filesystem
+#ifndef ARDUINO
+	for(size_t i=0; i<externalMountEntryCount; ++i) {
+		KernelExternalMountEntry *entry=&externalMountEntries[i];
+
+		// Determine file's size
+		FILE *file=fopen(entry->hostSrcPath, "r");
+		if (file==NULL) {
+			kernelLog(LogTypeWarning, kstrP("could not mount external file '%s' to '%s' (could not open src file to determine size)\n"), entry->hostSrcPath, entry->virtualDestPath);
+			continue;
+		}
+		fseek(file, 0L, SEEK_END);
+		KernelFsFileOffset fileSize=ftell(file);
+		fclose(file);
+
+		// Add block device
+		if (kernelFsAddBlockDeviceFile(kstrC(entry->virtualDestPath), &kernelExternalMountGenericFsFunctor, (void *)entry->hostSrcPath, KernelFsBlockDeviceFormatFlatFile, fileSize, false))
+			kernelLog(LogTypeInfo, kstrP("mounted external file '%s' to '%s' (size %u)\n"), entry->hostSrcPath, entry->virtualDestPath, fileSize);
+		else
+			kernelLog(LogTypeWarning, kstrP("could not mount external file '%s' to '%s' (could not create virtual block device)\n"), entry->hostSrcPath, entry->virtualDestPath);
+	}
+
+	free(externalMountEntries); // we can free this now because the strings themselves are stored in argv
+	externalMountEntries=NULL;
+	externalMountEntryCount=0;
 #endif
 
 	// Run processes
@@ -863,3 +925,88 @@ bool kernelDevDigitalPinCanWriteFunctor(void *userData) {
 
 	return !pinInUse(pinNum);
 }
+
+#ifndef ARDUINO
+
+uint32_t kernelExternalMountGenericFsFunctor(KernelFsDeviceFunctorType type, void *userData, uint8_t *data, KernelFsFileOffset len, KernelFsFileOffset addr) {
+	switch(type) {
+		case KernelFsDeviceFunctorTypeCommonFlush:
+			return true;
+		break;
+		case KernelFsDeviceFunctorTypeCharacterRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanRead:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterWrite:
+		break;
+		case KernelFsDeviceFunctorTypeCharacterCanWrite:
+		break;
+		case KernelFsDeviceFunctorTypeBlockRead:
+			return kernelExternalMountGenericReadFunctor(addr, data, len, userData);
+		break;
+		case KernelFsDeviceFunctorTypeBlockWrite:
+			return kernelExternalMountGenericWriteFunctor(addr, data, len, userData);
+		break;
+	}
+
+	assert(false);
+	return 0;
+}
+
+KernelFsFileOffset kernelExternalMountGenericReadFunctor(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData) {
+	// Grab source file
+	const char *hostFile=(const char *)userData;
+
+	// Open host source file
+	FILE *file=fopen(hostFile, "r");
+	if (file==NULL) {
+		kernelLog(LogTypeWarning, kstrP("could not open host file in external mount read functor (host file '%s'\n"), hostFile);
+		return 0;
+	}
+
+	// Seek and read requested data
+	if (fseek(file, addr, SEEK_SET)!=0 || ftell(file)!=addr) {
+		kernelLog(LogTypeWarning, kstrP("could not seek to addr %"PRIu32" in external mount read functor (host file '%s'\n"), addr, hostFile);
+		fclose(file);
+		return 0;
+	}
+
+	KernelFsFileOffset result=fread(data, 1, len, file);
+	if (result!=len)
+		kernelLog(LogTypeWarning, kstrP("could not read %"PRIu32" bytes at addr %"PRIu32" in external mount read functor (host file '%s', result=%u)\n"), len, addr, hostFile, result);
+
+	// Close file
+	fclose(file);
+
+	return result;
+}
+
+KernelFsFileOffset kernelExternalMountGenericWriteFunctor(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData) {
+	// Grab source file
+	const char *hostFile=(const char *)userData;
+
+	// Open host source file
+	FILE *file=fopen(hostFile, "r+");
+	if (file==NULL) {
+		kernelLog(LogTypeWarning, kstrP("could not open host file in external mount write functor (host file '%s'\n"), hostFile);
+		return 0;
+	}
+
+	// Seek and write requested data
+	if (fseek(file, addr, SEEK_SET)!=0 || ftell(file)!=addr) {
+		kernelLog(LogTypeWarning, kstrP("could not seek to addr %"PRIu32" in external mount write functor (host file '%s'\n"), addr, hostFile);
+		fclose(file);
+		return 0;
+	}
+
+	KernelFsFileOffset result=fwrite(data, 1, len, file);
+	if (result!=len)
+		kernelLog(LogTypeWarning, kstrP("could not write %"PRIu32" bytes at addr %"PRIu32" in external mount write functor (host file '%s', result=%u)\n"), len, addr, hostFile, result);
+
+	// Close file
+	fclose(file);
+
+	return result;
+}
+
+#endif
