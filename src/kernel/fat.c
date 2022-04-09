@@ -80,6 +80,16 @@ void fatDebug(const Fat *fs) {
 	// TODO: this for Fat file system support .....
 }
 
+static const char *fatTypeToStringArray[]={
+	[FatTypeFAT12]="FAT12",
+	[FatTypeFAT16]="FAT16",
+	[FatTypeFAT32]="FAT32",
+	[FatTypeExFAT]="exFAT",
+};
+const char *fatTypeToString(FatType type) {
+	return fatTypeToStringArray[type];
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
