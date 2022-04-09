@@ -77,7 +77,49 @@ void fatUnmount(Fat *fs) {
 }
 
 void fatDebug(const Fat *fs) {
-	// TODO: this for Fat file system support .....
+	// Begin
+	kernelLog(LogTypeInfo, kstrP("fatDebug:\n"));
+
+	// Read file system info
+	uint16_t bpbBytsPerSec=0, bpbRootEntCnt=0, bpbResvdSecCnt=0;
+	uint32_t bpbFatSz=0, bpbTotSec=0;
+	uint8_t bpbNumFats=0, bpbSecPerClus=0;
+
+	bool error=false;
+	error|=!fatGetBpbBytsPerSec(fs, &bpbBytsPerSec);
+	error|=!fatGetBpbRootEntCnt(fs, &bpbRootEntCnt);
+	error|=!fatGetBpbFatSz(fs, &bpbFatSz);
+	error|=!fatGetBpbTotSec(fs, &bpbTotSec);
+	error|=!fatGetBpbResvdSecCnt(fs, &bpbResvdSecCnt);
+	error|=!fatGetBpbNumFats(fs, &bpbNumFats);
+	error|=!fatGetBpbSecPerClus(fs, &bpbSecPerClus);
+
+	if (error)
+		kernelLog(LogTypeInfo, kstrP("	(warning: error during reading, following data may be inaccurate)\n"));
+
+	// Calculate further info
+	uint16_t rootDirSizeSectors=((bpbRootEntCnt*32)+(bpbBytsPerSec-1))/bpbBytsPerSec; // size of root directory in sectors (actually 0 if FAT32)
+	uint32_t dataSectors=bpbTotSec-(bpbResvdSecCnt+(bpbNumFats*bpbFatSz)+rootDirSizeSectors);
+	uint32_t totalClusters=dataSectors/bpbSecPerClus;
+
+	uint32_t fatOffset = bpbResvdSecCnt*bpbBytsPerSec;
+	uint32_t rootDirOffset = (bpbResvdSecCnt+bpbNumFats*bpbFatSz)*bpbBytsPerSec; // not correct if FAT32
+
+	FatType fatType;
+	if (bpbBytsPerSec==0)
+		fatType=FatTypeExFAT;
+	else if(totalClusters<4085)
+		fatType=FatTypeFAT12;
+	else if(totalClusters<65525)
+		fatType=FatTypeFAT16;
+	else
+		fatType=FatTypeFAT32;
+
+	// Print/log file system info
+	kernelLog(LogTypeInfo, kstrP("	bpbBytsPerSec=%u, bpbRootEntCnt=%u, bpbFatSz=%u\n"), bpbBytsPerSec, bpbRootEntCnt, bpbFatSz);
+	kernelLog(LogTypeInfo, kstrP("	bpbTotSec=%u, bpbResvdSecCnt=%u, bpbNumFats=%u, bpbSecPerClus=%u\n"), bpbTotSec, bpbResvdSecCnt, bpbNumFats, bpbSecPerClus);
+	kernelLog(LogTypeInfo, kstrP("	type=%s, rootDirSizeSectors=%u, dataSectors=%u, totalClusters=%u\n"), fatTypeToString(fatType), rootDirSizeSectors, dataSectors, totalClusters);
+	kernelLog(LogTypeInfo, kstrP("	fatOffset=%u (0x%08X), rootDirOffset=%u (0x%08X)\n"), fatOffset, fatOffset, rootDirOffset, rootDirOffset);
 }
 
 static const char *fatTypeToStringArray[]={
