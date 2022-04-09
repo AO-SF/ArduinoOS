@@ -71,6 +71,11 @@ uint32_t fatGetFatOffset(const Fat *fs);
 uint16_t fatGetRootDirSector(const Fat *fs);
 uint32_t fatGetRootDirOffset(const Fat *fs);
 
+bool fatReadDirEntryAttributes(const Fat *fs, uint32_t dirEntryOffset, uint8_t *attributes);
+bool fatReadDirEntrySize(const Fat *fs, uint32_t dirEntryOffset, uint32_t *size);
+bool fatReadDirEntryFirstCluster(const Fat *fs, uint32_t dirEntryOffset, uint32_t *cluster);
+FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOffset,  char name[FATPATHMAX]);
+
 const char *fatTypeToString(FatType type);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -370,6 +375,139 @@ uint16_t fatGetRootDirSector(const Fat *fs) {
 
 uint32_t fatGetRootDirOffset(const Fat *fs) {
 	return fatGetRootDirSector(fs)*fatGetBytesPerSector(fs);
+}
+
+bool fatReadDirEntryAttributes(const Fat *fs, uint32_t dirEntryOffset, uint8_t *attributes) {
+	return fatRead8(fs, dirEntryOffset+11, attributes);
+}
+
+bool fatReadDirEntrySize(const Fat *fs, uint32_t dirEntryOffset, uint32_t *size) {
+	return fatRead32(fs, dirEntryOffset+28, size);
+}
+
+bool fatReadDirEntryFirstCluster(const Fat *fs, uint32_t dirEntryOffset, uint32_t *cluster) {
+	switch(fatGetFatType(fs)) {
+		case FatTypeFAT12:
+		case FatTypeFAT16: {
+			uint16_t clusterLower;
+			bool result=fatRead16(fs, dirEntryOffset+26, &clusterLower);
+			*cluster=clusterLower;
+			return result;
+		} break;
+		case FatTypeFAT32: {
+			uint16_t clusterLower, clusterUpper;
+			bool result=(fatRead16(fs, dirEntryOffset+26, &clusterLower) & fatRead16(fs, dirEntryOffset+20, &clusterUpper));
+			*cluster=clusterLower|(((uint32_t)clusterUpper)<<16);
+			return result;
+		} break;
+		case FatTypeExFAT:
+			// Unsupported
+			return false;
+		break;
+	}
+
+	return false;
+}
+
+FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOffset,  char name[FATPATHMAX]) {
+	// Read name
+	if (fatRead(fs, dirEntryOffset+0, (uint8_t *)name, 11)!=11)
+		return FatReadDirEntryNameResultError;
+
+	// Check for special first byte
+	if (((uint8_t)name[0])==FatDirEntryNameFirstByteUnusedFinal)
+		return FatReadDirEntryNameResultEnd;
+	if (((uint8_t)name[0])==FatDirEntryNameFirstByteDotEntry || ((uint8_t)name[0])==FatDirEntryNameFirstByteUnusedDeleted)
+		return FatReadDirEntryNameResultUnused;
+	if (((uint8_t)name[0])==FatDirEntryNameFirstByteEscape0xE5)
+		name[0]=0xE5;
+
+	// VFAT long name?
+	if (name[6]=='~' && name[7]=='1') {
+		// Loop backwards over preceeding dir entries to accumulate the name
+		uint8_t nameIndex=0;
+		while(1) {
+			// Ready 'phony' dir entry preceeding the last
+			dirEntryOffset-=32;
+			uint8_t buffer[32];
+			if (fatRead(fs, dirEntryOffset, buffer, 32)!=32)
+				return FatReadDirEntryNameResultError;
+
+			// Ensure attributes, type and first cluster fields are what we expect
+			if (buffer[11]!=0x0F || buffer[12]!=0 || buffer[26]!=0 || buffer[27]!=0)
+				return FatReadDirEntryNameResultError;
+
+			// Read UCS2 characters and store into name as ASCII
+			for(uint8_t i=0; i<10; i+=2) {
+				if (nameIndex+1>=FATPATHMAX)
+					break;
+				name[nameIndex]=buffer[1+i];
+				if (buffer[1+i+1]!=0)
+					name[nameIndex]='?';
+				else if (name[nameIndex]=='\0')
+					return FatReadDirEntryNameResultSuccess;
+				++nameIndex;
+			}
+			for(uint8_t i=0; i<12; i+=2) {
+				if (nameIndex+1>=FATPATHMAX)
+					break;
+				name[nameIndex]=buffer[14+i];
+				if (buffer[14+i+1]!=0)
+					name[nameIndex]='?';
+				else if (name[nameIndex]=='\0')
+					return FatReadDirEntryNameResultSuccess;
+				++nameIndex;
+			}
+			for(uint8_t i=0; i<4; i+=2) {
+				if (nameIndex+1>=FATPATHMAX)
+					break;
+				name[nameIndex]=buffer[28+i];
+				if (buffer[28+i+1]!=0)
+					name[nameIndex]='?';
+				else if (name[nameIndex]=='\0')
+					return FatReadDirEntryNameResultSuccess;
+				++nameIndex;
+			}
+
+			// Last entry which is part of the long name?
+			if ((name[nameIndex] & 0x40))
+				break;
+		}
+
+		name[nameIndex]='\0'; // might not be needed but better safe than sorry
+
+		return FatReadDirEntryNameResultSuccess;
+	}
+
+	// Standard 8.3 filename - remove padding and add dot if needed
+	uint8_t p1End;
+	for (p1End=7; p1End>0; --p1End) {
+		// strip padding from name part
+		if (name[p1End]!=' ')
+			break;
+		name[p1End]='\0';
+	}
+
+	if (name[8]==' ') {
+		// no extension - return now
+		name[8]='\0';
+		return FatReadDirEntryNameResultSuccess;
+	}
+
+	if (name[9]==' ') name[9]='\0'; // truncate extension if it has been padded
+	if (name[10]==' ') name[10]='\0';
+
+	name[11]=name[10]; // shift extension to preserve it and make space for the dot in the case where the name uses all 8 bytes
+	name[10]=name[9];
+	name[9]=name[8];
+
+	name[++p1End]='.'; // concatenate two parts with a dot between
+	name[++p1End]=name[9];
+	name[++p1End]=name[10];
+	name[++p1End]=name[11];
+	name[++p1End]='\0';
+
+	return FatReadDirEntryNameResultSuccess;
 }
 
 static const char *fatTypeToStringArray[]={
