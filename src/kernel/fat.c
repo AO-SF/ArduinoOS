@@ -6,8 +6,6 @@
 #include "fat.h"
 #include "log.h"
 
-#define FATPATHMAX 64 // for compatability with rest of OS
-
 typedef enum {
 	FatTypeFAT12,
 	FatTypeFAT16,
@@ -254,6 +252,48 @@ void fatDebug(const Fat *fs) {
 		// Print info
 		kernelLog(LogTypeInfo, kstrP("		%03u: %s.%s (%u bytes, attrs = 0x%02X - RO=%u, HIDE=%u, SYS=%u, DIR=%u, firstCluster=%u=0x%08X)\n"), i, fileName, fileExtension, fileSize, fileAttributes, (fileAttributes & FatDirEntryAttributesReadOnly)!=0, (fileAttributes & FatDirEntryAttributesHidden)!=0, (fileAttributes & FatDirEntryAttributesSystem)!=0, (fileAttributes & FatDirEntryAttributesSubDir)!=0, firstCluster, firstCluster);
 	}
+}
+
+bool fatGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]) {
+	assert(childNum<FATMAXFILES);
+
+	// Loop over directory entries
+	// TODO: allow sub-directories rather than assuming root dir
+	unsigned childI=0;
+	for(uint32_t offset=fatGetRootDirOffset(fs); 1; offset+=32) {
+		// Read filename
+		switch(fatReadDirEntryName(fs, offset, childPath)) {
+			case FatReadDirEntryNameResultError:
+				continue;
+			break;
+			case FatReadDirEntryNameResultSuccess:
+				// Continue to rest of logic for this entry
+			break;
+			case FatReadDirEntryNameResultUnused:
+				// Try next entry
+				continue;
+			break;
+			case FatReadDirEntryNameResultEnd:
+				// Done
+				return false;
+			break;
+		}
+
+		// Read and check attributes
+		uint8_t attributes;
+		if (!fatReadDirEntryAttributes(fs, offset, &attributes))
+			continue;
+
+		if ((attributes & FatDirEntryAttributesVolumeLabel))
+			continue;
+
+		// Nth child?
+		if (childI==childNum)
+			return true;
+		++childI;
+	}
+
+	return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

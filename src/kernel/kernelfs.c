@@ -1245,10 +1245,20 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 						// These are not directories
 						return false;
 					break;
-					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
-						return false;
-					break;
+					case KernelFsBlockDeviceFormatFat: {
+						Fat fat;
+						if (!fatMountFast(&fat, &kernelFsFatReadWrapper, (device->common.writable ? &kernelFsFatWriteWrapper : NULL), device))
+							return false;
+
+						kstrStrcpy(childPath, kernelFsData.fdt[fd].path);
+						strcat(childPath, "/");
+
+						bool res=fatGetChildN(&fat, childNum, childPath+strlen(childPath));
+
+						fatUnmount(&fat);
+
+						return res;
+					} break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 					break;

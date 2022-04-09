@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define FATPATHMAX 64 // for compatability with rest of OS even though should be ~255
+#define FATMAXFILES 128
+
 typedef uint32_t (FatReadFunctor)(uint32_t addr, uint8_t *data, uint32_t len, void *userData);
 typedef uint32_t (FatWriteFunctor)(uint32_t addr, const uint8_t *data, uint32_t len, void *userData);
 
@@ -30,6 +33,8 @@ bool fatMountSafe(Fat *fs, FatReadFunctor *readFunctor, FatWriteFunctor *writeFu
 void fatUnmount(Fat *fs);
 
 void fatDebug(const Fat *fs);
+
+bool fatGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]); // n<FATMAXFILES, no gaps
 
 ////////////////////////////////////////////////////////////////////////////////
 // File functions
