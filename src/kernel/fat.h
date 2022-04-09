@@ -7,13 +7,6 @@
 typedef uint32_t (FatReadFunctor)(uint32_t addr, uint8_t *data, uint32_t len, void *userData);
 typedef uint32_t (FatWriteFunctor)(uint32_t addr, const uint8_t *data, uint32_t len, void *userData);
 
-typedef enum {
-	FatTypeFAT12,
-	FatTypeFAT16,
-	FatTypeFAT32,
-	FatTypeExFAT,
-} FatType;
-
 typedef struct {
 	// Members are to be considered private
 	FatReadFunctor *readFunctor;
@@ -35,11 +28,5 @@ void fatDebug(const Fat *fs);
 ////////////////////////////////////////////////////////////////////////////////
 // File functions
 ////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////
-// Misc functions
-////////////////////////////////////////////////////////////////////////////////
-
-const char *fatTypeToString(FatType type);
 
 #endif

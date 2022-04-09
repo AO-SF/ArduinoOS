@@ -6,6 +6,13 @@
 #include "fat.h"
 #include "log.h"
 
+typedef enum {
+	FatTypeFAT12,
+	FatTypeFAT16,
+	FatTypeFAT32,
+	FatTypeExFAT,
+} FatType;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,6 +35,8 @@ bool fatGetBpbTotSec(const Fat *fs, uint32_t *value); // picks whichever of 16 a
 bool fatGetBpbResvdSecCnt(const Fat *fs, uint16_t *value);
 bool fatGetBpbNumFats(const Fat *fs, uint8_t *value);
 bool fatGetBpbSecPerClus(const Fat *fs, uint8_t *value);
+
+const char *fatTypeToString(FatType type);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -120,16 +129,7 @@ void fatDebug(const Fat *fs) {
 	kernelLog(LogTypeInfo, kstrP("	bpbTotSec=%u, bpbResvdSecCnt=%u, bpbNumFats=%u, bpbSecPerClus=%u\n"), bpbTotSec, bpbResvdSecCnt, bpbNumFats, bpbSecPerClus);
 	kernelLog(LogTypeInfo, kstrP("	type=%s, rootDirSizeSectors=%u, dataSectors=%u, totalClusters=%u\n"), fatTypeToString(fatType), rootDirSizeSectors, dataSectors, totalClusters);
 	kernelLog(LogTypeInfo, kstrP("	fatOffset=%u (0x%08X), rootDirOffset=%u (0x%08X)\n"), fatOffset, fatOffset, rootDirOffset, rootDirOffset);
-}
 
-static const char *fatTypeToStringArray[]={
-	[FatTypeFAT12]="FAT12",
-	[FatTypeFAT16]="FAT16",
-	[FatTypeFAT32]="FAT32",
-	[FatTypeExFAT]="exFAT",
-};
-const char *fatTypeToString(FatType type) {
-	return fatTypeToStringArray[type];
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -228,4 +228,14 @@ bool fatGetBpbNumFats(const Fat *fs, uint8_t *value) {
 
 bool fatGetBpbSecPerClus(const Fat *fs, uint8_t *value) {
 	return fatRead8(fs, 13, value);
+}
+
+static const char *fatTypeToStringArray[]={
+	[FatTypeFAT12]="FAT12",
+	[FatTypeFAT16]="FAT16",
+	[FatTypeFAT32]="FAT32",
+	[FatTypeExFAT]="exFAT",
+};
+const char *fatTypeToString(FatType type) {
+	return fatTypeToStringArray[type];
 }
