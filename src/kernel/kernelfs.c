@@ -1225,20 +1225,24 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 			case KernelFsDeviceTypeBlock:
 				switch(device->block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						MiniFs miniFs;
+						miniFsMountFast(&miniFs, &kernelFsDeviceMiniFsReadWrapper, (device->common.writable ? &kernelFsDeviceMiniFsWriteWrapper : NULL), device);
+
 						KernelFsFd j=0;
 						for(KernelFsFd i=0; i<MINIFSMAXFILES; ++i) {
 							kstrStrcpy(childPath, kernelFsData.fdt[fd].path);
 							strcat(childPath, "/");
-							MiniFs miniFs;
-							miniFsMountFast(&miniFs, &kernelFsDeviceMiniFsReadWrapper, (device->common.writable ? &kernelFsDeviceMiniFsWriteWrapper : NULL), device);
 							bool res=miniFsGetChildN(&miniFs, i, childPath+strlen(childPath));
-							miniFsUnmount(&miniFs);
 							if (!res)
 								continue;
-							if (j==childNum)
+							if (j==childNum) {
+								miniFsUnmount(&miniFs);
 								return true;
+							}
 							++j;
 						}
+
+						miniFsUnmount(&miniFs);
 						return false;
 					} break;
 					case KernelFsBlockDeviceFormatFlatFile:
