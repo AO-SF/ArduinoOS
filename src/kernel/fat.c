@@ -71,6 +71,7 @@ uint32_t fatGetFatOffset(const Fat *fs);
 uint16_t fatGetRootDirSector(const Fat *fs);
 uint32_t fatGetRootDirOffset(const Fat *fs);
 
+void fatReadDir(const Fat *fs, uint32_t offset);
 bool fatReadDirEntryAttributes(const Fat *fs, uint32_t dirEntryOffset, uint8_t *attributes);
 bool fatReadDirEntrySize(const Fat *fs, uint32_t dirEntryOffset, uint32_t *size);
 bool fatReadDirEntryFirstCluster(const Fat *fs, uint32_t dirEntryOffset, uint32_t *cluster);
@@ -375,6 +376,50 @@ uint16_t fatGetRootDirSector(const Fat *fs) {
 
 uint32_t fatGetRootDirOffset(const Fat *fs) {
 	return fatGetRootDirSector(fs)*fatGetBytesPerSector(fs);
+}
+
+void fatReadDir(const Fat *fs, uint32_t offset) {
+	// Loop over directory entries
+	for(unsigned i=0; 1; ++i,offset+=32) {
+		// Read filename
+		char fileName[FATPATHMAX]={0};
+		switch(fatReadDirEntryName(fs, offset, fileName)) {
+			case FatReadDirEntryNameResultError:
+				continue;
+			break;
+			case FatReadDirEntryNameResultSuccess:
+				// Continue to rest of logic for this entry
+			break;
+			case FatReadDirEntryNameResultUnused:
+				// Try next entry
+				continue;
+			break;
+			case FatReadDirEntryNameResultEnd:
+				// Done
+				return;
+			break;
+		}
+
+		// Read and check attributes
+		uint8_t attributes;
+		if (!fatReadDirEntryAttributes(fs, offset, &attributes))
+			continue;
+
+		if ((attributes & FatDirEntryAttributesHidden) || (attributes & FatDirEntryAttributesVolumeLabel))
+			continue;
+
+		// If file not directory then read size
+		uint32_t size=0;
+		if (!(attributes & FatDirEntryAttributesSubDir))
+			if (!fatReadDirEntrySize(fs, offset, &size))
+				continue;
+
+		// Print line for this entry
+		if (!(attributes & FatDirEntryAttributesSubDir))
+			kernelLog(LogTypeInfo, kstrP("%s %u bytes\n"), fileName, size);
+		else
+			kernelLog(LogTypeInfo, kstrP("%s\n"), fileName);
+	}
 }
 
 bool fatReadDirEntryAttributes(const Fat *fs, uint32_t dirEntryOffset, uint8_t *attributes) {
