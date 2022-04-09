@@ -69,7 +69,7 @@ bool fatMountSafe(Fat *fs, FatReadFunctor *readFunctor, FatWriteFunctor *writeFu
 
 	// TODO: this for Fat file system support .....
 
-	return false;
+	return true;
 }
 
 void fatUnmount(Fat *fs) {
