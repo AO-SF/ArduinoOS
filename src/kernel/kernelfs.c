@@ -257,6 +257,12 @@ bool kernelFsUpdateBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *funct
 				goto error;
 			miniFsUnmount(&miniFs);
 		} break;
+		case KernelFsBlockDeviceFormatFat: {
+			Fat fat;
+			if (!fatMountSafe(&fat, &kernelFsFatReadWrapper, (writable ? &kernelFsFatWriteWrapper : NULL), device))
+				goto error;
+			fatUnmount(&fat);
+		} break;
 		case KernelFsBlockDeviceFormatFlatFile:
 		break;
 		case KernelFsBlockDeviceFormatNB:
@@ -1600,6 +1606,7 @@ bool kernelFsDeviceIsDir(const KernelFsDevice *device) {
 		case KernelFsDeviceTypeBlock:
 			switch(device->block.format) {
 				case KernelFsBlockDeviceFormatCustomMiniFs:
+				case KernelFsBlockDeviceFormatFat:
 					return true;
 				break;
 				case KernelFsBlockDeviceFormatFlatFile:
