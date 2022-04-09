@@ -9,9 +9,15 @@ typedef uint32_t (FatWriteFunctor)(uint32_t addr, const uint8_t *data, uint32_t 
 
 typedef struct {
 	// Members are to be considered private
+
 	FatReadFunctor *readFunctor;
 	FatWriteFunctor *writeFunctor;
 	void *userData;
+
+	uint16_t bytesPerSector;
+	uint16_t fatSector;
+	uint16_t rootDirSector;
+	uint8_t type;
 } Fat;
 
 ////////////////////////////////////////////////////////////////////////////////
