@@ -470,7 +470,7 @@ FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOf
 			}
 
 			// Last entry which is part of the long name?
-			if ((name[nameIndex] & 0x40))
+			if ((buffer[0] & 0x40))
 				break;
 		}
 
