@@ -80,7 +80,7 @@ bool kernelFsPathIsDevice(const char *path);
 bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
-KernelFsDevice *kernelFsGetDeviceFromPathIncludingChild(const char *path);
+KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path);
 KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device);
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsDeviceType type, bool writable);
@@ -769,7 +769,7 @@ KernelFsFd kernelFsFileOpen(const char *path, KernelFsFdMode mode) {
 	kernelFsSetFileSpare(newFd, kernelFsFdPathSpareMake(mode, 1)); // store mode and refcount=1 in spare bits of path string
 
 	// Grab device index to save doing this repeatedly in the future
-	KernelFsDevice *device=kernelFsGetDeviceFromPathIncludingChild(path);
+	KernelFsDevice *device=kernelFsGetDeviceFromPathRecursive(path);
 	if (device==NULL) {
 		// File shouldn't have passed earlier kernelFsFileExists test but this code is here for safety.
 		kernelFsData.fdt[newFd].path=kstrNull();
@@ -1513,19 +1513,42 @@ KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path) {
 	return NULL;
 }
 
-KernelFsDevice *kernelFsGetDeviceFromPathIncludingChild(const char *path) {
+KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path) {
 	assert(path!=NULL);
 
-	// Try as device file itself
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
-	if (device!=NULL)
-		return device;
+	// Loop over devices looking for nearest parent/exact match for given path.
+	unsigned pathLen=strlen(path);
 
-	// Try for child of a device file
-	char *dirname, *basename;
-	kernelFsPathSplitStatic(path, &dirname, &basename);
+	unsigned bestMatchLen=0;
+	KernelFsDevice *bestDevice=NULL;
 
-	return kernelFsGetDeviceFromPath(dirname);
+	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
+		KernelFsDevice *device=&kernelFsData.devices[i];
+
+		// Skip unused device entries
+		if (device->common.type==KernelFsDeviceTypeNB)
+			continue;
+
+		// Check if we have a new best device
+		unsigned matchLen=kstrMatchLen(path, device->common.mountPoint);
+		if (matchLen>bestMatchLen) {
+			unsigned deviceMountPointLen=kstrStrlen(device->common.mountPoint);
+
+			// Check if this device is a child of the file in the path (rather than the file's parent device)
+			if (pathLen<deviceMountPointLen)
+				continue;
+
+			// Update best
+			bestMatchLen=matchLen;
+			bestDevice=device;
+
+			// Exact match?
+			if (pathLen==deviceMountPointLen)
+				break;
+		}
+	}
+
+	return bestDevice;
 }
 
 KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device) {
