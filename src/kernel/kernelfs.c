@@ -1707,6 +1707,10 @@ bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device) {
 					// These are not directories
 					return false;
 				break;
+				case KernelFsBlockDeviceFormatFat: {
+					// TODO: this for FAT support .....
+					return false;
+				} break;
 				case KernelFsBlockDeviceFormatNB:
 					assert(false);
 					return false;
