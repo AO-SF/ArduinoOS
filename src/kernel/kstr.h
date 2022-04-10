@@ -68,6 +68,10 @@ int kstrDoubleStrcmp(KStr a, KStr b);
 int kstrStrncmp(const char *a, KStr b, size_t n);
 int kstrDoubleStrncmp(KStr a, KStr b, size_t n);
 
+// the following functions return the amount of bytes at the start of a and b which match (does not include null terminators)
+unsigned kstrMatchLen(const char *a, KStr b);
+unsigned kstrDoubleMatchLen(KStr a, KStr b);
+
 int16_t kstrVfprintf(FILE *file, KStr format, va_list ap);
 
 #endif

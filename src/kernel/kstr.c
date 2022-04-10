@@ -174,6 +174,59 @@ int kstrDoubleStrncmp(KStr a, KStr b, size_t n) {
 	return 0;
 }
 
+unsigned kstrMatchLen(const char *a, KStr b) {
+	switch(b.type) {
+		case KStrTypeNull:
+			return 0;
+		break;
+		case KStrTypeProgmem: {
+			uintptr_t i=0;
+			#ifdef ARDUINO
+			while(1) {
+				uint8_t bByte=pgm_read_byte_far(b.ptr+i);
+				if (a[i]=='\0' || a[i]!=bByte)
+					break;
+				++i;
+			}
+			#endif
+			return i;
+		} break;
+		case KStrTypeStatic:
+		case KStrTypeHeap: {
+			unsigned i=0;
+			while (a[i]!='\0' && ((const char *)(uintptr_t)b.ptr)[i]==a[i])
+				++i;
+			return i;
+		} break;
+	}
+
+	return 0;
+}
+
+unsigned kstrDoubleMatchLen(KStr a, KStr b) {
+	// Simple cases
+	if (a.type==KStrTypeNull || b.type==KStrTypeNull)
+		return 0;
+	if (a.type==KStrTypeStatic || a.type==KStrTypeHeap)
+		return kstrMatchLen((const char *)(uintptr_t)a.ptr, b);
+	if (b.type==KStrTypeStatic || b.type==KStrTypeHeap)
+		return kstrMatchLen((const char *)(uintptr_t)b.ptr, a);
+
+	// Otherwise both are in progmem
+	uintptr_t i=0;
+#ifdef ARDUINO
+	assert(a.type==KStrTypeProgmem && b.type==KStrTypeProgmem);
+	while(1) {
+		uint8_t aByte=pgm_read_byte_far(a.ptr+i);
+		uint8_t bByte=pgm_read_byte_far(b.ptr+i);
+		if (aByte=='\0' || aByte!=bByte)
+			break;
+		++i;
+	}
+#endif
+	return i;
+}
+
 int16_t kstrVfprintf(FILE *file, KStr format, va_list ap) {
 	switch(format.type) {
 		case KStrTypeNull:
