@@ -80,7 +80,7 @@ bool kernelFsPathIsDevice(const char *path);
 bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
-KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path);
+KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path, char **subPath); // if a device is found and subPath is non-NULL, then *subPath is set to point into path after the device's mount point
 KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device);
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsDeviceType type, bool writable);
@@ -88,7 +88,10 @@ void kernelFsRemoveDeviceFileRaw(KernelFsDevice *device);
 
 bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
 
-bool kernelFsDeviceIsDir(const KernelFsDevice *device);
+// In following functions subPath is relative to the device in question.
+// E.g. if device is mounted to '/media/sd' and subPath is 'folder123' then function will query full path '/media/sd/folder123'.
+// If subPath is NULL or an empty string then queries device's mount point.
+bool kernelFsDeviceIsDir(const KernelFsDevice *device, const char *subPath);
 bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device);
 
 bool kernelFsDeviceInvokeFunctorCommonFlush(KernelFsDevice *device);
@@ -367,13 +370,14 @@ bool kernelFsFileIsOpenByFd(KernelFsFd fd) {
 bool kernelFsFileIsDir(const char *path) {
 	assert(path!=NULL);
 
-	// Currently directories can only exist as device files
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	// Grab owning device
+	char *subPath;
+	KernelFsDevice *device=kernelFsGetDeviceFromPathRecursive(path, &subPath);
 	if (device==NULL)
 		return false;
 
-	// So check if this device is a directory.
-	return kernelFsDeviceIsDir(device);
+	// Check if this subPath of this device is a directory.
+	return kernelFsDeviceIsDir(device, subPath);
 }
 
 bool kernelFsFileIsDirEmpty(const char *path) {
@@ -558,7 +562,7 @@ bool kernelFsFileDelete(const char *path) {
 
 	// If this is a directory, check if empty
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
-	if (device!=NULL && kernelFsDeviceIsDir(device) && !kernelFsDeviceIsDirEmpty(device))
+	if (device!=NULL && kernelFsDeviceIsDir(device, NULL) && !kernelFsDeviceIsDirEmpty(device))
 		return false;
 
 	// Is this a virtual device file?
@@ -769,7 +773,7 @@ KernelFsFd kernelFsFileOpen(const char *path, KernelFsFdMode mode) {
 	kernelFsSetFileSpare(newFd, kernelFsFdPathSpareMake(mode, 1)); // store mode and refcount=1 in spare bits of path string
 
 	// Grab device index to save doing this repeatedly in the future
-	KernelFsDevice *device=kernelFsGetDeviceFromPathRecursive(path);
+	KernelFsDevice *device=kernelFsGetDeviceFromPathRecursive(path, NULL);
 	if (device==NULL) {
 		// File shouldn't have passed earlier kernelFsFileExists test but this code is here for safety.
 		kernelFsData.fdt[newFd].path=kstrNull();
@@ -1513,7 +1517,7 @@ KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path) {
 	return NULL;
 }
 
-KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path) {
+KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path, char **subPath) {
 	assert(path!=NULL);
 
 	// Loop over devices looking for nearest parent/exact match for given path.
@@ -1547,6 +1551,9 @@ KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path) {
 				break;
 		}
 	}
+
+	if (subPath!=NULL)
+		*subPath=((char *)path)+kstrStrlen(bestDevice->common.mountPoint);
 
 	return bestDevice;
 }
@@ -1635,16 +1642,27 @@ bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir) 
 	return (strcmp(dirname, parentDir)==0);
 }
 
-bool kernelFsDeviceIsDir(const KernelFsDevice *device) {
+bool kernelFsDeviceIsDir(const KernelFsDevice *device, const char *subPath) {
 	assert(device!=NULL);
+
+	bool isRoot=(subPath==NULL || subPath[0]=='\0');
 
 	// Only block and directory type devices operate as directories
 	switch(device->common.type) {
 		case KernelFsDeviceTypeBlock:
 			switch(device->block.format) {
 				case KernelFsBlockDeviceFormatCustomMiniFs:
+					// Device itself is a directory but such volumes cannot contain sub-directories
+					return isRoot;
+				break;
 				case KernelFsBlockDeviceFormatFat:
-					return true;
+					// Device itself is always a directory
+					if (isRoot)
+						return true;
+
+					// If a child of this device then need to do a more thorough check
+					// TODO: pass onto fat module to check this .....
+					return false;
 				break;
 				case KernelFsBlockDeviceFormatFlatFile:
 					return false;
@@ -1659,7 +1677,8 @@ bool kernelFsDeviceIsDir(const KernelFsDevice *device) {
 			return false;
 		break;
 		case KernelFsDeviceTypeDirectory:
-			return true;
+			// Device itself is a directory but child cannot be (given we didn't find a beter matching device)
+			return isRoot;
 		break;
 		case KernelFsDeviceTypeNB:
 			assert(false);
