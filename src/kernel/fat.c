@@ -265,6 +265,23 @@ void fatDebug(const Fat *fs) {
 	}
 }
 
+bool fatIsDir(const Fat *fs, const char *path) {
+	assert(fs!=NULL);
+	assert(path!=NULL && path[0]=='/' && path[1]!='\0');
+
+	// Find directory entry offset
+	uint32_t dirEntryOffset=fatGetFileDirEntryOffsetFromPath(fs, path);
+	if (dirEntryOffset==0)
+		return false; // could not find file
+
+	// Read attributes and check if is a directory
+	uint8_t attributes;
+	if (!fatReadDirEntryAttributes(fs, dirEntryOffset, &attributes))
+		return false;
+
+	return (attributes & FatDirEntryAttributesSubDir);
+}
+
 bool fatGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]) {
 	assert(childNum<FATMAXFILES);
 
