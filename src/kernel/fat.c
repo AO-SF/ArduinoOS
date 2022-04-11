@@ -79,6 +79,9 @@ bool fatReadDirEntrySize(const Fat *fs, uint32_t dirEntryOffset, uint32_t *size)
 bool fatReadDirEntryFirstCluster(const Fat *fs, uint32_t dirEntryOffset, uint32_t *cluster);
 FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOffset,  char name[FATPATHMAX]);
 
+uint32_t fatGetFileDirEntryOffsetFromPath(const Fat *fs, const char *path); // returns 0 on failure
+uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirOffset, const char *path);
+
 const char *fatTypeToString(FatType type);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -621,6 +624,70 @@ FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOf
 	name[++p1End]='\0';
 
 	return FatReadDirEntryNameResultSuccess;
+}
+
+uint32_t fatGetFileDirEntryOffsetFromPath(const Fat *fs, const char *path) {
+	return fatGetFileDirEntryOffsetFromPathHelper(fs, fatGetRootDirOffset(fs), path);
+}
+
+uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirOffset, const char *path) {
+	// Check for and remove initial '/'
+	if (path[0]!='/')
+		return 0;
+	++path;
+
+	// Loop over entries in this directory
+	for(unsigned i=0; 1; ++i,currDirOffset+=32) {
+		// Read filename
+		char fileName[FATPATHMAX]={0};
+		switch(fatReadDirEntryName(fs, currDirOffset, fileName)) {
+			case FatReadDirEntryNameResultError:
+				continue;
+			break;
+			case FatReadDirEntryNameResultSuccess:
+				// Continue to rest of logic for this entry
+			break;
+			case FatReadDirEntryNameResultUnused:
+				// Try next entry
+				continue;
+			break;
+			case FatReadDirEntryNameResultEnd:
+				// End of entries
+				return 0;
+			break;
+		}
+
+		// Read and check attributes
+		uint8_t attributes;
+		if (!fatReadDirEntryAttributes(fs, currDirOffset, &attributes))
+			continue;
+
+		if ((attributes & FatDirEntryAttributesVolumeLabel))
+			continue;
+
+		// Check for exact match
+		if (strcmp(fileName, path)==0)
+			return currDirOffset;
+
+		// Check for sub-directory partial match
+		if ((attributes & FatDirEntryAttributesSubDir)) {
+			// Partial match?
+			unsigned fileNameLen=strlen(fileName);
+			if (strncmp(fileName, path, fileNameLen)==0 && path[fileNameLen]=='/') {
+				// Recurse to list children
+				uint32_t subDirCluster;
+				fatReadDirEntryFirstCluster(fs, currDirOffset, &subDirCluster);
+				uint32_t subDirOffset=fatGetOffsetForCluster(fs, subDirCluster);
+
+				const char *subPath=path+fileNameLen;
+
+				return fatGetFileDirEntryOffsetFromPathHelper(fs, subDirOffset, subPath);
+			}
+		}
+	}
+
+
+	return 0;
 }
 
 static const char *fatTypeToStringArray[]={
