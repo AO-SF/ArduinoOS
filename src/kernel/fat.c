@@ -73,7 +73,7 @@ uint32_t fatGetFirstSectorForCluster(const Fat *fs, uint16_t cluster);
 uint32_t fatGetOffsetForCluster(const Fat *fs, uint16_t cluster);
 uint16_t fatGetClusterSize(const Fat *fs); // size of clusters in bytes
 
-void fatReadDir(const Fat *fs, uint32_t offset);
+void fatReadDir(const Fat *fs, uint32_t offset, unsigned logIndent);
 bool fatReadDirEntryAttributes(const Fat *fs, uint32_t dirEntryOffset, uint8_t *attributes);
 bool fatReadDirEntrySize(const Fat *fs, uint32_t dirEntryOffset, uint32_t *size);
 bool fatReadDirEntryFirstCluster(const Fat *fs, uint32_t dirEntryOffset, uint32_t *cluster);
@@ -466,7 +466,11 @@ uint16_t fatGetClusterSize(const Fat *fs) {
 	return fatGetSectorsPerCluster(fs)*fatGetBytesPerSector(fs);
 }
 
-void fatReadDir(const Fat *fs, uint32_t offset) {
+void fatReadDir(const Fat *fs, uint32_t offset, unsigned logIndent) {
+	char indentStr[32]={0}; // ...... hack
+	for(unsigned i=0; i<logIndent; ++i)
+		indentStr[i]='\t';
+
 	// Loop over directory entries
 	for(unsigned i=0; 1; ++i,offset+=32) {
 		// Read filename
@@ -504,9 +508,20 @@ void fatReadDir(const Fat *fs, uint32_t offset) {
 
 		// Print line for this entry
 		if (!(attributes & FatDirEntryAttributesSubDir))
-			kernelLog(LogTypeInfo, kstrP("%s %u bytes\n"), fileName, size);
-		else
-			kernelLog(LogTypeInfo, kstrP("%s\n"), fileName);
+			// Normal file
+			kernelLog(LogTypeInfo, kstrP("%s%s %u bytes\n"), indentStr, fileName, size);
+		else {
+			// Sub-directory
+
+			// Log
+			kernelLog(LogTypeInfo, kstrP("%s%s:\n"), indentStr, fileName);
+
+			// Recurse to list children
+			uint32_t subDirCluster;
+			fatReadDirEntryFirstCluster(fs, offset, &subDirCluster);
+			uint32_t subDirOffset=fatGetOffsetForCluster(fs, subDirCluster);
+			fatReadDir(fs, subDirOffset, logIndent+1);
+		}
 	}
 }
 
