@@ -18,9 +18,14 @@ typedef struct {
 	void *userData;
 
 	uint16_t bytesPerSector;
+
+	// sectors in general need up to 28 bits in FAT32 but these special sectors should always be in first sectorsize*64kb
 	uint16_t fatSector;
 	uint16_t rootDirSector;
+	uint16_t firstDataSector;
+
 	uint8_t type;
+	uint8_t sectorsPerCluster;
 } Fat;
 
 ////////////////////////////////////////////////////////////////////////////////

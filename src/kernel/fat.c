@@ -68,6 +68,10 @@ uint16_t fatGetFatSector(const Fat *fs);
 uint32_t fatGetFatOffset(const Fat *fs);
 uint16_t fatGetRootDirSector(const Fat *fs);
 uint32_t fatGetRootDirOffset(const Fat *fs);
+uint8_t fatGetSectorsPerCluster(const Fat *fs);
+uint32_t fatGetFirstSectorForCluster(const Fat *fs, uint16_t cluster);
+uint32_t fatGetOffsetForCluster(const Fat *fs, uint16_t cluster);
+uint16_t fatGetClusterSize(const Fat *fs); // size of clusters in bytes
 
 void fatReadDir(const Fat *fs, uint32_t offset);
 bool fatReadDirEntryAttributes(const Fat *fs, uint32_t dirEntryOffset, uint8_t *attributes);
@@ -89,9 +93,11 @@ bool fatMountFast(Fat *fs, FatReadFunctor *readFunctor, FatWriteFunctor *writeFu
 
 	// Read file system info
 	fs->bytesPerSector=0;
+	fs->sectorsPerCluster=0;
 	uint16_t bpbRootEntCnt=0, bpbResvdSecCnt=0;
 	uint32_t bpbFatSz=0, bpbTotSec=0;
-	uint8_t bpbNumFats=0, bpbSecPerClus=0;
+	uint8_t bpbNumFats=0;
+
 
 	bool error=false;
 	error|=!fatReadBpbBytsPerSec(fs, &fs->bytesPerSector);
@@ -100,7 +106,7 @@ bool fatMountFast(Fat *fs, FatReadFunctor *readFunctor, FatWriteFunctor *writeFu
 	error|=!fatReadBpbTotSec(fs, &bpbTotSec);
 	error|=!fatReadBpbResvdSecCnt(fs, &bpbResvdSecCnt);
 	error|=!fatReadBpbNumFats(fs, &bpbNumFats);
-	error|=!fatReadBpbSecPerClus(fs, &bpbSecPerClus);
+	error|=!fatReadBpbSecPerClus(fs, &fs->sectorsPerCluster);
 
 	if (error) {
 		kernelLog(LogTypeWarning, kstrP("fatMount: could not read BPB\n"));
@@ -110,7 +116,7 @@ bool fatMountFast(Fat *fs, FatReadFunctor *readFunctor, FatWriteFunctor *writeFu
 	// Calculate further info
 	uint16_t rootDirSizeSectors=((bpbRootEntCnt*32)+(fs->bytesPerSector-1))/fs->bytesPerSector; // size of root directory in sectors (actually 0 if FAT32)
 	uint32_t dataSectors=bpbTotSec-(bpbResvdSecCnt+(bpbNumFats*bpbFatSz)+rootDirSizeSectors);
-	uint32_t totalClusters=dataSectors/bpbSecPerClus;
+	uint32_t totalClusters=dataSectors/fs->sectorsPerCluster;
 
 	fs->fatSector=bpbResvdSecCnt;
 	fs->rootDirSector=bpbResvdSecCnt+bpbNumFats*bpbFatSz; // TODO: this is wrong if FAT32 - need to read from extended bpb thing, want to make a fat32 volume to test with first
@@ -122,6 +128,8 @@ bool fatMountFast(Fat *fs, FatReadFunctor *readFunctor, FatWriteFunctor *writeFu
 		fs->type=FatTypeFAT12;
 	else if(totalClusters<65525)
 		fs->type=FatTypeFAT16;
+
+	fs->firstDataSector=fs->rootDirSector+rootDirSizeSectors; // TODO: this could be different for FAT32 (or perhaps works anyway because rootDirSizeSectors is 0?)
 
 	return true;
 }
@@ -416,6 +424,26 @@ uint16_t fatGetRootDirSector(const Fat *fs) {
 
 uint32_t fatGetRootDirOffset(const Fat *fs) {
 	return fatGetRootDirSector(fs)*fatGetBytesPerSector(fs);
+}
+
+uint16_t fatGetFirstDataSector(const Fat *fs) {
+	return fs->firstDataSector;
+}
+
+uint8_t fatGetSectorsPerCluster(const Fat *fs) {
+	return fs->sectorsPerCluster;
+}
+
+uint32_t fatGetFirstSectorForCluster(const Fat *fs, uint16_t cluster) {
+	return (((uint32_t)(cluster-2))*fatGetSectorsPerCluster(fs))+fatGetFirstDataSector(fs);
+}
+
+uint32_t fatGetOffsetForCluster(const Fat *fs, uint16_t cluster) {
+	return fatGetFirstSectorForCluster(fs, cluster)*fatGetBytesPerSector(fs);
+}
+
+uint16_t fatGetClusterSize(const Fat *fs) {
+	return fatGetSectorsPerCluster(fs)*fatGetBytesPerSector(fs);
 }
 
 void fatReadDir(const Fat *fs, uint32_t offset) {
