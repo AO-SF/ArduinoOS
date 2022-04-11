@@ -1655,15 +1655,19 @@ bool kernelFsDeviceIsDir(const KernelFsDevice *device, const char *subPath) {
 					// Device itself is a directory but such volumes cannot contain sub-directories
 					return isRoot;
 				break;
-				case KernelFsBlockDeviceFormatFat:
+				case KernelFsBlockDeviceFormatFat: {
 					// Device itself is always a directory
 					if (isRoot)
 						return true;
 
 					// If a child of this device then need to do a more thorough check
-					// TODO: pass onto fat module to check this .....
-					return false;
-				break;
+					Fat fat;
+					if (!fatMountFast(&fat, &kernelFsFatReadWrapper, (device->common.writable ? &kernelFsFatWriteWrapper : NULL), (void *)device))
+						return false;
+					bool res=fatIsDir(&fat, subPath);
+					fatUnmount(&fat);
+					return res;
+				} break;
 				case KernelFsBlockDeviceFormatFlatFile:
 					return false;
 				break;
