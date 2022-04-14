@@ -171,6 +171,8 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 
 KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart, const char *envPath, const char *envPwd); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsFdInvalid on failure)
 
+bool procManProcessMemmove(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord destAddr, BytecodeWord srcAddr, BytecodeWord size);
+
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessRead32(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset);
@@ -2449,50 +2451,13 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdMemmove: {
+			// Grab arguments
 			uint16_t destAddr=procData->regs[1];
 			uint16_t srcAddr=procData->regs[2];
 			uint16_t size=procData->regs[3];
 
-			if (destAddr<srcAddr) {
-				uint16_t i=0;
-				while(i<size) {
-					KernelFsFileOffset chunkSize=size-i;
-					if (chunkSize>256)
-						chunkSize=256;
-
-					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
-						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						return false;
-					}
-					if (!procManProcessMemoryWriteBlock(process, procData, destAddr+i, (const uint8_t *)procManScratchBuf256, chunkSize)) {
-						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall writing, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						return false;
-					}
-
-					i+=chunkSize;
-				}
-			} else {
-				// dest>=src reverse case
-				// note: brackets around (size-chunkSize) are essential due to using unsigned integers
-				uint16_t i=0;
-				while(i<size) {
-					KernelFsFileOffset chunkSize=size-i;
-					if (chunkSize>256)
-						chunkSize=256;
-
-					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+(size-chunkSize)-i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
-						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						return false;
-					}
-					if (!procManProcessMemoryWriteBlock(process, procData, destAddr+(size-chunkSize)-i, (const uint8_t *)procManScratchBuf256, chunkSize)) {
-						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall writing, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						return false;
-					}
-
-					i+=chunkSize;
-				}
-			}
-			return true;
+			// Call common logic to do the move
+			return procManProcessMemmove(process, procData, destAddr, srcAddr, size);
 		} break;
 		case ByteCodeSyscallIdMemcmp: {
 			uint16_t p1Addr=procData->regs[1];
@@ -3403,6 +3368,53 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 	}
 
 	return newProgmemFd;
+}
+
+bool procManProcessMemmove(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord destAddr, BytecodeWord srcAddr, BytecodeWord size) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
+	if (destAddr<srcAddr) {
+		uint16_t i=0;
+		while(i<size) {
+			KernelFsFileOffset chunkSize=size-i;
+			if (chunkSize>256)
+				chunkSize=256;
+
+			if (!procManProcessMemoryReadBlock(process, procData, srcAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
+				kernelLog(LogTypeWarning, kstrP("failed during memmove reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			if (!procManProcessMemoryWriteBlock(process, procData, destAddr+i, (const uint8_t *)procManScratchBuf256, chunkSize)) {
+				kernelLog(LogTypeWarning, kstrP("failed during memmove writing, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			i+=chunkSize;
+		}
+	} else {
+		// dest>=src reverse case
+		// note: brackets around (size-chunkSize) are essential due to using unsigned integers
+		uint16_t i=0;
+		while(i<size) {
+			KernelFsFileOffset chunkSize=size-i;
+			if (chunkSize>256)
+				chunkSize=256;
+
+			if (!procManProcessMemoryReadBlock(process, procData, srcAddr+(size-chunkSize)-i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
+				kernelLog(LogTypeWarning, kstrP("failed during memmove syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+			if (!procManProcessMemoryWriteBlock(process, procData, destAddr+(size-chunkSize)-i, (const uint8_t *)procManScratchBuf256, chunkSize)) {
+				kernelLog(LogTypeWarning, kstrP("failed during memmove syscall writing, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
+			}
+
+			i+=chunkSize;
+		}
+	}
+
+	return true;
 }
 
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData) {
