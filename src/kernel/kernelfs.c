@@ -1628,11 +1628,8 @@ KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *fu
 	assert(!kstrIsNull(mountPoint));
 	assert(type<KernelFsDeviceTypeNB);
 
-	// HACK: use kernelFsPathSplitStaticBuf here as we end up using it later anyway
-	kstrStrcpy(kernelFsPathSplitStaticBuf, mountPoint);
-
 	// Ensure this file does not already exist
-	if (kernelFsFileExists(kernelFsPathSplitStaticBuf))
+	if (kernelFsFileExistsKStr(mountPoint))
 		return NULL;
 
 	// Ensure the parent directory exists (skipped for root)
