@@ -922,6 +922,24 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [strcmp], p1 addr=%u, p2 addr=%u, ret %i\n", syscallId, p1Addr, p2Addr, process->regs[0]);
 						} break;
+						case ByteCodeSyscallIdMemchr: {
+							// TODO: Check arguments better
+							uint16_t dataAddr=process->regs[1];
+							uint16_t c=process->regs[2];
+							uint16_t size=process->regs[3];
+
+							process->regs[0]=0;
+							uint16_t i;
+							for(i=0; i<size; ++i) {
+								if (process->memory[dataAddr+i]==c) {
+									process->regs[0]=dataAddr+i;
+									break;
+								}
+							}
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [memchr], data addr=%u, c=%u, size=%u, result=%u\n", syscallId, dataAddr, c, size, process->regs[0]);
+						} break;
 						case BytecodeSyscallIdHwDeviceRegister: {
 							// Always fail
 							uint16_t id=process->regs[1];
