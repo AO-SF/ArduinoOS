@@ -77,6 +77,7 @@ char kernelFsPathSplitStaticBuf[KernelFsPathMax];
 ////////////////////////////////////////////////////////////////////////////////
 
 bool kernelFsPathIsDevice(const char *path);
+bool kernelFsPathIsDeviceKStr(KStr path);
 bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
@@ -303,6 +304,61 @@ bool kernelFsFileExists(const char *path) {
 	// Find dirname and basename
 	char *dirname, *basename;
 	kernelFsPathSplitStatic(path, &dirname, &basename);
+
+	// Check for node at dirname
+	KernelFsDevice *device=kernelFsGetDeviceFromPath(dirname);
+	if (device!=NULL) {
+		switch(device->common.type) {
+			case KernelFsDeviceTypeBlock:
+				switch(device->block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						MiniFs miniFs;
+						miniFsMountFast(&miniFs, &kernelFsDeviceMiniFsReadWrapper, (device->common.writable ? &kernelFsDeviceMiniFsWriteWrapper : NULL), device);
+						bool res=miniFsFileExists(&miniFs, basename);
+						miniFsUnmount(&miniFs);
+						return res;
+					}
+					break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return false;
+					break;
+					case KernelFsBlockDeviceFormatFat:
+						// TODO: this for Fat file system support .....
+						return false;
+					break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// Not used as directories
+			break;
+			case KernelFsDeviceTypeDirectory:
+				// We have already checked for an explicit device above, so no more children
+				return false;
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
+			break;
+		}
+	}
+
+	// No suitable node found
+	return false;
+}
+
+bool kernelFsFileExistsKStr(KStr path) {
+	assert(!kstrIsNull(path));
+
+	// Check for virtual device path
+	if (kernelFsPathIsDeviceKStr(path))
+		return true;
+
+	// Find dirname and basename
+	char *dirname, *basename;
+	kernelFsPathSplitStaticKStr(path, &dirname, &basename);
 
 	// Check for node at dirname
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(dirname);
@@ -1438,6 +1494,10 @@ bool kernelFsPathIsDevice(const char *path) {
 	assert(path!=NULL);
 
 	return (kernelFsGetDeviceFromPath(path)!=NULL);
+}
+
+bool kernelFsPathIsDeviceKStr(KStr path) {
+	return (kernelFsGetDeviceFromPathKStr(path)!=NULL);
 }
 
 bool kernelFsFileCanOpenMany(const char *path) {

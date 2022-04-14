@@ -89,6 +89,7 @@ void *kernelFsDeviceFileGetUserData(const char *mountPoint);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool kernelFsFileExists(const char *path);
+bool kernelFsFileExistsKStr(KStr path);
 bool kernelFsFileIsOpen(const char *path);
 bool kernelFsFileIsOpenByFd(KernelFsFd fd);
 bool kernelFsFileIsDir(const char *path);
