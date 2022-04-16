@@ -6,6 +6,7 @@ require strcpy.s
 require strcmp.s
 require strlen.s
 require strpad.s
+require streplace.s
 require strtoint.s
 require strtrimlast.s
 require strtrimnewline.s

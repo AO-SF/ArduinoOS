@@ -66,6 +66,7 @@ const SyscallIdMemCmp 1539
 const SyscallIdStrRChr 1540
 const SyscallIdStrCmp 1541
 const SyscallIdMemChr 1542
+const SyscallIdStrReplace 1543
 
 const SyscallIdHwDeviceRegister 1792
 const SyscallIdHwDeviceDeregister 1793
