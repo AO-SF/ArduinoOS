@@ -2617,7 +2617,7 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 
 						// Shift string down if needed
 						uint16_t remainingLen;
-						if (!procManProcessMemoryStrlen(process, procData, haystackAddr+i+j, &remainingLen)) // ..... for now but can probably calculate this
+						if (!procManProcessMemoryStrlen(process, procData, haystackAddr+i+j, &remainingLen)) // TODO: can probably calculate this
 							goto strreplaceerror;
 
 						if (!procManProcessMemmove(process, procData, haystackAddr+i+replaceLen, haystackAddr+i+j, remainingLen+1))
