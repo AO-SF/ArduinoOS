@@ -975,6 +975,12 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [strreplace (post)], haystack addr=%u (%s), r0=%u\n", syscallId, haystackAddr, haystack, process->regs[0]);
 						} break;
+						case ByteCodeSyscallIdPathNormalise: {
+							// TODO: this
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [pathnormalise] (unimplemented)\n", syscallId);
+						} break;
 						case BytecodeSyscallIdHwDeviceRegister: {
 							// Always fail
 							uint16_t id=process->regs[1];

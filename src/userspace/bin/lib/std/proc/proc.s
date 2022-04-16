@@ -4,6 +4,7 @@ require forkexecwait.s
 require getabspath.s
 require getpwd.s
 require openpath.s
+require pathnormalise.s
 require runpath.s
 require thread.s
 require waitpid.s

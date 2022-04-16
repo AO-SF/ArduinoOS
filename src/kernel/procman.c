@@ -2646,6 +2646,31 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			kernelLog(LogTypeWarning, kstrP("failed during strreplace syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
 			return false;
 		} break;
+		case ByteCodeSyscallIdPathNormalise: {
+			#define scratchPath procManScratchBufPath0
+
+			// Grab arguments
+			uint16_t pathAddr=procData->regs[1];
+
+			// Read string
+			if (!procManProcessMemoryReadStr(process, procData, pathAddr, scratchPath, KernelFsPathMax))
+				goto pathnormaliseerror;
+
+			// Normalise the path
+			kernelFsPathNormalise(scratchPath);
+
+			// Write back updated string
+			if (!procManProcessMemoryWriteStr(process, procData, pathAddr, scratchPath))
+				goto pathnormaliseerror;
+
+			return true;
+
+			pathnormaliseerror:
+			kernelLog(LogTypeWarning, kstrP("failed during pathnormalise syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			return false;
+
+			#undef scratchPath
+		} break;
 		case BytecodeSyscallIdHwDeviceRegister: {
 			// Grab arguments
 			HwDeviceId id=procData->regs[1];
