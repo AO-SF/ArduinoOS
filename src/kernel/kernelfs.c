@@ -1376,12 +1376,6 @@ bool kernelFsPathIsValid(const char *path) {
 void kernelFsPathNormalise(char *path) {
 	assert(path!=NULL);
 
-	// Add trailing slash to make . and .. logic simpler
-	// TODO: Fix this hack (we may access one beyond what path allows)
-	size_t preLen=strlen(path);
-	path[preLen]='/';
-	path[preLen+1]='\0';
-
 	bool change;
 	do {
 		char *c;
@@ -1389,7 +1383,11 @@ void kernelFsPathNormalise(char *path) {
 
 		// Replace '/x/../' with '/', unless x is also ..
 		c=path;
-		while((c=strstr(c, "/../"))!=NULL) {
+		while((c=strstr(c, "/.."))!=NULL) {
+			// Check for either '..' at end of string, or full '/../' part
+			if (strcmp(c, "/..")!=0 && strncmp(c, "/../", 4)!=0)
+				continue;
+
 			// Look for last slash before this
 			char *d;
 			for(d=c-1; d>=path; --d) {
@@ -1397,8 +1395,11 @@ void kernelFsPathNormalise(char *path) {
 					break;
 			}
 
+			// Cannot simplify double instance ('/../../')
 			if (d>=path && strncmp(d, "/../", 4)!=0) {
 				change=true;
+
+				d+=(strcmp(c, "/..")==0); // keep initial slash in the case where the final '..' is at the end of the string (without a final '/') - otherwise e.g. '/bin/..' would normalise to an empty string rather than '/'
 				memmove(d, c+3, strlen(c+3)+1);
 			}
 
