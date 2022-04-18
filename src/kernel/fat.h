@@ -39,13 +39,17 @@ void fatUnmount(Fat *fs);
 
 void fatDebug(const Fat *fs);
 
+////////////////////////////////////////////////////////////////////////////////
+// File functions
+////////////////////////////////////////////////////////////////////////////////
+
 bool fatIsDir(const Fat *fs, const char *path);
-bool fatGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]); // n<FATMAXFILES, no gaps
+bool fatDirGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]); // n<FATMAXFILES, no gaps
 
 bool fatFileExists(const Fat *fs, const char *path);
 
 ////////////////////////////////////////////////////////////////////////////////
-// File functions
+// IO functions
 ////////////////////////////////////////////////////////////////////////////////
 
 uint16_t fatFileRead(const Fat *fs, const char *path, uint32_t readOffset, uint8_t *data, uint16_t len);

@@ -295,7 +295,7 @@ bool fatIsDir(const Fat *fs, const char *path) {
 	return (attributes & FatDirEntryAttributesSubDir);
 }
 
-bool fatGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]) {
+bool fatDirGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]) {
 	assert(childNum<FATMAXFILES);
 
 	// Loop over directory entries

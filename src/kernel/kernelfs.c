@@ -1328,7 +1328,7 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 						kstrStrcpy(childPath, kernelFsData.fdt[fd].path);
 						strcat(childPath, "/");
 
-						bool res=fatGetChildN(&fat, childNum, childPath+strlen(childPath));
+						bool res=fatDirGetChildN(&fat, childNum, childPath+strlen(childPath));
 
 						fatUnmount(&fat);
 
