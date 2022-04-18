@@ -39,6 +39,14 @@ typedef enum {
 	FatDirEntryAttributesReserved=0x80,
 } FatDirEntryAttributes;
 
+typedef enum {
+	FatClusterTypeError, // e.g. error reading from disk when determing type
+	FatClusterTypeFree, // unused
+	FatClusterTypeData, // currently used for data
+	FatClusterTypeReserved, // reserved or bad cluster
+	FatClusterTypeEndOfChain, // last cluster in file
+} FatClusterType;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -73,6 +81,8 @@ uint32_t fatGetFirstSectorForCluster(const Fat *fs, uint16_t cluster);
 uint32_t fatGetOffsetForCluster(const Fat *fs, uint16_t cluster);
 uint16_t fatGetClusterSize(const Fat *fs); // size of clusters in bytes
 
+FatClusterType fatReadClusterEntry(const Fat *fs, uint16_t cluster, uint32_t *value); // value is only filled if returned type is FatClusterTypeData
+
 void fatReadDir(const Fat *fs, uint32_t offset, unsigned logIndent);
 bool fatReadDirEntryAttributes(const Fat *fs, uint32_t dirEntryOffset, uint8_t *attributes);
 bool fatReadDirEntrySize(const Fat *fs, uint32_t dirEntryOffset, uint32_t *size);
@@ -83,6 +93,7 @@ uint32_t fatGetFileDirEntryOffsetFromPath(const Fat *fs, const char *path); // r
 uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirOffset, const char *path);
 
 const char *fatTypeToString(FatType type);
+const char *fatClusterTypeToString(FatClusterType type);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -473,6 +484,58 @@ uint16_t fatGetClusterSize(const Fat *fs) {
 	return fatGetSectorsPerCluster(fs)*fatGetBytesPerSector(fs);
 }
 
+FatClusterType fatReadClusterEntry(const Fat *fs, uint16_t cluster, uint32_t *value) {
+	uint32_t fatOffset=fatGetFatOffset(fs);
+
+	switch(fatGetFatType(fs)) {
+		case FatTypeFAT12:
+			// TODO: this
+			return FatClusterTypeError;
+		break;
+		case FatTypeFAT16: {
+			// Read value from disk
+			uint16_t entry=FatClusterTypeError;
+			fatRead16(fs, fatOffset+cluster*2, &entry);
+
+			// Determine cluster type
+			if (entry==0x0000u)
+				return FatClusterTypeFree;
+			else if (entry>=0x0002u && entry<=0xFFF6u) {
+				*value=entry;
+				return FatClusterTypeData;
+			} else if (entry>=0xFFF8u)
+				return FatClusterTypeEndOfChain;
+			else
+				return FatClusterTypeReserved;
+		} break;
+		case FatTypeFAT32: {
+			// Read value from disk
+			uint32_t entry=FatClusterTypeError;
+			fatRead32(fs, fatOffset+cluster*4, &entry);
+
+			// Mask off top 4 reserved bits
+			entry&=0x0FFFFFFFlu;
+
+			// Determine cluster type
+			if (entry==0x00000000lu)
+				return FatClusterTypeFree;
+			else if (entry>=0x00000002lu && entry<=0x0FFFFFF6lu) {
+				*value=entry;
+				return FatClusterTypeData;
+			} else if (entry>=0x0FFFFFF8lu)
+				return FatClusterTypeEndOfChain;
+			else
+				return FatClusterTypeReserved;
+		} break;
+		case FatTypeExFAT:
+			// Unsupported
+			return FatClusterTypeError;
+		break;
+	}
+
+	return FatClusterTypeError;
+}
+
 void fatReadDir(const Fat *fs, uint32_t offset, unsigned logIndent) {
 	char indentStr[32]={0}; // ...... hack
 	for(unsigned i=0; i<logIndent; ++i)
@@ -733,4 +796,15 @@ static const char *fatTypeToStringArray[]={
 };
 const char *fatTypeToString(FatType type) {
 	return fatTypeToStringArray[type];
+}
+
+static const char *fatClusterTypeToStringArray[]={
+	[FatClusterTypeError]="Error",
+	[FatClusterTypeFree]="Free",
+	[FatClusterTypeData]="Data",
+	[FatClusterTypeReserved]="Reserved",
+	[FatClusterTypeEndOfChain]="EndOfChain",
+};
+const char *fatClusterTypeToString(FatClusterType type) {
+	return fatClusterTypeToStringArray[type];
 }
