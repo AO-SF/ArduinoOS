@@ -324,6 +324,13 @@ bool fatGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]) 
 	return false;
 }
 
+bool fatFileExists(const Fat *fs, const char *path) {
+	assert(path!=NULL);
+
+	unsigned dirEntryOffset=fatGetFileDirEntryOffsetFromPath(fs, path);
+	return (dirEntryOffset!=0);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
