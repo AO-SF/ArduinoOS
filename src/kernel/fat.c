@@ -92,6 +92,8 @@ FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOf
 uint32_t fatGetFileDirEntryOffsetFromPath(const Fat *fs, const char *path); // returns 0 on failure
 uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirOffset, const char *path);
 
+uint16_t fatFileReadFromDirEntryOffset(const Fat *fs, uint32_t dirEntryOffset, uint32_t readOffset, uint8_t *data, uint16_t len); // Returns number of bytes read
+
 const char *fatTypeToString(FatType type);
 const char *fatClusterTypeToString(FatClusterType type);
 
@@ -340,6 +342,15 @@ bool fatFileExists(const Fat *fs, const char *path) {
 
 	unsigned dirEntryOffset=fatGetFileDirEntryOffsetFromPath(fs, path);
 	return (dirEntryOffset!=0);
+}
+
+uint16_t fatFileRead(const Fat *fs, const char *path, uint32_t readOffset, uint8_t *data, uint16_t len) {
+	assert(path!=NULL);
+
+	unsigned dirEntryOffset=fatGetFileDirEntryOffsetFromPath(fs, path);
+	if (dirEntryOffset==0)
+		return 0;
+	return fatFileReadFromDirEntryOffset(fs, dirEntryOffset, readOffset, data, len);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -786,6 +797,68 @@ uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirO
 	}
 
 	return 0;
+}
+
+uint16_t fatFileReadFromDirEntryOffset(const Fat *fs, uint32_t dirEntryOffset, uint32_t readOffset, uint8_t *data, uint16_t len) {
+	// Grab first cluster info
+	uint32_t cluster, fileSize;
+	fatReadDirEntryFirstCluster(fs, dirEntryOffset, &cluster);
+	fatReadDirEntrySize(fs, dirEntryOffset, &fileSize);
+
+	uint16_t clusterSize=fatGetClusterSize(fs);
+
+	if (readOffset+len>fileSize)
+		len=fileSize-readOffset;
+
+	// Loop over clusters
+	uint16_t totalReadCount=0;
+	while(1) {
+		// Grab cluster info
+		uint32_t nextCluster;
+		FatClusterType clusterType=fatReadClusterEntry(fs, cluster, &nextCluster);
+
+		switch(clusterType) {
+			case FatClusterTypeError:
+			case FatClusterTypeFree:
+			case FatClusterTypeReserved:
+				// These shouldn't be in a file chain
+				kernelLog(LogTypeWarning, kstrP("fatFileRead: unexpected cluster type %u=%s in chain (dirEntryOffset=%u, cluster=%u)\n"), clusterType, fatClusterTypeToString(clusterType), dirEntryOffset, cluster); // .....
+				return totalReadCount;
+			break;
+			case FatClusterTypeData:
+			case FatClusterTypeEndOfChain:
+				// These are the two expected types - proceed
+			break;
+		}
+
+		// If readOffset less than the cluster size then we the data we are interested in is in this cluster
+		if (readOffset<clusterSize) {
+			// Loop over reading data in this cluster
+			uint32_t clusterBaseOffset=fatGetOffsetForCluster(fs, cluster);
+			uint16_t clusterLoopOffset=readOffset; // if readOffset>0 then we will seek to correct place
+			while(clusterLoopOffset<clusterSize) {
+				uint16_t readTarget=MIN(len-totalReadCount, clusterSize-clusterLoopOffset);
+				uint16_t readCount=fatRead(fs, clusterBaseOffset+clusterLoopOffset, data+totalReadCount, readTarget);
+
+				totalReadCount+=readCount;
+				if (readCount<readTarget || totalReadCount>=len)
+					return totalReadCount;
+
+				clusterLoopOffset+=readCount;
+			}
+		} else
+			readOffset-=clusterSize; // we are not interested in this cluster but update readOffset for next iteration
+
+		// End of cluster chain?
+		if (clusterType==FatClusterTypeEndOfChain)
+			break;
+
+		// Advance to next cluster in chain
+		assert(clusterType==FatClusterTypeData);
+		cluster=nextCluster;
+	}
+
+	return totalReadCount;
 }
 
 static const char *fatTypeToStringArray[]={

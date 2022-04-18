@@ -48,4 +48,6 @@ bool fatFileExists(const Fat *fs, const char *path);
 // File functions
 ////////////////////////////////////////////////////////////////////////////////
 
+uint16_t fatFileRead(const Fat *fs, const char *path, uint32_t readOffset, uint8_t *data, uint16_t len);
+
 #endif
