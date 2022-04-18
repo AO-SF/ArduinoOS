@@ -548,7 +548,7 @@ FatClusterType fatReadClusterEntry(const Fat *fs, uint16_t cluster, uint32_t *va
 }
 
 void fatReadDir(const Fat *fs, uint32_t offset, unsigned logIndent) {
-	char indentStr[32]={0}; // ...... hack
+	char indentStr[32]={0}; // TODO: Fix hack
 	for(unsigned i=0; i<logIndent; ++i)
 		indentStr[i]='\t';
 
@@ -638,7 +638,7 @@ bool fatReadDirEntryFirstCluster(const Fat *fs, uint32_t dirEntryOffset, uint32_
 	return false;
 }
 
-FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOffset,  char name[FATPATHMAX]) {
+FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOffset, char name[FATPATHMAX]) {
 	// Read name
 	if (fatRead(fs, dirEntryOffset+0, (uint8_t *)name, 11)!=11)
 		return FatReadDirEntryNameResultError;
@@ -822,7 +822,7 @@ uint16_t fatFileReadFromDirEntryOffset(const Fat *fs, uint32_t dirEntryOffset, u
 			case FatClusterTypeFree:
 			case FatClusterTypeReserved:
 				// These shouldn't be in a file chain
-				kernelLog(LogTypeWarning, kstrP("fatFileRead: unexpected cluster type %u=%s in chain (dirEntryOffset=%u, cluster=%u)\n"), clusterType, fatClusterTypeToString(clusterType), dirEntryOffset, cluster); // .....
+				kernelLog(LogTypeWarning, kstrP("fatFileRead: unexpected cluster type %u=%s in chain (dirEntryOffset=%u, cluster=%u)\n"), clusterType, fatClusterTypeToString(clusterType), dirEntryOffset, cluster);
 				return totalReadCount;
 			break;
 			case FatClusterTypeData:
