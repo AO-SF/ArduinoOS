@@ -962,13 +962,14 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 				switch(device->block.format) {
 					case KernelFsBlockDeviceFormatCustomMiniFs:
 						// These act as directories at the top level (we check below for child)
+						return 0;
 					break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						return kernelFsDeviceInvokeFunctorBlockRead(device, data, dataLen, offset);
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
-						return false;
+						// These act as directories at the top level (we check below for child)
+						return 0;
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -1023,10 +1024,15 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 						// These are not directories
 						return 0;
 					break;
-					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
-						return 0;
-					break;
+					case KernelFsBlockDeviceFormatFat: {
+						Fat fat;
+						if (!fatMountFast(&fat, &kernelFsFatReadWrapper, (device->common.writable ? &kernelFsFatWriteWrapper : NULL), device))
+							return 0;
+						uint16_t read=fatFileRead(&fat, basename, offset, data, dataLen);
+						fatUnmount(&fat);
+
+						return read;
+					} break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 						return 0;
