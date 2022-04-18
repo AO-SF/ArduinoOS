@@ -323,10 +323,15 @@ bool kernelFsFileExists(const char *path) {
 						// These are not directories
 						return false;
 					break;
-					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
-						return false;
-					break;
+					case KernelFsBlockDeviceFormatFat: {
+						Fat fat;
+						if (!fatMountFast(&fat, &kernelFsFatReadWrapper, (device->common.writable ? &kernelFsFatWriteWrapper : NULL), device))
+							return false;
+						bool res=fatFileExists(&fat, basename);
+						fatUnmount(&fat);
+
+						return res;
+					} break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 					break;
