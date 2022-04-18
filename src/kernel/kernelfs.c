@@ -1613,8 +1613,11 @@ KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path, char **subP
 		}
 	}
 
-	if (subPath!=NULL)
+	if (subPath!=NULL) {
 		*subPath=((char *)path)+kstrStrlen(bestDevice->common.mountPoint);
+		if ((*subPath)[0]=='/')
+			++*subPath;
+	}
 
 	return bestDevice;
 }

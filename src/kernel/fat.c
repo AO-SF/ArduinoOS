@@ -267,7 +267,7 @@ void fatDebug(const Fat *fs) {
 
 bool fatIsDir(const Fat *fs, const char *path) {
 	assert(fs!=NULL);
-	assert(path!=NULL && path[0]=='/' && path[1]!='\0');
+	assert(path!=NULL);
 
 	// Find directory entry offset
 	uint32_t dirEntryOffset=fatGetFileDirEntryOffsetFromPath(fs, path);
@@ -666,15 +666,12 @@ FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOf
 }
 
 uint32_t fatGetFileDirEntryOffsetFromPath(const Fat *fs, const char *path) {
+	assert(path!=NULL);
+
 	return fatGetFileDirEntryOffsetFromPathHelper(fs, fatGetRootDirOffset(fs), path);
 }
 
 uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirOffset, const char *path) {
-	// Check for and remove initial '/'
-	if (path[0]!='/')
-		return 0;
-	++path;
-
 	// Loop over entries in this directory
 	for(unsigned i=0; 1; ++i,currDirOffset+=32) {
 		// Read filename
@@ -718,13 +715,12 @@ uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirO
 				fatReadDirEntryFirstCluster(fs, currDirOffset, &subDirCluster);
 				uint32_t subDirOffset=fatGetOffsetForCluster(fs, subDirCluster);
 
-				const char *subPath=path+fileNameLen;
+				const char *subPath=path+fileNameLen+1; // +1 to skip final slash
 
 				return fatGetFileDirEntryOffsetFromPathHelper(fs, subDirOffset, subPath);
 			}
 		}
 	}
-
 
 	return 0;
 }
