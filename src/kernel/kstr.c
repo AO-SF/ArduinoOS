@@ -45,7 +45,7 @@ KStr kstrAllocOffset(const KStr *src, size_t offset) {
 	STATICASSERT(KStrArduinoPtrBits==24);
 	STATICASSERT(KStrOffsetBits==8);
 
-	KStr kstr={.type=KStrTypeOffset, .spare=0, .ptr=((((uintptr_t)src) & 0xFFFFu) | (((uintptr_t)(offset & 0xFFu))<<16))};
+	KStr kstr={.type=KStrTypeOffset, .spare=0, .ptr=((((uint32_t)(uintptr_t)src) & 0xFFFFu) | (((uint32_t)offset)<<16))};
 
 	assert(kstrOffsetGetOffset(kstr)==offset);
 	assert(kstrOffsetGetSrc(kstr)==src);
@@ -316,7 +316,7 @@ const KStr *kstrOffsetGetSrc(KStr str) {
 	assert(str.type==KStrTypeOffset);
 
 	#ifdef ARDUINO
-	return (const KStr *)(str.ptr&0xFFFFu);
+	return (const KStr *)(uintptr_t)(str.ptr&0xFFFFu);
 	#else
 	return (const KStr *)str.ptr;
 	#endif
