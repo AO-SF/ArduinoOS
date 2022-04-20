@@ -194,6 +194,14 @@ int kstrDoubleStrncmp(KStr a, KStr b, size_t n) {
 	return 0;
 }
 
+int16_t kstrfprintf(FILE *file, KStr format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	int16_t res=kstrVfprintf(file, format, ap);
+	va_end(ap);
+	return res;
+}
+
 int16_t kstrVfprintf(FILE *file, KStr format, va_list ap) {
 	switch(format.type) {
 		case KStrTypeNull:
