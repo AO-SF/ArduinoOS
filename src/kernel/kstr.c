@@ -214,7 +214,7 @@ int kstrStrncmp(const char *a, KStr b, size_t n) {
 		bPtr=kstrOffsetGetSrc(*bPtr);
 	}
 
-	// Handled base string
+	// Handle base string
 	switch(bPtr->type) {
 		case KStrTypeNull:
 		break;
