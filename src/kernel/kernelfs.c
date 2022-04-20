@@ -124,6 +124,8 @@ void kernelFsSetFileSpare(KernelFsFd fd, uint8_t spare);
 uint16_t kernelFsDeviceMiniFsReadWrapper(uint16_t addr, uint8_t *data, uint16_t len, void *userData);
 uint16_t kernelFsDeviceMiniFsWriteWrapper(uint16_t addr, const uint8_t *data, uint16_t len, void *userData);
 
+// These two functions can be passed to the fatMount functions to allow reading/writing a FAT volume in an open file,
+// with the KernelFsDevice pointer passed as the userData field
 uint32_t kernelFsFatReadWrapper(uint32_t addr, uint8_t *data, uint32_t len, void *userData);
 uint32_t kernelFsFatWriteWrapper(uint32_t addr, const uint8_t *data, uint32_t len, void *userData);
 
