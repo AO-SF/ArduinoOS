@@ -93,7 +93,7 @@ bool kernelFsDeviceIsChildOfPath(KernelFsDevice *device, const char *parentDir);
 // E.g. if device is mounted to '/media/sd' and subPath is 'folder123' then function will query full path '/media/sd/folder123'.
 // If subPath is NULL or an empty string then queries device's mount point.
 bool kernelFsDeviceIsDir(const KernelFsDevice *device, const char *subPath);
-bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device);
+bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device, const char *subPath);
 
 bool kernelFsDeviceInvokeFunctorCommonFlush(KernelFsDevice *device);
 
@@ -446,13 +446,14 @@ bool kernelFsFileIsDir(const char *path) {
 bool kernelFsFileIsDirEmpty(const char *path) {
 	assert(path!=NULL);
 
-	// Currently directories can only exist as device files
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
+	// Grab owning device
+	char *subPath;
+	KernelFsDevice *device=kernelFsGetDeviceFromPathRecursive(path, &subPath);
 	if (device==NULL)
 		return false;
 
-	// So check if this device is a directory, and if it is empty.
-	return kernelFsDeviceIsDirEmpty(device);
+	// Check if this subPath of this device is an empty directory.
+	return kernelFsDeviceIsDirEmpty(device, subPath);
 }
 
 bool kernelFsFileIsCharacter(const char *path) {
@@ -625,7 +626,7 @@ bool kernelFsFileDelete(const char *path) {
 
 	// If this is a directory, check if empty
 	KernelFsDevice *device=kernelFsGetDeviceFromPath(path);
-	if (device!=NULL && kernelFsDeviceIsDir(device, NULL) && !kernelFsDeviceIsDirEmpty(device))
+	if (device!=NULL && kernelFsDeviceIsDir(device, "") && !kernelFsDeviceIsDirEmpty(device, ""))
 		return false;
 
 	// Is this a virtual device file?
@@ -1289,11 +1290,12 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 	if (!(kernelFsGetFileMode(fd) & KernelFsFdModeRO))
 		return false;
 
-	// Is this a virtual device file?
+	// Is this a virtual device file or a child of one?
 	KernelFsDevice *device=&kernelFsData.devices[kernelFsData.fdt[fd].deviceIndex];
 	if (kstrDoubleStrcmp(kernelFsData.fdt[fd].path, device->common.mountPoint)==0) {
 		assert(device==kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 
+		// This fd IS the device cached in the fdt (rather than a child of it)
 		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
 				switch(device->block.format) {
@@ -1330,7 +1332,7 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 						kstrStrcpy(childPath, kernelFsData.fdt[fd].path);
 						strcat(childPath, "/");
 
-						bool res=fatDirGetChildN(&fat, childNum, childPath+strlen(childPath));
+						bool res=fatDirGetChildN(&fat, kstrS((char *)""), childNum, childPath+strlen(childPath));
 
 						fatUnmount(&fat);
 
@@ -1365,6 +1367,55 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 				}
 			} break;
 			case KernelFsDeviceTypeNB:
+			break;
+		}
+	} else {
+		assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
+
+		// This fd is a child of the device cached in the fdt
+		KStr subPath=kstrO(&kernelFsData.fdt[fd].path, kstrStrlen(device->common.mountPoint)+1); // +1 to skip '/' also
+
+		switch(device->common.type) {
+			case KernelFsDeviceTypeBlock:
+				switch(device->block.format) {
+					case KernelFsBlockDeviceFormatCustomMiniFs: {
+						// MiniFs volumes do not support sub-directories
+						return false;
+					} break;
+					case KernelFsBlockDeviceFormatFlatFile:
+						// These are not directories
+						return false;
+					break;
+					case KernelFsBlockDeviceFormatFat: {
+						Fat fat;
+						if (!fatMountFast(&fat, &kernelFsFatReadWrapper, (device->common.writable ? &kernelFsFatWriteWrapper : NULL), device))
+							return false;
+
+						kstrStrcpy(childPath, kernelFsData.fdt[fd].path);
+						strcat(childPath, "/");
+
+						bool res=fatDirGetChildN(&fat, subPath, childNum, childPath+strlen(childPath));
+
+						fatUnmount(&fat);
+
+						return res;
+					} break;
+					case KernelFsBlockDeviceFormatNB:
+						assert(false);
+						return false;
+					break;
+				}
+			break;
+			case KernelFsDeviceTypeCharacter:
+				// These are files and thus cannot contain other files
+				return false;
+			break;
+			case KernelFsDeviceTypeDirectory:
+				// Device directories can only contain other virtual devices (which are handled above)
+				return false;
+			break;
+			case KernelFsDeviceTypeNB:
+				assert(false);
 			break;
 		}
 	}
@@ -1552,8 +1603,7 @@ bool kernelFsFileCanOpenMany(const char *path) {
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
-						return false;
+						return !parentDevice->common.writable;
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -1767,14 +1817,19 @@ bool kernelFsDeviceIsDir(const KernelFsDevice *device, const char *subPath) {
 	return false;
 }
 
-bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device) {
+bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device, const char *subPath) {
 	assert(device!=NULL);
+
+	bool isRoot=(subPath==NULL || subPath[0]=='\0');
 
 	// Only block and directory type devices operate as directories
 	switch(device->common.type) {
 		case KernelFsDeviceTypeBlock:
 			switch(device->block.format) {
 				case KernelFsBlockDeviceFormatCustomMiniFs: {
+					if (!isRoot)
+						return false;
+
 					MiniFs miniFs;
 					miniFsMountFast(&miniFs, &kernelFsDeviceMiniFsReadWrapper, (device->common.writable ? &kernelFsDeviceMiniFsWriteWrapper : NULL), (KernelFsDevice *)device);
 					bool res=miniFsIsEmpty(&miniFs);
@@ -1786,8 +1841,13 @@ bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device) {
 					return false;
 				break;
 				case KernelFsBlockDeviceFormatFat: {
-					// TODO: this for FAT support .....
-					return false;
+					Fat fat;
+					if (!fatMountFast(&fat, &kernelFsFatReadWrapper, (device->common.writable ? &kernelFsFatWriteWrapper : NULL), (KernelFsDevice *)device))
+						return false;
+					bool res=fatDirIsEmpty(&fat, kstrS((char *)subPath));
+					fatUnmount(&fat);
+
+					return res;
 				} break;
 				case KernelFsBlockDeviceFormatNB:
 					assert(false);
@@ -1799,6 +1859,9 @@ bool kernelFsDeviceIsDirEmpty(const KernelFsDevice *device) {
 			return false;
 		break;
 		case KernelFsDeviceTypeDirectory: {
+			if (!isRoot)
+				return false;
+
 			// Check explicit virtual devices as children
 			for(uint8_t i=0; i<KernelFsDevicesMax; ++i) {
 				KernelFsDevice *childDevice=&kernelFsData.devices[i];

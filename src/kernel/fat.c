@@ -283,6 +283,10 @@ bool fatIsDir(const Fat *fs, const char *path) {
 	assert(fs!=NULL);
 	assert(path!=NULL);
 
+	// Empty path indicates root which is a dir
+	if (path[0]=='\0')
+		return true;
+
 	// Find directory entry offset
 	uint32_t dirEntryOffset=fatGetFileDirEntryOffsetFromPath(fs, path);
 	if (dirEntryOffset==0)
@@ -296,13 +300,43 @@ bool fatIsDir(const Fat *fs, const char *path) {
 	return (attributes & FatDirEntryAttributesSubDir);
 }
 
-bool fatDirGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]) {
+bool fatDirIsEmpty(const Fat *fs, KStr path) {
+	char childPath[FATPATHMAX]; // TODO: try to avoid allocating this buffer
+	return !fatDirGetChildN(fs, path, 0, childPath);
+}
+
+bool fatDirGetChildN(const Fat *fs, KStr path, unsigned childNum, char childPath[FATPATHMAX]) {
 	assert(childNum<FATMAXFILES);
+
+	// Find start of directory containing this path
+	uint32_t baseOffset;
+	if (kstrStrlen(path)==0) {
+		// Root directory - simply lookup cached offset
+		baseOffset=fatGetRootDirOffset(fs);
+	} else {
+		// Sub-directory - lookup entry in parents table
+		uint32_t dirEntryOffset=fatGetFileDirEntryOffsetFromPathKStr(fs, path);
+		if (dirEntryOffset==0) // file does not exist
+			return false;
+
+		// Ensure this entry represents a directory which isn't marked as a 'volume label'
+		uint8_t attributes;
+		if (!fatReadDirEntryAttributes(fs, dirEntryOffset, &attributes) || (attributes & FatDirEntryAttributesVolumeLabel) || !(attributes & FatDirEntryAttributesSubDir))
+			return false;
+
+		// Read location of first data cluster associated with this entry
+		uint32_t firstCluster;
+		if (!fatReadDirEntryFirstCluster(fs, dirEntryOffset, &firstCluster))
+			return false;
+
+		// Calculate data offset from first cluster
+		baseOffset=fatGetOffsetForCluster(fs, firstCluster);
+	}
 
 	// Loop over directory entries
 	// TODO: allow sub-directories rather than assuming root dir
 	unsigned childI=0;
-	for(uint32_t offset=fatGetRootDirOffset(fs); 1; offset+=32) {
+	for(uint32_t offset=baseOffset; 1; offset+=32) {
 		// Read filename
 		switch(fatReadDirEntryName(fs, offset, childPath)) {
 			case FatReadDirEntryNameResultError:

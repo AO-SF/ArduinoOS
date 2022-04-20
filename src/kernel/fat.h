@@ -46,7 +46,8 @@ void fatDebug(const Fat *fs);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool fatIsDir(const Fat *fs, const char *path);
-bool fatDirGetChildN(const Fat *fs, unsigned childNum, char childPath[FATPATHMAX]); // n<FATMAXFILES, no gaps
+bool fatDirIsEmpty(const Fat *fs, KStr path);
+bool fatDirGetChildN(const Fat *fs, KStr path, unsigned childNum, char childPath[FATPATHMAX]); // n<FATMAXFILES, no gaps
 
 bool fatFileExists(const Fat *fs, const char *path);
 
