@@ -54,6 +54,8 @@ KStr kstrAllocCopy(const char *src);
 unsigned kstrGetSpare(KStr str);
 void kstrSetSpare(KStr *str, unsigned spare); // [0, KStrSpareMax-1], which with KStrSpareBits=6 this is 63
 
+char kstrGetChar(KStr str, size_t n); // n must be less than string's length
+
 uint16_t kstrStrlen(KStr kstr);
 
 void kstrStrcpy(char *buf, KStr kstr);

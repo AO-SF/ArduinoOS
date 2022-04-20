@@ -41,6 +41,26 @@ void kstrSetSpare(KStr *str, unsigned spare) {
 		str->spare=spare;
 }
 
+char kstrGetChar(KStr str, size_t n) {
+	switch(str.type) {
+		case KStrTypeNull:
+			return 0;
+		break;
+		case KStrTypeProgmem:
+			#ifdef ARDUINO
+			return pgm_read_byte_far((uint_farptr_t)str.ptr+n);
+			#else
+			return 0;
+			#endif
+		break;
+		case KStrTypeStatic:
+		case KStrTypeHeap:
+			return ((const char *)(uintptr_t)str.ptr)[n];
+		break;
+	}
+	return 0;
+}
+
 uint16_t kstrStrlen(KStr kstr) {
 	switch(kstr.type) {
 		case KStrTypeNull:
