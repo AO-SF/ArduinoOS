@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "kstr.h"
+
 #define FATPATHMAX 64 // for compatability with rest of OS even though should be ~255
 #define FATMAXFILES 128
 

@@ -90,7 +90,8 @@ bool fatReadDirEntryFirstCluster(const Fat *fs, uint32_t dirEntryOffset, uint32_
 FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOffset,  char name[FATPATHMAX]);
 
 uint32_t fatGetFileDirEntryOffsetFromPath(const Fat *fs, const char *path); // returns 0 on failure
-uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirOffset, const char *path);
+uint32_t fatGetFileDirEntryOffsetFromPathKStr(const Fat *fs, KStr path); // returns 0 on failure
+uint32_t fatGetFileDirEntryOffsetFromPathKStrHelper(const Fat *fs, uint32_t currDirOffset, KStr path);
 
 uint16_t fatFileReadFromDirEntryOffset(const Fat *fs, uint32_t dirEntryOffset, uint32_t readOffset, uint8_t *data, uint16_t len); // Returns number of bytes read
 
@@ -742,10 +743,18 @@ FatReadDirEntryNameResult fatReadDirEntryName(const Fat *fs, uint32_t dirEntryOf
 uint32_t fatGetFileDirEntryOffsetFromPath(const Fat *fs, const char *path) {
 	assert(path!=NULL);
 
-	return fatGetFileDirEntryOffsetFromPathHelper(fs, fatGetRootDirOffset(fs), path);
+	return fatGetFileDirEntryOffsetFromPathKStr(fs, kstrS((char *)path));
 }
 
-uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirOffset, const char *path) {
+uint32_t fatGetFileDirEntryOffsetFromPathKStr(const Fat *fs, KStr path) {
+	assert(!kstrIsNull(path));
+
+	return fatGetFileDirEntryOffsetFromPathKStrHelper(fs, fatGetRootDirOffset(fs), path);
+}
+
+uint32_t fatGetFileDirEntryOffsetFromPathKStrHelper(const Fat *fs, uint32_t currDirOffset, KStr path) {
+	assert(!kstrIsNull(path));
+
 	// Loop over entries in this directory
 	for(unsigned i=0; 1; ++i,currDirOffset+=32) {
 		// Read filename
@@ -776,22 +785,22 @@ uint32_t fatGetFileDirEntryOffsetFromPathHelper(const Fat *fs, uint32_t currDirO
 			continue;
 
 		// Check for exact match
-		if (strcmp(fileName, path)==0)
+		if (kstrStrcmp(fileName, path)==0)
 			return currDirOffset;
 
 		// Check for sub-directory partial match
 		if ((attributes & FatDirEntryAttributesSubDir)) {
 			// Partial match?
 			unsigned fileNameLen=strlen(fileName);
-			if (strncmp(fileName, path, fileNameLen)==0 && path[fileNameLen]=='/') {
+			if (kstrStrncmp(fileName, path, fileNameLen)==0 && kstrGetChar(path, fileNameLen)=='/') {
 				// Recurse to list children
 				uint32_t subDirCluster;
 				fatReadDirEntryFirstCluster(fs, currDirOffset, &subDirCluster);
 				uint32_t subDirOffset=fatGetOffsetForCluster(fs, subDirCluster);
 
-				const char *subPath=path+fileNameLen+1; // +1 to skip final slash
+				KStr subPath=kstrO(&path, fileNameLen+1); // +1 to skip final slash
 
-				return fatGetFileDirEntryOffsetFromPathHelper(fs, subDirOffset, subPath);
+				return fatGetFileDirEntryOffsetFromPathKStrHelper(fs, subDirOffset, subPath);
 			}
 		}
 	}
