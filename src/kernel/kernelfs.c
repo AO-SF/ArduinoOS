@@ -1378,10 +1378,10 @@ bool kernelFsDirectoryGetChild(KernelFsFd fd, unsigned childNum, char childPath[
 		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
 				switch(device->block.format) {
-					case KernelFsBlockDeviceFormatCustomMiniFs: {
+					case KernelFsBlockDeviceFormatCustomMiniFs:
 						// MiniFs volumes do not support sub-directories
 						return false;
-					} break;
+					break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
 						return false;
