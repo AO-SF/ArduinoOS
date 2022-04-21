@@ -32,8 +32,18 @@ typedef uint8_t KernelFsFdMode;
 typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatCustomMiniFs 0
 #define KernelFsBlockDeviceFormatFlatFile 1
-#define KernelFsBlockDeviceFormatNB 2
-#define KernelFsBlockDeviceFormatBits 1
+#define KernelFsBlockDeviceFormatFat 2
+#define KernelFsBlockDeviceFormatNB 3
+#define KernelFsBlockDeviceFormatBits 2
+
+/*
+..... still needed?
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
+typedef KernelFsFileOffset (KernelFsBlockDeviceWriteFunctor)(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
+
+*/
 
 // The enum and single 'generic' functor below are used as a way to provide and store multiple functors while only needing enough RAM for a single function pointer.
 // Note that not all arguments are used in each case, and the return value is not always a uint32_t - see individual prototypes in enum commments for nore details.
@@ -79,6 +89,7 @@ void *kernelFsDeviceFileGetUserData(const char *mountPoint);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool kernelFsFileExists(const char *path);
+bool kernelFsFileExistsKStr(KStr path);
 bool kernelFsFileIsOpen(const char *path);
 bool kernelFsFileIsOpenByFd(KernelFsFd fd);
 bool kernelFsFileIsDir(const char *path);

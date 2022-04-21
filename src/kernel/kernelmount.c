@@ -120,6 +120,14 @@ bool kernelMount(KernelMountFormat format, const char *devicePath, const char *d
 				goto error;
 			}
 		} break;
+		case KernelMountFormatFat: {
+			// Add virtual block device to virtual file system
+			KernelFsFileOffset size=kernelFsFileGetLen(devicePath);
+			if (!kernelFsAddBlockDeviceFile(kstrC(dirPath), &kernelMountFsFunctor, (void *)(uintptr_t)(deviceFd), KernelFsBlockDeviceFormatFat, size, true)) {
+				kernelLog(LogTypeWarning, kstrP("could not mount - could not add virtual block device file (format=%u, devicePath='%s', dirPath='%s', device fd=%u)\n"), format, devicePath, dirPath, deviceFd);
+				goto error;
+			}
+		} break;
 	}
 
 	// Success
@@ -281,6 +289,10 @@ bool kernelRemountWithBuffers(KernelMountFormat newFormat, const char *newDevice
 			kernelLog(LogTypeWarning, kstrP("could not remount - unhandled new format %u (newDevicePath='%s', oldDeviceFd=%u, dirPath='%s')\n"), newFormat, newDevicePath, oldDeviceFd, dirPath);
 			return false;
 		break;
+		case KernelMountFormatFat: {
+			// .....
+			return false;
+		} break;
 	}
 
 	// Update our array to indicate the changes
@@ -307,6 +319,10 @@ bool kernelRemountWithBuffers(KernelMountFormat newFormat, const char *newDevice
 			assert(false); // should have triggered early return in above switch statement
 			goto postcloseerror;
 		break;
+		case KernelMountFormatFat: {
+			// .....
+			goto postcloseerror;
+		} break;
 	}
 
 	// Close old device file
@@ -332,6 +348,7 @@ bool kernelRemountWithBuffers(KernelMountFormat newFormat, const char *newDevice
 bool KernelMountFormatIsFile(KernelMountFormat format) {
 	switch(format) {
 		case KernelMountFormatMiniFs:
+		case KernelMountFormatFat:
 			return false;
 		break;
 		case KernelMountFormatFlatFile:
@@ -350,6 +367,7 @@ bool KernelMountFormatIsFile(KernelMountFormat format) {
 bool KernelMountFormatIsDir(KernelMountFormat format) {
 	switch(format) {
 		case KernelMountFormatMiniFs:
+		case KernelMountFormatFat:
 			return true;
 		break;
 		case KernelMountFormatFlatFile:
@@ -418,6 +436,7 @@ KernelFsFileOffset kernelMountBlockReadFunctor(KernelFsFileOffset addr, uint8_t 
 	switch(device->format) {
 		case KernelMountFormatMiniFs:
 		case KernelMountFormatFlatFile:
+		case KernelMountFormatFat:
 			// Simply read from device file directly
 			return kernelFsFileReadOffset(deviceFd, addr, data, len);
 		break;
@@ -458,6 +477,7 @@ KernelFsFileOffset kernelMountBlockWriteFunctor(KernelFsFileOffset addr, const u
 	switch(device->format) {
 		case KernelMountFormatMiniFs:
 		case KernelMountFormatFlatFile:
+		case KernelMountFormatFat:
 			// Simply write to device file directly
 			return kernelFsFileWriteOffset(deviceFd, addr, data, len);
 		break;
@@ -527,6 +547,10 @@ int16_t kernelMountCharacterReadFunctor(void *userData) {
 
 			return result;
 		} break;
+		case KernelMountFormatFat: {
+			// .....
+			return -1;
+		} break;
 	}
 
 	assert(false);
@@ -560,6 +584,10 @@ bool kernelMountCharacterCanReadFunctor(void *userData) {
 
 			// If offsets are not equal then the buffer is not empty and so there is something to read
 			return (headOffset!=tailOffset);
+		} break;
+		case KernelMountFormatFat: {
+			// .....
+			return false;
 		} break;
 	}
 
@@ -613,6 +641,10 @@ KernelFsFileOffset kernelMountCharacterWriteFunctor(void *userData, const uint8_
 
 			return written;
 		} break;
+		case KernelMountFormatFat: {
+			// .....
+			return 0;
+		} break;
 	}
 
 	assert(false);
@@ -647,6 +679,10 @@ bool kernelMountCharacterCanWriteFunctor(void *userData) {
 			// If tail offset is about to meet head offset, then buffer is full. Otherwise there is space and a write would proceed.
 			KernelFsFileOffset newTailOffset=kernelMountCircBufIncOffset(deviceFd, tailOffset);
 			return (newTailOffset!=headOffset);
+		} break;
+		case KernelMountFormatFat: {
+			// .....
+			return false;
 		} break;
 	}
 

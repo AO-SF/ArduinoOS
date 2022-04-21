@@ -35,6 +35,7 @@ void miniFsWriteByte(MiniFs *fs, uint16_t addr, uint8_t value);
 
 bool miniFsGetFilenameFromIndex(const MiniFs *fs, uint8_t index, char filename[MiniFsPathMax]);
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename, uint16_t *baseOffsetPtr); // Returns MINIFSMAXFILES if no such file exists. If baseOffset is non-null then filled (to 0 on failure)
+uint8_t miniFsFilenameToIndexKStr(const MiniFs *fs, KStr filename, uint16_t *baseOffsetPtr);
 bool miniFsReadFileInfoFromIndex(const MiniFs *fs, MiniFsFileInfo *info, uint8_t index);
 bool miniFsReadFileInfoFromBaseOffset(const MiniFs *fs, MiniFsFileInfo *info, uint16_t baseOffset);
 bool miniFsIsFileSlotEmpty(const MiniFs *fs, uint8_t index);
@@ -192,6 +193,10 @@ void miniFsDebug(const MiniFs *fs) {
 
 bool miniFsFileExists(const MiniFs *fs, const char *filename) {
 	return (miniFsFilenameToIndex(fs, filename, NULL)!=MINIFSMAXFILES);
+}
+
+bool miniFsFileExistsKStr(const MiniFs *fs, KStr filename) {
+	return (miniFsFilenameToIndexKStr(fs, filename, NULL)!=MINIFSMAXFILES);
 }
 
 uint16_t miniFsFileGetLen(const MiniFs *fs, const char *filename) {
@@ -382,9 +387,13 @@ bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newContentLen) 
 }
 
 uint16_t miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset, uint8_t *data, uint16_t len) {
+	return miniFsFileReadKStr(fs, kstrS((char *)filename), offset, data, len);
+}
+
+uint16_t miniFsFileReadKStr(const MiniFs *fs, KStr filename, uint16_t offset, uint8_t *data, uint16_t len) {
 	// Find index for this filename
 	uint16_t baseOffset;
-	uint8_t index=miniFsFilenameToIndex(fs, filename, &baseOffset);
+	uint8_t index=miniFsFilenameToIndexKStr(fs, filename, &baseOffset);
 	if (index==MINIFSMAXFILES)
 		return 0;
 
@@ -523,6 +532,10 @@ bool miniFsGetFilenameFromIndex(const MiniFs *fs, uint8_t index, char filename[M
 }
 
 uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename, uint16_t *baseOffsetPtr) {
+	return miniFsFilenameToIndexKStr(fs, kstrS((char *)filename), baseOffsetPtr);
+}
+
+uint8_t miniFsFilenameToIndexKStr(const MiniFs *fs, KStr filename, uint16_t *baseOffsetPtr) {
 	// Loop over all slots looking for the given filename
 	for(uint8_t index=0; index<MINIFSMAXFILES; ++index) {
 		// Is there even a file using this slot?
@@ -533,9 +546,10 @@ uint8_t miniFsFilenameToIndex(const MiniFs *fs, const char *filename, uint16_t *
 		// Check if filename matches
 		uint16_t filenameOffset=miniFsFileGetFilenameOffsetFromBaseOffset(fs, baseOffset);
 		bool match=true;
-		for(const char *trueChar=filename; 1; ++trueChar) {
+		for(uint16_t i=0; 1; ++i) {
 			char testChar=miniFsReadByte(fs, filenameOffset++);
-			if (testChar!=*trueChar) {
+			char trueChar=kstrGetChar(filename, i);
+			if (testChar!=trueChar) {
 				match=false;
 				break;
 			}

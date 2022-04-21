@@ -50,7 +50,7 @@ push16 r2
 mov r0 r2
 mov r1 ':'
 call strchr
-mov r3 r0
+mov r3 r0 ; r3 now points to first/next colon in PATH
 cmp r4 r3 r3
 pop16 r2
 pop16 r1
@@ -70,8 +70,8 @@ mov r4 0
 store8 r0 r4 ; store null byte ready to terminate new string
 mov r0 getpathScratchBuf
 mov r1 r2
-mov r2 r3
-call memmove ; copy current part of PATH, ignoring terminating colon
+sub r2 r3 r2 ; recalculate length of PATH part
+call memmove ; copy current part of PATH to start of scratch buf, ignoring terminating colon
 ; add joining slash
 mov r0 getpathScratchBuf
 mov r1 getpathSlashStr

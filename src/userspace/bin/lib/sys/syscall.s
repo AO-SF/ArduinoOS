@@ -65,6 +65,9 @@ const SyscallIdMemMove 1538
 const SyscallIdMemCmp 1539
 const SyscallIdStrRChr 1540
 const SyscallIdStrCmp 1541
+const SyscallIdMemChr 1542
+const SyscallIdStrReplace 1543
+const SyscallIdPathNormalise 1544
 
 const SyscallIdHwDeviceRegister 1792
 const SyscallIdHwDeviceDeregister 1793
@@ -114,3 +117,4 @@ const SyscallMountFormatPartition2 3
 const SyscallMountFormatPartition3 4
 const SyscallMountFormatPartition4 5
 const SyscallMountFormatCircBuf 6
+const SyscallMountFormatFat 7

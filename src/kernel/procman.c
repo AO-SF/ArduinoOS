@@ -171,6 +171,9 @@ bool procManProcessExecCommon(ProcManProcess *process, ProcManProcessProcData *p
 
 KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc, char *argvStart, const char *envPath, const char *envPwd); // Loads executable tiles, reading the magic byte (and potentially recursing), before returning fd of final executable (or KernelFsFdInvalid on failure)
 
+bool procManProcessMemoryStrlen(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord strAddr, BytecodeWord *len);
+bool procManProcessMemmove(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord destAddr, BytecodeWord srcAddr, BytecodeWord size);
+
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessRead32(ProcManProcess *process, ProcManProcessProcData *procData);
 bool procManProcessReadCommon(ProcManProcess *process, ProcManProcessProcData *procData, KernelFsFileOffset offset);
@@ -2449,49 +2452,17 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			return true;
 		} break;
 		case BytecodeSyscallIdMemmove: {
+			// Grab arguments
 			uint16_t destAddr=procData->regs[1];
 			uint16_t srcAddr=procData->regs[2];
 			uint16_t size=procData->regs[3];
 
-			if (destAddr<srcAddr) {
-				uint16_t i=0;
-				while(i<size) {
-					KernelFsFileOffset chunkSize=size-i;
-					if (chunkSize>256)
-						chunkSize=256;
-
-					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
-						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						return false;
-					}
-					if (!procManProcessMemoryWriteBlock(process, procData, destAddr+i, (const uint8_t *)procManScratchBuf256, chunkSize)) {
-						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall writing, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						return false;
-					}
-
-					i+=chunkSize;
-				}
-			} else {
-				// dest>=src reverse case
-				// note: brackets around (size-chunkSize) are essential due to using unsigned integers
-				uint16_t i=0;
-				while(i<size) {
-					KernelFsFileOffset chunkSize=size-i;
-					if (chunkSize>256)
-						chunkSize=256;
-
-					if (!procManProcessMemoryReadBlock(process, procData, srcAddr+(size-chunkSize)-i, (uint8_t *)procManScratchBuf256, chunkSize, true)) {
-						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall reading, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						return false;
-					}
-					if (!procManProcessMemoryWriteBlock(process, procData, destAddr+(size-chunkSize)-i, (const uint8_t *)procManScratchBuf256, chunkSize)) {
-						kernelLog(LogTypeWarning, kstrP("failed during memcpy syscall writing, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
-						return false;
-					}
-
-					i+=chunkSize;
-				}
+			// Call common logic to do the move
+			if (!procManProcessMemmove(process, procData, destAddr, srcAddr, size)) {
+				kernelLog(LogTypeWarning, kstrP("failed during memmove syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+				return false;
 			}
+
 			return true;
 		} break;
 		case ByteCodeSyscallIdMemcmp: {
@@ -2583,6 +2554,122 @@ bool procManProcessExecSyscall(ProcManProcess *process, ProcManProcessProcData *
 			}
 
 			return true;
+		} break;
+		case ByteCodeSyscallIdMemchr: {
+			uint16_t dataAddr=procData->regs[1];
+			uint16_t c=procData->regs[2];
+			uint16_t size=procData->regs[3];
+
+			procData->regs[0]=0;
+			for(uint16_t i=0; i<size; ++i) {
+				uint8_t value;
+				if (!procManProcessMemoryReadByte(process, procData, dataAddr+i, &value)) {
+					kernelLog(LogTypeWarning, kstrP("failed during memchr syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+					return false;
+				}
+
+				if (value==c) {
+					procData->regs[0]=dataAddr+i;
+					break;
+				}
+			}
+
+			return true;
+		} break;
+		case ByteCodeSyscallIdStrreplace: {
+			// TODO: this only works if length of replace is not greater than needle (either improve or define this syscall this way so it can be used without an expandable string)
+
+			// Grab arguments
+			uint16_t haystackAddr=procData->regs[1];
+			uint16_t needleAddr=procData->regs[2];
+			uint16_t replaceAddr=procData->regs[3];
+
+			uint16_t replaceLen;
+			if (!procManProcessMemoryStrlen(process, procData, replaceAddr, &replaceLen))
+				goto strreplaceerror;
+
+			// Set r0 to 0 for now to indicate no changes have been made (we may update this later)
+			procData->regs[0]=0;
+
+			// Loop over haystack looking for occurences of needle
+			for(unsigned i=0; 1; ++i) {
+				// Grab haystack char and check for end of string
+				uint8_t haystackChar;
+				if (!procManProcessMemoryReadByte(process, procData, haystackAddr+i, &haystackChar))
+					goto strreplaceerror;
+
+				if (haystackChar=='\0')
+					break;
+
+				// Loop over needle to see if it matches the haystack at this point
+				for(unsigned j=0; 1; ++j) {
+					// Grab needle char and check for end of string
+					uint8_t loopNeedleChar;
+					if (!procManProcessMemoryReadByte(process, procData, needleAddr+j, &loopNeedleChar))
+						goto strreplaceerror;
+
+					if (loopNeedleChar=='\0') {
+						// End of needle str - this means we have found a match
+
+						// Move 'replace' string over the top of the 'needle' string we have found
+						if (!procManProcessMemmove(process, procData, haystackAddr+i, replaceAddr, replaceLen))
+							goto strreplaceerror;
+
+						// Shift string down if needed
+						uint16_t remainingLen;
+						if (!procManProcessMemoryStrlen(process, procData, haystackAddr+i+j, &remainingLen)) // TODO: can probably calculate this
+							goto strreplaceerror;
+
+						if (!procManProcessMemmove(process, procData, haystackAddr+i+replaceLen, haystackAddr+i+j, remainingLen+1))
+							goto strreplaceerror;
+
+						// Indicate to caller we have made a change
+						procData->regs[0]=1;
+
+						// Exit inner-loop (needle) back to outer-loop (haystack)
+						break;
+					}
+
+					// Grab haystack char and check for match
+					uint8_t loopHaystackChar;
+					if (!procManProcessMemoryReadByte(process, procData, haystackAddr+i+j, &loopHaystackChar))
+						goto strreplaceerror;
+
+					if (loopHaystackChar!=loopNeedleChar)
+						break; // No match - return to outer loop to try rest of string
+				}
+			}
+
+			return true;
+
+			strreplaceerror:
+			kernelLog(LogTypeWarning, kstrP("failed during strreplace syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			return false;
+		} break;
+		case ByteCodeSyscallIdPathNormalise: {
+			#define scratchPath procManScratchBufPath0
+
+			// Grab arguments
+			uint16_t pathAddr=procData->regs[1];
+
+			// Read string
+			if (!procManProcessMemoryReadStr(process, procData, pathAddr, scratchPath, KernelFsPathMax))
+				goto pathnormaliseerror;
+
+			// Normalise the path
+			kernelFsPathNormalise(scratchPath);
+
+			// Write back updated string
+			if (!procManProcessMemoryWriteStr(process, procData, pathAddr, scratchPath))
+				goto pathnormaliseerror;
+
+			return true;
+
+			pathnormaliseerror:
+			kernelLog(LogTypeWarning, kstrP("failed during pathnormalise syscall, process %u (%s), killing\n"), procManGetPidFromProcess(process), procManGetExecPathFromProcess(process));
+			return false;
+
+			#undef scratchPath
 		} break;
 		case BytecodeSyscallIdHwDeviceRegister: {
 			// Grab arguments
@@ -3403,6 +3490,62 @@ KernelFsFd procManProcessLoadProgmemFile(ProcManProcess *process, uint8_t *argc,
 	}
 
 	return newProgmemFd;
+}
+
+bool procManProcessMemoryStrlen(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord strAddr, BytecodeWord *len) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+	assert(len!=NULL);
+
+	for(*len=0; 1; ++*len) {
+		uint8_t c;
+		if (!procManProcessMemoryReadByte(process, procData, strAddr, &c))
+			return false;
+		if (c=='\0')
+			break;
+		strAddr++;
+	}
+
+	return true;
+}
+
+bool procManProcessMemmove(ProcManProcess *process, ProcManProcessProcData *procData, BytecodeWord destAddr, BytecodeWord srcAddr, BytecodeWord size) {
+	assert(process!=NULL);
+	assert(procData!=NULL);
+
+	if (destAddr<srcAddr) {
+		uint16_t i=0;
+		while(i<size) {
+			KernelFsFileOffset chunkSize=size-i;
+			if (chunkSize>256)
+				chunkSize=256;
+
+			if (!procManProcessMemoryReadBlock(process, procData, srcAddr+i, (uint8_t *)procManScratchBuf256, chunkSize, true))
+				return false;
+			if (!procManProcessMemoryWriteBlock(process, procData, destAddr+i, (const uint8_t *)procManScratchBuf256, chunkSize))
+				return false;
+
+			i+=chunkSize;
+		}
+	} else {
+		// dest>=src reverse case
+		// note: brackets around (size-chunkSize) are essential due to using unsigned integers
+		uint16_t i=0;
+		while(i<size) {
+			KernelFsFileOffset chunkSize=size-i;
+			if (chunkSize>256)
+				chunkSize=256;
+
+			if (!procManProcessMemoryReadBlock(process, procData, srcAddr+(size-chunkSize)-i, (uint8_t *)procManScratchBuf256, chunkSize, true))
+				return false;
+			if (!procManProcessMemoryWriteBlock(process, procData, destAddr+(size-chunkSize)-i, (const uint8_t *)procManScratchBuf256, chunkSize))
+				return false;
+
+			i+=chunkSize;
+		}
+	}
+
+	return true;
 }
 
 bool procManProcessRead(ProcManProcess *process, ProcManProcessProcData *procData) {

@@ -235,6 +235,7 @@ int kstrStrncmp(const char *a, KStr b, size_t n) {
 			return 0;
 		break;
 	}
+
 	return 0;
 }
 
@@ -256,6 +257,63 @@ int kstrDoubleStrncmp(KStr a, KStr b, size_t n) {
 	}
 
 	return 0;
+}
+
+unsigned kstrMatchLen(const char *a, KStr b) {
+	// If b is of type KStrTypeOffset then resolve down to base string
+	const KStr *bPtr=&b;
+	size_t bOffset=0;
+	while(bPtr->type==KStrTypeOffset) {
+		bOffset+=kstrOffsetGetOffset(*bPtr);
+		bPtr=kstrOffsetGetSrc(*bPtr);
+	}
+
+	// Handle base string
+	switch(bPtr->type) {
+		case KStrTypeNull:
+			return 0;
+		break;
+		case KStrTypeProgmem: {
+			uintptr_t i=0;
+			#ifdef ARDUINO
+			while(1) {
+				uint8_t bByte=pgm_read_byte_far(bPtr->ptr+bOffset+i);
+				if (a[i]=='\0' || a[i]!=bByte)
+					break;
+				++i;
+			}
+			#endif
+			return i;
+		} break;
+		case KStrTypeStatic:
+		case KStrTypeHeap: {
+			unsigned i=0;
+			while (a[i]!='\0' && ((const char *)(uintptr_t)(bPtr->ptr+bOffset))[i]==a[i])
+				++i;
+			return i;
+		} break;
+	}
+
+	return 0;
+}
+
+unsigned kstrDoubleMatchLen(KStr a, KStr b) {
+	// Sanity check
+	if (kstrIsNull(a) || kstrIsNull(b))
+		return 0;
+
+	// Considering the various possible type combinations the simplest method is just to loop comparing bytes
+	uintptr_t i=0;
+	while(1) {
+		uint8_t aByte=kstrGetChar(a, i);
+		uint8_t bByte=kstrGetChar(b, i);
+
+		if (aByte=='\0' || aByte!=bByte)
+			break;
+		++i;
+	}
+
+	return i;
 }
 
 int16_t kstrfprintf(FILE *file, KStr format, ...) {

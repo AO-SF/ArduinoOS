@@ -922,6 +922,65 @@ bool processRunNextInstruction(Process *process) {
 							if (infoSyscalls)
 								printf("Info: syscall(id=%i [strcmp], p1 addr=%u, p2 addr=%u, ret %i\n", syscallId, p1Addr, p2Addr, process->regs[0]);
 						} break;
+						case ByteCodeSyscallIdMemchr: {
+							// TODO: Check arguments better
+							uint16_t dataAddr=process->regs[1];
+							uint16_t c=process->regs[2];
+							uint16_t size=process->regs[3];
+
+							process->regs[0]=0;
+							uint16_t i;
+							for(i=0; i<size; ++i) {
+								if (process->memory[dataAddr+i]==c) {
+									process->regs[0]=dataAddr+i;
+									break;
+								}
+							}
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [memchr], data addr=%u, c=%u, size=%u, result=%u\n", syscallId, dataAddr, c, size, process->regs[0]);
+						} break;
+						case ByteCodeSyscallIdStrreplace: {
+							// TODO: Check arguments better
+							uint16_t haystackAddr=process->regs[1];
+							uint16_t needleAddr=process->regs[2];
+							uint16_t replaceAddr=process->regs[3];
+
+							char *haystack=(char *)(process->memory+haystackAddr);
+							char *needle=(char *)(process->memory+needleAddr);
+							char *replace=(char *)(process->memory+replaceAddr);
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [strreplace (pre)], haystack addr=%u (%s), needle addr=%u (%s), replace addr=%u (%s)\n", syscallId, haystackAddr, haystack, needleAddr, needle, replaceAddr, replace);
+
+							// Set r0 to 0 for now to indicate no changes have been made (we may update this later)
+							process->regs[0]=0;
+
+							// Loop looking for instances of needle to replace
+							// TODO: is the logic here slightly different to version in the kernel? this version will 'repeatedly replace' while the other might advance after replacing?
+							char *foundPos;
+							while((foundPos=strstr(haystack, needle))!=NULL) {
+								// Replace needle
+								strcpy(foundPos, replace);
+
+								// Shift rest string down if needed
+								char *moveSrc=foundPos+strlen(needle);
+								memmove(foundPos+strlen(replace), moveSrc, strlen(moveSrc)+1);
+
+								// Indicate to program we have made a change
+								process->regs[0]=1;
+							}
+
+							// Logging
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [strreplace (post)], haystack addr=%u (%s), r0=%u\n", syscallId, haystackAddr, haystack, process->regs[0]);
+						} break;
+						case ByteCodeSyscallIdPathNormalise: {
+							// TODO: this
+
+							if (infoSyscalls)
+								printf("Info: syscall(id=%i [pathnormalise] (unimplemented)\n", syscallId);
+						} break;
 						case BytecodeSyscallIdHwDeviceRegister: {
 							// Always fail
 							uint16_t id=process->regs[1];

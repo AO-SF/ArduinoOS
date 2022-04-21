@@ -13,6 +13,7 @@ typedef enum {
 	KernelMountFormatPartition3,
 	KernelMountFormatPartition4,
 	KernelMountFormatCircBuf,
+	KernelMountFormatFat,
 } KernelMountFormat;
 
 #define kernelRemountCopyBufferSize 256 // something lower such as 16-64 would suffice, but we have a spare 256 byte buffer in procman so this makes sense for now

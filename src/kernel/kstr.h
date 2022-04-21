@@ -64,6 +64,10 @@ void kstrSetSpare(KStr *str, unsigned spare); // [0, KStrSpareMax-1], which with
 
 char kstrGetChar(KStr str, size_t n); // n must be less than string's length
 
+// These functions provide access to the spare bits in the KStr struct.
+unsigned kstrGetSpare(KStr str);
+void kstrSetSpare(KStr *str, unsigned spare); // [0, KStrSpareMax-1], which with KStrSpareBits=6 this is 63
+
 uint16_t kstrStrlen(KStr kstr);
 
 void kstrStrcpy(char *buf, KStr kstr);
@@ -77,6 +81,10 @@ int kstrDoubleStrcmp(KStr a, KStr b);
 
 int kstrStrncmp(const char *a, KStr b, size_t n);
 int kstrDoubleStrncmp(KStr a, KStr b, size_t n);
+
+// the following functions return the amount of bytes at the start of a and b which match (does not include null terminators)
+unsigned kstrMatchLen(const char *a, KStr b);
+unsigned kstrDoubleMatchLen(KStr a, KStr b);
 
 int16_t kstrfprintf(FILE *file, KStr format, ...);
 int16_t kstrVfprintf(FILE *file, KStr format, va_list ap);

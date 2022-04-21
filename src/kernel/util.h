@@ -1,6 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifndef ARDUINO
@@ -25,6 +26,8 @@
 #define PRIu64 "lu"
 #endif
 #endif
+
+bool isPow2(unsigned x);
 
 // Return the number of leading zeros before the first 1 bit (starting at the MSB)
 int clz8(uint8_t x); // returns 8 if x=0

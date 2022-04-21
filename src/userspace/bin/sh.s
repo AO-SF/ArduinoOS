@@ -7,6 +7,7 @@ requireend lib/std/io/fput.s
 requireend lib/std/proc/exit.s
 requireend lib/std/proc/getabspath.s
 requireend lib/std/proc/getpwd.s
+requireend lib/std/proc/pathnormalise.s
 requireend lib/std/proc/openpath.s
 requireend lib/std/proc/runpath.s
 requireend lib/std/proc/thread.s
@@ -383,6 +384,9 @@ mov r0 absBuf
 mov r1 inputBuf
 inc3 r1
 call getabspath
+
+mov r0 absBuf
+call pathnormalise
 
 ; Ensure path is a directory
 label shellCdIsDir
