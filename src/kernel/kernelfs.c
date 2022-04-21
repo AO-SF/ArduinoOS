@@ -1003,10 +1003,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 		assert(device!=kernelFsGetDeviceFromPathKStr(kernelFsData.fdt[fd].path));
 
 		// This fd is a child of the device cached in the fdt
-		char *dirname, *basename;
-		kernelFsPathSplitStaticKStr(kernelFsGetFilePath(fd), &dirname, &basename);
-
-		assert(device==kernelFsGetDeviceFromPath(dirname));
+		KStr subPath=kstrO(&kernelFsData.fdt[fd].path, kstrStrlen(device->common.mountPoint)+1); // +1 to skip '/' also
 
 		switch(device->common.type) {
 			case KernelFsDeviceTypeBlock:
@@ -1018,7 +1015,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 							dataLen=UINT16_MAX;
 						MiniFs miniFs;
 						miniFsMountFast(&miniFs, &kernelFsDeviceMiniFsReadWrapper, (device->common.writable ? &kernelFsDeviceMiniFsWriteWrapper : NULL), device);
-						uint16_t read=miniFsFileRead(&miniFs, basename, offset, data, dataLen);
+						uint16_t read=miniFsFileReadKStr(&miniFs, subPath, offset, data, dataLen);
 						miniFsUnmount(&miniFs);
 						return read;
 					} break;
@@ -1030,7 +1027,7 @@ KernelFsFileOffset kernelFsFileReadOffset(KernelFsFd fd, KernelFsFileOffset offs
 						Fat fat;
 						if (!fatMountFast(&fat, &kernelFsFatReadWrapper, (device->common.writable ? &kernelFsFatWriteWrapper : NULL), device))
 							return 0;
-						uint16_t read=fatFileRead(&fat, basename, offset, data, dataLen);
+						uint16_t read=fatFileRead(&fat, subPath, offset, data, dataLen);
 						fatUnmount(&fat);
 
 						return read;

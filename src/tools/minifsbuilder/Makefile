@@ -2,7 +2,7 @@ CPP = clang
 CFLAGS = -std=gnu11 -Wall -O0 -ggdb3 -I../../kernel
 LFLAGS = -lm
 
-OBJS = minifsbuilder.o minifsextra.o ../../kernel/minifs.o
+OBJS = minifsbuilder.o minifsextra.o ../../kernel/kstr.o ../../kernel/minifs.o
 
 ALL: $(OBJS)
 	$(CPP) $(CFLAGS) $(OBJS) -o ../../../bin/aosf-minifsbuilder $(LFLAGS)

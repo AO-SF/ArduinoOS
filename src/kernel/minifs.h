@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "kstr.h"
+
 #define MINIFSFACTOR 128u // 1<=factor<=256, increasing allows for a greater total volume size, but wastes more space padding small files (so their length is a multiple of the factor)
 #define MINIFSMINSIZE 128u // lcm(factor, 2headersize)=lcm(128,2*64)=128
 #define MINIFSMAXSIZE (MINIFSFACTOR*256) // we use an 8 bit value with a factor to represent the total size (with factor=128 this allows up to 32kb)
@@ -56,6 +58,7 @@ bool miniFsFileDelete(MiniFs *fs, const char *filename);
 bool miniFsFileResize(MiniFs *fs, const char *filename, uint16_t newSize);
 
 uint16_t miniFsFileRead(const MiniFs *fs, const char *filename, uint16_t offset, uint8_t *data, uint16_t len); // Returns number of bytes read
+uint16_t miniFsFileReadKStr(const MiniFs *fs, KStr filename, uint16_t offset, uint8_t *data, uint16_t len); // Returns number of bytes read
 uint16_t miniFsFileWrite(MiniFs *fs, const char *filename, uint16_t offset, const uint8_t *data, uint16_t len);
 
 #endif

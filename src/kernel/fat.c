@@ -379,10 +379,10 @@ bool fatFileExists(const Fat *fs, const char *path) {
 	return (dirEntryOffset!=0);
 }
 
-uint16_t fatFileRead(const Fat *fs, const char *path, uint32_t readOffset, uint8_t *data, uint16_t len) {
-	assert(path!=NULL);
+uint16_t fatFileRead(const Fat *fs, KStr path, uint32_t readOffset, uint8_t *data, uint16_t len) {
+	assert(!kstrIsNull(path));
 
-	unsigned dirEntryOffset=fatGetFileDirEntryOffsetFromPath(fs, path);
+	unsigned dirEntryOffset=fatGetFileDirEntryOffsetFromPathKStr(fs, path);
 	if (dirEntryOffset==0)
 		return 0;
 	return fatFileReadFromDirEntryOffset(fs, dirEntryOffset, readOffset, data, len);
