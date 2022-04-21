@@ -82,6 +82,7 @@ bool kernelFsFileCanOpenMany(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPath(const char *path);
 KernelFsDevice *kernelFsGetDeviceFromPathKStr(KStr path);
 KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path, char **subPath); // if a device is found and subPath is non-NULL, then *subPath is set to point into path after the device's mount point
+KernelFsDevice *kernelFsGetDeviceFromPathRecursiveKStr(KStr path, KStr *subPath); // if a device is found and subPath is non-NULL, then *subPath is set to point into path after the device's mount point
 KernelFsDeviceIndex kernelFsGetDeviceIndexFromDevice(const KernelFsDevice *device);
 
 KernelFsDevice *kernelFsAddDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor, void *userData, KernelFsDeviceType type, bool writable);
@@ -299,60 +300,7 @@ void *kernelFsDeviceFileGetUserData(const char *mountPoint) {
 bool kernelFsFileExists(const char *path) {
 	assert(path!=NULL);
 
-	// Check for virtual device path
-	if (kernelFsPathIsDevice(path))
-		return true;
-
-	// Find dirname and basename
-	char *dirname, *basename;
-	kernelFsPathSplitStatic(path, &dirname, &basename);
-
-	// Check for node at dirname
-	KernelFsDevice *device=kernelFsGetDeviceFromPath(dirname);
-	if (device!=NULL) {
-		switch(device->common.type) {
-			case KernelFsDeviceTypeBlock:
-				switch(device->block.format) {
-					case KernelFsBlockDeviceFormatCustomMiniFs: {
-						MiniFs miniFs;
-						miniFsMountFast(&miniFs, &kernelFsDeviceMiniFsReadWrapper, (device->common.writable ? &kernelFsDeviceMiniFsWriteWrapper : NULL), device);
-						bool res=miniFsFileExists(&miniFs, basename);
-						miniFsUnmount(&miniFs);
-						return res;
-					} break;
-					case KernelFsBlockDeviceFormatFlatFile:
-						// These are not directories
-						return false;
-					break;
-					case KernelFsBlockDeviceFormatFat: {
-						Fat fat;
-						if (!fatMountFast(&fat, &kernelFsFatReadWrapper, (device->common.writable ? &kernelFsFatWriteWrapper : NULL), device))
-							return false;
-						bool res=fatFileExists(&fat, basename);
-						fatUnmount(&fat);
-
-						return res;
-					} break;
-					case KernelFsBlockDeviceFormatNB:
-						assert(false);
-					break;
-				}
-			break;
-			case KernelFsDeviceTypeCharacter:
-				// Not used as directories
-			break;
-			case KernelFsDeviceTypeDirectory:
-				// We have already checked for an explicit device above, so no more children
-				return false;
-			break;
-			case KernelFsDeviceTypeNB:
-				assert(false);
-			break;
-		}
-	}
-
-	// No suitable node found
-	return false;
+	return kernelFsFileExistsKStr(kstrS((char *)path));
 }
 
 bool kernelFsFileExistsKStr(KStr path) {
@@ -378,16 +326,20 @@ bool kernelFsFileExistsKStr(KStr path) {
 						bool res=miniFsFileExists(&miniFs, basename);
 						miniFsUnmount(&miniFs);
 						return res;
-					}
-					break;
+					} break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
 						return false;
 					break;
-					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
-						return false;
-					break;
+					case KernelFsBlockDeviceFormatFat: {
+						Fat fat;
+						if (!fatMountFast(&fat, &kernelFsFatReadWrapper, (device->common.writable ? &kernelFsFatWriteWrapper : NULL), device))
+							return false;
+						bool res=fatFileExists(&fat, kstrS((char *)basename));
+						fatUnmount(&fat);
+
+						return res;
+					} break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
 					break;
@@ -530,7 +482,7 @@ KernelFsFileOffset kernelFsFileGetLen(const char *path) {
 						return 0;
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
+						// TODO: this for Fat file system support
 						return 0;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -1676,6 +1628,51 @@ KernelFsDevice *kernelFsGetDeviceFromPathRecursive(const char *path, char **subP
 		*subPath=((char *)path)+kstrStrlen(bestDevice->common.mountPoint);
 		if ((*subPath)[0]=='/')
 			++*subPath;
+	}
+
+	return bestDevice;
+}
+
+KernelFsDevice *kernelFsGetDeviceFromPathRecursiveKStr(KStr path, KStr *subPath) {
+	assert(!kstrIsNull(path));
+
+	// Loop over devices looking for nearest parent/exact match for given path.
+	unsigned pathLen=kstrStrlen(path);
+
+	unsigned bestMatchLen=0;
+	KernelFsDevice *bestDevice=NULL;
+
+	for(KernelFsDeviceIndex i=0; i<KernelFsDevicesMax; ++i) {
+		KernelFsDevice *device=&kernelFsData.devices[i];
+
+		// Skip unused device entries
+		if (device->common.type==KernelFsDeviceTypeNB)
+			continue;
+
+		// Check if we have a new best device
+		unsigned matchLen=kstrDoubleMatchLen(path, device->common.mountPoint);
+		if (matchLen>bestMatchLen) {
+			unsigned deviceMountPointLen=kstrStrlen(device->common.mountPoint);
+
+			// Check if this device is a child of the file in the path (rather than the file's parent device)
+			if (pathLen<deviceMountPointLen)
+				continue;
+
+			// Update best
+			bestMatchLen=matchLen;
+			bestDevice=device;
+
+			// Exact match?
+			if (pathLen==deviceMountPointLen)
+				break;
+		}
+	}
+
+	if (subPath!=NULL) {
+		unsigned offset=kstrStrlen(bestDevice->common.mountPoint);
+		if (kstrGetChar(path, offset)=='/')
+			++offset;
+		*subPath=kstrO(&path, offset);
 	}
 
 	return bestDevice;

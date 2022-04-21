@@ -372,10 +372,10 @@ bool fatDirGetChildN(const Fat *fs, KStr path, unsigned childNum, char childPath
 	return false;
 }
 
-bool fatFileExists(const Fat *fs, const char *path) {
-	assert(path!=NULL);
+bool fatFileExists(const Fat *fs, KStr path) {
+	assert(!kstrIsNull(path));
 
-	unsigned dirEntryOffset=fatGetFileDirEntryOffsetFromPath(fs, path);
+	unsigned dirEntryOffset=fatGetFileDirEntryOffsetFromPathKStr(fs, path);
 	return (dirEntryOffset!=0);
 }
 
