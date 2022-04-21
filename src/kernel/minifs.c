@@ -195,6 +195,10 @@ bool miniFsFileExists(const MiniFs *fs, const char *filename) {
 	return (miniFsFilenameToIndex(fs, filename, NULL)!=MINIFSMAXFILES);
 }
 
+bool miniFsFileExistsKStr(const MiniFs *fs, KStr filename) {
+	return (miniFsFilenameToIndexKStr(fs, filename, NULL)!=MINIFSMAXFILES);
+}
+
 uint16_t miniFsFileGetLen(const MiniFs *fs, const char *filename) {
 	// This is the length used by content, not the total len
 	uint16_t baseOffset;
