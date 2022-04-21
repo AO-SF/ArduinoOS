@@ -319,8 +319,7 @@ bool kernelFsFileExists(const char *path) {
 						bool res=miniFsFileExists(&miniFs, basename);
 						miniFsUnmount(&miniFs);
 						return res;
-					}
-					break;
+					} break;
 					case KernelFsBlockDeviceFormatFlatFile:
 						// These are not directories
 						return false;
@@ -489,7 +488,7 @@ KernelFsFileOffset kernelFsFileGetLen(const char *path) {
 						return device->block.size;
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
+						// These act as directories at the top level (we check below for child)
 						return 0;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -592,7 +591,7 @@ bool kernelFsFileCreateWithSize(const char *path, KernelFsFileOffset size) {
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
+						// TODO: this for FAT file system support
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -642,7 +641,7 @@ bool kernelFsFileDelete(const char *path) {
 						// Nothing special to do
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
+						// TODO: this for FAT file system support
 					break;
 					case KernelFsBlockDeviceFormatNB:
 						assert(false);
@@ -686,7 +685,7 @@ bool kernelFsFileDelete(const char *path) {
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
+						// TODO: this for FAT file system support
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -775,7 +774,7 @@ bool kernelFsFileResize(const char *path, KernelFsFileOffset newSize) {
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
+						// TODO: this for FAT file system support
 						return false;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -1152,7 +1151,7 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 						return kernelFsDeviceInvokeFunctorBlockWrite(device, data, dataLen, offset);
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
+						// TODO: this for FAT file system support
 						return 0;
 					break;
 					case KernelFsBlockDeviceFormatNB:
@@ -1205,7 +1204,7 @@ KernelFsFileOffset kernelFsFileWriteOffset(KernelFsFd fd, KernelFsFileOffset off
 						return 0;
 					break;
 					case KernelFsBlockDeviceFormatFat:
-						// TODO: this for Fat file system support .....
+						// TODO: this for FAT file system support
 						return 0;
 					break;
 					case KernelFsBlockDeviceFormatNB:
