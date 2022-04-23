@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "blockdevice/api.h"
 #include "kstr.h"
 
 // Define file offset/length type.
@@ -12,14 +13,15 @@
 // sd card at /dev/sd if mounted at /media/sd.
 // From user space reading /dev/sd would be limited to first 64kb, but using mount
 // all files in /media/sd could be read up to 64kb.
-typedef uint32_t KernelFsFileOffset;
-#define KernelFsFileOffsetMax INT32_MAX
+// See blockdevice/api.h for some of the values.
+typedef BlockDeviceFileOffset KernelFsFileOffset;
+#define KernelFsFileOffsetMax BlockDeviceFileOffsetMax
 
 typedef uint8_t KernelFsFd; // file-descriptor
 #define KernelFsFdInvalid 0
 #define KernelFsFdMax 64
 
-#define KernelFsPathMax 64
+#define KernelFsPathMax BlockDevicePathMax
 
 typedef uint8_t KernelFsFdMode;
 #define KernelFsFdModeNone 0
@@ -35,15 +37,6 @@ typedef uint8_t KernelFsBlockDeviceFormat;
 #define KernelFsBlockDeviceFormatFat 2
 #define KernelFsBlockDeviceFormatNB 3
 #define KernelFsBlockDeviceFormatBits 2
-
-/*
-..... still needed?
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-typedef KernelFsFileOffset (KernelFsBlockDeviceReadFunctor)(KernelFsFileOffset addr, uint8_t *data, KernelFsFileOffset len, void *userData);
-typedef KernelFsFileOffset (KernelFsBlockDeviceWriteFunctor)(KernelFsFileOffset addr, const uint8_t *data, KernelFsFileOffset len, void *userData);
-
-*/
 
 // The enum and single 'generic' functor below are used as a way to provide and store multiple functors while only needing enough RAM for a single function pointer.
 // Note that not all arguments are used in each case, and the return value is not always a uint32_t - see individual prototypes in enum commments for nore details.
