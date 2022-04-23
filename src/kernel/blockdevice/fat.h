@@ -3,7 +3,7 @@
 
 #include "api.h"
 
-BlockDeviceReturnType blockDeviceFatMount(void *fs);
+BlockDeviceReturnType blockDeviceFatMount(void *fs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData);
 BlockDeviceReturnType blockDeviceFatUnmount(void *fs);
 BlockDeviceReturnType blockDeviceFatVerify(const void *fs);
 

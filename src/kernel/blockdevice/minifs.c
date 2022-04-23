@@ -1,6 +1,6 @@
 #include "minifs.h"
 
-BlockDeviceReturnType blockDeviceMiniFsMount(void *fs) {
+BlockDeviceReturnType blockDeviceMiniFsMount(void *fs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData) {
 	return BlockDeviceReturnTypeReadError; // TODO: this
 }
 

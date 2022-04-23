@@ -17,7 +17,10 @@ typedef enum {
 	BlockDeviceReturnTypeFileDoesNotExist,
 } BlockDeviceReturnType;
 
-typedef BlockDeviceReturnType (BlockDeviceMount)(void *fs);
+typedef uint32_t (BlockDeviceReadFunctor)(uint32_t addr, uint8_t *data, uint16_t len, void *userData);
+typedef uint32_t (BlockDeviceWriteFunctor)(uint32_t addr, const uint8_t *data, uint16_t len, void *userData);
+
+typedef BlockDeviceReturnType (BlockDeviceMount)(void *fs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData);
 typedef BlockDeviceReturnType (BlockDeviceUnmount)(void *fs);
 typedef BlockDeviceReturnType (BlockDeviceVerify)(const void *fs);
 

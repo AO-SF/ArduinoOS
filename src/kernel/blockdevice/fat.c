@@ -1,7 +1,7 @@
 #include "fat.h"
 
-BlockDeviceReturnType blockDeviceFatMount(void *fs) {
 	return BlockDeviceReturnTypeReadError; // TODO: this
+BlockDeviceReturnType blockDeviceFatMount(void *gfs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData) {
 }
 
 BlockDeviceReturnType blockDeviceFatUnmount(void *fs) {

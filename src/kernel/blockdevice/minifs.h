@@ -3,7 +3,7 @@
 
 #include "api.h"
 
-BlockDeviceReturnType blockDeviceMiniFsMount(void *fs);
+BlockDeviceReturnType blockDeviceMiniFsMount(void *fs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData);
 BlockDeviceReturnType blockDeviceMiniFsUnmount(void *fs);
 BlockDeviceReturnType blockDeviceMiniFsVerify(const void *fs);
 
