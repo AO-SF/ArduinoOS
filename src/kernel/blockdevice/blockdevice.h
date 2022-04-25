@@ -3,6 +3,7 @@
 
 #include "api.h"
 #include "fat.h"
+#include "flatfile.h"
 #include "minifs.h"
 
 #endif
