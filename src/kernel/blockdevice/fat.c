@@ -83,6 +83,20 @@ bool blockDeviceFatReadBpbResvdSecCnt(const Fat *fs, uint16_t *value);
 bool blockDeviceFatReadBpbNumFats(const Fat *fs, uint8_t *value);
 bool blockDeviceFatReadBpbSecPerClus(const Fat *fs, uint8_t *value);
 
+uint16_t blockDeviceFatGetBytesPerSector(const Fat *fs);
+FatType blockDeviceFatGetFatType(const Fat *fs);
+uint16_t blockDeviceFatGetFatSector(const Fat *fs);
+uint32_t blockDeviceFatGetFatOffset(const Fat *fs);
+uint16_t blockDeviceFatGetRootDirSector(const Fat *fs);
+uint32_t blockDeviceFatGetRootDirOffset(const Fat *fs);
+uint8_t blockDeviceFatGetSectorsPerCluster(const Fat *fs);
+uint32_t blockDeviceFatGetFirstSectorForCluster(const Fat *fs, uint16_t cluster);
+uint32_t blockDeviceFatGetOffsetForCluster(const Fat *fs, uint16_t cluster);
+uint16_t blockDeviceFatGetClusterSize(const Fat *fs); // size of clusters in bytes
+
+const char *blockDeviceFatTypeToString(FatType type);
+const char *blockDeviceFatClusterTypeToString(FatClusterType type);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -235,4 +249,69 @@ bool blockDeviceFatReadBpbNumFats(const Fat *fs, uint8_t *value) {
 
 bool blockDeviceFatReadBpbSecPerClus(const Fat *fs, uint8_t *value) {
 	return blockDeviceFatRead8(fs, 13, value);
+}
+
+uint16_t blockDeviceFatGetBytesPerSector(const Fat *fs) {
+	return fs->bytesPerSector;
+}
+
+FatType blockDeviceFatGetFatType(const Fat *fs) {
+	return fs->type;
+}
+
+uint16_t blockDeviceFatGetFatSector(const Fat *fs) {
+	return fs->fatSector;
+}
+
+uint32_t blockDeviceFatGetFatOffset(const Fat *fs) {
+	return blockDeviceFatGetFatSector(fs)*blockDeviceFatGetBytesPerSector(fs);
+}
+
+uint16_t blockDeviceFatGetRootDirSector(const Fat *fs) {
+	return fs->rootDirSector;
+}
+
+uint32_t blockDeviceFatGetRootDirOffset(const Fat *fs) {
+	return blockDeviceFatGetRootDirSector(fs)*blockDeviceFatGetBytesPerSector(fs);
+}
+
+uint16_t blockDeviceFatGetFirstDataSector(const Fat *fs) {
+	return fs->firstDataSector;
+}
+
+uint8_t blockDeviceFatGetSectorsPerCluster(const Fat *fs) {
+	return fs->sectorsPerCluster;
+}
+
+uint32_t blockDeviceFatGetFirstSectorForCluster(const Fat *fs, uint16_t cluster) {
+	return (((uint32_t)(cluster-2))*blockDeviceFatGetSectorsPerCluster(fs))+blockDeviceFatGetFirstDataSector(fs);
+}
+
+uint32_t blockDeviceFatGetOffsetForCluster(const Fat *fs, uint16_t cluster) {
+	return blockDeviceFatGetFirstSectorForCluster(fs, cluster)*blockDeviceFatGetBytesPerSector(fs);
+}
+
+uint16_t blockDeviceFatGetClusterSize(const Fat *fs) {
+	return blockDeviceFatGetSectorsPerCluster(fs)*blockDeviceFatGetBytesPerSector(fs);
+}
+
+static const char *blockDeviceFatTypeToStringArray[]={
+	[FatTypeFAT12]="FAT12",
+	[FatTypeFAT16]="FAT16",
+	[FatTypeFAT32]="FAT32",
+	[FatTypeExFAT]="exFAT",
+};
+const char *blockDeviceFatTypeToString(FatType type) {
+	return blockDeviceFatTypeToStringArray[type];
+}
+
+static const char *blockDeviceFatClusterTypeToStringArray[]={
+	[FatClusterTypeError]="Error",
+	[FatClusterTypeFree]="Free",
+	[FatClusterTypeData]="Data",
+	[FatClusterTypeReserved]="Reserved",
+	[FatClusterTypeEndOfChain]="EndOfChain",
+};
+const char *blockDeviceFatClusterTypeToString(FatClusterType type) {
+	return blockDeviceFatClusterTypeToStringArray[type];
 }
