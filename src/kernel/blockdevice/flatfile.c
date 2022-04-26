@@ -28,11 +28,11 @@ BlockDeviceReturnType blockDeviceFlatFileDirGetChildN(const void *fs, KStr path,
 	return BlockDeviceReturnTypeUnsupported;
 }
 
-BlockDeviceReturnType blockDeviceFlatFileDirGetChildCount(const void *fs, KStr path, uint16_t *count) {
+BlockDeviceReturnType blockDeviceFlatFileDirGetChildCount(const void *fs, KStr path) {
 	return BlockDeviceReturnTypeUnsupported;
 }
 
-BlockDeviceReturnType blockDeviceFlatFileDirIsEmpty(const void *fs, KStr path, bool *isEmpty) {
+BlockDeviceReturnType blockDeviceFlatFileDirIsEmpty(const void *fs, KStr path) {
 	return BlockDeviceReturnTypeUnsupported;
 }
 
@@ -40,14 +40,13 @@ BlockDeviceReturnType blockDeviceFlatFileDirCreate(void *fs, KStr path) {
 	return BlockDeviceReturnTypeUnsupported;
 }
 
-BlockDeviceReturnType blockDeviceFlatFileFileExists(const void *fs, KStr path, bool *exists) {
+BlockDeviceReturnType blockDeviceFlatFileFileExists(const void *fs, KStr path) {
 	// Flatfile format is simply a single file with no sub-files or directories
-	*exists=(kstrStrcmp("/", path)==0);
-	return BlockDeviceReturnTypeSuccess;
+	return (kstrStrcmp("/", path)==0);
 }
 
-BlockDeviceReturnType blockDeviceFlatFileFileGetLen(const void *fs, KStr path, uint32_t *size) {
-	return BlockDeviceReturnTypeReadError; // TODO: this
+BlockDeviceReturnType blockDeviceFlatFileFileGetLen(const void *fs, KStr path) {
+	return BlockDeviceReturnTypeUnsupported;
 }
 
 BlockDeviceReturnType blockDeviceFlatFileFileResize(void *fs, KStr path, uint32_t newSize) {
@@ -64,7 +63,7 @@ BlockDeviceReturnType blockDeviceFlatFileFileDelete(void *fs, KStr path) {
 	return BlockDeviceReturnTypeUnsupported;
 }
 
-BlockDeviceReturnType blockDeviceFlatFileFileRead(const void *gfs, KStr path, uint32_t offset, uint8_t *data, uint16_t len, uint16_t *count) {
+BlockDeviceReturnType blockDeviceFlatFileFileRead(const void *gfs, KStr path, uint32_t offset, uint8_t *data, uint16_t len) {
 	const FlatFile *fs=(const FlatFile *)gfs;
 
 	// Flatfile format is simply a single file with no sub-files or directories
@@ -72,12 +71,10 @@ BlockDeviceReturnType blockDeviceFlatFileFileRead(const void *gfs, KStr path, ui
 		return BlockDeviceReturnTypeFileDoesNotExist;
 
 	// Simply read data from base file
-	*count=fs->readFunctor(offset, data, len, fs->userData);
-
-	return BlockDeviceReturnTypeSuccess;
+	return fs->readFunctor(offset, data, len, fs->userData);
 }
 
-BlockDeviceReturnType blockDeviceFlatFileFileWrite(void *gfs, KStr path, uint32_t offset, const uint8_t *data, uint16_t len, uint16_t *count) {
+BlockDeviceReturnType blockDeviceFlatFileFileWrite(void *gfs, KStr path, uint32_t offset, const uint8_t *data, uint16_t len) {
 	FlatFile *fs=(FlatFile *)gfs;
 
 	// Flatfile format is simply a single file with no sub-files or directories
@@ -85,7 +82,5 @@ BlockDeviceReturnType blockDeviceFlatFileFileWrite(void *gfs, KStr path, uint32_
 		return BlockDeviceReturnTypeFileDoesNotExist;
 
 	// Simply write data to base file
-	*count=fs->writeFunctor(offset, data, len, fs->userData);
-
-	return BlockDeviceReturnTypeSuccess;
+	return fs->writeFunctor(offset, data, len, fs->userData);
 }
