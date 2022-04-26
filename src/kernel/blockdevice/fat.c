@@ -101,16 +101,95 @@ const char *blockDeviceFatClusterTypeToString(FatClusterType type);
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-	return BlockDeviceReturnTypeReadError; // TODO: this
 BlockDeviceReturnType blockDeviceFatMount(void *gfs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData) {
+	Fat *fs=(Fat *)gfs;
+
+	// Set Fat struct fields
+	fs->readFunctor=readFunctor;
+	fs->writeFunctor=writeFunctor;
+	fs->userData=userData;
+
+	// Read file system info
+	fs->bytesPerSector=0;
+	fs->sectorsPerCluster=0;
+	uint16_t bpbRootEntCnt=0, bpbResvdSecCnt=0;
+	uint32_t bpbFatSz=0, bpbTotSec=0;
+	uint8_t bpbNumFats=0;
+
+	bool error=false;
+	error|=!blockDeviceFatReadBpbBytsPerSec(fs, &fs->bytesPerSector);
+	error|=!blockDeviceFatReadBpbRootEntCnt(fs, &bpbRootEntCnt);
+	error|=!blockDeviceFatReadBpbFatSz(fs, &bpbFatSz);
+	error|=!blockDeviceFatReadBpbTotSec(fs, &bpbTotSec);
+	error|=!blockDeviceFatReadBpbResvdSecCnt(fs, &bpbResvdSecCnt);
+	error|=!blockDeviceFatReadBpbNumFats(fs, &bpbNumFats);
+	error|=!blockDeviceFatReadBpbSecPerClus(fs, &fs->sectorsPerCluster);
+
+	if (error) {
+		kernelLog(LogTypeWarning, kstrP("fatMount: could not read BPB\n"));
+		return BlockDeviceReturnTypeReadError;
+	}
+
+	// Calculate further info
+	uint16_t rootDirSizeSectors=((bpbRootEntCnt*32)+(fs->bytesPerSector-1))/fs->bytesPerSector; // size of root directory in sectors (actually 0 if FAT32)
+	uint32_t dataSectors=bpbTotSec-(bpbResvdSecCnt+(bpbNumFats*bpbFatSz)+rootDirSizeSectors);
+	uint32_t totalClusters=dataSectors/fs->sectorsPerCluster;
+
+	fs->fatSector=bpbResvdSecCnt;
+	fs->rootDirSector=bpbResvdSecCnt+bpbNumFats*bpbFatSz; // TODO: this is wrong if FAT32 - need to read from extended bpb thing, want to make a fat32 volume to test with first
+
+	fs->type=FatTypeFAT32;
+	if (fs->bytesPerSector==0)
+		fs->type=FatTypeExFAT;
+	else if(totalClusters<4085)
+		fs->type=FatTypeFAT12;
+	else if(totalClusters<65525)
+		fs->type=FatTypeFAT16;
+
+	fs->firstDataSector=fs->rootDirSector+rootDirSizeSectors; // TODO: this could be different for FAT32 (or perhaps works anyway because rootDirSizeSectors is 0?)
+
+	return BlockDeviceReturnTypeSuccess;
 }
 
 BlockDeviceReturnType blockDeviceFatUnmount(void *fs) {
-	return BlockDeviceReturnTypeReadError; // TODO: this
+	return BlockDeviceReturnTypeSuccess;
 }
 
-BlockDeviceReturnType blockDeviceFatVerify(const void *fs) {
-	return BlockDeviceReturnTypeReadError; // TODO: this
+BlockDeviceReturnType blockDeviceFatVerify(const void *gfs) {
+	Fat *fs=(Fat *)gfs;
+
+	// Verify two magic bytes at end of first block
+	uint8_t byte;
+	if (blockDeviceFatRead(fs, 510, &byte, 1)!=1) {
+		kernelLog(LogTypeWarning, kstrP("fatMount: could not read first magic byte at addr 510\n"));
+		return BlockDeviceReturnTypeCorruptVolume;
+	}
+	if (byte!=0x55) {
+		kernelLog(LogTypeWarning, kstrP("fatMount: bad first magic byte value 0x%02X at addr 510 (expecting 0x%02X)\n"), byte, 0x55);
+		return BlockDeviceReturnTypeCorruptVolume;
+	}
+	if (blockDeviceFatRead(fs, 511, &byte, 1)!=1) {
+		kernelLog(LogTypeWarning, kstrP("fatMount: could not read second magic byte at addr 511\n"));
+		return BlockDeviceReturnTypeCorruptVolume;
+	}
+	if (byte!=0xAA) {
+		kernelLog(LogTypeWarning, kstrP("fatMount: bad second magic byte value 0x%02X at addr 511 (expecting 0x%02X)\n"), byte, 0xAA);
+		return BlockDeviceReturnTypeCorruptVolume;
+	}
+
+	// Check file system type
+	switch(blockDeviceFatGetFatType(fs)) {
+		case FatTypeFAT12:
+		case FatTypeFAT16:
+		case FatTypeFAT32:
+		break;
+		case FatTypeExFAT:
+			kernelLog(LogTypeWarning, kstrP("fatMount: unsupported type: %s\n"), blockDeviceFatTypeToString(blockDeviceFatGetFatType(fs)));
+			return BlockDeviceReturnTypeUnsupported;
+		break;
+	}
+
+	return BlockDeviceReturnTypeSuccess;
 }
 
 BlockDeviceReturnType blockDeviceFatDirGetChildN(const void *fs, KStr path, uint16_t childNum, char childPath[BlockDevicePathMax]) {
