@@ -14,6 +14,8 @@ typedef uint32_t BlockDeviceFileOffset;
 typedef enum {
 	BlockDeviceReturnTypeSuccess, // operation performed successfully
 	BlockDeviceReturnTypeReadError, // could not read from base file
+	BlockDeviceReturnTypeCorruptVolume, // inconsistent file system
+	BlockDeviceReturnTypeUnsupported, // unsupppored operation/format/option etc
 	BlockDeviceReturnTypeFileDoesNotExist,
 } BlockDeviceReturnType;
 
