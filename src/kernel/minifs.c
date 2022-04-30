@@ -110,7 +110,7 @@ bool miniFsFormat(MiniFsWriteFunctor *writeFunctor, void *functorUserData, uint1
 }
 
 bool miniFsMountFast(MiniFs *fs, MiniFsReadFunctor *readFunctor, MiniFsWriteFunctor *writeFunctor, void *functorUserData) {
-	// Simply copy IO functors and clear open bitset
+	// Simply copy IO functors
 	fs->readFunctor=readFunctor;
 	fs->writeFunctor=writeFunctor;
 	fs->functorUserData=functorUserData;
