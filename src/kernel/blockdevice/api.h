@@ -19,8 +19,8 @@ typedef uint32_t BlockDeviceReturnType;
 #define BlockDeviceReturnTypeSuccess ((uint32_t)((int32_t)-5)) // operation performed successfully
 #define blockDeviceReturnTypeIsSuccess(r) ((r)<=BlockDeviceReturnTypeSuccess)
 
-typedef uint32_t (BlockDeviceReadFunctor)(uint32_t addr, uint8_t *data, uint16_t len, void *userData);
-typedef uint32_t (BlockDeviceWriteFunctor)(uint32_t addr, const uint8_t *data, uint16_t len, void *userData);
+typedef uint16_t (BlockDeviceReadFunctor)(uint32_t addr, uint8_t *data, uint16_t len, void *userData);
+typedef uint16_t (BlockDeviceWriteFunctor)(uint32_t addr, const uint8_t *data, uint16_t len, void *userData);
 
 // Returns the size needed for the fs instance each function uses
 typedef uint16_t (BlockDeviceStructSize)(void);

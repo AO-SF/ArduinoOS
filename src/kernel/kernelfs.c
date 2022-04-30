@@ -163,8 +163,8 @@ uint32_t kernelFsFatReadWrapper(uint32_t addr, uint8_t *data, uint32_t len, void
 uint32_t kernelFsFatWriteWrapper(uint32_t addr, const uint8_t *data, uint32_t len, void *userData);
 
 // Block device IO functors
-uint32_t kernelFsBlockDeviceReadWrapper(uint32_t addr, uint8_t *data, uint16_t len, void *userData);
-uint32_t kernelFsBlockDeviceWriteWrapper(uint32_t addr, const uint8_t *data, uint16_t len, void *userData);
+uint16_t kernelFsBlockDeviceReadWrapper(uint32_t addr, uint8_t *data, uint16_t len, void *userData);
+uint16_t kernelFsBlockDeviceWriteWrapper(uint32_t addr, const uint8_t *data, uint16_t len, void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -2015,7 +2015,7 @@ uint32_t kernelFsFatWriteWrapper(uint32_t addr, const uint8_t *data, uint32_t le
 	return kernelFsDeviceInvokeFunctorBlockWrite(device, data, len, addr);
 }
 
-uint32_t kernelFsBlockDeviceReadWrapper(uint32_t addr, uint8_t *data, uint16_t len, void *userData) {
+uint16_t kernelFsBlockDeviceReadWrapper(uint32_t addr, uint8_t *data, uint16_t len, void *userData) {
 	assert(userData!=NULL);
 
 	KernelFsDevice *device=(KernelFsDevice *)userData;
@@ -2024,7 +2024,7 @@ uint32_t kernelFsBlockDeviceReadWrapper(uint32_t addr, uint8_t *data, uint16_t l
 	return kernelFsDeviceInvokeFunctorBlockRead(device, data, len, addr);
 }
 
-uint32_t kernelFsBlockDeviceWriteWrapper(uint32_t addr, const uint8_t *data, uint16_t len, void *userData) {
+uint16_t kernelFsBlockDeviceWriteWrapper(uint32_t addr, const uint8_t *data, uint16_t len, void *userData) {
 	assert(userData!=NULL);
 
 	KernelFsDevice *device=(KernelFsDevice *)userData;
