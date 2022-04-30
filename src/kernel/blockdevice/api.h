@@ -12,10 +12,10 @@ typedef uint32_t BlockDeviceFileOffset;
 #define BlockDevicePathMax 64
 
 typedef uint32_t BlockDeviceReturnType;
-#define BlockDeviceReturnTypeIOError ((uint32_t)((int32_t)-1)) // could not read from base file
+#define BlockDeviceReturnTypeIOError ((uint32_t)((int32_t)-1)) // could not read/write base file/disk
 #define BlockDeviceReturnTypeCorruptVolume ((uint32_t)((int32_t)-2)) // inconsistent file system
-#define BlockDeviceReturnTypeUnsupported ((uint32_t)((int32_t)-3)) // unsupppored operation/format/option etc
-#define BlockDeviceReturnTypeFileDoesNotExist ((uint32_t)((int32_t)-4))
+#define BlockDeviceReturnTypeUnsupported ((uint32_t)((int32_t)-3)) // unsuppported operation/format/option etc
+#define BlockDeviceReturnTypeFileDoesNotExist ((uint32_t)((int32_t)-4)) // no such file (e.g. BlockDeviceFileGetLen when path does not point to a file)
 #define BlockDeviceReturnTypeSuccess ((uint32_t)((int32_t)-5)) // operation performed successfully
 #define blockDeviceReturnTypeIsSuccess(r) ((r)<=BlockDeviceReturnTypeSuccess)
 
