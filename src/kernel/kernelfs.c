@@ -236,26 +236,14 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor,
 	device->block.format=format;
 	device->block.size=size;
 
-	// Attempt to mount
-	switch(format) {
-		case KernelFsBlockDeviceFormatCustomMiniFs: {
-			MiniFs miniFs;
-			if (!miniFsMountSafe(&miniFs, &kernelFsDeviceMiniFsReadWrapper, (writable ? &kernelFsDeviceMiniFsWriteWrapper : NULL), device))
-				goto error;
-			miniFsUnmount(&miniFs);
-		} break;
-		case KernelFsBlockDeviceFormatFlatFile:
-		break;
-		case KernelFsBlockDeviceFormatFat: {
-			Fat fat;
-			if (!fatMountSafe(&fat, &kernelFsFatReadWrapper, (writable ? &kernelFsFatWriteWrapper : NULL), device))
-				goto error;
-			fatUnmount(&fat);
-		} break;
-		case KernelFsBlockDeviceFormatNB:
-			goto error;
-		break;
-	}
+	// Verify the volume is consistent
+	void *fs=kernelFsAllocaBlockDeviceStruct(format);
+	if (kernelFsGetBlockDeviceFunctorMount(format)(fs, &kernelFsBlockDeviceReadWrapper, (writable ? &kernelFsBlockDeviceWriteWrapper : NULL), device)!=BlockDeviceReturnTypeSuccess)
+		goto error;
+	if (kernelFsGetBlockDeviceFunctorVerify(format)(fs)!=BlockDeviceReturnTypeSuccess)
+		goto error;
+	if (kernelFsGetBlockDeviceFunctorUnmount(format)(fs)!=BlockDeviceReturnTypeSuccess)
+	    goto error;
 
 	return true;
 
