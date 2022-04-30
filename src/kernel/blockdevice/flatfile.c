@@ -6,6 +6,10 @@ typedef struct {
 	void *userData;
 } FlatFile;
 
+uint16_t blockDeviceFlatFileStructSize(void) {
+	return sizeof(FlatFile);
+}
+
 BlockDeviceReturnType blockDeviceFlatFileMount(void *gfs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData) {
 	FlatFile *fs=(FlatFile *)gfs;
 

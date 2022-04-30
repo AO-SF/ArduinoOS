@@ -94,6 +94,10 @@ void blockDeviceMiniFsResortFileOffsets(MiniFs *fs);
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
+uint16_t blockDeviceMiniFsStructSize(void) {
+	return sizeof(MiniFs);
+}
+
 BlockDeviceReturnType blockDeviceMiniFsMount(void *gfs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData) {
 	MiniFs *fs=(MiniFs *)gfs;
 

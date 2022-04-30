@@ -22,6 +22,9 @@ typedef uint32_t BlockDeviceReturnType;
 typedef uint32_t (BlockDeviceReadFunctor)(uint32_t addr, uint8_t *data, uint16_t len, void *userData);
 typedef uint32_t (BlockDeviceWriteFunctor)(uint32_t addr, const uint8_t *data, uint16_t len, void *userData);
 
+// Returns the size needed for the fs instance each function uses
+typedef uint16_t (BlockDeviceStructSize)(void);
+
 // These can return: BlockDeviceReturnTypeIOError, BlockDeviceReturnTypeCorruptVolume, BlockDeviceReturnTypeUnsupported, BlockDeviceReturnTypeSuccess
 typedef BlockDeviceReturnType (BlockDeviceMount)(void *fs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData);
 typedef BlockDeviceReturnType (BlockDeviceUnmount)(void *fs);
@@ -49,6 +52,8 @@ typedef BlockDeviceReturnType (BlockDeviceFileRead)(const void *fs, KStr path, u
 typedef BlockDeviceReturnType (BlockDeviceFileWrite)(void *fs, KStr path, uint32_t offset, const uint8_t *data, uint16_t len);
 
 typedef struct {
+	BlockDeviceStructSize *structSize;
+
 	BlockDeviceMount *mount;
 	BlockDeviceUnmount *unmount;
 	BlockDeviceVerify *verify;

@@ -101,6 +101,10 @@ const char *blockDeviceFatClusterTypeToString(FatClusterType type);
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
+uint16_t blockDeviceFatStructSize(void) {
+	return sizeof(Fat);
+}
+
 BlockDeviceReturnType blockDeviceFatMount(void *gfs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData) {
 	Fat *fs=(Fat *)gfs;
 

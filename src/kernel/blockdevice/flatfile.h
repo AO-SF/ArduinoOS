@@ -3,6 +3,8 @@
 
 #include "api.h"
 
+uint16_t blockDeviceFlatFileStructSize(void);
+
 BlockDeviceReturnType blockDeviceFlatFileMount(void *fs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData);
 BlockDeviceReturnType blockDeviceFlatFileUnmount(void *fs);
 BlockDeviceReturnType blockDeviceFlatFileVerify(const void *fs);
