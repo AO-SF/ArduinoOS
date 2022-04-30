@@ -1,4 +1,6 @@
+#include <alloca.h>
 #include <assert.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,12 +10,42 @@
 #include <unistd.h>
 #endif
 
+#include "blockdevice/blockdevice.h"
 #include "fat.h"
 #include "kernelfs.h"
 #include "log.h"
 #include "minifs.h"
 #include "ktime.h"
 #include "util.h"
+
+const BlockDeviceFunctors kernelFsBlockDeviceArray[] PROGMEM = {
+	[KernelFsBlockDeviceFormatCustomMiniFs]={.structSize=&blockDeviceMiniFsStructSize, .mount=&blockDeviceMiniFsMount, .unmount=&blockDeviceMiniFsUnmount, .verify=&blockDeviceMiniFsVerify, .dirGetChildN=&blockDeviceMiniFsDirGetChildN, .dirGetChildCount=&blockDeviceMiniFsDirGetChildCount, .dirIsEmpty=&blockDeviceMiniFsDirIsEmpty, .dirCreate=&blockDeviceMiniFsDirCreate, .fileExists=&blockDeviceMiniFsFileExists, .fileGetLen=&blockDeviceMiniFsFileGetLen, .fileResize=&blockDeviceMiniFsFileResize, .fileDelete=&blockDeviceMiniFsFileDelete, .fileRead=&blockDeviceMiniFsFileRead, .fileWrite=&blockDeviceMiniFsFileWrite},
+	[KernelFsBlockDeviceFormatFlatFile]={.structSize=&blockDeviceFlatFileStructSize, .mount=&blockDeviceFlatFileMount, .unmount=&blockDeviceFlatFileUnmount, .verify=&blockDeviceFlatFileVerify, .dirGetChildN=&blockDeviceFlatFileDirGetChildN, .dirGetChildCount=&blockDeviceFlatFileDirGetChildCount, .dirIsEmpty=&blockDeviceFlatFileDirIsEmpty, .dirCreate=&blockDeviceFlatFileDirCreate, .fileExists=&blockDeviceFlatFileFileExists, .fileGetLen=&blockDeviceFlatFileFileGetLen, .fileResize=&blockDeviceFlatFileFileResize, .fileDelete=&blockDeviceFlatFileFileDelete, .fileRead=&blockDeviceFlatFileFileRead, .fileWrite=&blockDeviceFlatFileFileWrite},
+	[KernelFsBlockDeviceFormatFat]={.structSize=&blockDeviceFatStructSize, .mount=&blockDeviceFatMount, .unmount=&blockDeviceFatUnmount, .verify=&blockDeviceFatVerify, .dirGetChildN=&blockDeviceFatDirGetChildN, .dirGetChildCount=&blockDeviceFatDirGetChildCount, .dirIsEmpty=&blockDeviceFatDirIsEmpty, .dirCreate=&blockDeviceFatDirCreate, .fileExists=&blockDeviceFatFileExists, .fileGetLen=&blockDeviceFatFileGetLen, .fileResize=&blockDeviceFatFileResize, .fileDelete=&blockDeviceFatFileDelete, .fileRead=&blockDeviceFatFileRead, .fileWrite=&blockDeviceFatFileWrite},
+};
+
+#ifdef ARDUINO
+#define kernelFsGetBlockDeviceFunctorGeneric(format, entry, type) ((type *)(pgm_read_ptr_far(pgm_get_far_address(kernelFsBlockDeviceArray)+(format)*sizeof(BlockDeviceFunctors)+offsetof(BlockDeviceFunctors, entry))))
+#else
+#define kernelFsGetBlockDeviceFunctorGeneric(format, entry, type) (*(type **)(((void *)(kernelFsBlockDeviceArray+format))+offsetof(BlockDeviceFunctors, entry)))
+#endif
+
+#define kernelFsAllocaBlockDeviceStruct(format) alloca(kernelFsGetBlockDeviceFunctorStructSize(format)())
+
+#define kernelFsGetBlockDeviceFunctorStructSize(format) kernelFsGetBlockDeviceFunctorGeneric(format, structSize, BlockDeviceStructSize)
+#define kernelFsGetBlockDeviceFunctorMount(format) kernelFsGetBlockDeviceFunctorGeneric(format, mount, BlockDeviceMount)
+#define kernelFsGetBlockDeviceFunctorUnmount(format) kernelFsGetBlockDeviceFunctorGeneric(format, unmount, BlockDeviceUnmount)
+#define kernelFsGetBlockDeviceFunctorVerify(format) kernelFsGetBlockDeviceFunctorGeneric(format, verify, BlockDeviceVerify)
+#define kernelFsGetBlockDeviceFunctorDirGetChildN(format) kernelFsGetBlockDeviceFunctorGeneric(format, dirGetChildN, BlockDeviceDirGetChildN)
+#define kernelFsGetBlockDeviceFunctorDirGetChildCount(format) kernelFsGetBlockDeviceFunctorGeneric(format, dirGetChildCount, BlockDeviceDirGetChildCount)
+#define kernelFsGetBlockDeviceFunctorDirIsEmpty(format) kernelFsGetBlockDeviceFunctorGeneric(format, dirIsEmpty, BlockDeviceDirIsEmpty)
+#define kernelFsGetBlockDeviceFunctorDirCreate(format) kernelFsGetBlockDeviceFunctorGeneric(format, dirCreate, BlockDeviceDirCreate)
+#define kernelFsGetBlockDeviceFunctorFileExists(format) kernelFsGetBlockDeviceFunctorGeneric(format, fileExists, BlockDeviceFileExists)
+#define kernelFsGetBlockDeviceFunctorFileGetLen(format) kernelFsGetBlockDeviceFunctorGeneric(format, fileGetLen, BlockDeviceFileGetLen)
+#define kernelFsGetBlockDeviceFunctorFileResize(format) kernelFsGetBlockDeviceFunctorGeneric(format, fileResize, BlockDeviceFileResize)
+#define kernelFsGetBlockDeviceFunctorFileDelete(format) kernelFsGetBlockDeviceFunctorGeneric(format, fileDelete, BlockDeviceFileDelete)
+#define kernelFsGetBlockDeviceFunctorFileRead(format) kernelFsGetBlockDeviceFunctorGeneric(format, fileRead, BlockDeviceFileRead)
+#define kernelFsGetBlockDeviceFunctorFileWrite(format) kernelFsGetBlockDeviceFunctorGeneric(format, fileWrite, BlockDeviceFileWrite)
 
 #define KernelFsDevicesMax 128
 typedef uint8_t KernelFsDeviceIndex;
