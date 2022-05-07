@@ -165,6 +165,7 @@ uint32_t kernelFsFatWriteWrapper(uint32_t addr, const uint8_t *data, uint32_t le
 // Block device IO functors
 uint16_t kernelFsBlockDeviceReadWrapper(uint32_t addr, uint8_t *data, uint16_t len, void *userData);
 uint16_t kernelFsBlockDeviceWriteWrapper(uint32_t addr, const uint8_t *data, uint16_t len, void *userData);
+uint32_t kernelFsBlockDeviceGetSizeWrapper(void *userData);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -2034,4 +2035,13 @@ uint16_t kernelFsBlockDeviceWriteWrapper(uint32_t addr, const uint8_t *data, uin
 		return 0;
 
 	return kernelFsDeviceInvokeFunctorBlockWrite(device, data, len, addr);
+}
+
+uint32_t kernelFsBlockDeviceGetSizeWrapper(void *userData) {
+	assert(userData!=NULL);
+
+	KernelFsDevice *device=(KernelFsDevice *)userData;
+	assert(device->common.type==KernelFsDeviceTypeBlock);
+
+	return device->block.size;
 }

@@ -74,4 +74,6 @@ typedef struct {
 uint16_t blockDeviceRead(uint32_t addr, uint8_t *data, uint16_t len, void *userData);
 uint16_t blockDeviceWrite(uint32_t addr, const uint8_t *data, uint16_t len, void *userData);
 
+uint32_t blockDeviceGetSize(void *userData);
+
 #endif
