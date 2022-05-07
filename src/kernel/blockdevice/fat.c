@@ -45,8 +45,6 @@ typedef enum {
 } FatClusterType;
 
 typedef struct {
-	BlockDeviceReadFunctor *readFunctor;
-	BlockDeviceWriteFunctor *writeFunctor;
 	void *userData;
 
 	uint16_t bytesPerSector;
@@ -105,12 +103,10 @@ uint16_t blockDeviceFatStructSize(void) {
 	return sizeof(Fat);
 }
 
-BlockDeviceReturnType blockDeviceFatMount(void *gfs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData) {
+BlockDeviceReturnType blockDeviceFatMount(void *gfs, void *userData) {
 	Fat *fs=(Fat *)gfs;
 
 	// Set Fat struct fields
-	fs->readFunctor=readFunctor;
-	fs->writeFunctor=writeFunctor;
 	fs->userData=userData;
 
 	// Read file system info
@@ -241,13 +237,11 @@ BlockDeviceReturnType blockDeviceFatFileWrite(void *fs, KStr path, uint32_t offs
 ////////////////////////////////////////////////////////////////////////////////
 
 uint32_t blockDeviceFatRead(const Fat *fs, uint32_t addr, uint8_t *data, uint32_t len) {
-	return fs->readFunctor(addr, data, len, fs->userData);
+	return blockDeviceRead(addr, data, len, fs->userData);
 }
 
 uint32_t blockDeviceFatWrite(const Fat *fs, uint32_t addr, uint8_t *data, uint32_t len) {
-	if (fs->writeFunctor==NULL)
-		return 0;
-	return fs->writeFunctor(addr, data, len, fs->userData);
+	return blockDeviceWrite(addr, data, len, fs->userData);
 }
 
 bool blockDeviceFatRead8(const Fat *fs, uint32_t addr, uint8_t *value) {

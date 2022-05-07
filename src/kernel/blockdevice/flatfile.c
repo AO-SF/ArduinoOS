@@ -1,8 +1,6 @@
 #include "flatfile.h"
 
 typedef struct {
-	BlockDeviceReadFunctor *readFunctor;
-	BlockDeviceWriteFunctor *writeFunctor;
 	void *userData;
 } FlatFile;
 
@@ -10,11 +8,9 @@ uint16_t blockDeviceFlatFileStructSize(void) {
 	return sizeof(FlatFile);
 }
 
-BlockDeviceReturnType blockDeviceFlatFileMount(void *gfs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData) {
+BlockDeviceReturnType blockDeviceFlatFileMount(void *gfs, void *userData) {
 	FlatFile *fs=(FlatFile *)gfs;
 
-	fs->readFunctor=readFunctor;
-	fs->writeFunctor=writeFunctor;
 	fs->userData=userData;
 
 	return BlockDeviceReturnTypeSuccess;
@@ -75,7 +71,7 @@ BlockDeviceReturnType blockDeviceFlatFileFileRead(const void *gfs, KStr path, ui
 		return BlockDeviceReturnTypeFileDoesNotExist;
 
 	// Simply read data from base file
-	return fs->readFunctor(offset, data, len, fs->userData);
+	return blockDeviceRead(offset, data, len, fs->userData);
 }
 
 BlockDeviceReturnType blockDeviceFlatFileFileWrite(void *gfs, KStr path, uint32_t offset, const uint8_t *data, uint16_t len) {
@@ -86,5 +82,5 @@ BlockDeviceReturnType blockDeviceFlatFileFileWrite(void *gfs, KStr path, uint32_
 		return BlockDeviceReturnTypeFileDoesNotExist;
 
 	// Simply write data to base file
-	return fs->writeFunctor(offset, data, len, fs->userData);
+	return blockDeviceWrite(offset, data, len, fs->userData);
 }

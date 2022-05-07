@@ -23,9 +23,7 @@
 #define MINIFSFILEOFFSETINVALID 0 // this would point into the header anyway
 
 typedef struct {
-	BlockDeviceReadFunctor *readFunctor;
-	BlockDeviceWriteFunctor *writeFunctor; // NULL if read-only
-	void *functorUserData;
+	void *userData;
 } MiniFs;
 
 typedef struct {
@@ -98,13 +96,11 @@ uint16_t blockDeviceMiniFsStructSize(void) {
 	return sizeof(MiniFs);
 }
 
-BlockDeviceReturnType blockDeviceMiniFsMount(void *gfs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData) {
+BlockDeviceReturnType blockDeviceMiniFsMount(void *gfs, void *userData) {
 	MiniFs *fs=(MiniFs *)gfs;
 
 	// Simply copy IO functors
-	fs->readFunctor=readFunctor;
-	fs->writeFunctor=writeFunctor;
-	fs->functorUserData=userData;
+	fs->userData=userData;
 
 	return BlockDeviceReturnTypeSuccess;
 }
@@ -211,7 +207,7 @@ uint8_t blockDeviceMiniFsGetTotalSizeFactorMinusOne(const MiniFs *fs) {
 }
 
 uint16_t blockDeviceMiniFsRead(const MiniFs *fs, uint16_t addr, uint8_t *data, uint16_t len) {
-	return fs->readFunctor(addr, data, len, fs->functorUserData);
+	return blockDeviceRead(addr, data, len, fs->userData);
 }
 
 uint8_t blockDeviceMiniFsReadByte(const MiniFs *fs, uint16_t addr) {
@@ -221,7 +217,7 @@ uint8_t blockDeviceMiniFsReadByte(const MiniFs *fs, uint16_t addr) {
 }
 
 uint16_t blockDeviceMiniFsWrite(MiniFs *fs, uint16_t addr, const uint8_t *data, uint16_t len) {
-	return fs->writeFunctor(addr, data, len, fs->functorUserData);
+	return blockDeviceWrite(addr, data, len, fs->userData);
 }
 
 void blockDeviceMiniFsWriteByte(MiniFs *fs, uint16_t addr, uint8_t value) {

@@ -238,7 +238,7 @@ bool kernelFsAddBlockDeviceFile(KStr mountPoint, KernelFsDeviceFunctor *functor,
 
 	// Verify the volume is consistent
 	void *fs=kernelFsAllocaBlockDeviceStruct(format);
-	if (kernelFsGetBlockDeviceFunctorMount(format)(fs, &kernelFsBlockDeviceReadWrapper, (writable ? &kernelFsBlockDeviceWriteWrapper : NULL), device)!=BlockDeviceReturnTypeSuccess)
+	if (kernelFsGetBlockDeviceFunctorMount(format)(fs, device)!=BlockDeviceReturnTypeSuccess)
 		goto error;
 	if (kernelFsGetBlockDeviceFunctorVerify(format)(fs)!=BlockDeviceReturnTypeSuccess)
 		goto error;
@@ -2029,7 +2029,9 @@ uint16_t kernelFsBlockDeviceWriteWrapper(uint32_t addr, const uint8_t *data, uin
 
 	KernelFsDevice *device=(KernelFsDevice *)userData;
 	assert(device->common.type==KernelFsDeviceTypeBlock);
-	assert(device->common.writable);
+
+	if (!device->common.writable)
+		return 0;
 
 	return kernelFsDeviceInvokeFunctorBlockWrite(device, data, len, addr);
 }

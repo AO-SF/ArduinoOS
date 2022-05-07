@@ -5,7 +5,7 @@
 
 uint16_t blockDeviceMiniFsStructSize(void);
 
-BlockDeviceReturnType blockDeviceMiniFsMount(void *fs, BlockDeviceReadFunctor *readFunctor, BlockDeviceWriteFunctor *writeFunctor, void *userData);
+BlockDeviceReturnType blockDeviceMiniFsMount(void *fs, void *userData);
 BlockDeviceReturnType blockDeviceMiniFsUnmount(void *fs);
 BlockDeviceReturnType blockDeviceMiniFsVerify(const void *fs);
 
