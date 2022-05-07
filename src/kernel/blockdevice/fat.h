@@ -18,7 +18,7 @@ BlockDeviceReturnType blockDeviceFatDirIsEmpty(const void *fs, KStr path);
 BlockDeviceReturnType blockDeviceFatDirCreate(void *fs, KStr path);
 
 BlockDeviceReturnType blockDeviceFatFileExists(const void *fs, KStr path);
-BlockDeviceReturnType blockDeviceFatFileGetLen(const void *fs, KStr path);
+BlockDeviceReturnType blockDeviceFatFileGetLen(void *fs, KStr path);
 
 BlockDeviceReturnType blockDeviceFatFileResize(void *fs, KStr path, uint32_t newSize);
 BlockDeviceReturnType blockDeviceFatFileDelete(void *fs, KStr path);

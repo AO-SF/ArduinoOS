@@ -41,7 +41,7 @@ typedef BlockDeviceReturnType (BlockDeviceDirCreate)(void *fs, KStr path);
 
 // These can return: BlockDeviceReturnTypeIOError, BlockDeviceReturnTypeCorruptVolume, BlockDeviceReturnTypeUnsupported, BlockDeviceReturnTypeFileDoesNotExist, BlockDeviceReturnTypeSuccess
 typedef BlockDeviceReturnType (BlockDeviceFileExists)(const void *fs, KStr path); // on success returns 1/0 for true/false (does not return BlockDeviceReturnTypeFileDoesNotExist as this is an error value)
-typedef BlockDeviceReturnType (BlockDeviceFileGetLen)(const void *fs, KStr path); // on success returns length (note return value is capped at BlockDeviceReturnTypeSuccess which is just below 2^32)
+typedef BlockDeviceReturnType (BlockDeviceFileGetLen)(void *fs, KStr path); // on success returns length but can also return BlockDeviceReturnTypeOverflow
 
 // These can return: BlockDeviceReturnTypeIOError, BlockDeviceReturnTypeCorruptVolume, BlockDeviceReturnTypeUnsupported, BlockDeviceReturnTypeFileDoesNotExist, BlockDeviceReturnTypeSuccess
 typedef BlockDeviceReturnType (BlockDeviceFileResize)(void *fs, KStr path, uint32_t newSize);

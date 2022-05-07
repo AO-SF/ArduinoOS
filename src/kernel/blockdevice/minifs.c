@@ -179,7 +179,7 @@ BlockDeviceReturnType blockDeviceMiniFsFileExists(const void *fs, KStr path) {
 	return BlockDeviceReturnTypeUnsupported; // TODO: this
 }
 
-BlockDeviceReturnType blockDeviceMiniFsFileGetLen(const void *fs, KStr path) {
+BlockDeviceReturnType blockDeviceMiniFsFileGetLen(void *fs, KStr path) {
 	return BlockDeviceReturnTypeUnsupported; // TODO: this
 }
 

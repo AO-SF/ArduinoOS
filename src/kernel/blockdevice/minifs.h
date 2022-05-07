@@ -18,7 +18,7 @@ BlockDeviceReturnType blockDeviceMiniFsDirIsEmpty(const void *fs, KStr path);
 BlockDeviceReturnType blockDeviceMiniFsDirCreate(void *fs, KStr path);
 
 BlockDeviceReturnType blockDeviceMiniFsFileExists(const void *fs, KStr path);
-BlockDeviceReturnType blockDeviceMiniFsFileGetLen(const void *fs, KStr path);
+BlockDeviceReturnType blockDeviceMiniFsFileGetLen(void *fs, KStr path);
 
 BlockDeviceReturnType blockDeviceMiniFsFileResize(void *fs, KStr path, uint32_t newSize);
 BlockDeviceReturnType blockDeviceMiniFsFileDelete(void *fs, KStr path);

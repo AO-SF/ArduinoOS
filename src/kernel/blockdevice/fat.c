@@ -217,7 +217,7 @@ BlockDeviceReturnType blockDeviceFatFileExists(const void *fs, KStr path) {
 	return BlockDeviceReturnTypeUnsupported; // TODO: this
 }
 
-BlockDeviceReturnType blockDeviceFatFileGetLen(const void *fs, KStr path) {
+BlockDeviceReturnType blockDeviceFatFileGetLen(void *fs, KStr path) {
 	return BlockDeviceReturnTypeUnsupported; // TODO: this
 }
 

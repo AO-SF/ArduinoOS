@@ -53,15 +53,22 @@ BlockDeviceReturnType blockDeviceFlatFileFileExists(const void *fs, KStr path) {
 	return (kstrStrcmp("", path)==0);
 }
 
-BlockDeviceReturnType blockDeviceFlatFileFileGetLen(const void *gfs, KStr path) {
-	const FlatFile *fs=(const FlatFile *)gfs;
+BlockDeviceReturnType blockDeviceFlatFileFileGetLen(void *gfs, KStr path) {
+	FlatFile *fs=(FlatFile *)gfs;
 
 	// Flatfile format is simply a single file with no sub-files or directories
 	if (kstrStrcmp("", path)!=0)
 		return BlockDeviceReturnTypeFileDoesNotExist;
 
 	// Return length/size of device
-	return blockDeviceGetSize(fs->userData);
+	uint32_t len=blockDeviceGetSize(fs->userData);
+
+	if (len>BlockDeviceReturnTypeSuccess) {
+		fs->lastResult=len;
+		return BlockDeviceReturnTypeOverflow;
+	}
+
+	return len;
 }
 
 BlockDeviceReturnType blockDeviceFlatFileFileResize(void *fs, KStr path, uint32_t newSize) {
