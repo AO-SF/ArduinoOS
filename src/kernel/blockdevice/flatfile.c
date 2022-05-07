@@ -42,7 +42,7 @@ BlockDeviceReturnType blockDeviceFlatFileDirCreate(void *fs, KStr path) {
 
 BlockDeviceReturnType blockDeviceFlatFileFileExists(const void *fs, KStr path) {
 	// Flatfile format is simply a single file with no sub-files or directories
-	return (kstrStrcmp("/", path)==0);
+	return (kstrStrcmp("", path)==0);
 }
 
 BlockDeviceReturnType blockDeviceFlatFileFileGetLen(const void *fs, KStr path) {
@@ -56,7 +56,7 @@ BlockDeviceReturnType blockDeviceFlatFileFileResize(void *fs, KStr path, uint32_
 
 BlockDeviceReturnType blockDeviceFlatFileFileDelete(void *fs, KStr path) {
 	// Flatfile format is simply a single file with no sub-files or directories
-	if (kstrStrcmp("/", path)!=0)
+	if (kstrStrcmp("", path)!=0)
 		return BlockDeviceReturnTypeFileDoesNotExist;
 
 	// Cannot delete in this format
@@ -67,7 +67,7 @@ BlockDeviceReturnType blockDeviceFlatFileFileRead(const void *gfs, KStr path, ui
 	const FlatFile *fs=(const FlatFile *)gfs;
 
 	// Flatfile format is simply a single file with no sub-files or directories
-	if (kstrStrcmp("/", path)!=0)
+	if (kstrStrcmp("", path)!=0)
 		return BlockDeviceReturnTypeFileDoesNotExist;
 
 	// Simply read data from base file
@@ -78,7 +78,7 @@ BlockDeviceReturnType blockDeviceFlatFileFileWrite(void *gfs, KStr path, uint32_
 	FlatFile *fs=(FlatFile *)gfs;
 
 	// Flatfile format is simply a single file with no sub-files or directories
-	if (kstrStrcmp("/", path)!=0)
+	if (kstrStrcmp("", path)!=0)
 		return BlockDeviceReturnTypeFileDoesNotExist;
 
 	// Simply write data to base file
