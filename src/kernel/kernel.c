@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
 		else if (strcmp(argv[i], "--mountfile")==0) {
 			if (i+2>=argc) {
 				// Not enough args
-				printf("Warning: not enough arguments for --mountfile option (expect: host src and virtual dest)\n");
+				printf("Warning: not enough arguments for --mountfile option (expect: virtual dest and host src)\n");
 			} else {
 				// Grab paths from arguments
 				const char *virtualDestPath=argv[++i];
