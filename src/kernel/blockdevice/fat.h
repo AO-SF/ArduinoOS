@@ -5,6 +5,8 @@
 
 uint16_t blockDeviceFatStructSize(void);
 
+uint32_t blockDeviceFatGetLastResult(const void *fs);
+
 BlockDeviceReturnType blockDeviceFatMount(void *fs, void *userData);
 BlockDeviceReturnType blockDeviceFatUnmount(void *fs);
 BlockDeviceReturnType blockDeviceFatVerify(const void *fs);

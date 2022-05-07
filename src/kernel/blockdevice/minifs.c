@@ -96,6 +96,11 @@ uint16_t blockDeviceMiniFsStructSize(void) {
 	return sizeof(MiniFs);
 }
 
+uint32_t blockDeviceMiniFsGetLastResult(const void *fs) {
+	// Not needed since we never deal with 32 bit lengths/sizes
+	return 0;
+}
+
 BlockDeviceReturnType blockDeviceMiniFsMount(void *gfs, void *userData) {
 	MiniFs *fs=(MiniFs *)gfs;
 

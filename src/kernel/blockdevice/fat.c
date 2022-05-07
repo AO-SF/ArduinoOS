@@ -103,6 +103,11 @@ uint16_t blockDeviceFatStructSize(void) {
 	return sizeof(Fat);
 }
 
+uint32_t blockDeviceFatGetLastResult(const void *fs) {
+	// TODO: this in due course
+	return 0;
+}
+
 BlockDeviceReturnType blockDeviceFatMount(void *gfs, void *userData) {
 	Fat *fs=(Fat *)gfs;
 

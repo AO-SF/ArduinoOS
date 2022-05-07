@@ -2,10 +2,18 @@
 
 typedef struct {
 	void *userData;
+
+	uint32_t lastResult;
 } FlatFile;
 
 uint16_t blockDeviceFlatFileStructSize(void) {
 	return sizeof(FlatFile);
+}
+
+uint32_t blockDeviceFlatFileGetLastResult(const void *gfs) {
+	const FlatFile *fs=(const FlatFile *)gfs;
+
+	return fs->lastResult;
 }
 
 BlockDeviceReturnType blockDeviceFlatFileMount(void *gfs, void *userData) {

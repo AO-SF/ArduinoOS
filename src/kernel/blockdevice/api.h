@@ -16,11 +16,15 @@ typedef uint32_t BlockDeviceReturnType;
 #define BlockDeviceReturnTypeCorruptVolume ((uint32_t)((int32_t)-2)) // inconsistent file system
 #define BlockDeviceReturnTypeUnsupported ((uint32_t)((int32_t)-3)) // unsuppported operation/format/option etc
 #define BlockDeviceReturnTypeFileDoesNotExist ((uint32_t)((int32_t)-4)) // no such file (e.g. BlockDeviceFileGetLen when path does not point to a file)
-#define BlockDeviceReturnTypeSuccess ((uint32_t)((int32_t)-5)) // operation performed successfully
+#define BlockDeviceReturnTypeOverflow ((uint32_t)((int32_t)-5)) // result of operation is too large to return (i.e. because it equals one of these reserved return types), call getLastResult function immediately after to find true result
+#define BlockDeviceReturnTypeSuccess ((uint32_t)((int32_t)-6)) // operation performed successfully
 #define blockDeviceReturnTypeIsSuccess(r) ((r)<=BlockDeviceReturnTypeSuccess)
 
 // Returns the size needed for the fs instance each function uses
 typedef uint16_t (BlockDeviceStructSize)(void);
+
+// If a function returns BlockDeviceReturnTypeOverflow, calling this immediately after should return the true value
+typedef uint32_t (BlockDeviceGetLastResult)(const void *fs);
 
 // These can return: BlockDeviceReturnTypeIOError, BlockDeviceReturnTypeCorruptVolume, BlockDeviceReturnTypeUnsupported, BlockDeviceReturnTypeSuccess
 typedef BlockDeviceReturnType (BlockDeviceMount)(void *fs, void *userData);
@@ -50,6 +54,7 @@ typedef BlockDeviceReturnType (BlockDeviceFileWrite)(void *fs, KStr path, uint32
 
 typedef struct {
 	BlockDeviceStructSize *structSize;
+	BlockDeviceGetLastResult *getLastResult;
 
 	BlockDeviceMount *mount;
 	BlockDeviceUnmount *unmount;
